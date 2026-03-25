@@ -169,6 +169,46 @@ export const appRouter = router({
       await db.selectDateProposal(input.tripId, input.proposalId);
       return { success: true };
     }),
+    deselect: protectedProcedure.input(z.object({ tripId: z.number() })).mutation(async ({ input }) => {
+      await db.deselectDateProposals(input.tripId);
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const proposal = await db.getDateProposal(input.id);
+      if (!proposal) throw new Error("Proposal not found");
+      if (proposal.proposedBy !== ctx.user.id) throw new Error("Not authorized");
+      await db.deleteDateProposal(input.id);
+      return { success: true };
+    }),
+    parseNatural: protectedProcedure.input(z.object({
+      text: z.string().min(1),
+      referenceYear: z.number().optional(),
+    })).mutation(async ({ input }) => {
+      const year = input.referenceYear || new Date().getFullYear();
+      try {
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are a date parser for a group trip planning app. Parse natural language date descriptions into specific date ranges. Today's year is ${year}. Return ONLY valid JSON — an array of date proposal objects. Each object must have: startDate (YYYY-MM-DD), endDate (YYYY-MM-DD), label (short descriptive label). If multiple ranges match (e.g. "all weekends in July"), return all of them. Never return more than 8 proposals at once.`,
+            },
+            {
+              role: "user",
+              content: `Parse this into date proposals: "${input.text}"\n\nReturn JSON array only, no markdown. Example: [{"startDate":"2025-07-05","endDate":"2025-07-06","label":"Weekend 1"},...]`,
+            },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+        const raw = (response.choices?.[0]?.message?.content as string) || "[]";
+        // Try to extract JSON array from response
+        const match = raw.match(/\[[\s\S]*\]/);
+        if (!match) return { proposals: [] };
+        const proposals = JSON.parse(match[0]);
+        return { proposals: Array.isArray(proposals) ? proposals : [] };
+      } catch {
+        return { proposals: [] };
+      }
+    }),
   }),
 
   // ---- Destinations ----
@@ -220,6 +260,17 @@ export const appRouter = router({
       await db.selectDestination(input.tripId, input.destinationId);
       return { success: true };
     }),
+    deselect: protectedProcedure.input(z.object({ tripId: z.number() })).mutation(async ({ input }) => {
+      await db.deselectDestinations(input.tripId);
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const destination = await db.getDestination(input.id);
+      if (!destination) throw new Error("Destination not found");
+      if (destination.proposedBy !== ctx.user.id) throw new Error("Not authorized");
+      await db.deleteDestination(input.id);
+      return { success: true };
+    }),
   }),
 
   // ---- Accommodations ----
@@ -236,7 +287,14 @@ export const appRouter = router({
       totalPrice: z.string().optional(),
       bedrooms: z.number().optional(),
       bathrooms: z.number().optional(),
+      singleBeds: z.number().optional(),
+      doubleBeds: z.number().optional(),
+      toilets: z.number().optional(),
+      ensuites: z.number().optional(),
+      freeParking: z.boolean().optional(),
+      camperParking: z.boolean().optional(),
       amenities: z.string().optional(),
+      preferences: z.string().optional(),
       location: z.string().optional(),
       link: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
@@ -279,6 +337,86 @@ export const appRouter = router({
     })).mutation(async ({ input }) => {
       await db.selectAccommodation(input.tripId, input.accommodationId);
       return { success: true };
+    }),
+    deselect: protectedProcedure.input(z.object({ tripId: z.number() })).mutation(async ({ input }) => {
+      await db.deselectAccommodations(input.tripId);
+      return { success: true };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const accommodation = await db.getAccommodation(input.id);
+      if (!accommodation) throw new Error("Accommodation not found");
+      if (accommodation.proposedBy !== ctx.user.id) throw new Error("Not authorized");
+      await db.deleteAccommodation(input.id);
+      return { success: true };
+    }),
+    fetchFromUrl: protectedProcedure.input(z.object({ url: z.string().url() })).mutation(async ({ input }) => {
+      try {
+        // Fetch page content (basic HTML)
+        let pageContent = "";
+        try {
+          const res = await fetch(input.url, {
+            headers: { "User-Agent": "Mozilla/5.0 (compatible; TripHarmony/1.0)" },
+            signal: AbortSignal.timeout(8000),
+          });
+          const html = await res.text();
+          // Extract basic metadata from HTML
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+          const ogTitleMatch = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i);
+          const ogDescMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i);
+          const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+          pageContent = JSON.stringify({
+            url: input.url,
+            title: ogTitleMatch?.[1] || titleMatch?.[1] || "",
+            description: ogDescMatch?.[1] || descMatch?.[1] || "",
+            imageUrl: ogImageMatch?.[1] || "",
+          });
+        } catch {
+          pageContent = JSON.stringify({ url: input.url });
+        }
+
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an accommodation data extractor. Given metadata from a booking/accommodation page, extract structured information. Return ONLY JSON with these fields (use null for unknown): name, description, location, pricePerNight (number or null), totalPrice (number or null), bedrooms (int or null), bathrooms (int or null), singleBeds (int or null), doubleBeds (int or null), freeParking (boolean), amenities (string array), imageUrl (string or null).`,
+            },
+            {
+              role: "user",
+              content: `Extract accommodation info from this page metadata:\n${pageContent}\n\nReturn JSON only, no markdown.`,
+            },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+
+        const raw = (response.choices?.[0]?.message?.content as string) || "{}";
+        const data = JSON.parse(raw);
+        return { success: true, data };
+      } catch (err) {
+        return { success: false, data: {} };
+      }
+    }),
+    parseAttributes: protectedProcedure.input(z.object({ text: z.string().min(1) })).mutation(async ({ input }) => {
+      try {
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "system",
+              content: `You are an accommodation attributes extractor. Given a natural language description of accommodation preferences/requirements, extract structured attributes. Return ONLY JSON with any relevant fields from this list (omit unknown ones): singleBeds (int), doubleBeds (int), bedrooms (int), bathrooms (int), toilets (int, standalone toilets), ensuites (int, toilet+shower combined), freeParking (boolean), camperParking (boolean), amenities (string array of extra features like WiFi, Pool, Kitchen, Microwave, Washing Machine, Dryer, Air conditioning, Heating, TV, Dishwasher, BBQ, etc.). Be smart and infer from context.`,
+            },
+            {
+              role: "user",
+              content: `Parse these accommodation preferences: "${input.text}"\n\nReturn JSON only, no markdown.`,
+            },
+          ],
+          responseFormat: { type: "json_object" },
+        });
+        const raw = (response.choices?.[0]?.message?.content as string) || "{}";
+        const data = JSON.parse(raw);
+        return { success: true, data };
+      } catch {
+        return { success: false, data: {} };
+      }
     }),
   }),
 

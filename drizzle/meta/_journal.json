@@ -15,6 +15,13 @@
       "when": 1774425236317,
       "tag": "0001_typical_leo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1774500000000,
+      "tag": "0002_accommodation_preferences",
+      "breakpoints": true
     }
   ]
 }

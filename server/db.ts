@@ -213,6 +213,26 @@ export async function selectDateProposal(tripId: number, proposalId: number) {
   await db.update(dateProposals).set({ selected: true }).where(eq(dateProposals.id, proposalId));
 }
 
+export async function deselectDateProposals(tripId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(dateProposals).set({ selected: false }).where(eq(dateProposals.tripId, tripId));
+}
+
+export async function deleteDateProposal(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(dateVotes).where(eq(dateVotes.proposalId, id));
+  await db.delete(dateProposals).where(eq(dateProposals.id, id));
+}
+
+export async function getDateProposal(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(dateProposals).where(eq(dateProposals.id, id)).limit(1);
+  return result[0] || null;
+}
+
 export async function voteDateProposal(data: InsertDateVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
@@ -267,6 +287,26 @@ export async function selectDestination(tripId: number, destinationId: number) {
   await db.update(destinations).set({ selected: true }).where(eq(destinations.id, destinationId));
 }
 
+export async function deselectDestinations(tripId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(destinations).set({ selected: false }).where(eq(destinations.tripId, tripId));
+}
+
+export async function deleteDestination(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(destinationVotes).where(eq(destinationVotes.destinationId, id));
+  await db.delete(destinations).where(eq(destinations.id, id));
+}
+
+export async function getDestination(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(destinations).where(eq(destinations.id, id)).limit(1);
+  return result[0] || null;
+}
+
 // ---- Accommodations ----
 export async function createAccommodation(data: InsertAccommodation) {
   const db = await getDb();
@@ -308,6 +348,26 @@ export async function selectAccommodation(tripId: number, accommodationId: numbe
   if (!db) throw new Error("DB not available");
   await db.update(accommodations).set({ selected: false }).where(eq(accommodations.tripId, tripId));
   await db.update(accommodations).set({ selected: true }).where(eq(accommodations.id, accommodationId));
+}
+
+export async function deselectAccommodations(tripId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(accommodations).set({ selected: false }).where(eq(accommodations.tripId, tripId));
+}
+
+export async function deleteAccommodation(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(accommodationVotes).where(eq(accommodationVotes.accommodationId, id));
+  await db.delete(accommodations).where(eq(accommodations.id, id));
+}
+
+export async function getAccommodation(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(accommodations).where(eq(accommodations.id, id)).limit(1);
+  return result[0] || null;
 }
 
 // ---- Budget Items ----
