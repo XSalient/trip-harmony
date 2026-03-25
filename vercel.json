@@ -4,6 +4,11 @@
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
   "outputDirectory": "dist/public",
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "dist/public/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
