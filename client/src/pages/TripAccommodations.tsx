@@ -7,12 +7,43 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import AppShell from "@/components/AppShell";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath, DollarSign, ExternalLink, Star } from "lucide-react";
+import {
+  Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath,
+  DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type FormState = {
+  name: string;
+  description: string;
+  imageUrl: string;
+  pricePerNight: string;
+  totalPrice: string;
+  bedrooms: string;
+  bathrooms: string;
+  singleBeds: string;
+  doubleBeds: string;
+  toilets: string;
+  ensuites: string;
+  freeParking: boolean;
+  camperParking: boolean;
+  location: string;
+  link: string;
+  amenities: string;
+};
+
+const emptyForm: FormState = {
+  name: "", description: "", imageUrl: "", pricePerNight: "", totalPrice: "",
+  bedrooms: "", bathrooms: "", singleBeds: "", doubleBeds: "",
+  toilets: "", ensuites: "", freeParking: false, camperParking: false,
+  location: "", link: "", amenities: "",
+};
 
 export default function TripAccommodations() {
   const { user } = useAuth({ redirectOnUnauthenticated: true });
@@ -24,17 +55,98 @@ export default function TripAccommodations() {
   const createMutation = trpc.accommodations.create.useMutation();
   const voteMutation = trpc.accommodations.vote.useMutation();
   const selectMutation = trpc.accommodations.select.useMutation();
+  const deselectMutation = trpc.accommodations.deselect.useMutation();
+  const deleteMutation = trpc.accommodations.delete.useMutation();
+  const fetchFromUrlMutation = trpc.accommodations.fetchFromUrl.useMutation();
+  const parseAttributesMutation = trpc.accommodations.parseAttributes.useMutation();
   const utils = trpc.useUtils();
 
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: "", description: "", imageUrl: "", pricePerNight: "", totalPrice: "",
-    bedrooms: "", bathrooms: "", location: "", link: "", amenities: "",
-  });
+  const [form, setForm] = useState<FormState>(emptyForm);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [nlPrefsText, setNlPrefsText] = useState("");
+  const [nlParsing, setNlParsing] = useState(false);
 
   const isOrganizer = trip?.organizerId === user?.id;
+  const selectedAccommodation = useMemo(() => accommodations?.find((a: any) => a.selected), [accommodations]);
 
-  const updateForm = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+  const updateForm = (key: keyof FormState, value: string | boolean) =>
+    setForm(prev => ({ ...prev, [key]: value }));
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setUrlInput("");
+    setNlPrefsText("");
+  };
+
+  const handleFetchFromUrl = async () => {
+    if (!urlInput.trim()) return;
+    setUrlFetching(true);
+    try {
+      const result = await fetchFromUrlMutation.mutateAsync({ url: urlInput.trim() });
+      if (result.success && result.data) {
+        const d = result.data as any;
+        setForm(prev => ({
+          ...prev,
+          name: d.name || prev.name,
+          description: d.description || prev.description,
+          imageUrl: d.imageUrl || prev.imageUrl,
+          location: d.location || prev.location,
+          link: urlInput.trim(),
+          pricePerNight: d.pricePerNight ? String(d.pricePerNight) : prev.pricePerNight,
+          totalPrice: d.totalPrice ? String(d.totalPrice) : prev.totalPrice,
+          bedrooms: d.bedrooms ? String(d.bedrooms) : prev.bedrooms,
+          bathrooms: d.bathrooms ? String(d.bathrooms) : prev.bathrooms,
+          singleBeds: d.singleBeds ? String(d.singleBeds) : prev.singleBeds,
+          doubleBeds: d.doubleBeds ? String(d.doubleBeds) : prev.doubleBeds,
+          freeParking: d.freeParking ?? prev.freeParking,
+          amenities: d.amenities?.join(", ") || prev.amenities,
+        }));
+        toast.success("Details fetched from URL!");
+      } else {
+        toast.info("Could not extract details — please fill in manually");
+      }
+    } catch {
+      toast.error("Failed to fetch URL");
+    } finally {
+      setUrlFetching(false);
+    }
+  };
+
+  const handleParseNlPrefs = async () => {
+    if (!nlPrefsText.trim()) return;
+    setNlParsing(true);
+    try {
+      const result = await parseAttributesMutation.mutateAsync({ text: nlPrefsText });
+      if (result.success && result.data) {
+        const d = result.data as any;
+        setForm(prev => ({
+          ...prev,
+          singleBeds: d.singleBeds ? String(d.singleBeds) : prev.singleBeds,
+          doubleBeds: d.doubleBeds ? String(d.doubleBeds) : prev.doubleBeds,
+          bedrooms: d.bedrooms ? String(d.bedrooms) : prev.bedrooms,
+          bathrooms: d.bathrooms ? String(d.bathrooms) : prev.bathrooms,
+          toilets: d.toilets ? String(d.toilets) : prev.toilets,
+          ensuites: d.ensuites ? String(d.ensuites) : prev.ensuites,
+          freeParking: d.freeParking ?? prev.freeParking,
+          camperParking: d.camperParking ?? prev.camperParking,
+          amenities: d.amenities?.length
+            ? [...(prev.amenities ? prev.amenities.split(",").map((s: string) => s.trim()) : []), ...d.amenities]
+                .filter((v, i, arr) => arr.indexOf(v) === i)
+                .join(", ")
+            : prev.amenities,
+        }));
+        toast.success("Preferences applied!");
+      } else {
+        toast.info("Could not parse preferences");
+      }
+    } catch {
+      toast.error("Failed to parse preferences");
+    } finally {
+      setNlParsing(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!form.name.trim()) { toast.error("Name is required"); return; }
@@ -48,13 +160,19 @@ export default function TripAccommodations() {
         totalPrice: form.totalPrice || undefined,
         bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
         bathrooms: form.bathrooms ? parseInt(form.bathrooms) : undefined,
+        singleBeds: form.singleBeds ? parseInt(form.singleBeds) : undefined,
+        doubleBeds: form.doubleBeds ? parseInt(form.doubleBeds) : undefined,
+        toilets: form.toilets ? parseInt(form.toilets) : undefined,
+        ensuites: form.ensuites ? parseInt(form.ensuites) : undefined,
+        freeParking: form.freeParking || undefined,
+        camperParking: form.camperParking || undefined,
         location: form.location.trim() || undefined,
         link: form.link.trim() || undefined,
         amenities: form.amenities.trim() || undefined,
       });
       utils.accommodations.list.invalidate({ tripId });
       setAddOpen(false);
-      setForm({ name: "", description: "", imageUrl: "", pricePerNight: "", totalPrice: "", bedrooms: "", bathrooms: "", location: "", link: "", amenities: "" });
+      resetForm();
       toast.success("Accommodation added!");
     } catch { toast.error("Failed to add"); }
   };
@@ -74,6 +192,24 @@ export default function TripAccommodations() {
     } catch { toast.error("Failed to select"); }
   };
 
+  const handleDeselect = async () => {
+    try {
+      await deselectMutation.mutateAsync({ tripId });
+      utils.accommodations.list.invalidate({ tripId });
+      toast.success("Selection unlocked");
+    } catch { toast.error("Failed to unlock"); }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteMutation.mutateAsync({ id });
+      utils.accommodations.list.invalidate({ tripId });
+      toast.success("Proposal deleted");
+    } catch (e: any) {
+      toast.error(e?.message?.includes("Not authorized") ? "You can only delete your own proposals" : "Failed to delete");
+    }
+  };
+
   const getScore = (acc: any) => {
     const votes = acc.votes || [];
     return votes.reduce((s: number, v: any) => s + (v.vote === "love" ? 2 : v.vote === "fine" ? 1 : -3), 0);
@@ -90,64 +226,172 @@ export default function TripAccommodations() {
     <AppShell title="Accommodations" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Compare stays and vote on your favorites</p>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="rounded-lg gap-1"><Plus className="h-4 w-4" /> Add</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[85vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Add Accommodation</DialogTitle></DialogHeader>
-              <div className="space-y-3 pt-2">
-                <div className="space-y-1.5">
-                  <Label>Name</Label>
-                  <Input placeholder="e.g., Beachfront Villa" value={form.name} onChange={e => updateForm("name", e.target.value)} className="rounded-lg" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Description</Label>
-                  <Textarea placeholder="What makes this special?" value={form.description} onChange={e => updateForm("description", e.target.value)} rows={2} className="rounded-lg resize-none" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Image URL</Label>
-                  <Input placeholder="https://..." value={form.imageUrl} onChange={e => updateForm("imageUrl", e.target.value)} className="rounded-lg" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Price/Night ({currency})</Label>
-                    <Input type="number" placeholder="0" value={form.pricePerNight} onChange={e => updateForm("pricePerNight", e.target.value)} className="rounded-lg" />
+          <div>
+            <p className="text-sm text-muted-foreground">Compare stays and vote on your favorites</p>
+            {selectedAccommodation && (
+              <p className="text-xs text-primary font-medium mt-0.5">{selectedAccommodation.name} selected</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {isOrganizer && selectedAccommodation && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg gap-1 text-xs h-8"
+                onClick={handleDeselect}
+                disabled={deselectMutation.isPending}
+              >
+                <Unlock className="h-3.5 w-3.5" /> Unlock
+              </Button>
+            )}
+            <Dialog open={addOpen} onOpenChange={open => { setAddOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-lg gap-1"><Plus className="h-4 w-4" /> Add</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Add Accommodation</DialogTitle></DialogHeader>
+                <div className="space-y-4 pt-2">
+
+                  {/* URL auto-fill */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" /> Listing URL (optional)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://airbnb.com/rooms/..."
+                        value={urlInput}
+                        onChange={e => setUrlInput(e.target.value)}
+                        className="rounded-lg flex-1 text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg shrink-0"
+                        onClick={handleFetchFromUrl}
+                        disabled={!urlInput.trim() || urlFetching}
+                      >
+                        {urlFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Paste a booking URL and we'll try to fill in the details automatically</p>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Total Price ({currency})</Label>
-                    <Input type="number" placeholder="0" value={form.totalPrice} onChange={e => updateForm("totalPrice", e.target.value)} className="rounded-lg" />
+
+                  <div className="border-t pt-3 space-y-3">
+                    <div className="space-y-1.5">
+                      <Label>Name</Label>
+                      <Input placeholder="e.g., Beachfront Villa" value={form.name} onChange={e => updateForm("name", e.target.value)} className="rounded-lg" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Description</Label>
+                      <Textarea placeholder="What makes this special?" value={form.description} onChange={e => updateForm("description", e.target.value)} rows={2} className="rounded-lg resize-none" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Image URL</Label>
+                      <Input placeholder="https://..." value={form.imageUrl} onChange={e => updateForm("imageUrl", e.target.value)} className="rounded-lg" />
+                    </div>
+
+                    {/* Pricing */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label>Price/Night ({currency})</Label>
+                        <Input type="number" placeholder="0" value={form.pricePerNight} onChange={e => updateForm("pricePerNight", e.target.value)} className="rounded-lg" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Total Price ({currency})</Label>
+                        <Input type="number" placeholder="0" value={form.totalPrice} onChange={e => updateForm("totalPrice", e.target.value)} className="rounded-lg" />
+                      </div>
+                    </div>
+
+                    {/* Rooms */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Rooms</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Single/Twin Beds</Label>
+                          <Input type="number" placeholder="0" value={form.singleBeds} onChange={e => updateForm("singleBeds", e.target.value)} className="rounded-lg" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Double/Queen Beds</Label>
+                          <Input type="number" placeholder="0" value={form.doubleBeds} onChange={e => updateForm("doubleBeds", e.target.value)} className="rounded-lg" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Bedrooms total</Label>
+                          <Input type="number" placeholder="0" value={form.bedrooms} onChange={e => updateForm("bedrooms", e.target.value)} className="rounded-lg" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Full Bathrooms</Label>
+                          <Input type="number" placeholder="0" value={form.bathrooms} onChange={e => updateForm("bathrooms", e.target.value)} className="rounded-lg" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Standalone Toilets</Label>
+                          <Input type="number" placeholder="0" value={form.toilets} onChange={e => updateForm("toilets", e.target.value)} className="rounded-lg" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Ensuites</Label>
+                          <Input type="number" placeholder="0" value={form.ensuites} onChange={e => updateForm("ensuites", e.target.value)} className="rounded-lg" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Parking */}
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Parking</p>
+                      <div className="flex items-center justify-between py-1">
+                        <Label className="text-sm font-normal flex items-center gap-2"><Car className="h-4 w-4" /> Free Parking</Label>
+                        <Switch checked={form.freeParking} onCheckedChange={v => updateForm("freeParking", v)} />
+                      </div>
+                      <div className="flex items-center justify-between py-1">
+                        <Label className="text-sm font-normal flex items-center gap-2"><Car className="h-4 w-4" /> Camper/RV Parking</Label>
+                        <Switch checked={form.camperParking} onCheckedChange={v => updateForm("camperParking", v)} />
+                      </div>
+                    </div>
+
+                    {/* Location & Link */}
+                    <div className="space-y-1.5">
+                      <Label>Location</Label>
+                      <Input placeholder="Address or area" value={form.location} onChange={e => updateForm("location", e.target.value)} className="rounded-lg" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Booking Link</Label>
+                      <Input placeholder="https://..." value={form.link} onChange={e => updateForm("link", e.target.value)} className="rounded-lg" />
+                    </div>
+
+                    {/* Amenities */}
+                    <div className="space-y-1.5">
+                      <Label>Amenities (comma separated)</Label>
+                      <Input placeholder="WiFi, Pool, Kitchen..." value={form.amenities} onChange={e => updateForm("amenities", e.target.value)} className="rounded-lg" />
+                    </div>
+
+                    {/* Natural language preferences */}
+                    <div className="space-y-2 border-t pt-3">
+                      <Label className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-primary" /> Describe preferences in plain language</Label>
+                      <Textarea
+                        placeholder="e.g., 2 single beds and 1 double bed, 2 separate toilets, ensuite master bedroom, microwave, free parking"
+                        value={nlPrefsText}
+                        onChange={e => setNlPrefsText(e.target.value)}
+                        rows={3}
+                        className="rounded-lg resize-none text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full rounded-lg gap-2"
+                        onClick={handleParseNlPrefs}
+                        disabled={!nlPrefsText.trim() || nlParsing}
+                      >
+                        {nlParsing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        {nlParsing ? "Parsing..." : "Apply Preferences"}
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground">AI will map your description to the form fields above</p>
+                    </div>
                   </div>
+
+                  <Button onClick={handleCreate} className="w-full rounded-lg" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? "Adding..." : "Add Accommodation"}
+                  </Button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Bedrooms</Label>
-                    <Input type="number" placeholder="0" value={form.bedrooms} onChange={e => updateForm("bedrooms", e.target.value)} className="rounded-lg" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Bathrooms</Label>
-                    <Input type="number" placeholder="0" value={form.bathrooms} onChange={e => updateForm("bathrooms", e.target.value)} className="rounded-lg" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Location</Label>
-                  <Input placeholder="Address or area" value={form.location} onChange={e => updateForm("location", e.target.value)} className="rounded-lg" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Booking Link</Label>
-                  <Input placeholder="https://..." value={form.link} onChange={e => updateForm("link", e.target.value)} className="rounded-lg" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Amenities (comma separated)</Label>
-                  <Input placeholder="WiFi, Pool, Kitchen..." value={form.amenities} onChange={e => updateForm("amenities", e.target.value)} className="rounded-lg" />
-                </div>
-                <Button onClick={handleCreate} className="w-full rounded-lg" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? "Adding..." : "Add Accommodation"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {isLoading ? (
@@ -161,6 +405,7 @@ export default function TripAccommodations() {
               const vetos = acc.votes?.filter((v: any) => v.vote === "veto").length || 0;
               const score = getScore(acc);
               const amenities = acc.amenities ? acc.amenities.split(",").map((a: string) => a.trim()).filter(Boolean) : [];
+              const isOwner = acc.proposedBy === user?.id;
 
               return (
                 <Card key={acc.id} className={`overflow-hidden ${acc.selected ? "border-primary ring-1 ring-primary" : "border-border/50"}`}>
@@ -180,18 +425,47 @@ export default function TripAccommodations() {
                           {score > 0 ? "+" : ""}{score}
                         </span>
                         {acc.selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                        {isOwner && !acc.selected && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                            onClick={() => handleDelete(acc.id)}
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 
                     {acc.description && <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{acc.description}</p>}
 
-                    {/* Stats */}
+                    {/* Room stats */}
                     <div className="flex flex-wrap gap-3 mb-3 text-xs">
-                      {acc.bedrooms && (
+                      {acc.singleBeds > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground"><Bed className="h-3.5 w-3.5" /> {acc.singleBeds} single</span>
+                      )}
+                      {acc.doubleBeds > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground"><Bed className="h-3.5 w-3.5" /> {acc.doubleBeds} double</span>
+                      )}
+                      {!acc.singleBeds && !acc.doubleBeds && acc.bedrooms > 0 && (
                         <span className="flex items-center gap-1 text-muted-foreground"><Bed className="h-3.5 w-3.5" /> {acc.bedrooms} bed</span>
                       )}
-                      {acc.bathrooms && (
+                      {acc.bathrooms > 0 && (
                         <span className="flex items-center gap-1 text-muted-foreground"><Bath className="h-3.5 w-3.5" /> {acc.bathrooms} bath</span>
+                      )}
+                      {acc.toilets > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground"><Bath className="h-3.5 w-3.5" /> {acc.toilets} WC</span>
+                      )}
+                      {acc.ensuites > 0 && (
+                        <span className="flex items-center gap-1 text-muted-foreground"><Bath className="h-3.5 w-3.5" /> {acc.ensuites} ensuite</span>
+                      )}
+                      {acc.freeParking && (
+                        <span className="flex items-center gap-1 text-green-600"><Car className="h-3.5 w-3.5" /> Free parking</span>
+                      )}
+                      {acc.camperParking && (
+                        <span className="flex items-center gap-1 text-blue-600"><Car className="h-3.5 w-3.5" /> Camper parking</span>
                       )}
                       {acc.comfortScore && (
                         <span className="flex items-center gap-1 text-yellow-600"><Star className="h-3.5 w-3.5" /> {parseFloat(acc.comfortScore).toFixed(1)}</span>
@@ -235,25 +509,27 @@ export default function TripAccommodations() {
                     </div>
 
                     {/* Vote buttons */}
-                    <div className="flex gap-2">
-                      {[
-                        { vote: "love" as const, icon: Heart, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
-                        { vote: "fine" as const, icon: ThumbsUp, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
-                        { vote: "veto" as const, icon: Ban, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
-                      ].map(btn => (
-                        <Button
-                          key={btn.vote}
-                          variant="outline"
-                          size="sm"
-                          className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                          onClick={() => handleVote(acc.id, btn.vote)}
-                          disabled={voteMutation.isPending}
-                        >
-                          <btn.icon className="h-3.5 w-3.5 mr-1" />
-                          {btn.label}
-                        </Button>
-                      ))}
-                    </div>
+                    {!acc.selected && (
+                      <div className="flex gap-2">
+                        {[
+                          { vote: "love" as const, icon: Heart, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
+                          { vote: "fine" as const, icon: ThumbsUp, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
+                          { vote: "veto" as const, icon: Ban, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                        ].map(btn => (
+                          <Button
+                            key={btn.vote}
+                            variant="outline"
+                            size="sm"
+                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
+                            onClick={() => handleVote(acc.id, btn.vote)}
+                            disabled={voteMutation.isPending}
+                          >
+                            <btn.icon className="h-3.5 w-3.5 mr-1" />
+                            {btn.label}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
 
                     {isOrganizer && !acc.selected && (
                       <Button variant="ghost" size="sm" className="w-full mt-2 text-primary text-xs" onClick={() => handleSelect(acc.id)}>
@@ -270,6 +546,7 @@ export default function TripAccommodations() {
             <CardContent className="p-8 text-center">
               <Home className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No accommodations yet. Add the first option!</p>
+              <p className="text-xs text-muted-foreground mt-1">Paste a booking URL and let AI fill in the details.</p>
             </CardContent>
           </Card>
         )}

@@ -159,7 +159,14 @@ export const accommodations = mysqlTable("accommodations", {
   perPersonCost: decimal("perPersonCost", { precision: 12, scale: 2 }),
   bedrooms: int("bedrooms"),
   bathrooms: int("bathrooms"),
-  amenities: text("amenities"),       // JSON array
+  singleBeds: int("singleBeds"),          // count of single/twin beds
+  doubleBeds: int("doubleBeds"),          // count of double/queen/king beds
+  toilets: int("toilets"),                // standalone toilets (no shower)
+  ensuites: int("ensuites"),             // toilet + shower/bath combined in room
+  freeParking: boolean("freeParking").default(false),
+  camperParking: boolean("camperParking").default(false),
+  amenities: text("amenities"),          // JSON array of amenity strings
+  preferences: text("preferences"),      // JSON object for AI-mapped attributes
   location: varchar("location", { length: 500 }),
   link: text("link"),
   comfortScore: decimal("comfortScore", { precision: 3, scale: 1 }),
