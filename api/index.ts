@@ -1,4 +1,4 @@
-import { createApp } from "../server/_core/index.ts";
+import { createApp } from "../dist/index.js";
 
 export default async (req: any, res: any) => {
   const { app } = await createApp();
