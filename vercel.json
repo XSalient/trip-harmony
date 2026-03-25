@@ -1,12 +1,9 @@
 {
   "version": 2,
+  "framework": null,
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
-  "functions": {
-    "api/index.ts": {
-      "runtime": "@vercel/node"
-    }
-  },
+  "outputDirectory": "dist/public",
   "rewrites": [
     {
       "source": "/api/(.*)",
