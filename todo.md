@@ -52,3 +52,34 @@
 - [x] Vitest unit tests for backend
 - [x] Mobile responsiveness polish
 - [x] Final checkpoint and delivery
+
+## Enhancement: Accommodation URL Auto-Fill
+- [ ] Allow pasting a URL at the top of accommodation form
+- [ ] Auto-extract name, description, price, images, amenities from URL via LLM
+- [ ] Pre-fill form fields so users don't need to enter everything manually
+
+## Enhancement: Date Proposal Display
+- [ ] Show day names (e.g., "Tue - Sun") for date ranges
+- [ ] Show nights count (e.g., "5 nights")
+
+## Enhancement: Natural Language Proposals
+- [ ] Allow entering date proposals in plain language (e.g., "any weekend in June", "weekdays Tue-Thu in April")
+- [ ] LLM parses natural language into structured date ranges
+- [ ] Allow entering accommodation requirements in natural language
+- [ ] LLM maps natural language to structured attributes/preferences
+
+## Enhancement: Detailed Preference/Requirement System
+- [ ] Accommodation preferences: single beds, double beds, toilets, bathrooms, microwave, parking, etc.
+- [ ] Smart attribute system that handles 1000s of possible attributes via LLM mapping
+- [ ] Store preferences per member per trip
+- [ ] Match preferences against proposals
+
+## Enhancement: Requirement Match Dashboard
+- [ ] Show how many requirements are met/unmet per proposal
+- [ ] Dashboard view for easy access to requirement fulfillment status
+- [ ] Visual indicators (met/unmet/partial) for each member's requirements
+
+## Enhancement: Deletion & Unlock Controls
+- [ ] Allow deletion of self-entered proposals (dates, destinations, accommodations)
+- [ ] Allow organizer to unlock finalized dates/selections
+- [ ] Confirmation dialogs for destructive actions

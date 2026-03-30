@@ -244,3 +244,37 @@ export const notifications = mysqlTable("notifications", {
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
+
+/**
+ * Member preferences — structured requirements per member per trip.
+ * Stores preferences as a flexible JSON blob parsed from natural language.
+ * Example: { "singleBeds": 2, "doubleBeds": 1, "freeParking": true, "microwave": true, ... }
+ */
+export const memberPreferences = mysqlTable("member_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  tripId: int("tripId").notNull(),
+  userId: int("userId").notNull(),
+  category: mysqlEnum("category", ["accommodation", "destination", "dates", "general"]).notNull(),
+  rawText: text("rawText").notNull(),          // original natural language input
+  attributes: text("attributes").notNull(),     // JSON object of parsed key-value requirements
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type MemberPreference = typeof memberPreferences.$inferSelect;
+export type InsertMemberPreference = typeof memberPreferences.$inferInsert;
+
+/**
+ * Accommodation attributes — structured attributes extracted from listings.
+ * Stores a flexible JSON blob of all known attributes for matching.
+ */
+export const accommodationAttributes = mysqlTable("accommodation_attributes", {
+  id: int("id").autoincrement().primaryKey(),
+  accommodationId: int("accommodationId").notNull(),
+  attributes: text("attributes").notNull(),     // JSON object of all attributes
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AccommodationAttribute = typeof accommodationAttributes.$inferSelect;
+export type InsertAccommodationAttribute = typeof accommodationAttributes.$inferInsert;

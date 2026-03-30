@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `accommodation_attributes` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`accommodationId` int NOT NULL,\n\t`attributes` text NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `accommodation_attributes_id` PRIMARY KEY(`id`)\n);\n\nCREATE TABLE `member_preferences` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`tripId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`category` enum('accommodation','destination','dates','general') NOT NULL,\n\t`rawText` text NOT NULL,\n\t`attributes` text NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `member_preferences_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway05.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4VQTsfVU5uEoU2Y.root --database Jdn2rweDDiTdhBx9KHiXAi --execute CREATE TABLE `accommodation_attributes` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`accommodationId` int NOT NULL,\n\t`attributes` text NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `accommodation_attributes_id` PRIMARY KEY(`id`)\n);\n\nCREATE TABLE `member_preferences` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`tripId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`category` enum('accommodation','destination','dates','general') NOT NULL,\n\t`rawText` text NOT NULL,\n\t`attributes` text NOT NULL,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `member_preferences_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1294
+}
