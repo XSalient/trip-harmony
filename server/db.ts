@@ -1,5 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import {
   InsertUser, users,
   travelDna, InsertTravelDna,
@@ -22,7 +23,8 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -53,7 +55,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     else if (user.openId === ENV.ownerOpenId) { values.role = 'admin'; updateSet.role = 'admin'; }
     if (!values.lastSignedIn) values.lastSignedIn = new Date();
     if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-    await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+    await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
   } catch (error) { console.error("[Database] Failed to upsert user:", error); throw error; }
 }
 
@@ -80,7 +82,7 @@ export async function upsertTravelDna(data: InsertTravelDna) {
     await db.update(travelDna).set(data).where(eq(travelDna.userId, data.userId));
     return { ...existing[0], ...data };
   }
-  const [result] = await db.insert(travelDna).values(data).$returningId();
+  const [result] = await db.insert(travelDna).values(data).returning({ id: travelDna.id });
   return { id: result.id, ...data };
 }
 
@@ -109,7 +111,7 @@ export async function getGroupTravelDna(tripId: number) {
 export async function createTrip(data: InsertTrip) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(trips).values(data).$returningId();
+  const [result] = await db.insert(trips).values(data).returning({ id: trips.id });
   return result.id;
 }
 
@@ -153,7 +155,7 @@ export async function addTripMember(data: InsertTripMember) {
   if (!db) throw new Error("DB not available");
   const existing = await db.select().from(tripMembers).where(and(eq(tripMembers.tripId, data.tripId), eq(tripMembers.userId, data.userId))).limit(1);
   if (existing.length > 0) return existing[0];
-  const [result] = await db.insert(tripMembers).values(data).$returningId();
+  const [result] = await db.insert(tripMembers).values(data).returning({ id: tripMembers.id });
   return { id: result.id, ...data };
 }
 
@@ -185,7 +187,7 @@ export async function updateMemberBudget(tripId: number, userId: number, budgetM
 export async function createDateProposal(data: InsertDateProposal) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(dateProposals).values(data).$returningId();
+  const [result] = await db.insert(dateProposals).values(data).returning({ id: dateProposals.id });
   return result.id;
 }
 
@@ -248,7 +250,7 @@ export async function voteDateProposal(data: InsertDateVote) {
 export async function createDestination(data: InsertDestination) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(destinations).values(data).$returningId();
+  const [result] = await db.insert(destinations).values(data).returning({ id: destinations.id });
   return result.id;
 }
 
@@ -311,7 +313,7 @@ export async function getDestination(id: number) {
 export async function createAccommodation(data: InsertAccommodation) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(accommodations).values(data).$returningId();
+  const [result] = await db.insert(accommodations).values(data).returning({ id: accommodations.id });
   return result.id;
 }
 
@@ -374,7 +376,7 @@ export async function getAccommodation(id: number) {
 export async function createBudgetItem(data: InsertBudgetItem) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(budgetItems).values(data).$returningId();
+  const [result] = await db.insert(budgetItems).values(data).returning({ id: budgetItems.id });
   return result.id;
 }
 
@@ -400,7 +402,7 @@ export async function deleteBudgetItem(id: number) {
 export async function createRefereeMessage(data: InsertRefereeMessage) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(refereeMessages).values(data).$returningId();
+  const [result] = await db.insert(refereeMessages).values(data).returning({ id: refereeMessages.id });
   return result.id;
 }
 
@@ -414,7 +416,7 @@ export async function getRefereeMessages(tripId: number, limit = 20) {
 export async function createNotification(data: InsertNotification) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(notifications).values(data).$returningId();
+  const [result] = await db.insert(notifications).values(data).returning({ id: notifications.id });
   return result.id;
 }
 

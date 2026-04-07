@@ -1,18 +1,32 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, decimal } from "drizzle-orm/mysql-core";
+import { pgEnum, pgTable, serial, text, timestamp, varchar, integer, boolean, decimal } from "drizzle-orm/pg-core";
+
+export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
+export const tripPhaseEnum = pgEnum("trip_phase", ["setup", "dates", "destination", "accommodation", "activities", "finalized"]);
+export const tripStatusEnum = pgEnum("trip_status", ["planning", "active", "completed", "cancelled"]);
+export const memberRoleEnum = pgEnum("member_role", ["organizer", "member"]);
+export const memberStatusEnum = pgEnum("member_status", ["pending", "accepted", "declined"]);
+export const dateVoteEnum = pgEnum("date_vote", ["available", "maybe", "unavailable"]);
+export const destinationVoteEnum = pgEnum("destination_vote", ["love", "fine", "veto"]);
+export const accommodationVoteEnum = pgEnum("accommodation_vote", ["love", "fine", "veto"]);
+export const budgetCategoryEnum = pgEnum("budget_category", ["accommodation", "transport", "food", "activities", "other"]);
+export const splitTypeEnum = pgEnum("split_type", ["equal", "custom"]);
+export const refereeMessageTypeEnum = pgEnum("referee_message_type", ["nudge", "mediation", "compromise", "celebration", "summary"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["invite", "vote_request", "budget_alert", "consensus", "phase_change", "referee", "general"]);
+export const preferenceCategoryEnum = pgEnum("preference_category", ["accommodation", "destination", "dates", "general"]);
 
 /**
  * Core user table backing auth flow.
  */
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: userRoleEnum("role").default("user").notNull(),
   avatarUrl: text("avatarUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
@@ -22,21 +36,21 @@ export type InsertUser = typeof users.$inferInsert;
 /**
  * Travel DNA profiles — personality quiz results per user.
  */
-export const travelDna = mysqlTable("travel_dna", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  budgetComfort: int("budgetComfort").notNull().default(5),       // 1-10 scale
-  socialEnergy: int("socialEnergy").notNull().default(5),         // 1-10 introvert to extrovert
-  adventureLevel: int("adventureLevel").notNull().default(5),     // 1-10 chill to extreme
-  planningStyle: int("planningStyle").notNull().default(5),       // 1-10 spontaneous to structured
-  culturalCuriosity: int("culturalCuriosity").notNull().default(5), // 1-10
-  comfortNeed: int("comfortNeed").notNull().default(5),           // 1-10 backpacker to luxury
-  foodPriority: int("foodPriority").notNull().default(5),         // 1-10
-  activityPace: int("activityPace").notNull().default(5),         // 1-10 relaxed to packed
-  dietaryNeeds: text("dietaryNeeds"),                             // JSON string array
-  accessibilityNeeds: text("accessibilityNeeds"),                 // JSON string array
+export const travelDna = pgTable("travel_dna", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  budgetComfort: integer("budgetComfort").notNull().default(5),
+  socialEnergy: integer("socialEnergy").notNull().default(5),
+  adventureLevel: integer("adventureLevel").notNull().default(5),
+  planningStyle: integer("planningStyle").notNull().default(5),
+  culturalCuriosity: integer("culturalCuriosity").notNull().default(5),
+  comfortNeed: integer("comfortNeed").notNull().default(5),
+  foodPriority: integer("foodPriority").notNull().default(5),
+  activityPace: integer("activityPace").notNull().default(5),
+  dietaryNeeds: text("dietaryNeeds"),
+  accessibilityNeeds: text("accessibilityNeeds"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type TravelDna = typeof travelDna.$inferSelect;
@@ -45,21 +59,21 @@ export type InsertTravelDna = typeof travelDna.$inferInsert;
 /**
  * Trip groups — the core container for a trip.
  */
-export const trips = mysqlTable("trips", {
-  id: int("id").autoincrement().primaryKey(),
+export const trips = pgTable("trips", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   coverImage: text("coverImage"),
-  organizerId: int("organizerId").notNull(),
+  organizerId: integer("organizerId").notNull(),
   inviteCode: varchar("inviteCode", { length: 32 }).notNull().unique(),
-  phase: mysqlEnum("phase", ["setup", "dates", "destination", "accommodation", "activities", "finalized"]).default("setup").notNull(),
-  status: mysqlEnum("status", ["planning", "active", "completed", "cancelled"]).default("planning").notNull(),
+  phase: tripPhaseEnum("phase").default("setup").notNull(),
+  status: tripStatusEnum("status").default("planning").notNull(),
   startDate: timestamp("startDate"),
   endDate: timestamp("endDate"),
   currency: varchar("currency", { length: 3 }).default("USD").notNull(),
   totalBudget: decimal("totalBudget", { precision: 12, scale: 2 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Trip = typeof trips.$inferSelect;
@@ -68,12 +82,12 @@ export type InsertTrip = typeof trips.$inferInsert;
 /**
  * Trip members — who is in each trip and their role.
  */
-export const tripMembers = mysqlTable("trip_members", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
-  userId: int("userId").notNull(),
-  role: mysqlEnum("role", ["organizer", "member"]).default("member").notNull(),
-  status: mysqlEnum("status", ["pending", "accepted", "declined"]).default("pending").notNull(),
+export const tripMembers = pgTable("trip_members", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  userId: integer("userId").notNull(),
+  role: memberRoleEnum("role").default("member").notNull(),
+  status: memberStatusEnum("status").default("pending").notNull(),
   budgetMax: decimal("budgetMax", { precision: 12, scale: 2 }),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
 });
@@ -84,10 +98,10 @@ export type InsertTripMember = typeof tripMembers.$inferInsert;
 /**
  * Date proposals — suggested date ranges for a trip.
  */
-export const dateProposals = mysqlTable("date_proposals", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
-  proposedBy: int("proposedBy").notNull(),
+export const dateProposals = pgTable("date_proposals", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  proposedBy: integer("proposedBy").notNull(),
   startDate: timestamp("startDate").notNull(),
   endDate: timestamp("endDate").notNull(),
   label: varchar("label", { length: 255 }),
@@ -101,11 +115,11 @@ export type InsertDateProposal = typeof dateProposals.$inferInsert;
 /**
  * Date votes — member availability votes on date proposals.
  */
-export const dateVotes = mysqlTable("date_votes", {
-  id: int("id").autoincrement().primaryKey(),
-  proposalId: int("proposalId").notNull(),
-  userId: int("userId").notNull(),
-  vote: mysqlEnum("vote", ["available", "maybe", "unavailable"]).notNull(),
+export const dateVotes = pgTable("date_votes", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposalId").notNull(),
+  userId: integer("userId").notNull(),
+  vote: dateVoteEnum("vote").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -115,15 +129,15 @@ export type InsertDateVote = typeof dateVotes.$inferInsert;
 /**
  * Destinations — suggested destinations for vibe board.
  */
-export const destinations = mysqlTable("destinations", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
+export const destinations = pgTable("destinations", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   imageUrl: text("imageUrl"),
-  vibes: text("vibes"),             // JSON array of vibe tags
+  vibes: text("vibes"),
   estimatedCost: decimal("estimatedCost", { precision: 12, scale: 2 }),
-  proposedBy: int("proposedBy").notNull(),
+  proposedBy: integer("proposedBy").notNull(),
   selected: boolean("selected").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -134,11 +148,11 @@ export type InsertDestination = typeof destinations.$inferInsert;
 /**
  * Destination votes — Love / Fine / Veto voting on destinations.
  */
-export const destinationVotes = mysqlTable("destination_votes", {
-  id: int("id").autoincrement().primaryKey(),
-  destinationId: int("destinationId").notNull(),
-  userId: int("userId").notNull(),
-  vote: mysqlEnum("vote", ["love", "fine", "veto"]).notNull(),
+export const destinationVotes = pgTable("destination_votes", {
+  id: serial("id").primaryKey(),
+  destinationId: integer("destinationId").notNull(),
+  userId: integer("userId").notNull(),
+  vote: destinationVoteEnum("vote").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -148,29 +162,29 @@ export type InsertDestinationVote = typeof destinationVotes.$inferInsert;
 /**
  * Accommodations — options for the accommodation hub.
  */
-export const accommodations = mysqlTable("accommodations", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
+export const accommodations = pgTable("accommodations", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   imageUrl: text("imageUrl"),
   pricePerNight: decimal("pricePerNight", { precision: 12, scale: 2 }),
   totalPrice: decimal("totalPrice", { precision: 12, scale: 2 }),
   perPersonCost: decimal("perPersonCost", { precision: 12, scale: 2 }),
-  bedrooms: int("bedrooms"),
-  bathrooms: int("bathrooms"),
-  singleBeds: int("singleBeds"),          // count of single/twin beds
-  doubleBeds: int("doubleBeds"),          // count of double/queen/king beds
-  toilets: int("toilets"),                // standalone toilets (no shower)
-  ensuites: int("ensuites"),             // toilet + shower/bath combined in room
+  bedrooms: integer("bedrooms"),
+  bathrooms: integer("bathrooms"),
+  singleBeds: integer("singleBeds"),
+  doubleBeds: integer("doubleBeds"),
+  toilets: integer("toilets"),
+  ensuites: integer("ensuites"),
   freeParking: boolean("freeParking").default(false),
   camperParking: boolean("camperParking").default(false),
-  amenities: text("amenities"),          // JSON array of amenity strings
-  preferences: text("preferences"),      // JSON object for AI-mapped attributes
+  amenities: text("amenities"),
+  preferences: text("preferences"),
   location: varchar("location", { length: 500 }),
   link: text("link"),
   comfortScore: decimal("comfortScore", { precision: 3, scale: 1 }),
-  proposedBy: int("proposedBy").notNull(),
+  proposedBy: integer("proposedBy").notNull(),
   selected: boolean("selected").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -181,11 +195,11 @@ export type InsertAccommodation = typeof accommodations.$inferInsert;
 /**
  * Accommodation votes — Love / Fine / Veto voting on accommodations.
  */
-export const accommodationVotes = mysqlTable("accommodation_votes", {
-  id: int("id").autoincrement().primaryKey(),
-  accommodationId: int("accommodationId").notNull(),
-  userId: int("userId").notNull(),
-  vote: mysqlEnum("vote", ["love", "fine", "veto"]).notNull(),
+export const accommodationVotes = pgTable("accommodation_votes", {
+  id: serial("id").primaryKey(),
+  accommodationId: integer("accommodationId").notNull(),
+  userId: integer("userId").notNull(),
+  vote: accommodationVoteEnum("vote").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -195,15 +209,15 @@ export type InsertAccommodationVote = typeof accommodationVotes.$inferInsert;
 /**
  * Budget items — individual expenses tracked per trip.
  */
-export const budgetItems = mysqlTable("budget_items", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
-  category: mysqlEnum("category", ["accommodation", "transport", "food", "activities", "other"]).notNull(),
+export const budgetItems = pgTable("budget_items", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  category: budgetCategoryEnum("category").notNull(),
   description: varchar("description", { length: 500 }).notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   currency: varchar("currency", { length: 3 }).default("USD").notNull(),
-  paidBy: int("paidBy"),
-  splitType: mysqlEnum("splitType", ["equal", "custom"]).default("equal").notNull(),
+  paidBy: integer("paidBy"),
+  splitType: splitTypeEnum("splitType").default("equal").notNull(),
   approved: boolean("approved").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -214,13 +228,13 @@ export type InsertBudgetItem = typeof budgetItems.$inferInsert;
 /**
  * Referee messages — AI mediator messages for conflict resolution.
  */
-export const refereeMessages = mysqlTable("referee_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
+export const refereeMessages = pgTable("referee_messages", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
   phase: varchar("phase", { length: 50 }).notNull(),
-  messageType: mysqlEnum("messageType", ["nudge", "mediation", "compromise", "celebration", "summary"]).notNull(),
+  messageType: refereeMessageTypeEnum("messageType").notNull(),
   content: text("content").notNull(),
-  context: text("context"),           // JSON with relevant data
+  context: text("context"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -230,11 +244,11 @@ export type InsertRefereeMessage = typeof refereeMessages.$inferInsert;
 /**
  * Notifications — alerts for users about trip events.
  */
-export const notifications = mysqlTable("notifications", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
-  tripId: int("tripId"),
-  type: mysqlEnum("type", ["invite", "vote_request", "budget_alert", "consensus", "phase_change", "referee", "general"]).notNull(),
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  tripId: integer("tripId"),
+  type: notificationTypeEnum("type").notNull(),
   title: varchar("title", { length: 255 }).notNull(),
   message: text("message").notNull(),
   read: boolean("read").default(false).notNull(),
@@ -247,18 +261,16 @@ export type InsertNotification = typeof notifications.$inferInsert;
 
 /**
  * Member preferences — structured requirements per member per trip.
- * Stores preferences as a flexible JSON blob parsed from natural language.
- * Example: { "singleBeds": 2, "doubleBeds": 1, "freeParking": true, "microwave": true, ... }
  */
-export const memberPreferences = mysqlTable("member_preferences", {
-  id: int("id").autoincrement().primaryKey(),
-  tripId: int("tripId").notNull(),
-  userId: int("userId").notNull(),
-  category: mysqlEnum("category", ["accommodation", "destination", "dates", "general"]).notNull(),
-  rawText: text("rawText").notNull(),          // original natural language input
-  attributes: text("attributes").notNull(),     // JSON object of parsed key-value requirements
+export const memberPreferences = pgTable("member_preferences", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  userId: integer("userId").notNull(),
+  category: preferenceCategoryEnum("category").notNull(),
+  rawText: text("rawText").notNull(),
+  attributes: text("attributes").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type MemberPreference = typeof memberPreferences.$inferSelect;
@@ -266,14 +278,13 @@ export type InsertMemberPreference = typeof memberPreferences.$inferInsert;
 
 /**
  * Accommodation attributes — structured attributes extracted from listings.
- * Stores a flexible JSON blob of all known attributes for matching.
  */
-export const accommodationAttributes = mysqlTable("accommodation_attributes", {
-  id: int("id").autoincrement().primaryKey(),
-  accommodationId: int("accommodationId").notNull(),
-  attributes: text("attributes").notNull(),     // JSON object of all attributes
+export const accommodationAttributes = pgTable("accommodation_attributes", {
+  id: serial("id").primaryKey(),
+  accommodationId: integer("accommodationId").notNull(),
+  attributes: text("attributes").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type AccommodationAttribute = typeof accommodationAttributes.$inferSelect;

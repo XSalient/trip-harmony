@@ -1,31 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
-import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth.js";
 import { appRouter } from "../routers.js";
 import { createContext } from "./context.js";
 import { serveStatic, setupVite } from "./vite.js";
-
-function isPortAvailable(port: number): Promise<boolean> {
-  return new Promise(resolve => {
-    const server = net.createServer();
-    server.listen(port, () => {
-      server.close(() => resolve(true));
-    });
-    server.on("error", () => resolve(false));
-  });
-}
-
-async function findAvailablePort(startPort: number = 3000): Promise<number> {
-  for (let port = startPort; port < startPort + 20; port++) {
-    if (await isPortAvailable(port)) {
-      return port;
-    }
-  }
-  throw new Error(`No available port found starting from ${startPort}`);
-}
 
 export async function createApp() {
   const app = express();
@@ -52,17 +32,9 @@ export async function createApp() {
   return { app, server };
 }
 
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-  createApp().then(async ({ server }) => {
-    const preferredPort = parseInt(process.env.PORT || "5000");
-    const port = await findAvailablePort(preferredPort);
-
-    if (port !== preferredPort) {
-      console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
-    }
-
-    server.listen(port, () => {
-      console.log(`Server running on http://localhost:${port}/`);
-    });
-  }).catch(console.error);
-}
+createApp().then(({ server }) => {
+  const port = parseInt(process.env.PORT || "5000");
+  server.listen(port, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${port}/`);
+  });
+}).catch(console.error);
