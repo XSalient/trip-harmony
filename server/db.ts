@@ -66,6 +66,21 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createUserWithPassword(data: { openId: string; name: string; email: string; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(users).values({ ...data, loginMethod: "email", lastSignedIn: new Date() });
+  const result = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1);
+  return result[0];
+}
+
 export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

@@ -1,20 +1,25 @@
+import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { AuthDialog } from "@/components/AuthDialog";
 import { Link, useLocation } from "wouter";
 import {
-  Compass, Users, Calendar, MapPin, Plus, LogOut,
+  Compass, MapPin, Plus, LogOut,
   ChevronRight, Sparkles, Shield, DollarSign, Vote
 } from "lucide-react";
 
 function LandingPage() {
+  const [authOpen, setAuthOpen] = useState(false);
+  const { refresh } = useAuth();
+
   return (
     <div className="min-h-screen bg-background">
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={() => { setAuthOpen(false); refresh(); }} />
       {/* Hero */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10" />
@@ -30,8 +35,8 @@ function LandingPage() {
           <p className="text-muted-foreground text-base mb-8 max-w-sm mx-auto leading-relaxed">
             Harmony resolves group conflicts, finds consensus, and keeps everyone's budget in check — so you can focus on the adventure.
           </p>
-          <Button size="lg" className="w-full max-w-xs h-12 text-base font-semibold rounded-xl shadow-lg" asChild>
-            <a href={getLoginUrl()}>Get Started</a>
+          <Button size="lg" className="w-full max-w-xs h-12 text-base font-semibold rounded-xl shadow-lg" onClick={() => setAuthOpen(true)}>
+            Get Started
           </Button>
         </div>
       </div>
