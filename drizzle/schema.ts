@@ -278,6 +278,20 @@ export type MemberPreference = typeof memberPreferences.$inferSelect;
 export type InsertMemberPreference = typeof memberPreferences.$inferInsert;
 
 /**
+ * Magic link tokens — short-lived tokens for passwordless login.
+ */
+export const magicLinkTokens = pgTable("magic_link_tokens", {
+  id: serial("id").primaryKey(),
+  token: varchar("token", { length: 128 }).notNull().unique(),
+  email: varchar("email", { length: 320 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;
+
+/**
  * Accommodation attributes — structured attributes extracted from listings.
  */
 export const accommodationAttributes = pgTable("accommodation_attributes", {

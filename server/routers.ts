@@ -9,6 +9,7 @@ import * as db from "./db";
 import { sdk } from "./_core/sdk";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
+import { sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer";
 
 async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -69,6 +70,36 @@ export const appRouter = router({
       ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
       return { success: true };
     }),
+    requestMagicLink: publicProcedure.input(z.object({
+      email: z.string().email(),
+    })).mutation(async ({ ctx, input }) => {
+      const token = crypto.randomBytes(48).toString("hex");
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+      await db.createMagicLinkToken(input.email, token, expiresAt);
+      const origin = `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const magicUrl = `${origin}/auth/magic/${token}`;
+      await sendMagicLinkEmail(input.email, magicUrl);
+      const isDev = process.env.NODE_ENV === "development";
+      return { success: true, ...(isDev ? { debugUrl: magicUrl } : {}) };
+    }),
+    verifyMagicLink: publicProcedure.input(z.object({
+      token: z.string(),
+    })).mutation(async ({ ctx, input }) => {
+      const row = await db.consumeMagicLinkToken(input.token);
+      if (!row) throw new TRPCError({ code: "UNAUTHORIZED", message: "This magic link is invalid or has expired." });
+      let user = await db.getUserByEmail(row.email);
+      if (!user) {
+        const openId = `magic:${nanoid(32)}`;
+        const name = row.email.split("@")[0];
+        user = await db.createUserWithPassword({ openId, name, email: row.email, passwordHash: "" });
+      }
+      if (!user) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to authenticate." });
+      await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
+      const sessionToken = await sdk.createSessionToken(user.openId, { name: user.name || "", expiresInMs: ONE_YEAR_MS });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      return { success: true };
+    }),
   }),
 
   // ---- Travel DNA ----
@@ -103,8 +134,21 @@ export const appRouter = router({
     get: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
       return db.getTrip(input.id);
     }),
-    getByInviteCode: protectedProcedure.input(z.object({ code: z.string() })).query(async ({ input }) => {
+    getByInviteCode: publicProcedure.input(z.object({ code: z.string() })).query(async ({ input }) => {
       return db.getTripByInviteCode(input.code);
+    }),
+    sendInviteEmail: protectedProcedure.input(z.object({
+      tripId: z.number(),
+      email: z.string().email(),
+    })).mutation(async ({ ctx, input }) => {
+      const trip = await db.getTrip(input.tripId);
+      if (!trip) throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
+      const member = await db.getTripMember(input.tripId, ctx.user.id);
+      if (!member) throw new TRPCError({ code: "FORBIDDEN", message: "You are not a member of this trip." });
+      const origin = `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const inviteUrl = `${origin}/join/${trip.inviteCode}`;
+      await sendTripInviteEmail(input.email, ctx.user.name || "Someone", trip.name, inviteUrl);
+      return { success: true };
     }),
     create: protectedProcedure.input(z.object({
       name: z.string().min(1).max(255),

@@ -4,15 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { AuthDialog } from "@/components/AuthDialog";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
-import { Users, MapPin } from "lucide-react";
+import { Users, MapPin, LogIn } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function JoinTrip() {
-  useAuth({ redirectOnUnauthenticated: true });
+  const { user, loading: authLoading } = useAuth();
   const params = useParams<{ code: string }>();
   const [, navigate] = useLocation();
-  const { data: trip, isLoading } = trpc.trips.getByInviteCode.useQuery({ code: params.code || "" }, { enabled: !!params.code });
+  const [authOpen, setAuthOpen] = useState(false);
+  const [autoJoinPending, setAutoJoinPending] = useState(false);
+
+  const { data: trip, isLoading } = trpc.trips.getByInviteCode.useQuery(
+    { code: params.code || "" },
+    { enabled: !!params.code }
+  );
   const joinMutation = trpc.trips.join.useMutation();
 
   const handleJoin = async () => {
@@ -26,7 +34,19 @@ export default function JoinTrip() {
     }
   };
 
-  if (isLoading) {
+  useEffect(() => {
+    if (autoJoinPending && user && !authLoading) {
+      setAutoJoinPending(false);
+      handleJoin();
+    }
+  }, [user, authLoading, autoJoinPending]);
+
+  const handleAuthSuccess = () => {
+    setAuthOpen(false);
+    setAutoJoinPending(true);
+  };
+
+  if (isLoading || authLoading) {
     return (
       <AppShell title="Join Trip" showBack backHref="/">
         <div className="p-4"><Skeleton className="h-40 rounded-xl" /></div>
@@ -59,10 +79,28 @@ export default function JoinTrip() {
           </CardContent>
         </Card>
 
-        <Button onClick={handleJoin} className="w-full h-12 rounded-xl text-base font-semibold" disabled={joinMutation.isPending}>
-          {joinMutation.isPending ? "Joining..." : "Join This Trip"}
-        </Button>
+        {user ? (
+          <Button
+            onClick={handleJoin}
+            className="w-full h-12 rounded-xl text-base font-semibold"
+            disabled={joinMutation.isPending}
+          >
+            {joinMutation.isPending ? "Joining…" : "Join This Trip"}
+          </Button>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-center text-sm text-muted-foreground">Sign in to join this trip</p>
+            <Button
+              onClick={() => setAuthOpen(true)}
+              className="w-full h-12 rounded-xl text-base font-semibold gap-2"
+            >
+              <LogIn className="h-5 w-5" /> Sign In & Join Trip
+            </Button>
+          </div>
+        )}
       </div>
+
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={handleAuthSuccess} />
     </AppShell>
   );
 }

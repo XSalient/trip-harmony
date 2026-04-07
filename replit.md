@@ -6,8 +6,8 @@ Harmony is a full-stack web application that helps groups plan trips collaborati
 ## Architecture
 - **Frontend**: React 19 + Vite + TailwindCSS v4 + Radix UI components
 - **Backend**: Express.js + tRPC (type-safe API)
-- **Database**: MySQL via Drizzle ORM
-- **Auth**: JWT/cookie-based sessions with OAuth support
+- **Database**: PostgreSQL via Drizzle ORM
+- **Auth**: JWT/cookie-based sessions — email+password and magic link (passwordless)
 - **Package Manager**: pnpm
 
 ## Project Structure
@@ -19,24 +19,34 @@ Harmony is a full-stack web application that helps groups plan trips collaborati
 ├── server/          # Express backend
 │   ├── _core/       # Core server setup (express, vite, trpc, oauth)
 │   ├── routers.ts   # tRPC router definitions
-│   ├── db.ts        # Database connection
-│   └── storage.ts   # Storage abstraction
+│   ├── db.ts        # Database connection + queries
+│   └── utils/
+│       └── mailer.ts # Email utility (SMTP or console-log fallback)
 ├── shared/          # Shared types and constants
-├── drizzle/         # Database schema and migrations
+├── drizzle/         # Database schema
 └── vite.config.ts   # Vite configuration
 ```
 
 ## Running the App
-- **Dev**: `pnpm run dev` — starts Express + Vite dev server on port 5000
+- **Dev**: `pnpm run dev` — starts Express + Vite dev server on port 5000 (kills any existing process on port 5000 first)
 - **Build**: `pnpm run build` — builds frontend and bundles server
 - **Start**: `pnpm run start` — starts production server
+- **DB push**: `pnpm db:push` — push schema changes to PostgreSQL
 
 ## Environment Variables
-- `DATABASE_URL` — MySQL connection string (required)
-- `JWT_SECRET` — Secret for signing session cookies
-- `OAUTH_SERVER_URL` — OAuth provider base URL (optional)
-- `VITE_APP_ID` — App identifier for OAuth
-- `OWNER_OPEN_ID` — Owner's OpenID for admin access
+- `DATABASE_URL` — PostgreSQL connection string (Replit-provided)
+- `JWT_SECRET` — Secret for signing session cookies (required)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — Optional SMTP config for email delivery; if absent, magic links and invite emails are logged to the server console
+
+## Authentication
+- **Email + password**: Register/login via the AuthDialog
+- **Magic link**: Passwordless sign-in via `/auth/magic/:token`; token is emailed (or logged to console in dev). Tokens expire in 15 minutes.
+- Sessions are stored as HTTP-only JWT cookies, valid for 1 year
+
+## Trip Invites
+- Each trip has a unique invite code (`/join/:code`)
+- Invite dialog: copy link to clipboard, or send via email to a specific address
+- The `/join/:code` page is public — unauthenticated users see the trip preview and are prompted to sign in/register, then auto-join after auth
 
 ## Replit Configuration
 - Runs on port **5000** (required for Replit web preview)
@@ -45,8 +55,8 @@ Harmony is a full-stack web application that helps groups plan trips collaborati
 
 ## Key Dependencies
 - `@trpc/server` + `@trpc/client` — end-to-end type-safe API
-- `drizzle-orm` + `mysql2` — database ORM
+- `drizzle-orm` + `pg` — PostgreSQL ORM
+- `nodemailer` — email sending
 - `wouter` — client-side routing
 - `@tanstack/react-query` — server state management
 - `framer-motion` — animations
-- `next-themes` — dark/light mode

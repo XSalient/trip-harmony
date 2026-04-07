@@ -15,11 +15,13 @@ import TripAccommodations from "./pages/TripAccommodations";
 import TripBudget from "./pages/TripBudget";
 import TripReferee from "./pages/TripReferee";
 import Notifications from "./pages/Notifications";
+import MagicLinkVerify from "./pages/MagicLinkVerify";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/auth/magic/:token" component={MagicLinkVerify} />
       <Route path="/quiz" component={TravelDnaQuiz} />
       <Route path="/trips/new" component={CreateTrip} />
       <Route path="/join/:code" component={JoinTrip} />

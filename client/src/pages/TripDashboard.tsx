@@ -12,11 +12,12 @@ import { useMemo, useState } from "react";
 import {
   Calendar, MapPin, Home as HomeIcon, DollarSign, Users, Share2,
   ChevronRight, CheckCircle2, Circle, Bot, Copy, UserPlus,
-  TrendingUp, AlertCircle, ThumbsUp, Heart, Ban
+  TrendingUp, AlertCircle, ThumbsUp, Heart, Ban, Send
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { format, differenceInDays } from "date-fns";
 
 const phases = [
@@ -222,6 +223,8 @@ export default function TripDashboard() {
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const sendInviteEmail = trpc.trips.sendInviteEmail.useMutation();
 
   const phaseIndex = useMemo(() => phases.findIndex(p => p.key === trip?.phase), [trip?.phase]);
   const progress = useMemo(() => ((phaseIndex + 1) / phases.length) * 100, [phaseIndex]);
@@ -304,11 +307,41 @@ export default function TripDashboard() {
               <DialogTitle>Invite Members</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
-              <p className="text-sm text-muted-foreground">Share this link with your group:</p>
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Share this link with your group:</p>
+                <div className="flex gap-2">
+                  <code className="flex-1 text-xs bg-muted p-3 rounded-lg break-all">{inviteUrl}</code>
+                  <Button variant="outline" size="icon" onClick={copyInvite}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or send via email</span></div>
+              </div>
               <div className="flex gap-2">
-                <code className="flex-1 text-xs bg-muted p-3 rounded-lg break-all">{inviteUrl}</code>
-                <Button variant="outline" size="icon" onClick={copyInvite}>
-                  <Copy className="h-4 w-4" />
+                <Input
+                  type="email"
+                  placeholder="friend@example.com"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  size="icon"
+                  disabled={!inviteEmail || sendInviteEmail.isPending}
+                  onClick={async () => {
+                    try {
+                      await sendInviteEmail.mutateAsync({ tripId, email: inviteEmail });
+                      toast.success(`Invite sent to ${inviteEmail}`);
+                      setInviteEmail("");
+                    } catch {
+                      toast.error("Failed to send invite");
+                    }
+                  }}
+                >
+                  <Send className="h-4 w-4" />
                 </Button>
               </div>
             </div>

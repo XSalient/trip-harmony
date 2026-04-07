@@ -15,6 +15,7 @@ import {
   budgetItems, InsertBudgetItem,
   refereeMessages, InsertRefereeMessage,
   notifications, InsertNotification,
+  magicLinkTokens,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -86,6 +87,29 @@ export async function getUserById(id: number) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+// ---- Magic Link Tokens ----
+export async function createMagicLinkToken(email: string, token: string, expiresAt: Date) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(magicLinkTokens).where(
+    and(eq(magicLinkTokens.email, email), eq(magicLinkTokens.used, false))
+  );
+  await db.insert(magicLinkTokens).values({ token, email, expiresAt });
+}
+
+export async function consumeMagicLinkToken(token: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const now = new Date();
+  const [row] = await db.select().from(magicLinkTokens)
+    .where(and(eq(magicLinkTokens.token, token), eq(magicLinkTokens.used, false)))
+    .limit(1);
+  if (!row) return null;
+  if (row.expiresAt < now) return null;
+  await db.update(magicLinkTokens).set({ used: true }).where(eq(magicLinkTokens.id, row.id));
+  return row;
 }
 
 // ---- Travel DNA ----
@@ -178,6 +202,13 @@ export async function updateMemberStatus(tripId: number, userId: number, status:
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(tripMembers).set({ status }).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+}
+
+export async function getTripMember(tripId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const [row] = await db.select().from(tripMembers).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId))).limit(1);
+  return row;
 }
 
 export async function getTripMembers(tripId: number) {
