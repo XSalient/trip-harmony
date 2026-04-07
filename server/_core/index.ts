@@ -54,7 +54,7 @@ export async function createApp() {
 
 if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
   createApp().then(async ({ server }) => {
-    const preferredPort = parseInt(process.env.PORT || "3000");
+    const preferredPort = parseInt(process.env.PORT || "5000");
     const port = await findAvailablePort(preferredPort);
 
     if (port !== preferredPort) {
