@@ -947,7 +947,7 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
     }),
     addDay: protectedProcedure.input(z.object({
       tripId: z.number(),
-      date: z.string(),
+      date: z.string().min(1, "Date is required"),
       title: z.string().optional(),
       notes: z.string().optional(),
     })).mutation(async ({ input }) => {
