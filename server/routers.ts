@@ -95,7 +95,8 @@ export const appRouter = router({
       }
       if (!user) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to authenticate." });
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
-      const sessionToken = await sdk.createSessionToken(user.openId, { name: user.name || "", expiresInMs: ONE_YEAR_MS });
+      const name = user.name || row.email.split("@")[0] || "User";
+      const sessionToken = await sdk.createSessionToken(user.openId, { name, expiresInMs: ONE_YEAR_MS });
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
       return { success: true };
