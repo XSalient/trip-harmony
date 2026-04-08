@@ -4,205 +4,262 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import AppShell from "@/components/AppShell";
-import { useParams, Link, useLocation } from "wouter";
+import { useParams, Link } from "wouter";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import {
-  Calendar, MapPin, Home as HomeIcon, DollarSign, Users, Share2,
+  Calendar, MapPin, Home as HomeIcon, DollarSign, Users,
   ChevronRight, CheckCircle2, Circle, Bot, Copy, UserPlus,
-  TrendingUp, AlertCircle, ThumbsUp, Heart, Ban, Send
+  Send, Plus, Lock, Check, HelpCircle, X, Sparkles, AlertCircle,
 } from "lucide-react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { format, differenceInDays } from "date-fns";
 
-const phases = [
-  { key: "setup", label: "Setup", icon: Users },
-  { key: "dates", label: "Dates", icon: Calendar },
-  { key: "destination", label: "Destination", icon: MapPin },
-  { key: "accommodation", label: "Stays", icon: HomeIcon },
-  { key: "activities", label: "Activities", icon: Calendar },
-  { key: "finalized", label: "Done", icon: CheckCircle2 },
-];
+function QuickAddDates({ tripId, onAdded }: { tripId: number; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"natural" | "manual">("natural");
+  const [nlText, setNlText] = useState("");
+  const [nlProposals, setNlProposals] = useState<Array<{ startDate: string; endDate: string; label: string }>>([]);
+  const [nlParsing, setNlParsing] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [label, setLabel] = useState("");
+  const parseNatural = trpc.dates.parseNatural.useMutation();
+  const propose = trpc.dates.propose.useMutation();
 
-function RequirementsDashboard({ tripId, members, dateProposals, destinations, accommodations, userId }: {
-  tripId: number;
-  members: any[];
-  dateProposals: any[];
-  destinations: any[];
-  accommodations: any[];
-  userId: number;
-}) {
-  const memberCount = members.filter((m: any) => m.status === "accepted").length || 1;
+  const handleParse = async () => {
+    if (!nlText.trim()) return;
+    setNlParsing(true);
+    try {
+      const result = await parseNatural.mutateAsync({ text: nlText, referenceYear: new Date().getFullYear() });
+      if (result.proposals.length === 0) toast.error("Could not parse — try 'last 2 weekends in September 2026'");
+      else setNlProposals(result.proposals);
+    } catch { toast.error("Failed to parse"); }
+    finally { setNlParsing(false); }
+  };
 
-  // Compute stats for each category
-  const dateStats = useMemo(() => {
-    const total = dateProposals.length;
-    const selected = dateProposals.filter(p => p.selected).length;
-    const fullyVoted = dateProposals.filter(p => (p.votes?.length || 0) >= memberCount).length;
-    const myPending = dateProposals.filter(p => !p.votes?.some((v: any) => v.userId === userId)).length;
-    const selectedProposal = dateProposals.find(p => p.selected);
-    let consensus = 0;
-    if (selectedProposal) {
-      const avail = selectedProposal.votes?.filter((v: any) => v.vote === "available" || v.vote === "maybe").length || 0;
-      consensus = Math.round((avail / memberCount) * 100);
-    } else {
-      // Best performing proposal
-      const best = dateProposals.reduce((best: any, p: any) => {
-        const avail = p.votes?.filter((v: any) => v.vote === "available" || v.vote === "maybe").length || 0;
-        const bestAvail = best?.votes?.filter((v: any) => v.vote === "available" || v.vote === "maybe").length || 0;
-        return avail > bestAvail ? p : best;
-      }, null);
-      if (best) {
-        const avail = best.votes?.filter((v: any) => v.vote === "available" || v.vote === "maybe").length || 0;
-        consensus = Math.round((avail / memberCount) * 100);
-      }
+  const handleAddNl = async (p: { startDate: string; endDate: string; label: string }) => {
+    try {
+      await propose.mutateAsync({ tripId, startDate: p.startDate, endDate: p.endDate, label: p.label });
+      toast.success("Date added!"); onAdded();
+    } catch { toast.error("Failed to add"); }
+  };
+
+  const handleAddAll = async () => {
+    let added = 0;
+    for (const p of nlProposals) {
+      try { await propose.mutateAsync({ tripId, startDate: p.startDate, endDate: p.endDate, label: p.label }); added++; } catch {}
     }
-    return { total, selected, fullyVoted, myPending, consensus, isLocked: selected > 0 };
-  }, [dateProposals, memberCount, userId]);
+    toast.success(`${added} dates added!`); setNlProposals([]); setNlText(""); setOpen(false); onAdded();
+  };
 
-  const destStats = useMemo(() => {
-    const total = destinations.length;
-    const selected = destinations.filter(d => d.selected).length;
-    const vetoed = destinations.filter(d => {
-      const vetos = d.votes?.filter((v: any) => v.vote === "veto").length || 0;
-      return vetos > 0;
-    }).length;
-    const loved = destinations.filter(d => {
-      const loves = d.votes?.filter((v: any) => v.vote === "love").length || 0;
-      return loves >= Math.ceil(memberCount / 2);
-    }).length;
-    const myPending = destinations.filter(d => !d.votes?.some((v: any) => v.userId === userId)).length;
-    const topScore = destinations.reduce((max: number, d: any) => {
-      const score = d.votes?.reduce((s: number, v: any) => s + (v.vote === "love" ? 2 : v.vote === "fine" ? 1 : -3), 0) || 0;
-      return Math.max(max, score);
-    }, 0);
-    return { total, selected, vetoed, loved, myPending, topScore, isLocked: selected > 0 };
-  }, [destinations, memberCount, userId]);
-
-  const accStats = useMemo(() => {
-    const total = accommodations.length;
-    const selected = accommodations.filter(a => a.selected).length;
-    const vetoed = accommodations.filter(a => {
-      const vetos = a.votes?.filter((v: any) => v.vote === "veto").length || 0;
-      return vetos > 0;
-    }).length;
-    const loved = accommodations.filter(a => {
-      const loves = a.votes?.filter((v: any) => v.vote === "love").length || 0;
-      return loves >= Math.ceil(memberCount / 2);
-    }).length;
-    const myPending = accommodations.filter(a => !a.votes?.some((v: any) => v.userId === userId)).length;
-    return { total, selected, vetoed, loved, myPending, isLocked: selected > 0 };
-  }, [accommodations, memberCount, userId]);
-
-  // Overall score: count "met" requirements
-  const metCount = [dateStats.isLocked, destStats.isLocked, accStats.isLocked].filter(Boolean).length;
-  const totalReqs = 3;
-
-  const sections = [
-    {
-      label: "Dates",
-      icon: Calendar,
-      stats: dateStats,
-      items: [
-        { label: "Proposals", value: dateStats.total, suffix: "total" },
-        { label: "Best consensus", value: `${dateStats.consensus}%`, color: dateStats.consensus >= 75 ? "text-green-600" : dateStats.consensus >= 50 ? "text-yellow-600" : "text-red-500" },
-        { label: "Your pending votes", value: dateStats.myPending, color: dateStats.myPending > 0 ? "text-orange-500" : "text-green-600" },
-      ],
-      status: dateStats.isLocked ? "locked" : dateStats.total === 0 ? "empty" : "in-progress",
-    },
-    {
-      label: "Destination",
-      icon: MapPin,
-      stats: destStats,
-      items: [
-        { label: "Options", value: destStats.total, suffix: "total" },
-        { label: "Majority loves", value: destStats.loved, color: destStats.loved > 0 ? "text-green-600" : "text-muted-foreground" },
-        { label: "Have vetoes", value: destStats.vetoed, color: destStats.vetoed > 0 ? "text-red-500" : "text-green-600" },
-        { label: "Your pending votes", value: destStats.myPending, color: destStats.myPending > 0 ? "text-orange-500" : "text-green-600" },
-      ],
-      status: destStats.isLocked ? "locked" : destStats.total === 0 ? "empty" : "in-progress",
-    },
-    {
-      label: "Accommodation",
-      icon: HomeIcon,
-      stats: accStats,
-      items: [
-        { label: "Options", value: accStats.total, suffix: "total" },
-        { label: "Majority loves", value: accStats.loved, color: accStats.loved > 0 ? "text-green-600" : "text-muted-foreground" },
-        { label: "Have vetoes", value: accStats.vetoed, color: accStats.vetoed > 0 ? "text-red-500" : "text-green-600" },
-        { label: "Your pending votes", value: accStats.myPending, color: accStats.myPending > 0 ? "text-orange-500" : "text-green-600" },
-      ],
-      status: accStats.isLocked ? "locked" : accStats.total === 0 ? "empty" : "in-progress",
-    },
-  ];
+  const handleManual = async () => {
+    if (!startDate || !endDate) { toast.error("Both dates required"); return; }
+    try {
+      await propose.mutateAsync({ tripId, startDate, endDate, label: label || undefined });
+      toast.success("Date added!"); setOpen(false); setStartDate(""); setEndDate(""); setLabel(""); onAdded();
+    } catch { toast.error("Failed to add"); }
+  };
 
   return (
-    <div className="space-y-3">
-      {/* Overall summary */}
-      <Card className={`${metCount === totalReqs ? "border-green-300 bg-green-50 dark:bg-green-950/20" : "border-border/50"}`}>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${metCount === totalReqs ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"}`}>
-              <TrendingUp className="h-5 w-5" />
-            </div>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs rounded-lg shrink-0">
+          <Plus className="h-3.5 w-3.5" /> Add
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Add Date Proposal</DialogTitle></DialogHeader>
+        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-2">
+          <button onClick={() => setTab("natural")} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === "natural" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>
+            <span className="flex items-center justify-center gap-1"><Sparkles className="h-3 w-3" /> Smart</span>
+          </button>
+          <button onClick={() => setTab("manual")} className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${tab === "manual" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>
+            Manual
+          </button>
+        </div>
+        {tab === "natural" ? (
+          <div className="space-y-3">
+            <Textarea
+              placeholder="e.g. any of the last 2 weekends in September 2026"
+              value={nlText}
+              onChange={e => setNlText(e.target.value)}
+              rows={3}
+              className="rounded-lg resize-none text-sm"
+            />
+            <Button onClick={handleParse} variant="outline" className="w-full rounded-lg gap-2" disabled={nlParsing}>
+              <Sparkles className="h-4 w-4" />{nlParsing ? "Parsing..." : "Parse Dates"}
+            </Button>
+            {nlProposals.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground font-medium">{nlProposals.length} date{nlProposals.length > 1 ? "s" : ""} found:</p>
+                {nlProposals.map((p, i) => {
+                  const nights = differenceInDays(new Date(p.endDate), new Date(p.startDate));
+                  return (
+                    <div key={i} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-xs">
+                      <div>
+                        <p className="font-medium">{p.label}</p>
+                        <p className="text-muted-foreground">{format(new Date(p.startDate), "EEE, MMM d")} → {format(new Date(p.endDate), "EEE, MMM d, yyyy")} · {nights}n</p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 text-xs rounded-lg px-2 shrink-0 ml-2" onClick={() => handleAddNl(p)} disabled={propose.isPending}>Add</Button>
+                    </div>
+                  );
+                })}
+                <Button onClick={handleAddAll} className="w-full rounded-lg" disabled={propose.isPending}>Add All {nlProposals.length}</Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
             <div>
-              <p className="text-sm font-semibold">Requirements Progress</p>
-              <p className="text-xs text-muted-foreground">{metCount}/{totalReqs} categories agreed</p>
+              <Label className="text-xs">Label (optional)</Label>
+              <Input placeholder="e.g. Spring Break" value={label} onChange={e => setLabel(e.target.value)} className="rounded-lg mt-1" />
             </div>
-            <div className="ml-auto text-2xl font-bold text-primary">{Math.round((metCount / totalReqs) * 100)}%</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Start</Label><Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="rounded-lg mt-1" /></div>
+              <div><Label className="text-xs">End</Label><Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="rounded-lg mt-1" /></div>
+            </div>
+            {startDate && endDate && new Date(endDate) > new Date(startDate) && (
+              <p className="text-xs text-muted-foreground text-center">{differenceInDays(new Date(endDate), new Date(startDate))} nights</p>
+            )}
+            <Button onClick={handleManual} className="w-full rounded-lg" disabled={propose.isPending}>Propose Dates</Button>
           </div>
-          <Progress value={(metCount / totalReqs) * 100} className="h-2" />
-          <div className="flex justify-between mt-2">
-            {sections.map(s => (
-              <div key={s.label} className="flex flex-col items-center gap-1">
-                <div className={`h-6 w-6 rounded-full flex items-center justify-center ${
-                  s.status === "locked" ? "bg-green-100 text-green-600" :
-                  s.status === "empty" ? "bg-muted text-muted-foreground" :
-                  "bg-yellow-100 text-yellow-600"
-                }`}>
-                  {s.status === "locked" ? <CheckCircle2 className="h-3.5 w-3.5" /> :
-                   s.status === "empty" ? <Circle className="h-3.5 w-3.5" /> :
-                   <AlertCircle className="h-3.5 w-3.5" />}
-                </div>
-                <span className="text-[9px] text-muted-foreground">{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
-      {/* Per-category breakdown */}
-      {sections.map(section => (
-        <Card key={section.label} className={`border ${section.status === "locked" ? "border-green-200 bg-green-50/50 dark:bg-green-950/10" : "border-border/50"}`}>
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <section.icon className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{section.label}</span>
-              <div className="ml-auto">
-                {section.status === "locked" && <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300">Agreed</Badge>}
-                {section.status === "empty" && <Badge variant="outline" className="text-[10px]">No proposals</Badge>}
-                {section.status === "in-progress" && <Badge variant="secondary" className="text-[10px]">In progress</Badge>}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-              {section.items.map(item => (
-                <div key={item.label} className="flex justify-between items-center text-xs">
-                  <span className="text-muted-foreground truncate">{item.label}</span>
-                  <span className={`font-medium ml-2 ${item.color || ""}`}>
-                    {item.value}{item.suffix ? ` ${item.suffix}` : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+function QuickAddDestination({ tripId, onAdded }: { tripId: number; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const create = trpc.destinations.create.useMutation();
+
+  const handle = async () => {
+    if (!name.trim()) { toast.error("Name required"); return; }
+    try {
+      await create.mutateAsync({ tripId, name, description: description || undefined });
+      toast.success("Destination added!"); setOpen(false); setName(""); setDescription(""); onAdded();
+    } catch { toast.error("Failed to add"); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs rounded-lg shrink-0">
+          <Plus className="h-3.5 w-3.5" /> Add
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogHeader><DialogTitle>Add Destination</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-1">
+          <div>
+            <Label className="text-xs">Destination name</Label>
+            <Input placeholder="e.g. Barcelona, Spain" value={name} onChange={e => setName(e.target.value)} className="rounded-lg mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Why this place? (optional)</Label>
+            <Textarea placeholder="Vibes, highlights, reasons..." value={description} onChange={e => setDescription(e.target.value)} rows={2} className="rounded-lg mt-1 resize-none text-sm" />
+          </div>
+          <Button onClick={handle} className="w-full rounded-lg" disabled={create.isPending}>Add Destination</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function QuickAddStay({ tripId, onAdded }: { tripId: number; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [link, setLink] = useState("");
+  const [price, setPrice] = useState("");
+  const create = trpc.accommodations.create.useMutation();
+
+  const handle = async () => {
+    if (!name.trim()) { toast.error("Name required"); return; }
+    try {
+      await create.mutateAsync({ tripId, name, link: link || undefined, pricePerNight: price || undefined });
+      toast.success("Stay added!"); setOpen(false); setName(""); setLink(""); setPrice(""); onAdded();
+    } catch { toast.error("Failed to add"); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="gap-1 h-8 text-xs rounded-lg shrink-0">
+          <Plus className="h-3.5 w-3.5" /> Add
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogHeader><DialogTitle>Add Accommodation</DialogTitle></DialogHeader>
+        <div className="space-y-3 pt-1">
+          <div>
+            <Label className="text-xs">Name</Label>
+            <Input placeholder="e.g. Airbnb Eixample" value={name} onChange={e => setName(e.target.value)} className="rounded-lg mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Listing link (optional)</Label>
+            <Input placeholder="https://airbnb.com/..." value={link} onChange={e => setLink(e.target.value)} className="rounded-lg mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs">Price per night (optional)</Label>
+            <Input placeholder="120" value={price} onChange={e => setPrice(e.target.value)} type="number" className="rounded-lg mt-1" />
+          </div>
+          <Button onClick={handle} className="w-full rounded-lg" disabled={create.isPending}>Add Stay</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SectionCard({
+  title, icon: Icon, href, locked, pendingCount, addSlot, children, emptyText,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  locked?: boolean;
+  pendingCount?: number;
+  addSlot: React.ReactNode;
+  children?: React.ReactNode;
+  emptyText: string;
+}) {
+  return (
+    <Card className={`border ${locked ? "border-green-200 bg-green-50/40 dark:bg-green-950/10" : "border-border/50"}`}>
+      <CardContent className="p-0">
+        <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${locked ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"}`}>
+            {locked ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+          </div>
+          <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium">{title}</span>
+            {locked && <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 px-1.5">Decided</Badge>}
+            {!locked && pendingCount && pendingCount > 0 ? (
+              <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 px-1.5">{pendingCount} to vote</Badge>
+            ) : null}
+          </div>
+          {addSlot}
+        </div>
+        {children ? (
+          <div className="px-3 pb-2 space-y-1.5">{children}</div>
+        ) : (
+          <p className="px-3 pb-3 text-xs text-muted-foreground">{emptyText}</p>
+        )}
+        <Link href={href}>
+          <div className="flex items-center justify-between px-3 py-2.5 border-t border-border/30 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors cursor-pointer rounded-b-xl">
+            <span>View all &amp; vote</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </div>
+        </Link>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -210,24 +267,20 @@ export default function TripDashboard() {
   const { user } = useAuth({ redirectOnUnauthenticated: true });
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
-  const [, navigate] = useLocation();
 
   const { data: trip, isLoading } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
   const { data: members } = trpc.trips.members.useQuery({ tripId }, { enabled: tripId > 0 });
   const { data: budgetSummary } = trpc.budget.summary.useQuery({ tripId }, { enabled: tripId > 0 });
-  const { data: destinations } = trpc.destinations.list.useQuery({ tripId }, { enabled: tripId > 0 });
-  const { data: accommodations } = trpc.accommodations.list.useQuery({ tripId }, { enabled: tripId > 0 });
-  const { data: dateProposals } = trpc.dates.list.useQuery({ tripId }, { enabled: tripId > 0 });
-  const updateTrip = trpc.trips.update.useMutation();
-  const utils = trpc.useUtils();
+  const { data: destinations, refetch: refetchDest } = trpc.destinations.list.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: accommodations, refetch: refetchAcc } = trpc.accommodations.list.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: dateProposals, refetch: refetchDates } = trpc.dates.list.useQuery({ tripId }, { enabled: tripId > 0 });
+  const voteDateMutation = trpc.dates.vote.useMutation();
+  const voteDestMutation = trpc.destinations.vote.useMutation();
+  const voteAccMutation = trpc.accommodations.vote.useMutation();
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [showRequirements, setShowRequirements] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const sendInviteEmail = trpc.trips.sendInviteEmail.useMutation();
-
-  const phaseIndex = useMemo(() => phases.findIndex(p => p.key === trip?.phase), [trip?.phase]);
-  const progress = useMemo(() => ((phaseIndex + 1) / phases.length) * 100, [phaseIndex]);
 
   const inviteUrl = useMemo(() => {
     if (!trip?.inviteCode) return "";
@@ -239,26 +292,11 @@ export default function TripDashboard() {
     toast.success("Invite link copied!");
   };
 
-  const advancePhase = async () => {
-    if (!trip) return;
-    const nextIndex = phaseIndex + 1;
-    if (nextIndex >= phases.length) return;
-    try {
-      await updateTrip.mutateAsync({ id: tripId, phase: phases[nextIndex].key as any });
-      utils.trips.get.invalidate({ id: tripId });
-      toast.success(`Advanced to ${phases[nextIndex].label} phase!`);
-    } catch {
-      toast.error("Failed to advance phase");
-    }
-  };
-
   if (isLoading) {
     return (
       <AppShell title="Trip" showBack backHref="/">
         <div className="p-4 space-y-4">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-20 rounded-xl" />
-          <Skeleton className="h-20 rounded-xl" />
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
       </AppShell>
     );
@@ -274,21 +312,44 @@ export default function TripDashboard() {
     );
   }
 
-  const isOrganizer = trip.organizerId === user?.id;
   const acceptedMembers = members?.filter((m: any) => m.status === "accepted") || [];
+  const memberCount = acceptedMembers.length || 1;
+
   const pendingVotes = {
-    dates: dateProposals?.filter((d: any) => !d.votes?.some((v: any) => v.userId === user?.id)).length || 0,
-    destinations: destinations?.filter((d: any) => !d.votes?.some((v: any) => v.userId === user?.id)).length || 0,
-    accommodations: accommodations?.filter((a: any) => !a.votes?.some((v: any) => v.userId === user?.id)).length || 0,
+    dates: dateProposals?.filter((d: any) => !d.selected && !d.votes?.some((v: any) => v.userId === user?.id)).length || 0,
+    destinations: destinations?.filter((d: any) => !d.selected && !d.votes?.some((v: any) => v.userId === user?.id)).length || 0,
+    accommodations: accommodations?.filter((a: any) => !a.selected && !a.votes?.some((v: any) => v.userId === user?.id)).length || 0,
   };
   const totalPending = pendingVotes.dates + pendingVotes.destinations + pendingVotes.accommodations;
 
-  // Count agreed items
-  const agreedCount = [
-    dateProposals?.some((d: any) => d.selected),
-    destinations?.some((d: any) => d.selected),
-    accommodations?.some((a: any) => a.selected),
-  ].filter(Boolean).length;
+  const lockedDate = dateProposals?.find((d: any) => d.selected);
+  const lockedDest = destinations?.find((d: any) => d.selected);
+  const lockedAcc = accommodations?.find((a: any) => a.selected);
+
+  const handleDateVote = async (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
+    try {
+      await voteDateMutation.mutateAsync({ proposalId, vote });
+      refetchDates();
+    } catch { toast.error("Vote failed"); }
+  };
+
+  const handleDestVote = async (destinationId: number, vote: "love" | "fine" | "veto") => {
+    try {
+      await voteDestMutation.mutateAsync({ destinationId, vote });
+      refetchDest();
+    } catch { toast.error("Vote failed"); }
+  };
+
+  const handleAccVote = async (accommodationId: number, vote: "love" | "fine" | "veto") => {
+    try {
+      await voteAccMutation.mutateAsync({ accommodationId, vote });
+      refetchAcc();
+    } catch { toast.error("Vote failed"); }
+  };
+
+  const topDates = dateProposals?.slice(0, 3) || [];
+  const topDests = destinations?.slice(0, 3) || [];
+  const topAccs = accommodations?.slice(0, 3) || [];
 
   return (
     <AppShell
@@ -336,9 +397,7 @@ export default function TripDashboard() {
                       await sendInviteEmail.mutateAsync({ tripId, email: inviteEmail });
                       toast.success(`Invite sent to ${inviteEmail}`);
                       setInviteEmail("");
-                    } catch {
-                      toast.error("Failed to send invite");
-                    }
+                    } catch { toast.error("Failed to send invite"); }
                   }}
                 >
                   <Send className="h-4 w-4" />
@@ -350,101 +409,12 @@ export default function TripDashboard() {
       }
     >
       <div className="px-4 py-4 space-y-4">
-        {/* Phase Progress */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium">Trip Progress</span>
-              <span className="text-xs text-muted-foreground">{phaseIndex + 1}/{phases.length}</span>
-            </div>
-            <Progress value={progress} className="h-2 mb-3" />
-            <div className="flex justify-between">
-              {phases.map((p, i) => (
-                <div key={p.key} className="flex flex-col items-center gap-1">
-                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs ${
-                    i < phaseIndex ? "bg-primary text-primary-foreground" :
-                    i === phaseIndex ? "bg-primary/20 text-primary ring-2 ring-primary" :
-                    "bg-muted text-muted-foreground"
-                  }`}>
-                    {i < phaseIndex ? <CheckCircle2 className="h-4 w-4" /> : <p.icon className="h-3.5 w-3.5" />}
-                  </div>
-                  <span className={`text-[9px] ${i === phaseIndex ? "font-semibold text-primary" : "text-muted-foreground"}`}>{p.label}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Requirements Dashboard Summary Card */}
-        <Card
-          className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
-          onClick={() => setShowRequirements(v => !v)}
-        >
+        {/* Members + decisions row */}
+        <Card className="border-border/50">
           <CardContent className="p-3 flex items-center gap-3">
-            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-              agreedCount === 3 ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"
-            }`}>
-              <TrendingUp className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Requirements</span>
-                <Badge
-                  variant="secondary"
-                  className={`text-[10px] ${agreedCount === 3 ? "bg-green-100 text-green-700" : ""}`}
-                >
-                  {agreedCount}/3 agreed
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {agreedCount === 3 ? "All key decisions made!" :
-                 totalPending > 0 ? `${totalPending} vote${totalPending > 1 ? "s" : ""} needed` :
-                 "Tap to see details"}
-              </p>
-            </div>
-            <ChevronRight className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${showRequirements ? "rotate-90" : ""}`} />
-          </CardContent>
-        </Card>
-
-        {/* Expanded requirements */}
-        {showRequirements && user && (
-          <RequirementsDashboard
-            tripId={tripId}
-            members={acceptedMembers}
-            dateProposals={dateProposals || []}
-            destinations={destinations || []}
-            accommodations={accommodations || []}
-            userId={user.id}
-          />
-        )}
-
-        {/* Pending Votes Alert */}
-        {totalPending > 0 && (
-          <Card className="border-chart-2/30 bg-accent/50">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-chart-2/20 text-chart-2 flex items-center justify-center shrink-0">
-                <Circle className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">You have {totalPending} pending vote{totalPending > 1 ? "s" : ""}</p>
-                <p className="text-xs text-muted-foreground">Your input helps the group decide!</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Members */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Members</span>
-              </div>
-              <Badge variant="secondary" className="text-xs">{acceptedMembers.length}</Badge>
-            </div>
             <div className="flex -space-x-2">
-              {acceptedMembers.slice(0, 8).map((m: any, i: number) => (
+              {acceptedMembers.slice(0, 6).map((m: any) => (
                 <div
                   key={m.id}
                   className="h-8 w-8 rounded-full bg-primary/10 border-2 border-card flex items-center justify-center text-xs font-semibold text-primary"
@@ -453,85 +423,250 @@ export default function TripDashboard() {
                   {(m.user?.name || "?")[0].toUpperCase()}
                 </div>
               ))}
-              {acceptedMembers.length > 8 && (
+              {acceptedMembers.length > 6 && (
                 <div className="h-8 w-8 rounded-full bg-muted border-2 border-card flex items-center justify-center text-xs font-medium text-muted-foreground">
-                  +{acceptedMembers.length - 8}
+                  +{acceptedMembers.length - 6}
                 </div>
               )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{acceptedMembers.length} member{acceptedMembers.length !== 1 ? "s" : ""}</p>
+              <p className="text-xs text-muted-foreground">
+                {[lockedDate && "dates", lockedDest && "destination", lockedAcc && "stay"].filter(Boolean).join(", ") || "Planning in progress"}
+                {[lockedDate, lockedDest, lockedAcc].filter(Boolean).length > 0 ? " decided" : ""}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {[lockedDate, lockedDest, lockedAcc].map((locked, i) => (
+                <div key={i} className={`h-2 w-2 rounded-full ${locked ? "bg-green-500" : "bg-muted-foreground/30"}`} />
+              ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Budget Summary */}
-        {budgetSummary && budgetSummary.total > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Budget</span>
+        {/* Pending votes alert */}
+        {totalPending > 0 && (
+          <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/10">
+            <CardContent className="p-3 flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-orange-500 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                  You have {totalPending} unvoted proposal{totalPending > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400">Scroll down to vote in each section</p>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold">{trip.currency} {budgetSummary.total.toFixed(0)}</span>
-                <span className="text-sm text-muted-foreground">total</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                ~{trip.currency} {budgetSummary.perPerson.toFixed(0)} per person ({budgetSummary.memberCount} members)
-              </p>
-              {budgetSummary.memberBudgets.some((b: any) => b.overBudget) && (
-                <Badge variant="destructive" className="mt-2 text-xs">Some members over budget</Badge>
-              )}
             </CardContent>
           </Card>
         )}
 
-        {/* Quick Navigation */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Planning Phases</h3>
-          {[
-            { href: `/trips/${tripId}/dates`, icon: Calendar, label: "Dates", desc: `${dateProposals?.length || 0} proposals`, pending: pendingVotes.dates, agreed: dateProposals?.some((d: any) => d.selected) },
-            { href: `/trips/${tripId}/destinations`, icon: MapPin, label: "Destinations", desc: `${destinations?.length || 0} options`, pending: pendingVotes.destinations, agreed: destinations?.some((d: any) => d.selected) },
-            { href: `/trips/${tripId}/accommodations`, icon: HomeIcon, label: "Accommodations", desc: `${accommodations?.length || 0} options`, pending: pendingVotes.accommodations, agreed: accommodations?.some((a: any) => a.selected) },
-            { href: `/trips/${tripId}/budget`, icon: DollarSign, label: "Budget", desc: `${budgetSummary?.itemCount || 0} items` },
-            { href: `/trips/${tripId}/referee`, icon: Bot, label: "AI Referee", desc: "Get mediation advice" },
-          ].map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Card className="border-border/50 hover:shadow-sm transition-shadow cursor-pointer">
-                <CardContent className="p-3 flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    item.agreed ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"
-                  }`}>
-                    {item.agreed ? <CheckCircle2 className="h-5 w-5" /> : <item.icon className="h-5 w-5" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{item.label}</span>
-                      {item.pending && item.pending > 0 ? (
-                        <Badge variant="secondary" className="text-[10px] bg-chart-2/10 text-chart-2">{item.pending} to vote</Badge>
-                      ) : item.agreed ? (
-                        <Badge className="text-[10px] bg-green-100 text-green-700 border-green-300">Agreed</Badge>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-muted-foreground">{item.desc}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-
-        {/* Advance Phase (organizer only) */}
-        {isOrganizer && phaseIndex < phases.length - 1 && (
-          <Button
-            variant="outline"
-            className="w-full h-12 rounded-xl border-primary/30 text-primary"
-            onClick={advancePhase}
-            disabled={updateTrip.isPending}
-          >
-            Advance to {phases[phaseIndex + 1]?.label} Phase
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
+        {/* Budget snapshot */}
+        {budgetSummary && budgetSummary.total > 0 && (
+          <Link href={`/trips/${tripId}/budget`}>
+            <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">Budget</p>
+                  <p className="text-xs text-muted-foreground">
+                    {trip.currency} {budgetSummary.total.toFixed(0)} total · ~{trip.currency} {budgetSummary.perPerson.toFixed(0)} per person
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </CardContent>
+            </Card>
+          </Link>
         )}
+
+        {/* ── Dates ── */}
+        <SectionCard
+          title="Dates"
+          icon={Calendar}
+          href={`/trips/${tripId}/dates`}
+          locked={!!lockedDate}
+          pendingCount={pendingVotes.dates}
+          addSlot={<QuickAddDates tripId={tripId} onAdded={() => refetchDates()} />}
+          emptyText="No dates proposed yet — add the first one above!"
+        >
+          {topDates.length > 0 ? topDates.map((p: any) => {
+            const myVote = p.votes?.find((v: any) => v.userId === user?.id)?.vote;
+            const available = p.votes?.filter((v: any) => v.vote === "available").length || 0;
+            const maybe = p.votes?.filter((v: any) => v.vote === "maybe").length || 0;
+            const unavailable = p.votes?.filter((v: any) => v.vote === "unavailable").length || 0;
+            const nights = differenceInDays(new Date(p.endDate), new Date(p.startDate));
+            return (
+              <div key={p.id} className={`rounded-lg border p-2.5 text-xs ${p.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex-1 min-w-0">
+                    {p.label && <span className="font-medium mr-1">{p.label} · </span>}
+                    <span className="text-muted-foreground">{format(new Date(p.startDate), "MMM d")} – {format(new Date(p.endDate), "MMM d, yyyy")} · {nights}n</span>
+                  </div>
+                  {p.selected && <Lock className="h-3.5 w-3.5 text-green-600 shrink-0 ml-1" />}
+                </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-green-600">{available}✓</span>
+                  <span className="text-yellow-600">{maybe}?</span>
+                  <span className="text-red-500">{unavailable}✗</span>
+                  <span className="text-muted-foreground ml-auto">{p.votes?.length || 0}/{memberCount} voted</span>
+                </div>
+                {!p.selected && (
+                  <div className="flex gap-1.5">
+                    {([
+                      { vote: "available" as const, icon: Check, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
+                      { vote: "maybe" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+                      { vote: "unavailable" as const, icon: X, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
+                    ] as const).map(btn => (
+                      <button
+                        key={btn.vote}
+                        onClick={() => handleDateVote(p.id, btn.vote)}
+                        className={`flex-1 flex items-center justify-center gap-1 py-1 rounded border text-[11px] transition-colors ${myVote === btn.vote ? btn.active : "border-border/60 text-muted-foreground hover:border-border"}`}
+                      >
+                        <btn.icon className="h-3 w-3" />{btn.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }) : null}
+        </SectionCard>
+
+        {/* ── Destinations ── */}
+        <SectionCard
+          title="Destinations"
+          icon={MapPin}
+          href={`/trips/${tripId}/destinations`}
+          locked={!!lockedDest}
+          pendingCount={pendingVotes.destinations}
+          addSlot={<QuickAddDestination tripId={tripId} onAdded={() => refetchDest()} />}
+          emptyText="No destinations yet — suggest the first one!"
+        >
+          {topDests.length > 0 ? topDests.map((d: any) => {
+            const myVote = d.votes?.find((v: any) => v.userId === user?.id)?.vote;
+            const loves = d.votes?.filter((v: any) => v.vote === "love").length || 0;
+            const fines = d.votes?.filter((v: any) => v.vote === "fine").length || 0;
+            const vetos = d.votes?.filter((v: any) => v.vote === "veto").length || 0;
+            return (
+              <div key={d.id} className={`rounded-lg border p-2.5 text-xs ${d.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-medium truncate flex-1">{d.name}</span>
+                  {d.selected && <Lock className="h-3.5 w-3.5 text-green-600 shrink-0 ml-1" />}
+                </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-pink-600">{loves}❤</span>
+                  <span className="text-blue-600">{fines}✓</span>
+                  <span className="text-red-500">{vetos}✗</span>
+                  <span className="text-muted-foreground ml-auto">{d.votes?.length || 0}/{memberCount} voted</span>
+                </div>
+                {!d.selected && (
+                  <div className="flex gap-1.5">
+                    {([
+                      { vote: "love" as const, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
+                      { vote: "fine" as const, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
+                      { vote: "veto" as const, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                    ] as const).map(btn => (
+                      <button
+                        key={btn.vote}
+                        onClick={() => handleDestVote(d.id, btn.vote)}
+                        className={`flex-1 py-1 rounded border text-[11px] transition-colors ${myVote === btn.vote ? btn.active : "border-border/60 text-muted-foreground hover:border-border"}`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }) : null}
+        </SectionCard>
+
+        {/* ── Accommodations ── */}
+        <SectionCard
+          title="Stays"
+          icon={HomeIcon}
+          href={`/trips/${tripId}/accommodations`}
+          locked={!!lockedAcc}
+          pendingCount={pendingVotes.accommodations}
+          addSlot={<QuickAddStay tripId={tripId} onAdded={() => refetchAcc()} />}
+          emptyText="No stays suggested yet — add an option!"
+        >
+          {topAccs.length > 0 ? topAccs.map((a: any) => {
+            const myVote = a.votes?.find((v: any) => v.userId === user?.id)?.vote;
+            const loves = a.votes?.filter((v: any) => v.vote === "love").length || 0;
+            const fines = a.votes?.filter((v: any) => v.vote === "fine").length || 0;
+            const vetos = a.votes?.filter((v: any) => v.vote === "veto").length || 0;
+            return (
+              <div key={a.id} className={`rounded-lg border p-2.5 text-xs ${a.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium truncate block">{a.name}</span>
+                    {a.pricePerNight && <span className="text-muted-foreground">{trip.currency}{a.pricePerNight}/night</span>}
+                  </div>
+                  {a.selected && <Lock className="h-3.5 w-3.5 text-green-600 shrink-0 ml-1" />}
+                </div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-pink-600">{loves}❤</span>
+                  <span className="text-blue-600">{fines}✓</span>
+                  <span className="text-red-500">{vetos}✗</span>
+                  <span className="text-muted-foreground ml-auto">{a.votes?.length || 0}/{memberCount} voted</span>
+                </div>
+                {!a.selected && (
+                  <div className="flex gap-1.5">
+                    {([
+                      { vote: "love" as const, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
+                      { vote: "fine" as const, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
+                      { vote: "veto" as const, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                    ] as const).map(btn => (
+                      <button
+                        key={btn.vote}
+                        onClick={() => handleAccVote(a.id, btn.vote)}
+                        className={`flex-1 py-1 rounded border text-[11px] transition-colors ${myVote === btn.vote ? btn.active : "border-border/60 text-muted-foreground hover:border-border"}`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }) : null}
+        </SectionCard>
+
+        {/* ── Budget (no proposals needed, just a link) ── */}
+        {(!budgetSummary || budgetSummary.total === 0) && (
+          <Link href={`/trips/${tripId}/budget`}>
+            <Card className="border-dashed border-border/50 cursor-pointer hover:bg-muted/20 transition-colors">
+              <CardContent className="p-3 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                  <DollarSign className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-muted-foreground">Budget</p>
+                  <p className="text-xs text-muted-foreground">Track expenses and set limits</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        {/* ── AI Referee ── */}
+        <Link href={`/trips/${tripId}/referee`}>
+          <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">AI Referee</p>
+                <p className="text-xs text-muted-foreground">Get mediation &amp; suggestions</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
+
       </div>
     </AppShell>
   );

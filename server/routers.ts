@@ -282,23 +282,35 @@ export const appRouter = router({
       text: z.string().min(1),
       referenceYear: z.number().optional(),
     })).mutation(async ({ input }) => {
-      const year = input.referenceYear || new Date().getFullYear();
+      const today = new Date();
+      const todayStr = today.toISOString().split("T")[0];
+      const year = input.referenceYear || today.getFullYear();
       try {
         const response = await invokeLLM({
           messages: [
             {
               role: "system",
-              content: `You are a date parser for a group trip planning app. Parse natural language date descriptions into specific date ranges. Today's year is ${year}. Return ONLY valid JSON — an array of date proposal objects. Each object must have: startDate (YYYY-MM-DD), endDate (YYYY-MM-DD), label (short descriptive label). If multiple ranges match (e.g. "all weekends in July"), return all of them. Never return more than 8 proposals at once.`,
+              content: `You are a precise date parser for a group trip planning app. Today is ${todayStr}. Default year: ${year}.
+
+RULES:
+- "last N weekends in [month]" = the FINAL N weekends of that month (NOT past weekends relative to today)
+- "first N weekends in [month]" = the FIRST N weekends
+- A weekend = Saturday to Sunday (2 days)
+- Use default year unless a different year is stated
+- Return a raw JSON array — no markdown fences, no wrapper object, no explanation
+- Max 8 proposals
+
+EXAMPLE — "last 2 weekends in September 2026":
+September 2026 weekends: Sep 5-6, Sep 12-13, Sep 19-20, Sep 26-27 → last 2 = Sep 19-20 and Sep 26-27
+Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 19-20"},{"startDate":"2026-09-26","endDate":"2026-09-27","label":"Weekend Sep 26-27"}]`,
             },
             {
               role: "user",
-              content: `Parse this into date proposals: "${input.text}"\n\nReturn JSON array only, no markdown. Example: [{"startDate":"2025-07-05","endDate":"2025-07-06","label":"Weekend 1"},...]`,
+              content: input.text,
             },
           ],
-          responseFormat: { type: "json_object" },
         });
         const raw = (response.choices?.[0]?.message?.content as string) || "[]";
-        // Try to extract JSON array from response
         const match = raw.match(/\[[\s\S]*\]/);
         if (!match) return { proposals: [] };
         const proposals = JSON.parse(match[0]);
