@@ -114,7 +114,7 @@ export default function TripPreferences() {
 
   return (
     <AppShell title="My Trip Preferences" showBack backHref={`/trips/${tripId}`}>
-      <div className="p-4 pb-24 space-y-4 max-w-2xl mx-auto">
+      <div className="p-4 pb-40 space-y-4 max-w-2xl mx-auto">
 
         {/* Header info */}
         <Card className="border-border/50">
@@ -177,8 +177,8 @@ export default function TripPreferences() {
           );
         })}
 
-        {/* Save button */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/90 backdrop-blur border-t border-border/50 z-10">
+        {/* Save button — sits above the bottom nav bar (h-14 = 56px) */}
+        <div className="fixed bottom-14 left-0 right-0 p-4 bg-background/90 backdrop-blur border-t border-border/50 z-10">
           <div className="max-w-2xl mx-auto">
             <Button
               className="w-full"
