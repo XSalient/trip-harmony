@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import {
   Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath,
   DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2,
-  MoreVertical, Pencil, Copy,
+  MoreVertical, Pencil, Copy, HelpCircle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -118,12 +118,27 @@ export default function TripAccommodations() {
     } catch { toast.error("Failed to update"); }
   };
 
-  const handleClone = async (id: number) => {
-    try {
-      await cloneMutation.mutateAsync({ id });
-      utils.accommodations.list.invalidate({ tripId });
-      toast.success("Accommodation cloned");
-    } catch { toast.error("Failed to clone"); }
+  const handleCloneIntoForm = (acc: any) => {
+    setForm({
+      name: acc.name || "",
+      description: acc.description || "",
+      imageUrl: acc.imageUrl || "",
+      pricePerNight: acc.pricePerNight ? String(parseFloat(acc.pricePerNight)) : "",
+      totalPrice: acc.totalPrice ? String(parseFloat(acc.totalPrice)) : "",
+      bedrooms: acc.bedrooms ? String(acc.bedrooms) : "",
+      bathrooms: acc.bathrooms ? String(acc.bathrooms) : "",
+      singleBeds: acc.singleBeds ? String(acc.singleBeds) : "",
+      doubleBeds: acc.doubleBeds ? String(acc.doubleBeds) : "",
+      toilets: acc.toilets ? String(acc.toilets) : "",
+      ensuites: acc.ensuites ? String(acc.ensuites) : "",
+      freeParking: acc.freeParking || false,
+      camperParking: acc.camperParking || false,
+      location: acc.location || "",
+      link: acc.link || "",
+      amenities: acc.amenities || "",
+    });
+    setUrlInput(acc.link || "");
+    setAddOpen(true);
   };
 
   const handleFetchFromUrl = async () => {
@@ -220,7 +235,7 @@ export default function TripAccommodations() {
       setAddOpen(false);
       resetForm();
       toast.success("Accommodation added!");
-    } catch { toast.error("Failed to add"); }
+    } catch (e: any) { toast.error(e?.message || "Failed to add"); }
   };
 
   const handleVote = async (accommodationId: number, vote: "love" | "fine" | "veto") => {
@@ -483,8 +498,8 @@ export default function TripAccommodations() {
                               <DropdownMenuItem onClick={() => openEdit(acc)} className="gap-2">
                                 <Pencil className="h-3.5 w-3.5" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleClone(acc.id)} disabled={cloneMutation.isPending} className="gap-2">
-                                <Copy className="h-3.5 w-3.5" /> Clone
+                              <DropdownMenuItem onClick={() => handleCloneIntoForm(acc)} className="gap-2">
+                                <Copy className="h-3.5 w-3.5" /> Clone & Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDelete(acc.id)} disabled={deleteMutation.isPending} className="gap-2 text-destructive focus:text-destructive">
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -568,9 +583,9 @@ export default function TripAccommodations() {
                     {!acc.selected && (
                       <div className="flex gap-2">
                         {[
-                          { vote: "love" as const, icon: Heart, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
-                          { vote: "fine" as const, icon: ThumbsUp, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
-                          { vote: "veto" as const, icon: Ban, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                          { vote: "love" as const, icon: Heart, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
+                          { vote: "fine" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+                          { vote: "veto" as const, icon: Ban, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
                         ].map(btn => (
                           <Button
                             key={btn.vote}

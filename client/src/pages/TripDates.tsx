@@ -52,7 +52,7 @@ export default function TripDates() {
   const deselectMutation = trpc.dates.deselect.useMutation();
   const deleteMutation = trpc.dates.delete.useMutation();
   const editMutation = trpc.dates.edit.useMutation();
-  const cloneMutation = trpc.dates.clone.useMutation();
+  const cloneMutation = trpc.dates.clone.useMutation(); 
   const parseNaturalMutation = trpc.dates.parseNatural.useMutation();
   const utils = trpc.useUtils();
 
@@ -91,7 +91,7 @@ export default function TripDates() {
       setAddOpen(false);
       setStartDate(""); setEndDate(""); setLabel("");
       toast.success("Date proposed!");
-    } catch { toast.error("Failed to propose dates"); }
+    } catch (e: any) { toast.error(e?.message || "Failed to propose dates"); }
   };
 
   const handleVote = async (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
@@ -142,12 +142,13 @@ export default function TripDates() {
     } catch { toast.error("Failed to update"); }
   };
 
-  const handleClone = async (id: number) => {
-    try {
-      await cloneMutation.mutateAsync({ id });
-      utils.dates.list.invalidate({ tripId });
-      toast.success("Proposal cloned");
-    } catch { toast.error("Failed to clone"); }
+  const handleCloneIntoForm = (p: any) => {
+    setLabel(p.label || "");
+    setStartDate(format(new Date(p.startDate), "yyyy-MM-dd"));
+    setEndDate(format(new Date(p.endDate), "yyyy-MM-dd"));
+    setNlProposals([]);
+    setNlText("");
+    setAddOpen(true);
   };
 
   const handleParseNatural = async () => {
@@ -317,8 +318,8 @@ export default function TripDates() {
                               <DropdownMenuItem onClick={() => openEdit(p)} className="gap-2">
                                 <Pencil className="h-3.5 w-3.5" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleClone(p.id)} disabled={cloneMutation.isPending} className="gap-2">
-                                <Copy className="h-3.5 w-3.5" /> Clone
+                              <DropdownMenuItem onClick={() => handleCloneIntoForm(p)} className="gap-2">
+                                <Copy className="h-3.5 w-3.5" /> Clone & Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDelete(p.id)} disabled={deleteMutation.isPending} className="gap-2 text-destructive focus:text-destructive">
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -347,9 +348,9 @@ export default function TripDates() {
                     {!p.selected && (
                       <div className="flex gap-2">
                         {[
-                          { vote: "available" as const, icon: Check, label: "Available", active: "bg-green-100 text-green-700 border-green-300" },
+                          { vote: "available" as const, icon: Check, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
                           { vote: "maybe" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-                          { vote: "unavailable" as const, icon: X, label: "Can't", active: "bg-red-100 text-red-600 border-red-300" },
+                          { vote: "unavailable" as const, icon: X, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
                         ].map(btn => (
                           <Button key={btn.vote} variant="outline" size="sm" className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`} onClick={() => handleVote(p.id, btn.vote)} disabled={voteMutation.isPending}>
                             <btn.icon className="h-3.5 w-3.5 mr-1" />{btn.label}

@@ -12,7 +12,7 @@ import ProposalComments from "@/components/ProposalComments";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { MapPin, Plus, Heart, ThumbsUp, Ban, CheckCircle2, DollarSign, Trash2, Unlock, MoreVertical, Pencil, Copy } from "lucide-react";
+import { MapPin, Plus, Heart, ThumbsUp, Ban, CheckCircle2, DollarSign, Trash2, Unlock, MoreVertical, Pencil, Copy, HelpCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -79,7 +79,7 @@ export default function TripDestinations() {
       setAddOpen(false);
       setName(""); setDescription(""); setImageUrl(""); setEstimatedCost(""); setSelectedVibes([]);
       toast.success("Destination added!");
-    } catch { toast.error("Failed to add destination"); }
+    } catch (e: any) { toast.error(e?.message || "Failed to add destination"); }
   };
 
   const handleEdit = async () => {
@@ -132,12 +132,13 @@ export default function TripDestinations() {
     }
   };
 
-  const handleClone = async (id: number) => {
-    try {
-      await cloneMutation.mutateAsync({ id });
-      utils.destinations.list.invalidate({ tripId });
-      toast.success("Destination cloned");
-    } catch { toast.error("Failed to clone"); }
+  const handleCloneIntoForm = (dest: any) => {
+    setName(dest.name ? dest.name + " (copy)" : "");
+    setDescription(dest.description || "");
+    setImageUrl(dest.imageUrl || "");
+    setEstimatedCost(dest.estimatedCost ? String(parseFloat(dest.estimatedCost)) : "");
+    setSelectedVibes(dest.vibes ? JSON.parse(dest.vibes) : []);
+    setAddOpen(true);
   };
 
   const getScore = (dest: any) => {
@@ -251,8 +252,8 @@ export default function TripDestinations() {
                               <DropdownMenuItem onClick={() => openEdit(dest)} className="gap-2">
                                 <Pencil className="h-3.5 w-3.5" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleClone(dest.id)} disabled={cloneMutation.isPending} className="gap-2">
-                                <Copy className="h-3.5 w-3.5" /> Clone
+                              <DropdownMenuItem onClick={() => handleCloneIntoForm(dest)} className="gap-2">
+                                <Copy className="h-3.5 w-3.5" /> Clone & Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDelete(dest.id)} disabled={deleteMutation.isPending} className="gap-2 text-destructive focus:text-destructive">
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -285,9 +286,9 @@ export default function TripDestinations() {
                     {!dest.selected && (
                       <div className="flex gap-2">
                         {[
-                          { vote: "love" as const, icon: Heart, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
-                          { vote: "fine" as const, icon: ThumbsUp, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
-                          { vote: "veto" as const, icon: Ban, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                          { vote: "love" as const, icon: Heart, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
+                          { vote: "fine" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+                          { vote: "veto" as const, icon: Ban, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
                         ].map(btn => (
                           <Button key={btn.vote} variant="outline" size="sm" className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`} onClick={() => handleVote(dest.id, btn.vote)} disabled={voteMutation.isPending}>
                             <btn.icon className="h-3.5 w-3.5 mr-1" />{btn.label}

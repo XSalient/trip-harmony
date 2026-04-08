@@ -555,3 +555,22 @@ export async function getComment(id: number) {
   const [row] = await db.select().from(proposalComments).where(eq(proposalComments.id, id)).limit(1);
   return row || null;
 }
+
+export async function getCommentCountsByTrip(tripId: number): Promise<Record<string, number>> {
+  const db = await getDb();
+  if (!db) return {};
+  const counts = await db
+    .select({
+      proposalType: proposalComments.proposalType,
+      proposalId: proposalComments.proposalId,
+      count: sql<number>`count(*)`,
+    })
+    .from(proposalComments)
+    .where(eq(proposalComments.tripId, tripId))
+    .groupBy(proposalComments.proposalType, proposalComments.proposalId);
+  const result: Record<string, number> = {};
+  for (const row of counts) {
+    result[`${row.proposalType}_${row.proposalId}`] = Number(row.count);
+  }
+  return result;
+}

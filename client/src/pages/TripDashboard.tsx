@@ -12,10 +12,12 @@ import {
   Calendar, MapPin, Home as HomeIcon, DollarSign, Users,
   ChevronRight, CheckCircle2, Circle, Bot, Copy, UserPlus,
   Send, Plus, Lock, Check, HelpCircle, X, Sparkles, AlertCircle,
+  MessageCircle, MoreVertical, Pencil, Trash2,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -254,7 +256,7 @@ function SectionCard({
         )}
         <Link href={href}>
           <div className="flex items-center justify-between px-3 py-2.5 border-t border-border/30 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors cursor-pointer rounded-b-xl">
-            <span>View all &amp; vote</span>
+            <span>View all details</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </div>
         </Link>
@@ -277,8 +279,50 @@ export default function TripDashboard() {
   const voteDateMutation = trpc.dates.vote.useMutation();
   const voteDestMutation = trpc.destinations.vote.useMutation();
   const voteAccMutation = trpc.accommodations.vote.useMutation();
+  const deleteDateMutation = trpc.dates.delete.useMutation();
+  const deleteDestMutation = trpc.destinations.delete.useMutation();
+  const deleteAccMutation = trpc.accommodations.delete.useMutation();
+  const editDateMutation = trpc.dates.edit.useMutation();
+  const editDestMutation = trpc.destinations.edit.useMutation();
+  const editAccMutation = trpc.accommodations.edit.useMutation();
+  const proposeDateMutation = trpc.dates.propose.useMutation();
+  const createDestMutation = trpc.destinations.create.useMutation();
+  const createAccMutation = trpc.accommodations.create.useMutation();
+  const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery({ tripId }, { enabled: tripId > 0 });
+
+  const isOrganizer = trip?.organizerId === user?.id;
 
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  const [cloneDateOpen, setCloneDateOpen] = useState(false);
+  const [cloneDestOpen, setCloneDestOpen] = useState(false);
+  const [cloneAccOpen, setCloneAccOpen] = useState(false);
+  const [cloningDate, setCloningDate] = useState<any>(null);
+  const [cloningDest, setCloningDest] = useState<any>(null);
+  const [cloningAcc, setCloningAcc] = useState<any>(null);
+
+  const [editDateOpen, setEditDateOpen] = useState(false);
+  const [editDestOpen, setEditDestOpen] = useState(false);
+  const [editAccOpen, setEditAccOpen] = useState(false);
+  const [editingDate, setEditingDate] = useState<any>(null);
+  const [editingDest, setEditingDest] = useState<any>(null);
+  const [editingAcc, setEditingAcc] = useState<any>(null);
+  const [editDateLabel, setEditDateLabel] = useState("");
+  const [editDateStart, setEditDateStart] = useState("");
+  const [editDateEnd, setEditDateEnd] = useState("");
+  const [editDestName, setEditDestName] = useState("");
+  const [editDestDesc, setEditDestDesc] = useState("");
+  const [editAccName, setEditAccName] = useState("");
+  const [editAccPrice, setEditAccPrice] = useState("");
+
+  const [cloneDateLabel, setCloneDateLabel] = useState("");
+  const [cloneDateStart, setCloneDateStart] = useState("");
+  const [cloneDateEnd, setCloneDateEnd] = useState("");
+  const [cloneDestName, setCloneDestName] = useState("");
+  const [cloneDestDesc, setCloneDestDesc] = useState("");
+  const [cloneAccName, setCloneAccName] = useState("");
+  const [cloneAccLink, setCloneAccLink] = useState("");
+  const [cloneAccPrice, setCloneAccPrice] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const sendInviteEmail = trpc.trips.sendInviteEmail.useMutation();
 
@@ -345,6 +389,104 @@ export default function TripDashboard() {
       await voteAccMutation.mutateAsync({ accommodationId, vote });
       refetchAcc();
     } catch { toast.error("Vote failed"); }
+  };
+
+  const openEditDate = (p: any) => {
+    setEditingDate(p);
+    setEditDateLabel(p.label || "");
+    setEditDateStart(format(new Date(p.startDate), "yyyy-MM-dd"));
+    setEditDateEnd(format(new Date(p.endDate), "yyyy-MM-dd"));
+    setEditDateOpen(true);
+  };
+  const openEditDest = (d: any) => {
+    setEditingDest(d);
+    setEditDestName(d.name || "");
+    setEditDestDesc(d.description || "");
+    setEditDestOpen(true);
+  };
+  const openEditAcc = (a: any) => {
+    setEditingAcc(a);
+    setEditAccName(a.name || "");
+    setEditAccPrice(a.pricePerNight ? String(parseFloat(a.pricePerNight)) : "");
+    setEditAccOpen(true);
+  };
+
+  const openCloneDate = (p: any) => {
+    setCloningDate(p);
+    setCloneDateLabel(p.label || "");
+    setCloneDateStart(format(new Date(p.startDate), "yyyy-MM-dd"));
+    setCloneDateEnd(format(new Date(p.endDate), "yyyy-MM-dd"));
+    setCloneDateOpen(true);
+  };
+  const openCloneDest = (d: any) => {
+    setCloningDest(d);
+    setCloneDestName((d.name || "") + " (copy)");
+    setCloneDestDesc(d.description || "");
+    setCloneDestOpen(true);
+  };
+  const openCloneAcc = (a: any) => {
+    setCloningAcc(a);
+    setCloneAccName(a.name || "");
+    setCloneAccLink(a.link || "");
+    setCloneAccPrice(a.pricePerNight ? String(parseFloat(a.pricePerNight)) : "");
+    setCloneAccOpen(true);
+  };
+
+  const handleDeleteDate = async (id: number) => {
+    try { await deleteDateMutation.mutateAsync({ id }); refetchDates(); toast.success("Removed"); }
+    catch (e: any) { toast.error(e?.message || "Failed to delete"); }
+  };
+  const handleDeleteDest = async (id: number) => {
+    try { await deleteDestMutation.mutateAsync({ id }); refetchDest(); toast.success("Removed"); }
+    catch (e: any) { toast.error(e?.message || "Failed to delete"); }
+  };
+  const handleDeleteAcc = async (id: number) => {
+    try { await deleteAccMutation.mutateAsync({ id }); refetchAcc(); toast.success("Removed"); }
+    catch (e: any) { toast.error(e?.message || "Failed to delete"); }
+  };
+
+  const handleSaveEditDate = async () => {
+    if (!editingDate) return;
+    try {
+      await editDateMutation.mutateAsync({ id: editingDate.id, label: editDateLabel || undefined, startDate: editDateStart || undefined, endDate: editDateEnd || undefined });
+      refetchDates(); setEditDateOpen(false); toast.success("Updated");
+    } catch { toast.error("Failed to update"); }
+  };
+  const handleSaveEditDest = async () => {
+    if (!editingDest) return;
+    try {
+      await editDestMutation.mutateAsync({ id: editingDest.id, name: editDestName || undefined, description: editDestDesc || undefined });
+      refetchDest(); setEditDestOpen(false); toast.success("Updated");
+    } catch { toast.error("Failed to update"); }
+  };
+  const handleSaveEditAcc = async () => {
+    if (!editingAcc) return;
+    try {
+      await editAccMutation.mutateAsync({ id: editingAcc.id, name: editAccName || undefined, pricePerNight: editAccPrice || undefined });
+      refetchAcc(); setEditAccOpen(false); toast.success("Updated");
+    } catch { toast.error("Failed to update"); }
+  };
+
+  const handleSaveCloneDate = async () => {
+    if (!cloneDateStart || !cloneDateEnd) { toast.error("Both dates are required"); return; }
+    try {
+      await proposeDateMutation.mutateAsync({ tripId, startDate: cloneDateStart, endDate: cloneDateEnd, label: cloneDateLabel || undefined });
+      refetchDates(); setCloneDateOpen(false); toast.success("Cloned!");
+    } catch (e: any) { toast.error(e?.message || "Failed to clone"); }
+  };
+  const handleSaveCloneDest = async () => {
+    if (!cloneDestName.trim()) { toast.error("Name is required"); return; }
+    try {
+      await createDestMutation.mutateAsync({ tripId, name: cloneDestName, description: cloneDestDesc || undefined });
+      refetchDest(); setCloneDestOpen(false); toast.success("Cloned!");
+    } catch (e: any) { toast.error(e?.message || "Failed to clone"); }
+  };
+  const handleSaveCloneAcc = async () => {
+    if (!cloneAccName.trim()) { toast.error("Name is required"); return; }
+    try {
+      await createAccMutation.mutateAsync({ tripId, name: cloneAccName, link: cloneAccLink || undefined, pricePerNight: cloneAccPrice || undefined });
+      refetchAcc(); setCloneAccOpen(false); toast.success("Cloned!");
+    } catch (e: any) { toast.error(e?.message || "Failed to clone"); }
   };
 
   const topDates = dateProposals?.slice(0, 3) || [];
@@ -495,6 +637,8 @@ export default function TripDashboard() {
             const maybe = p.votes?.filter((v: any) => v.vote === "maybe").length || 0;
             const unavailable = p.votes?.filter((v: any) => v.vote === "unavailable").length || 0;
             const nights = differenceInDays(new Date(p.endDate), new Date(p.startDate));
+            const commentCount = (commentCounts as any)[`date_${p.id}`] || 0;
+            const canManage = p.proposedBy === user?.id || isOrganizer;
             return (
               <div key={p.id} className={`rounded-lg border p-2.5 text-xs ${p.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
                 <div className="flex items-center justify-between mb-1.5">
@@ -502,7 +646,22 @@ export default function TripDashboard() {
                     {p.label && <span className="font-medium mr-1">{p.label} · </span>}
                     <span className="text-muted-foreground">{format(new Date(p.startDate), "MMM d")} – {format(new Date(p.endDate), "MMM d, yyyy")} · {nights}n</span>
                   </div>
-                  {p.selected && <Lock className="h-3.5 w-3.5 text-green-600 shrink-0 ml-1" />}
+                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                    {p.selected && <Lock className="h-3.5 w-3.5 text-green-600" />}
+                    {commentCount > 0 && <span className="flex items-center gap-0.5 text-muted-foreground"><MessageCircle className="h-3 w-3" />{commentCount}</span>}
+                    {canManage && !p.selected && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><MoreVertical className="h-3.5 w-3.5" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="text-xs">
+                          <DropdownMenuItem onClick={() => openEditDate(p)} className="gap-2 text-xs"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openCloneDate(p)} className="gap-2 text-xs"><Copy className="h-3 w-3" /> Clone & Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteDate(p.id)} className="gap-2 text-xs text-destructive focus:text-destructive"><Trash2 className="h-3 w-3" /> Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-green-600">{available}✓</span>
@@ -547,11 +706,28 @@ export default function TripDashboard() {
             const loves = d.votes?.filter((v: any) => v.vote === "love").length || 0;
             const fines = d.votes?.filter((v: any) => v.vote === "fine").length || 0;
             const vetos = d.votes?.filter((v: any) => v.vote === "veto").length || 0;
+            const commentCount = (commentCounts as any)[`destination_${d.id}`] || 0;
+            const canManage = d.proposedBy === user?.id || isOrganizer;
             return (
               <div key={d.id} className={`rounded-lg border p-2.5 text-xs ${d.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-medium truncate flex-1">{d.name}</span>
-                  {d.selected && <Lock className="h-3.5 w-3.5 text-green-600 shrink-0 ml-1" />}
+                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                    {d.selected && <Lock className="h-3.5 w-3.5 text-green-600" />}
+                    {commentCount > 0 && <span className="flex items-center gap-0.5 text-muted-foreground"><MessageCircle className="h-3 w-3" />{commentCount}</span>}
+                    {canManage && !d.selected && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><MoreVertical className="h-3.5 w-3.5" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="text-xs">
+                          <DropdownMenuItem onClick={() => openEditDest(d)} className="gap-2 text-xs"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openCloneDest(d)} className="gap-2 text-xs"><Copy className="h-3 w-3" /> Clone & Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteDest(d.id)} className="gap-2 text-xs text-destructive focus:text-destructive"><Trash2 className="h-3 w-3" /> Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-pink-600">{loves}❤</span>
@@ -562,9 +738,9 @@ export default function TripDashboard() {
                 {!d.selected && (
                   <div className="flex gap-1.5">
                     {([
-                      { vote: "love" as const, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
-                      { vote: "fine" as const, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
-                      { vote: "veto" as const, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                      { vote: "love" as const, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
+                      { vote: "fine" as const, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+                      { vote: "veto" as const, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
                     ] as const).map(btn => (
                       <button
                         key={btn.vote}
@@ -596,6 +772,8 @@ export default function TripDashboard() {
             const loves = a.votes?.filter((v: any) => v.vote === "love").length || 0;
             const fines = a.votes?.filter((v: any) => v.vote === "fine").length || 0;
             const vetos = a.votes?.filter((v: any) => v.vote === "veto").length || 0;
+            const commentCount = (commentCounts as any)[`accommodation_${a.id}`] || 0;
+            const canManage = a.proposedBy === user?.id || isOrganizer;
             return (
               <div key={a.id} className={`rounded-lg border p-2.5 text-xs ${a.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
                 <div className="flex items-center justify-between mb-1.5">
@@ -603,7 +781,22 @@ export default function TripDashboard() {
                     <span className="font-medium truncate block">{a.name}</span>
                     {a.pricePerNight && <span className="text-muted-foreground">{trip.currency}{a.pricePerNight}/night</span>}
                   </div>
-                  {a.selected && <Lock className="h-3.5 w-3.5 text-green-600 shrink-0 ml-1" />}
+                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                    {a.selected && <Lock className="h-3.5 w-3.5 text-green-600" />}
+                    {commentCount > 0 && <span className="flex items-center gap-0.5 text-muted-foreground"><MessageCircle className="h-3 w-3" />{commentCount}</span>}
+                    {canManage && !a.selected && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"><MoreVertical className="h-3.5 w-3.5" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="text-xs">
+                          <DropdownMenuItem onClick={() => openEditAcc(a)} className="gap-2 text-xs"><Pencil className="h-3 w-3" /> Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openCloneAcc(a)} className="gap-2 text-xs"><Copy className="h-3 w-3" /> Clone & Edit</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDeleteAcc(a.id)} className="gap-2 text-xs text-destructive focus:text-destructive"><Trash2 className="h-3 w-3" /> Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-pink-600">{loves}❤</span>
@@ -614,9 +807,9 @@ export default function TripDashboard() {
                 {!a.selected && (
                   <div className="flex gap-1.5">
                     {([
-                      { vote: "love" as const, label: "Love", active: "bg-pink-100 text-pink-700 border-pink-300" },
-                      { vote: "fine" as const, label: "Fine", active: "bg-blue-100 text-blue-700 border-blue-300" },
-                      { vote: "veto" as const, label: "Veto", active: "bg-red-100 text-red-600 border-red-300" },
+                      { vote: "love" as const, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
+                      { vote: "fine" as const, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
+                      { vote: "veto" as const, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
                     ] as const).map(btn => (
                       <button
                         key={btn.vote}
@@ -668,6 +861,84 @@ export default function TripDashboard() {
         </Link>
 
       </div>
+
+      {/* ── Edit Dialogs ── */}
+      <Dialog open={editDateOpen} onOpenChange={setEditDateOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Edit Date Proposal</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div><Label className="text-xs">Label (optional)</Label><Input value={editDateLabel} onChange={e => setEditDateLabel(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Start</Label><Input type="date" value={editDateStart} onChange={e => setEditDateStart(e.target.value)} className="rounded-lg mt-1" /></div>
+              <div><Label className="text-xs">End</Label><Input type="date" value={editDateEnd} onChange={e => setEditDateEnd(e.target.value)} className="rounded-lg mt-1" /></div>
+            </div>
+            <Button onClick={handleSaveEditDate} className="w-full rounded-lg" disabled={editDateMutation.isPending}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editDestOpen} onOpenChange={setEditDestOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Edit Destination</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div><Label className="text-xs">Name</Label><Input value={editDestName} onChange={e => setEditDestName(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div><Label className="text-xs">Description (optional)</Label><Textarea value={editDestDesc} onChange={e => setEditDestDesc(e.target.value)} rows={2} className="rounded-lg mt-1 resize-none text-sm" /></div>
+            <Button onClick={handleSaveEditDest} className="w-full rounded-lg" disabled={editDestMutation.isPending}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editAccOpen} onOpenChange={setEditAccOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Edit Accommodation</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div><Label className="text-xs">Name</Label><Input value={editAccName} onChange={e => setEditAccName(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div><Label className="text-xs">Price/night (optional)</Label><Input type="number" value={editAccPrice} onChange={e => setEditAccPrice(e.target.value)} className="rounded-lg mt-1" /></div>
+            <Button onClick={handleSaveEditAcc} className="w-full rounded-lg" disabled={editAccMutation.isPending}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Clone & Edit Dialogs ── */}
+      <Dialog open={cloneDateOpen} onOpenChange={setCloneDateOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Clone Date Proposal</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div><Label className="text-xs">Label (optional)</Label><Input value={cloneDateLabel} onChange={e => setCloneDateLabel(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label className="text-xs">Start</Label><Input type="date" value={cloneDateStart} onChange={e => setCloneDateStart(e.target.value)} className="rounded-lg mt-1" /></div>
+              <div><Label className="text-xs">End</Label><Input type="date" value={cloneDateEnd} onChange={e => setCloneDateEnd(e.target.value)} className="rounded-lg mt-1" /></div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">Change at least one field to avoid duplicates.</p>
+            <Button onClick={handleSaveCloneDate} className="w-full rounded-lg" disabled={proposeDateMutation.isPending}>Save as New Proposal</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cloneDestOpen} onOpenChange={setCloneDestOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Clone Destination</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div><Label className="text-xs">Name</Label><Input value={cloneDestName} onChange={e => setCloneDestName(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div><Label className="text-xs">Description (optional)</Label><Textarea value={cloneDestDesc} onChange={e => setCloneDestDesc(e.target.value)} rows={2} className="rounded-lg mt-1 resize-none text-sm" /></div>
+            <p className="text-[11px] text-muted-foreground">Change the name to avoid duplicates.</p>
+            <Button onClick={handleSaveCloneDest} className="w-full rounded-lg" disabled={createDestMutation.isPending}>Save as New Proposal</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cloneAccOpen} onOpenChange={setCloneAccOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Clone Accommodation</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div><Label className="text-xs">Name</Label><Input value={cloneAccName} onChange={e => setCloneAccName(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div><Label className="text-xs">Booking link (optional)</Label><Input value={cloneAccLink} onChange={e => setCloneAccLink(e.target.value)} className="rounded-lg mt-1" /></div>
+            <div><Label className="text-xs">Price/night (optional)</Label><Input type="number" value={cloneAccPrice} onChange={e => setCloneAccPrice(e.target.value)} className="rounded-lg mt-1" /></div>
+            <p className="text-[11px] text-muted-foreground">Change at least one field to avoid duplicates.</p>
+            <Button onClick={handleSaveCloneAcc} className="w-full rounded-lg" disabled={createAccMutation.isPending}>Save as New Proposal</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

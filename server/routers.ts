@@ -245,6 +245,13 @@ export const appRouter = router({
       endDate: z.string(),
       label: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
+      const normalizeDate = (d: string | Date) => new Date(d).toISOString().split("T")[0];
+      const existing = await db.getDateProposals(input.tripId);
+      const duplicate = existing.find(p =>
+        normalizeDate(p.startDate) === normalizeDate(input.startDate) &&
+        normalizeDate(p.endDate) === normalizeDate(input.endDate)
+      );
+      if (duplicate) throw new TRPCError({ code: "CONFLICT", message: "A proposal with these exact dates already exists." });
       const id = await db.createDateProposal({
         tripId: input.tripId,
         proposedBy: ctx.user.id,
@@ -384,6 +391,9 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
       vibes: z.string().optional(),
       estimatedCost: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
+      const existing = await db.getDestinations(input.tripId);
+      const duplicate = existing.find(d => d.name.trim().toLowerCase() === input.name.trim().toLowerCase());
+      if (duplicate) throw new TRPCError({ code: "CONFLICT", message: "A destination with this name already exists." });
       const id = await db.createDestination({
         ...input,
         proposedBy: ctx.user.id,
@@ -489,6 +499,15 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
       location: z.string().optional(),
       link: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
+      const normalize = (s: string | undefined) => (s || "").trim().toLowerCase();
+      const existingAccs = await db.getAccommodations(input.tripId);
+      const dupAcc = existingAccs.find(a =>
+        normalize(a.name) === normalize(input.name) &&
+        normalize(a.description ?? undefined) === normalize(input.description) &&
+        normalize(a.location ?? undefined) === normalize(input.location) &&
+        normalize(a.link ?? undefined) === normalize(input.link)
+      );
+      if (dupAcc) throw new TRPCError({ code: "CONFLICT", message: "An identical accommodation already exists. Please change at least one field." });
       // Calculate per-person cost
       const members = await db.getTripMembers(input.tripId);
       const memberCount = members.filter(m => m.status === "accepted").length || 1;
@@ -828,6 +847,9 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
 
   // ---- Proposal Comments ----
   comments: router({
+    countsByTrip: protectedProcedure.input(z.object({ tripId: z.number() })).query(async ({ input }) => {
+      return db.getCommentCountsByTrip(input.tripId);
+    }),
     list: protectedProcedure.input(z.object({
       proposalType: z.enum(["date", "destination", "accommodation"]),
       proposalId: z.number(),
