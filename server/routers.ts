@@ -76,7 +76,8 @@ export const appRouter = router({
       const token = crypto.randomBytes(48).toString("hex");
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       await db.createMagicLinkToken(input.email, token, expiresAt);
-      const origin = `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
+      const origin = `${proto}://${ctx.req.get("host")}`;
       const magicUrl = `${origin}/auth/magic/${token}`;
       await sendMagicLinkEmail(input.email, magicUrl);
       const isDev = process.env.NODE_ENV === "development";
@@ -146,7 +147,8 @@ export const appRouter = router({
       if (!trip) throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
       const member = await db.getTripMember(input.tripId, ctx.user.id);
       if (!member) throw new TRPCError({ code: "FORBIDDEN", message: "You are not a member of this trip." });
-      const origin = `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
+      const origin = `${proto}://${ctx.req.get("host")}`;
       const inviteUrl = `${origin}/join/${trip.inviteCode}`;
       await sendTripInviteEmail(input.email, ctx.user.name || "Someone", trip.name, inviteUrl);
       return { success: true };

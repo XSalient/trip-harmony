@@ -36,7 +36,7 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
-  const [mode, setMode] = useState<"login" | "register" | "magic">("login");
+  const [mode, setMode] = useState<"login" | "register" | "magic">("magic");
   const [serverError, setServerError] = useState<string | null>(null);
   const [magicSent, setMagicSent] = useState(false);
   const [magicDebugUrl, setMagicDebugUrl] = useState<string | null>(null);
