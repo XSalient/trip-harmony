@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
   Calendar, Plus, Check, X, HelpCircle, CheckCircle2, Trash2, Sparkles, Lock, Unlock,
-  MoreVertical, Pencil, Copy,
+  MoreVertical, Pencil, Copy, MessageCircle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,8 +46,10 @@ export default function TripDates() {
   const { data: proposals, isLoading } = trpc.dates.list.useQuery({ tripId }, { enabled: tripId > 0 });
   const { data: trip } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
   const { data: members } = trpc.trips.members.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery({ tripId }, { enabled: tripId > 0 });
   const proposeMutation = trpc.dates.propose.useMutation();
   const voteMutation = trpc.dates.vote.useMutation();
+  const unvoteMutation = trpc.dates.unvote.useMutation();
   const selectMutation = trpc.dates.select.useMutation();
   const deselectMutation = trpc.dates.deselect.useMutation();
   const deleteMutation = trpc.dates.delete.useMutation();
@@ -94,11 +96,24 @@ export default function TripDates() {
     } catch (e: any) { toast.error(e?.message || "Failed to propose dates"); }
   };
 
-  const handleVote = async (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
-    try {
-      await voteMutation.mutateAsync({ proposalId, vote });
-      utils.dates.list.invalidate({ tripId });
-    } catch { toast.error("Failed to vote"); }
+  const handleVote = (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
+    const currentVote = proposals?.find((p: any) => p.id === proposalId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+    const isUnvote = currentVote === vote;
+    utils.dates.list.setData({ tripId }, (old: any) => {
+      if (!old) return old;
+      return old.map((p: any) => {
+        if (p.id !== proposalId) return p;
+        const filtered = p.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return { ...p, votes: isUnvote ? filtered : [...filtered, { userId: user?.id, vote, user: { id: user?.id, name: user?.name } }] };
+      });
+    });
+    const onError = () => { utils.dates.list.invalidate({ tripId }); toast.error("Failed to vote"); };
+    const onSuccess = () => { utils.dates.list.invalidate({ tripId }); };
+    if (isUnvote) {
+      unvoteMutation.mutate({ proposalId }, { onError, onSuccess });
+    } else {
+      voteMutation.mutate({ proposalId, vote }, { onError, onSuccess });
+    }
   };
 
   const handleSelect = async (proposalId: number) => {
@@ -289,6 +304,7 @@ export default function TripDates() {
               const canManage = isOwner || isOrganizer;
               const nights = getNightsCount(new Date(p.startDate), new Date(p.endDate));
               const { startDay, endDay } = formatDateRange(new Date(p.startDate), new Date(p.endDate));
+              const commentCount = (commentCounts as any)[`date_${p.id}`] || 0;
 
               return (
                 <Card key={p.id} className={`border ${p.selected ? "border-primary bg-primary/5" : "border-border/50"}`}>
@@ -305,7 +321,12 @@ export default function TripDates() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">{nights} night{nights !== 1 ? "s" : ""}</p>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {commentCount > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <MessageCircle className="h-3.5 w-3.5" />{commentCount}
+                          </span>
+                        )}
                         {p.selected && <Badge className="bg-primary text-primary-foreground text-xs flex items-center gap-1"><Lock className="h-3 w-3" /> Locked</Badge>}
                         {canManage && !p.selected && (
                           <DropdownMenu>
@@ -352,7 +373,7 @@ export default function TripDates() {
                           { vote: "maybe" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
                           { vote: "unavailable" as const, icon: X, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
                         ].map(btn => (
-                          <Button key={btn.vote} variant="outline" size="sm" className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`} onClick={() => handleVote(p.id, btn.vote)} disabled={voteMutation.isPending}>
+                          <Button key={btn.vote} variant="outline" size="sm" className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`} onClick={() => handleVote(p.id, btn.vote)}>
                             <btn.icon className="h-3.5 w-3.5 mr-1" />{btn.label}
                           </Button>
                         ))}

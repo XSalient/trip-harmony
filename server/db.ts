@@ -17,6 +17,10 @@ import {
   notifications, InsertNotification,
   magicLinkTokens,
   proposalComments, InsertProposalComment,
+  vibeItems, InsertVibeItem,
+  vibeVotes, InsertVibeVote,
+  itineraryDays, InsertItineraryDay,
+  itineraryItems, InsertItineraryItem,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -293,6 +297,12 @@ export async function voteDateProposal(data: InsertDateVote) {
   await db.insert(dateVotes).values(data);
 }
 
+export async function unvoteDateProposal(proposalId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(dateVotes).where(and(eq(dateVotes.proposalId, proposalId), eq(dateVotes.userId, userId)));
+}
+
 // ---- Destinations ----
 export async function createDestination(data: InsertDestination) {
   const db = await getDb();
@@ -327,6 +337,12 @@ export async function voteDestination(data: InsertDestinationVote) {
     return;
   }
   await db.insert(destinationVotes).values(data);
+}
+
+export async function unvoteDestination(destinationId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(destinationVotes).where(and(eq(destinationVotes.destinationId, destinationId), eq(destinationVotes.userId, userId)));
 }
 
 export async function selectDestination(tripId: number, destinationId: number) {
@@ -390,6 +406,12 @@ export async function voteAccommodation(data: InsertAccommodationVote) {
     return;
   }
   await db.insert(accommodationVotes).values(data);
+}
+
+export async function unvoteAccommodation(accommodationId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(accommodationVotes).where(and(eq(accommodationVotes.accommodationId, accommodationId), eq(accommodationVotes.userId, userId)));
 }
 
 export async function selectAccommodation(tripId: number, accommodationId: number) {
@@ -573,4 +595,121 @@ export async function getCommentCountsByTrip(tripId: number): Promise<Record<str
     result[`${row.proposalType}_${row.proposalId}`] = Number(row.count);
   }
   return result;
+}
+
+// ---- Vibe Board ----
+export async function createVibeItem(data: InsertVibeItem) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db.insert(vibeItems).values(data).returning({ id: vibeItems.id });
+  return result.id;
+}
+
+export async function getVibeItems(tripId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const items = await db.select().from(vibeItems).where(eq(vibeItems.tripId, tripId)).orderBy(desc(vibeItems.createdAt));
+  const enriched = [];
+  for (const item of items) {
+    const votes = await db.select().from(vibeVotes).where(eq(vibeVotes.vibeItemId, item.id));
+    const proposer = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, item.proposedBy)).limit(1);
+    enriched.push({ ...item, votes, proposedByUser: proposer[0] || null });
+  }
+  return enriched;
+}
+
+export async function deleteVibeItem(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(vibeVotes).where(eq(vibeVotes.vibeItemId, id));
+  await db.delete(vibeItems).where(eq(vibeItems.id, id));
+}
+
+export async function voteVibeItem(data: InsertVibeVote) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const existing = await db.select().from(vibeVotes).where(and(eq(vibeVotes.vibeItemId, data.vibeItemId), eq(vibeVotes.userId, data.userId))).limit(1);
+  if (existing.length > 0) {
+    await db.update(vibeVotes).set({ vote: data.vote }).where(eq(vibeVotes.id, existing[0].id));
+    return;
+  }
+  await db.insert(vibeVotes).values(data);
+}
+
+export async function unvoteVibeItem(vibeItemId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(vibeVotes).where(and(eq(vibeVotes.vibeItemId, vibeItemId), eq(vibeVotes.userId, userId)));
+}
+
+export async function getVibeItem(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(vibeItems).where(eq(vibeItems.id, id)).limit(1);
+  return row || null;
+}
+
+// ---- Itinerary ----
+export async function getItineraryDays(tripId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const days = await db.select().from(itineraryDays).where(eq(itineraryDays.tripId, tripId)).orderBy(itineraryDays.date, itineraryDays.sortOrder);
+  const enriched = [];
+  for (const day of days) {
+    const items = await db.select().from(itineraryItems).where(eq(itineraryItems.dayId, day.id)).orderBy(itineraryItems.sortOrder, itineraryItems.time);
+    const itemsWithUsers = [];
+    for (const item of items) {
+      const adder = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, item.addedBy)).limit(1);
+      itemsWithUsers.push({ ...item, addedByUser: adder[0] || null });
+    }
+    enriched.push({ ...day, items: itemsWithUsers });
+  }
+  return enriched;
+}
+
+export async function createItineraryDay(data: InsertItineraryDay) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db.insert(itineraryDays).values(data).returning({ id: itineraryDays.id });
+  return result.id;
+}
+
+export async function updateItineraryDay(id: number, data: Partial<{ title: string; notes: string }>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(itineraryDays).set(data).where(eq(itineraryDays.id, id));
+}
+
+export async function deleteItineraryDay(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(itineraryItems).where(eq(itineraryItems.dayId, id));
+  await db.delete(itineraryDays).where(eq(itineraryDays.id, id));
+}
+
+export async function addItineraryItem(data: InsertItineraryItem) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db.insert(itineraryItems).values(data).returning({ id: itineraryItems.id });
+  return result.id;
+}
+
+export async function deleteItineraryItem(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(itineraryItems).where(eq(itineraryItems.id, id));
+}
+
+export async function getItineraryDay(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(itineraryDays).where(eq(itineraryDays.id, id)).limit(1);
+  return row || null;
+}
+
+export async function getItineraryItem(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(itineraryItems).where(eq(itineraryItems.id, id)).limit(1);
+  return row || null;
 }

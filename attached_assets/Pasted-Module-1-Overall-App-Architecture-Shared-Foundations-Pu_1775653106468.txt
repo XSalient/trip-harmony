@@ -1,0 +1,183 @@
+Module 1: Overall App Architecture & Shared Foundations
+Purpose: This is the base module. Build this first — all other modules depend on it.
+Scope:
+
+Tech stack recommendation (React Native for mobile + web, Node.js/Express or Firebase backend, secure OAuth, AI integration layer).
+Global data models (Trip, User, Group, TravelDNA, Role, DecisionLog).
+Authentication & Group management (create trip, invite via link, roles: Organizer, Payer, Elder, Member).
+Shared UI components (cards, progress bar, notifications, dark/light mode, accessibility).
+Privacy & security rules (group-only data, read-only calendar OAuth).
+Active Referee core engine skeleton (tone selector, nudge templates, basic AI prompt templates).
+Dashboard skeleton with progress roadmap and decision log.
+Internationalization support (English + Hindi + Dutch priority).
+
+Key Non-Functional:
+
+Offline support for voting/polls.
+Real-time sync (Firebase or Socket.io).
+WCAG accessibility.
+
+Acceptance Criteria:
+
+User can create a trip, invite others, assign roles, and complete basic Travel DNA quiz.
+All data is scoped to the group.
+Referee can send sample nudges.
+
+
+Module 2: Travel DNA Quiz & Hard Constraints Engine
+Purpose: Intelligent onboarding that captures group composition and enforces minimum thresholds.
+Features:
+
+Dynamic 60–90 second quiz with sliders, multi-select, and number inputs.
+Auto-suggest hard constraints based on group size/composition (e.g., 4 families → Minimum 4 bedrooms + 3 bathrooms; elders present → ground-floor or elevator required).
+Editable global constraints list.
+Role assignment with Veto Token eligibility (Payer & Elder get veto rights).
+Country/cultural mode auto-detection or manual selection (India, Netherlands, USA, General).
+
+Output:
+
+Stored TravelDNA object + derived HardConstraints array (e.g., {minBedrooms: 4, minBathrooms: 3, requiresGroundFloor: true}).
+
+Acceptance Criteria:
+
+Quiz intelligently skips or highlights relevant questions.
+Constraints are saved and visible in group dashboard.
+Elder/Payer roles correctly flagged for veto power.
+
+
+Module 3: Dates – Golden Window Explorer
+Purpose: Smart, calendar-integrated date selection with travel intelligence.
+Features:
+
+Privacy-first Ghost Sync (Google/Outlook/Apple – busy/free only).
+Interactive heatmap visualization showing overlap %.
+AI-generated top 3–5 Golden Windows with travel buffer logic and rough flight price trend forecasts.
+Referee one-tap lock proposal with rationale.
+
+Acceptance Criteria:
+
+Calendar sync works securely.
+Heatmap clearly shows best windows.
+Dates can be locked and become immutable for later modules.
+
+
+Module 4: Vibe Board & Wishlist
+Purpose: Collaborative inspiration gathering with smart AI tagging.
+Features:
+
+Drag-and-drop or paste links from anywhere (Airbnb, Instagram, TikTok, blogs).
+AI scrapes vibe/tags and presents Tinder-style swipeable cards.
+Voting options: ❤️ Love / 👍 Fine / ❌ Veto + optional quick comment.
+Auto-generated living mood collage.
+Integration with Hard Constraints (early filtering).
+
+Acceptance Criteria:
+
+Links are parsed quickly.
+Voting updates real-time and feeds into later scoring.
+
+
+Module 5: Accommodations Mediator Hub (Core Intelligence)
+Purpose: The heart of the Cultural Mediator — where magic happens.
+Features to Include:
+
+Enhanced Magic-Link Parser (extract bedrooms, bathrooms (total + attached/en-suite), bed types, kitchen specs, stairs/elevator, walk distance, chef availability, bike storage, energy label, EV charging, kitchen island size, etc.).
+Hard Floor Constraint Logic: Any pasted link failing minimums gets immediate ⚠️ Warning label + explanation. Non-compliant options are deprioritized or hidden (with override option).
+Country-Specific Facility Tags:
+India: Attached Toilets count, Chef Availability.
+Netherlands: Bike Storage, Energy Label (with cost impact estimate).
+USA: EV Charging, Kitchen Island Size.
+
+Comfort Score (1–10): Calculated from Toilet-to-Person ratio, Bed-to-Adult ratio, en-suite %, etc. Visual radar chart + breakdown.
+Side-by-side comparison cards showing: Price | Per-Person Cost | Group Fit Score | Comfort Score | Live Budget Guardian | Personal Joy.
+Proactive Referee recommendations (1–3 best options with explicit “why this fits your group” text, e.g., “Only villa meeting 5 attached toilets + Jain chef needs”).
+Lowest Group Resentment Score & Group Happiness Score.
+
+Acceptance Criteria:
+
+Parser accurately extracts key data from real Airbnb/Booking links.
+Hard constraints are strictly enforced with clear warnings.
+Comfort Score is visible and influences ranking.
+
+
+Module 6: Room Simulator, Price-to-Room Offset & Veto System
+Purpose: Fair room assignment and conflict prevention.
+Features:
+
+AI-parsed floorplan + drag-and-drop room assignment simulator.
+Price-to-Room Offset toggle: “Enable Premium Room Pricing” — AI suggests 10–15% premium for superior rooms; contributions automatically subsidize cheaper rooms.
+Veto Tokens & Role-Based Power: Elder/Payer can apply veto (e.g., “Must be ground floor”) → triggers automatic filtering + Referee mediation.
+Early Bird Priority Tokens for first users to complete tasks.
+Family/kids auto-grouping logic.
+
+Acceptance Criteria:
+
+Premium offset calculates fairly and updates Live Budget.
+Veto immediately affects visible options and logs the reason (private if needed).
+No fighting over unequal rooms — system enforces balance.
+
+
+Module 7: Live Budget Guardian & Frugal Tools
+Purpose: Real-time financial transparency and value optimization.
+Features:
+
+Live per-person cost meter that updates with every choice/vote.
+Includes cooking savings, frugal hacks, energy costs, gas splits, taxes.
+Frugal Hunter: When Center Parcs or similar link is pasted, auto-checks .nl / .be / .fr / .de equivalents and shows savings.
+Budget cap alerts tied to individual Travel DNA.
+Multi-currency support + Splitwise export.
+
+Acceptance Criteria:
+
+Meter is always accurate and visual (green/red gauge).
+Frugal Hunter works for target regional chains.
+Alerts prevent late “I can’t afford this” surprises.
+
+
+Module 8: Active Referee Engine (Cross-Cutting)
+Purpose: The personality and proactive intelligence layer.
+Features:
+
+Socially calibrated, witty nudges (in-app + optional WhatsApp/SMS fallback) with escalation ladder.
+Stalemate Breaker: After 24h tie → auto Wildcard hybrid option.
+Catch-Up Portal for late joiners (interactive TL;DR with all scores, decisions, and one-tap reactions).
+Post-Phase Ref Reports (time saved, happiness scores, savings achieved).
+Deadlock resolution and momentum nudges.
+
+Acceptance Criteria:
+
+Nudges respect chosen tone (Sassy/Supportive/etc.).
+All referee actions are logged and visible in dashboard.
+
+
+Module 9: Itinerary Builder, Activities & Full Trip Lifecycle
+Purpose: Post-accommodation planning and execution.
+Features:
+
+Collaborative drag-and-drop map-based itinerary.
+AI-suggested activities filtered by Travel DNA, constraints, and Comfort Score.
+Booking integration previews + document auto-parsing (TripIt-like).
+Live mode: Real-time updates, convoy tracking (for road trips), disruption re-planning.
+Convoy Commander module (car assignments, shared items, pit stops, voice channels) — unlocked for road-trip mode.
+Shared photo album, expense final settlement, feedback → Next Trip Template.
+
+Acceptance Criteria:
+
+Itinerary is visual and editable by group.
+Convoy features work for US-style road trips.
+
+
+Module 10: Dashboard, Gamification, Monetization & Polish
+Purpose: User retention, delight, and business layer.
+Features:
+
+Central visual dashboard with progress bar, decision timeline, Comfort/Happiness overview.
+Gamification: Badges, streaks, confetti on locks, “Referee MVP” awards.
+Freemium model: Core free; Premium for unlimited groups, advanced AI wildcards, ad-free, deeper parsers, booking integration.
+Analytics for organizers (completion time, satisfaction scores).
+Final polish: Voice input, offline support, multi-language, export options (PDF itinerary, etc.).
+
+Acceptance Criteria:
+
+App feels fun and rewarding.
+Premium features are clearly gated and valuable.

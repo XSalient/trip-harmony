@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import {
   Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath,
   DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2,
-  MoreVertical, Pencil, Copy, HelpCircle,
+  MoreVertical, Pencil, Copy, HelpCircle, MessageCircle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,8 +55,10 @@ export default function TripAccommodations() {
 
   const { data: accommodations, isLoading } = trpc.accommodations.list.useQuery({ tripId }, { enabled: tripId > 0 });
   const { data: trip } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
+  const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery({ tripId }, { enabled: tripId > 0 });
   const createMutation = trpc.accommodations.create.useMutation();
   const voteMutation = trpc.accommodations.vote.useMutation();
+  const unvoteMutation = trpc.accommodations.unvote.useMutation();
   const selectMutation = trpc.accommodations.select.useMutation();
   const deselectMutation = trpc.accommodations.deselect.useMutation();
   const deleteMutation = trpc.accommodations.delete.useMutation();
@@ -238,11 +240,24 @@ export default function TripAccommodations() {
     } catch (e: any) { toast.error(e?.message || "Failed to add"); }
   };
 
-  const handleVote = async (accommodationId: number, vote: "love" | "fine" | "veto") => {
-    try {
-      await voteMutation.mutateAsync({ accommodationId, vote });
-      utils.accommodations.list.invalidate({ tripId });
-    } catch { toast.error("Failed to vote"); }
+  const handleVote = (accommodationId: number, vote: "love" | "fine" | "veto") => {
+    const currentVote = accommodations?.find((a: any) => a.id === accommodationId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+    const isUnvote = currentVote === vote;
+    utils.accommodations.list.setData({ tripId }, (old: any) => {
+      if (!old) return old;
+      return old.map((a: any) => {
+        if (a.id !== accommodationId) return a;
+        const filtered = a.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return { ...a, votes: isUnvote ? filtered : [...filtered, { userId: user?.id, vote, user: { id: user?.id, name: user?.name } }] };
+      });
+    });
+    const onError = () => { utils.accommodations.list.invalidate({ tripId }); toast.error("Failed to vote"); };
+    const onSuccess = () => { utils.accommodations.list.invalidate({ tripId }); };
+    if (isUnvote) {
+      unvoteMutation.mutate({ accommodationId }, { onError, onSuccess });
+    } else {
+      voteMutation.mutate({ accommodationId, vote }, { onError, onSuccess });
+    }
   };
 
   const handleSelect = async (accommodationId: number) => {
@@ -468,6 +483,7 @@ export default function TripAccommodations() {
               const amenities = acc.amenities ? acc.amenities.split(",").map((a: string) => a.trim()).filter(Boolean) : [];
               const isOwner = acc.proposedBy === user?.id;
               const canManage = isOwner || isOrganizer;
+              const commentCount = (commentCounts as any)[`accommodation_${acc.id}`] || 0;
 
               return (
                 <Card key={acc.id} className={`overflow-hidden ${acc.selected ? "border-primary ring-1 ring-primary" : "border-border/50"}`}>
@@ -482,7 +498,12 @@ export default function TripAccommodations() {
                         <h3 className="font-semibold text-base">{acc.name}</h3>
                         {acc.location && <p className="text-xs text-muted-foreground mt-0.5">{acc.location}</p>}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 ml-2">
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {commentCount > 0 && (
+                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                            <MessageCircle className="h-3.5 w-3.5" />{commentCount}
+                          </span>
+                        )}
                         <span className={`text-lg font-bold ${score > 0 ? "text-green-600" : score < 0 ? "text-red-500" : "text-muted-foreground"}`}>
                           {score > 0 ? "+" : ""}{score}
                         </span>
@@ -593,7 +614,6 @@ export default function TripAccommodations() {
                             size="sm"
                             className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
                             onClick={() => handleVote(acc.id, btn.vote)}
-                            disabled={voteMutation.isPending}
                           >
                             <btn.icon className="h-3.5 w-3.5 mr-1" />
                             {btn.label}

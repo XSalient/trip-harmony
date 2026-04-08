@@ -14,6 +14,8 @@ import TripDestinations from "./pages/TripDestinations";
 import TripAccommodations from "./pages/TripAccommodations";
 import TripBudget from "./pages/TripBudget";
 import TripReferee from "./pages/TripReferee";
+import TripVibeBoard from "./pages/TripVibeBoard";
+import TripItinerary from "./pages/TripItinerary";
 import Notifications from "./pages/Notifications";
 import MagicLinkVerify from "./pages/MagicLinkVerify";
 
@@ -31,6 +33,8 @@ function Router() {
       <Route path="/trips/:id/accommodations" component={TripAccommodations} />
       <Route path="/trips/:id/budget" component={TripBudget} />
       <Route path="/trips/:id/referee" component={TripReferee} />
+      <Route path="/trips/:id/vibe" component={TripVibeBoard} />
+      <Route path="/trips/:id/itinerary" component={TripItinerary} />
       <Route path="/notifications" component={Notifications} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

@@ -285,6 +285,12 @@ export const appRouter = router({
       });
       return { success: true };
     }),
+    unvote: protectedProcedure.input(z.object({
+      proposalId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.unvoteDateProposal(input.proposalId, ctx.user.id);
+      return { success: true };
+    }),
     select: protectedProcedure.input(z.object({
       tripId: z.number(),
       proposalId: z.number(),
@@ -423,6 +429,12 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
       });
       return { success: true };
     }),
+    unvote: protectedProcedure.input(z.object({
+      destinationId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.unvoteDestination(input.destinationId, ctx.user.id);
+      return { success: true };
+    }),
     select: protectedProcedure.input(z.object({
       tripId: z.number(),
       destinationId: z.number(),
@@ -539,6 +551,12 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
         userId: ctx.user.id,
         vote: input.vote,
       });
+      return { success: true };
+    }),
+    unvote: protectedProcedure.input(z.object({
+      accommodationId: z.number(),
+    })).mutation(async ({ ctx, input }) => {
+      await db.unvoteAccommodation(input.accommodationId, ctx.user.id);
       return { success: true };
     }),
     select: protectedProcedure.input(z.object({
@@ -877,6 +895,118 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
       const isOrganizer = await db.isTripOrganizer(comment.tripId, ctx.user.id);
       if (comment.userId !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
       await db.deleteComment(input.id);
+      return { success: true };
+    }),
+  }),
+  vibeBoard: router({
+    list: protectedProcedure.input(z.object({ tripId: z.number() })).query(async ({ input }) => {
+      return db.getVibeItems(input.tripId);
+    }),
+    add: protectedProcedure.input(z.object({
+      tripId: z.number(),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      url: z.string().optional(),
+      imageUrl: z.string().optional(),
+      tags: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const id = await db.createVibeItem({
+        tripId: input.tripId,
+        proposedBy: ctx.user.id,
+        title: input.title,
+        description: input.description,
+        url: input.url,
+        imageUrl: input.imageUrl,
+        tags: input.tags,
+      });
+      return { id };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const item = await db.getVibeItem(input.id);
+      if (!item) throw new Error("Item not found");
+      const isOrganizer = await db.isTripOrganizer(item.tripId, ctx.user.id);
+      if (item.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
+      await db.deleteVibeItem(input.id);
+      return { success: true };
+    }),
+    vote: protectedProcedure.input(z.object({
+      vibeItemId: z.number(),
+      vote: z.enum(["love", "fine", "veto"]),
+    })).mutation(async ({ ctx, input }) => {
+      await db.voteVibeItem({ vibeItemId: input.vibeItemId, userId: ctx.user.id, vote: input.vote });
+      return { success: true };
+    }),
+    unvote: protectedProcedure.input(z.object({ vibeItemId: z.number() })).mutation(async ({ ctx, input }) => {
+      await db.unvoteVibeItem(input.vibeItemId, ctx.user.id);
+      return { success: true };
+    }),
+  }),
+  itinerary: router({
+    getDays: protectedProcedure.input(z.object({ tripId: z.number() })).query(async ({ input }) => {
+      return db.getItineraryDays(input.tripId);
+    }),
+    addDay: protectedProcedure.input(z.object({
+      tripId: z.number(),
+      date: z.string(),
+      title: z.string().optional(),
+      notes: z.string().optional(),
+    })).mutation(async ({ input }) => {
+      const id = await db.createItineraryDay({ tripId: input.tripId, date: input.date, title: input.title, notes: input.notes, sortOrder: 0 });
+      return { id };
+    }),
+    updateDay: protectedProcedure.input(z.object({
+      id: z.number(),
+      title: z.string().optional(),
+      notes: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const day = await db.getItineraryDay(input.id);
+      if (!day) throw new Error("Day not found");
+      const isOrganizer = await db.isTripOrganizer(day.tripId, ctx.user.id);
+      if (!isOrganizer) throw new Error("Not authorized");
+      const { id, ...data } = input;
+      await db.updateItineraryDay(id, data);
+      return { success: true };
+    }),
+    deleteDay: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const day = await db.getItineraryDay(input.id);
+      if (!day) throw new Error("Day not found");
+      const isOrganizer = await db.isTripOrganizer(day.tripId, ctx.user.id);
+      if (!isOrganizer) throw new Error("Not authorized");
+      await db.deleteItineraryDay(input.id);
+      return { success: true };
+    }),
+    addItem: protectedProcedure.input(z.object({
+      dayId: z.number(),
+      tripId: z.number(),
+      time: z.string().optional(),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      location: z.string().optional(),
+      type: z.enum(["activity", "food", "transport", "accommodation", "free", "other"]).optional(),
+      cost: z.string().optional(),
+      link: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const id = await db.addItineraryItem({
+        dayId: input.dayId,
+        tripId: input.tripId,
+        time: input.time,
+        title: input.title,
+        description: input.description,
+        location: input.location,
+        type: input.type || "other",
+        cost: input.cost,
+        link: input.link,
+        addedBy: ctx.user.id,
+        sortOrder: 0,
+      });
+      return { id };
+    }),
+    deleteItem: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const item = await db.getItineraryItem(input.id);
+      if (!item) throw new Error("Item not found");
+      const isOrganizer = await db.isTripOrganizer(item.tripId, ctx.user.id);
+      if (item.addedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
+      await db.deleteItineraryItem(input.id);
       return { success: true };
     }),
   }),

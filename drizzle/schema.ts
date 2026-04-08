@@ -307,6 +307,74 @@ export type AccommodationAttribute = typeof accommodationAttributes.$inferSelect
 export type InsertAccommodationAttribute = typeof accommodationAttributes.$inferInsert;
 
 /**
+ * Vibe board items — inspiration links shared by group members.
+ */
+export const vibeItems = pgTable("vibe_items", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  proposedBy: integer("proposedBy").notNull(),
+  url: text("url"),
+  title: text("title").notNull(),
+  description: text("description"),
+  imageUrl: text("imageUrl"),
+  tags: text("tags"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VibeItem = typeof vibeItems.$inferSelect;
+export type InsertVibeItem = typeof vibeItems.$inferInsert;
+
+export const vibeVoteEnum = pgEnum("vibe_vote", ["love", "fine", "veto"]);
+
+export const vibeVotes = pgTable("vibe_votes", {
+  id: serial("id").primaryKey(),
+  vibeItemId: integer("vibeItemId").notNull(),
+  userId: integer("userId").notNull(),
+  vote: vibeVoteEnum("vote").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type VibeVote = typeof vibeVotes.$inferSelect;
+export type InsertVibeVote = typeof vibeVotes.$inferInsert;
+
+/**
+ * Itinerary days — daily plan entries for a trip.
+ */
+export const itineraryDays = pgTable("itinerary_days", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  date: text("date").notNull(),
+  title: text("title"),
+  notes: text("notes"),
+  sortOrder: integer("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ItineraryDay = typeof itineraryDays.$inferSelect;
+export type InsertItineraryDay = typeof itineraryDays.$inferInsert;
+
+export const itineraryItemTypeEnum = pgEnum("itinerary_item_type", ["activity", "food", "transport", "accommodation", "free", "other"]);
+
+export const itineraryItems = pgTable("itinerary_items", {
+  id: serial("id").primaryKey(),
+  dayId: integer("dayId").notNull(),
+  tripId: integer("tripId").notNull(),
+  time: text("time"),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  type: itineraryItemTypeEnum("type").default("other").notNull(),
+  cost: decimal("cost", { precision: 10, scale: 2 }),
+  link: text("link"),
+  addedBy: integer("addedBy").notNull(),
+  sortOrder: integer("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ItineraryItem = typeof itineraryItems.$inferSelect;
+export type InsertItineraryItem = typeof itineraryItems.$inferInsert;
+
+/**
  * Proposal comments — member comments on any proposal type.
  */
 export const proposalComments = pgTable("proposal_comments", {

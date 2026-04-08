@@ -277,8 +277,11 @@ export default function TripDashboard() {
   const { data: accommodations, refetch: refetchAcc } = trpc.accommodations.list.useQuery({ tripId }, { enabled: tripId > 0 });
   const { data: dateProposals, refetch: refetchDates } = trpc.dates.list.useQuery({ tripId }, { enabled: tripId > 0 });
   const voteDateMutation = trpc.dates.vote.useMutation();
+  const unvoteDateMutation = trpc.dates.unvote.useMutation();
   const voteDestMutation = trpc.destinations.vote.useMutation();
+  const unvoteDestMutation = trpc.destinations.unvote.useMutation();
   const voteAccMutation = trpc.accommodations.vote.useMutation();
+  const unvoteAccMutation = trpc.accommodations.unvote.useMutation();
   const deleteDateMutation = trpc.dates.delete.useMutation();
   const deleteDestMutation = trpc.destinations.delete.useMutation();
   const deleteAccMutation = trpc.accommodations.delete.useMutation();
@@ -370,25 +373,60 @@ export default function TripDashboard() {
   const lockedDest = destinations?.find((d: any) => d.selected);
   const lockedAcc = accommodations?.find((a: any) => a.selected);
 
-  const handleDateVote = async (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
-    try {
-      await voteDateMutation.mutateAsync({ proposalId, vote });
-      refetchDates();
-    } catch { toast.error("Vote failed"); }
+  const utils = trpc.useUtils();
+
+  const handleDateVote = (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
+    const currentVote = dateProposals?.find((p: any) => p.id === proposalId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+    const isUnvote = currentVote === vote;
+    utils.dates.list.setData({ tripId }, (old: any) => {
+      if (!old) return old;
+      return old.map((p: any) => {
+        if (p.id !== proposalId) return p;
+        const filtered = p.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return { ...p, votes: isUnvote ? filtered : [...filtered, { userId: user?.id, vote }] };
+      });
+    });
+    if (isUnvote) {
+      unvoteDateMutation.mutate({ proposalId }, { onError: () => refetchDates(), onSuccess: () => refetchDates() });
+    } else {
+      voteDateMutation.mutate({ proposalId, vote }, { onError: () => { toast.error("Vote failed"); refetchDates(); }, onSuccess: () => refetchDates() });
+    }
   };
 
-  const handleDestVote = async (destinationId: number, vote: "love" | "fine" | "veto") => {
-    try {
-      await voteDestMutation.mutateAsync({ destinationId, vote });
-      refetchDest();
-    } catch { toast.error("Vote failed"); }
+  const handleDestVote = (destinationId: number, vote: "love" | "fine" | "veto") => {
+    const currentVote = destinations?.find((d: any) => d.id === destinationId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+    const isUnvote = currentVote === vote;
+    utils.destinations.list.setData({ tripId }, (old: any) => {
+      if (!old) return old;
+      return old.map((d: any) => {
+        if (d.id !== destinationId) return d;
+        const filtered = d.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return { ...d, votes: isUnvote ? filtered : [...filtered, { userId: user?.id, vote }] };
+      });
+    });
+    if (isUnvote) {
+      unvoteDestMutation.mutate({ destinationId }, { onError: () => refetchDest(), onSuccess: () => refetchDest() });
+    } else {
+      voteDestMutation.mutate({ destinationId, vote }, { onError: () => { toast.error("Vote failed"); refetchDest(); }, onSuccess: () => refetchDest() });
+    }
   };
 
-  const handleAccVote = async (accommodationId: number, vote: "love" | "fine" | "veto") => {
-    try {
-      await voteAccMutation.mutateAsync({ accommodationId, vote });
-      refetchAcc();
-    } catch { toast.error("Vote failed"); }
+  const handleAccVote = (accommodationId: number, vote: "love" | "fine" | "veto") => {
+    const currentVote = accommodations?.find((a: any) => a.id === accommodationId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+    const isUnvote = currentVote === vote;
+    utils.accommodations.list.setData({ tripId }, (old: any) => {
+      if (!old) return old;
+      return old.map((a: any) => {
+        if (a.id !== accommodationId) return a;
+        const filtered = a.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return { ...a, votes: isUnvote ? filtered : [...filtered, { userId: user?.id, vote }] };
+      });
+    });
+    if (isUnvote) {
+      unvoteAccMutation.mutate({ accommodationId }, { onError: () => refetchAcc(), onSuccess: () => refetchAcc() });
+    } else {
+      voteAccMutation.mutate({ accommodationId, vote }, { onError: () => { toast.error("Vote failed"); refetchAcc(); }, onSuccess: () => refetchAcc() });
+    }
   };
 
   const openEditDate = (p: any) => {
@@ -843,6 +881,38 @@ export default function TripDashboard() {
             </Card>
           </Link>
         )}
+
+        {/* ── Vibe Board ── */}
+        <Link href={`/trips/${tripId}/vibe`}>
+          <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center shrink-0">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Vibe Board</p>
+                <p className="text-xs text-muted-foreground">Share inspiration — links, photos, ideas</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* ── Itinerary ── */}
+        <Link href={`/trips/${tripId}/itinerary`}>
+          <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0">
+                <Calendar className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Itinerary</p>
+                <p className="text-xs text-muted-foreground">Plan your days with activities & logistics</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* ── AI Referee ── */}
         <Link href={`/trips/${tripId}/referee`}>
