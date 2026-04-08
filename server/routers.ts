@@ -11,6 +11,22 @@ import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
 import { sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer";
 
+/** Gemini 2.5 thinking models return content as an array of parts; extract plain text safely */
+function extractLLMText(response: any, fallback = ""): string {
+  const content = response?.choices?.[0]?.message?.content;
+  if (!content) return fallback;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return (
+      content
+        .filter((p: any) => p.type === "text")
+        .map((p: any) => p.text || "")
+        .join("") || fallback
+    );
+  }
+  return fallback;
+}
+
 async function hashPassword(password: string): Promise<string> {
   const salt = crypto.randomBytes(16).toString("hex");
   return new Promise((resolve, reject) => {
@@ -312,12 +328,14 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
             },
           ],
         });
-        const raw = (response.choices?.[0]?.message?.content as string) || "[]";
+        const raw = extractLLMText(response, "[]");
+        console.log("[parseNatural] LLM raw (first 300):", raw.slice(0, 300));
         const match = raw.match(/\[[\s\S]*\]/);
-        if (!match) return { proposals: [] };
+        if (!match) { console.log("[parseNatural] no JSON array found in response"); return { proposals: [] }; }
         const proposals = JSON.parse(match[0]);
         return { proposals: Array.isArray(proposals) ? proposals : [] };
-      } catch {
+      } catch (err) {
+        console.error("[parseNatural] error:", err);
         return { proposals: [] };
       }
     }),
@@ -501,7 +519,7 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
           responseFormat: { type: "json_object" },
         });
 
-        const raw = (response.choices?.[0]?.message?.content as string) || "{}";
+        const raw = extractLLMText(response, "{}");
         const data = JSON.parse(raw);
         return { success: true, data };
       } catch (err) {
@@ -523,7 +541,7 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
           ],
           responseFormat: { type: "json_object" },
         });
-        const raw = (response.choices?.[0]?.message?.content as string) || "{}";
+        const raw = extractLLMText(response, "{}");
         const data = JSON.parse(raw);
         return { success: true, data };
       } catch {
@@ -658,7 +676,7 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
           ],
         });
 
-        const content = (response.choices?.[0]?.message?.content as string) || "The referee is thinking...";
+        const content = extractLLMText(response, "The referee is thinking...");
 
         const msgId = await db.createRefereeMessage({
           tripId: input.tripId,
