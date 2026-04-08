@@ -292,9 +292,39 @@ export const appRouter = router({
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       const proposal = await db.getDateProposal(input.id);
       if (!proposal) throw new Error("Proposal not found");
-      if (proposal.proposedBy !== ctx.user.id) throw new Error("Not authorized");
+      const isOrganizer = await db.isTripOrganizer(proposal.tripId, ctx.user.id);
+      if (proposal.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
       await db.deleteDateProposal(input.id);
       return { success: true };
+    }),
+    edit: protectedProcedure.input(z.object({
+      id: z.number(),
+      label: z.string().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const proposal = await db.getDateProposal(input.id);
+      if (!proposal) throw new Error("Proposal not found");
+      const isOrganizer = await db.isTripOrganizer(proposal.tripId, ctx.user.id);
+      if (proposal.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
+      await db.updateDateProposal(input.id, {
+        ...(input.label !== undefined ? { label: input.label } : {}),
+        ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
+        ...(input.endDate ? { endDate: new Date(input.endDate) } : {}),
+      });
+      return { success: true };
+    }),
+    clone: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const proposal = await db.getDateProposal(input.id);
+      if (!proposal) throw new Error("Proposal not found");
+      const id = await db.createDateProposal({
+        tripId: proposal.tripId,
+        proposedBy: ctx.user.id,
+        startDate: proposal.startDate,
+        endDate: proposal.endDate,
+        label: proposal.label ? `${proposal.label} (copy)` : undefined,
+      });
+      return { id };
     }),
     parseNatural: protectedProcedure.input(z.object({
       text: z.string().min(1),
@@ -397,9 +427,40 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       const destination = await db.getDestination(input.id);
       if (!destination) throw new Error("Destination not found");
-      if (destination.proposedBy !== ctx.user.id) throw new Error("Not authorized");
+      const isOrganizer = await db.isTripOrganizer(destination.tripId, ctx.user.id);
+      if (destination.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
       await db.deleteDestination(input.id);
       return { success: true };
+    }),
+    edit: protectedProcedure.input(z.object({
+      id: z.number(),
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      imageUrl: z.string().optional(),
+      vibes: z.string().optional(),
+      estimatedCost: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const destination = await db.getDestination(input.id);
+      if (!destination) throw new Error("Destination not found");
+      const isOrganizer = await db.isTripOrganizer(destination.tripId, ctx.user.id);
+      if (destination.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
+      const { id, ...data } = input;
+      await db.updateDestination(id, data);
+      return { success: true };
+    }),
+    clone: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const destination = await db.getDestination(input.id);
+      if (!destination) throw new Error("Destination not found");
+      const newId = await db.createDestination({
+        tripId: destination.tripId,
+        proposedBy: ctx.user.id,
+        name: `${destination.name} (copy)`,
+        description: destination.description ?? undefined,
+        imageUrl: destination.imageUrl ?? undefined,
+        vibes: destination.vibes ?? undefined,
+        estimatedCost: destination.estimatedCost ?? undefined,
+      });
+      return { id: newId };
     }),
   }),
 
@@ -475,9 +536,56 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       const accommodation = await db.getAccommodation(input.id);
       if (!accommodation) throw new Error("Accommodation not found");
-      if (accommodation.proposedBy !== ctx.user.id) throw new Error("Not authorized");
+      const isOrganizer = await db.isTripOrganizer(accommodation.tripId, ctx.user.id);
+      if (accommodation.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
       await db.deleteAccommodation(input.id);
       return { success: true };
+    }),
+    edit: protectedProcedure.input(z.object({
+      id: z.number(),
+      name: z.string().min(1).optional(),
+      description: z.string().optional(),
+      imageUrl: z.string().optional(),
+      pricePerNight: z.string().optional(),
+      totalPrice: z.string().optional(),
+      location: z.string().optional(),
+      link: z.string().optional(),
+      bedrooms: z.number().optional(),
+      bathrooms: z.number().optional(),
+      singleBeds: z.number().optional(),
+      doubleBeds: z.number().optional(),
+      freeParking: z.boolean().optional(),
+      amenities: z.string().optional(),
+    })).mutation(async ({ ctx, input }) => {
+      const accommodation = await db.getAccommodation(input.id);
+      if (!accommodation) throw new Error("Accommodation not found");
+      const isOrganizer = await db.isTripOrganizer(accommodation.tripId, ctx.user.id);
+      if (accommodation.proposedBy !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
+      const { id, ...data } = input;
+      await db.updateAccommodation(id, data);
+      return { success: true };
+    }),
+    clone: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const accommodation = await db.getAccommodation(input.id);
+      if (!accommodation) throw new Error("Accommodation not found");
+      const newId = await db.createAccommodation({
+        tripId: accommodation.tripId,
+        proposedBy: ctx.user.id,
+        name: `${accommodation.name} (copy)`,
+        description: accommodation.description ?? undefined,
+        imageUrl: accommodation.imageUrl ?? undefined,
+        pricePerNight: accommodation.pricePerNight ?? undefined,
+        totalPrice: accommodation.totalPrice ?? undefined,
+        location: accommodation.location ?? undefined,
+        link: accommodation.link ?? undefined,
+        bedrooms: accommodation.bedrooms ?? undefined,
+        bathrooms: accommodation.bathrooms ?? undefined,
+        singleBeds: accommodation.singleBeds ?? undefined,
+        doubleBeds: accommodation.doubleBeds ?? undefined,
+        freeParking: accommodation.freeParking ?? undefined,
+        amenities: accommodation.amenities ?? undefined,
+      });
+      return { id: newId };
     }),
     fetchFromUrl: protectedProcedure.input(z.object({ url: z.string().url() })).mutation(async ({ input }) => {
       try {
@@ -714,6 +822,39 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
     }),
     markAllRead: protectedProcedure.mutation(async ({ ctx }) => {
       await db.markAllNotificationsRead(ctx.user.id);
+      return { success: true };
+    }),
+  }),
+
+  // ---- Proposal Comments ----
+  comments: router({
+    list: protectedProcedure.input(z.object({
+      proposalType: z.enum(["date", "destination", "accommodation"]),
+      proposalId: z.number(),
+    })).query(async ({ input }) => {
+      return db.getComments(input.proposalType, input.proposalId);
+    }),
+    add: protectedProcedure.input(z.object({
+      proposalType: z.enum(["date", "destination", "accommodation"]),
+      proposalId: z.number(),
+      tripId: z.number(),
+      content: z.string().min(1).max(1000),
+    })).mutation(async ({ ctx, input }) => {
+      const id = await db.createComment({
+        proposalType: input.proposalType,
+        proposalId: input.proposalId,
+        tripId: input.tripId,
+        userId: ctx.user.id,
+        content: input.content,
+      });
+      return { id };
+    }),
+    delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
+      const comment = await db.getComment(input.id);
+      if (!comment) throw new Error("Comment not found");
+      const isOrganizer = await db.isTripOrganizer(comment.tripId, ctx.user.id);
+      if (comment.userId !== ctx.user.id && !isOrganizer) throw new Error("Not authorized");
+      await db.deleteComment(input.id);
       return { success: true };
     }),
   }),

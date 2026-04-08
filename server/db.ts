@@ -16,6 +16,7 @@ import {
   refereeMessages, InsertRefereeMessage,
   notifications, InsertNotification,
   magicLinkTokens,
+  proposalComments, InsertProposalComment,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -489,4 +490,68 @@ export async function getUnreadNotificationCount(userId: number) {
   if (!db) return 0;
   const result = await db.select({ count: sql<number>`count(*)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
   return result[0]?.count || 0;
+}
+
+// ---- Update proposals (edit) ----
+export async function updateDateProposal(id: number, data: { label?: string; startDate?: Date; endDate?: Date }) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(dateProposals).set(data).where(eq(dateProposals.id, id));
+}
+
+export async function updateDestination(id: number, data: Partial<InsertDestination>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(destinations).set(data).where(eq(destinations.id, id));
+}
+
+export async function updateAccommodation(id: number, data: Partial<InsertAccommodation>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(accommodations).set(data).where(eq(accommodations.id, id));
+}
+
+// ---- Check trip organizer ----
+export async function isTripOrganizer(tripId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const trip = await db.select({ organizerId: trips.organizerId }).from(trips).where(eq(trips.id, tripId)).limit(1);
+  return trip[0]?.organizerId === userId;
+}
+
+// ---- Proposal Comments ----
+export async function createComment(data: InsertProposalComment) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db.insert(proposalComments).values(data).returning({ id: proposalComments.id });
+  return result.id;
+}
+
+export async function getComments(proposalType: "date" | "destination" | "accommodation", proposalId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const comments = await db
+    .select()
+    .from(proposalComments)
+    .where(and(eq(proposalComments.proposalType, proposalType), eq(proposalComments.proposalId, proposalId)))
+    .orderBy(proposalComments.createdAt);
+  const enriched = [];
+  for (const c of comments) {
+    const user = await db.select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, c.userId)).limit(1);
+    enriched.push({ ...c, user: user[0] || null });
+  }
+  return enriched;
+}
+
+export async function deleteComment(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(proposalComments).where(eq(proposalComments.id, id));
+}
+
+export async function getComment(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(proposalComments).where(eq(proposalComments.id, id)).limit(1);
+  return row || null;
 }

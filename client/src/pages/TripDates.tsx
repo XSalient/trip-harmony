@@ -8,13 +8,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import ProposalComments from "@/components/ProposalComments";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
-import { Calendar, Plus, Check, X, HelpCircle, CheckCircle2, Trash2, Sparkles, Lock, Unlock } from "lucide-react";
+import {
+  Calendar, Plus, Check, X, HelpCircle, CheckCircle2, Trash2, Sparkles, Lock, Unlock,
+  MoreVertical, Pencil, Copy,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function getDayName(dateStr: string) {
   return format(new Date(dateStr), "EEEE");
@@ -44,6 +51,8 @@ export default function TripDates() {
   const selectMutation = trpc.dates.select.useMutation();
   const deselectMutation = trpc.dates.deselect.useMutation();
   const deleteMutation = trpc.dates.delete.useMutation();
+  const editMutation = trpc.dates.edit.useMutation();
+  const cloneMutation = trpc.dates.clone.useMutation();
   const parseNaturalMutation = trpc.dates.parseNatural.useMutation();
   const utils = trpc.useUtils();
 
@@ -52,14 +61,27 @@ export default function TripDates() {
   const [endDate, setEndDate] = useState("");
   const [label, setLabel] = useState("");
 
-  // Natural language state
   const [nlText, setNlText] = useState("");
   const [nlProposals, setNlProposals] = useState<Array<{ startDate: string; endDate: string; label: string }>>([]);
   const [nlParsing, setNlParsing] = useState(false);
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editStartDate, setEditStartDate] = useState("");
+  const [editEndDate, setEditEndDate] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+
   const isOrganizer = trip?.organizerId === user?.id;
   const memberCount = useMemo(() => members?.filter((m: any) => m.status === "accepted").length || 0, [members]);
   const selectedProposal = useMemo(() => proposals?.find((p: any) => p.selected), [proposals]);
+
+  const openEdit = (p: any) => {
+    setEditingId(p.id);
+    setEditLabel(p.label || "");
+    setEditStartDate(format(new Date(p.startDate), "yyyy-MM-dd"));
+    setEditEndDate(format(new Date(p.endDate), "yyyy-MM-dd"));
+    setEditOpen(true);
+  };
 
   const handlePropose = async () => {
     if (!startDate || !endDate) { toast.error("Both dates are required"); return; }
@@ -101,29 +123,46 @@ export default function TripDates() {
       utils.dates.list.invalidate({ tripId });
       toast.success("Proposal deleted");
     } catch (e: any) {
-      toast.error(e?.message?.includes("Not authorized") ? "You can only delete your own proposals" : "Failed to delete");
+      toast.error(e?.message?.includes("Not authorized") ? "Not authorized to delete" : "Failed to delete");
     }
+  };
+
+  const handleEdit = async () => {
+    if (!editingId) return;
+    try {
+      await editMutation.mutateAsync({
+        id: editingId,
+        label: editLabel || undefined,
+        startDate: editStartDate || undefined,
+        endDate: editEndDate || undefined,
+      });
+      utils.dates.list.invalidate({ tripId });
+      setEditOpen(false);
+      toast.success("Proposal updated");
+    } catch { toast.error("Failed to update"); }
+  };
+
+  const handleClone = async (id: number) => {
+    try {
+      await cloneMutation.mutateAsync({ id });
+      utils.dates.list.invalidate({ tripId });
+      toast.success("Proposal cloned");
+    } catch { toast.error("Failed to clone"); }
   };
 
   const handleParseNatural = async () => {
     if (!nlText.trim()) { toast.error("Please enter a description"); return; }
     setNlParsing(true);
     try {
-      const result = await parseNaturalMutation.mutateAsync({
-        text: nlText,
-        referenceYear: new Date().getFullYear(),
-      });
+      const result = await parseNaturalMutation.mutateAsync({ text: nlText, referenceYear: new Date().getFullYear() });
       if (result.proposals.length === 0) {
         toast.error("Could not parse dates. Try being more specific (e.g., 'weekends in July 2025')");
       } else {
         setNlProposals(result.proposals);
         toast.success(`Found ${result.proposals.length} date option${result.proposals.length > 1 ? "s" : ""}`);
       }
-    } catch {
-      toast.error("Failed to parse dates");
-    } finally {
-      setNlParsing(false);
-    }
+    } catch { toast.error("Failed to parse dates"); }
+    finally { setNlParsing(false); }
   };
 
   const handleAddNlProposal = async (proposal: { startDate: string; endDate: string; label: string }) => {
@@ -137,16 +176,11 @@ export default function TripDates() {
   const handleAddAllNlProposals = async () => {
     let added = 0;
     for (const p of nlProposals) {
-      try {
-        await proposeMutation.mutateAsync({ tripId, startDate: p.startDate, endDate: p.endDate, label: p.label });
-        added++;
-      } catch {}
+      try { await proposeMutation.mutateAsync({ tripId, startDate: p.startDate, endDate: p.endDate, label: p.label }); added++; } catch {}
     }
     utils.dates.list.invalidate({ tripId });
     toast.success(`Added ${added} date proposals!`);
-    setNlProposals([]);
-    setNlText("");
-    setAddOpen(false);
+    setNlProposals([]); setNlText(""); setAddOpen(false);
   };
 
   return (
@@ -163,33 +197,21 @@ export default function TripDates() {
           </div>
           <div className="flex items-center gap-2">
             {isOrganizer && selectedProposal && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-lg gap-1 text-xs h-8"
-                onClick={handleDeselect}
-                disabled={deselectMutation.isPending}
-              >
+              <Button variant="outline" size="sm" className="rounded-lg gap-1 text-xs h-8" onClick={handleDeselect} disabled={deselectMutation.isPending}>
                 <Unlock className="h-3.5 w-3.5" /> Unlock
               </Button>
             )}
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="rounded-lg gap-1">
-                  <Plus className="h-4 w-4" /> Add
-                </Button>
+                <Button size="sm" className="rounded-lg gap-1"><Plus className="h-4 w-4" /> Add</Button>
               </DialogTrigger>
               <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Propose Dates</DialogTitle></DialogHeader>
                 <Tabs defaultValue="manual" className="w-full">
                   <TabsList className="w-full rounded-lg">
                     <TabsTrigger value="manual" className="flex-1 text-xs">Manual</TabsTrigger>
-                    <TabsTrigger value="natural" className="flex-1 text-xs gap-1">
-                      <Sparkles className="h-3 w-3" /> Natural Language
-                    </TabsTrigger>
+                    <TabsTrigger value="natural" className="flex-1 text-xs gap-1"><Sparkles className="h-3 w-3" /> Smart</TabsTrigger>
                   </TabsList>
-
-                  {/* Manual entry */}
                   <TabsContent value="manual" className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <Label>Label (optional)</Label>
@@ -208,37 +230,20 @@ export default function TripDates() {
                       </div>
                     </div>
                     {startDate && endDate && new Date(endDate) > new Date(startDate) && (
-                      <p className="text-xs text-muted-foreground text-center">
-                        {getNightsCount(new Date(startDate), new Date(endDate))} night{getNightsCount(new Date(startDate), new Date(endDate)) !== 1 ? "s" : ""}
-                      </p>
+                      <p className="text-xs text-muted-foreground text-center">{getNightsCount(new Date(startDate), new Date(endDate))} night{getNightsCount(new Date(startDate), new Date(endDate)) !== 1 ? "s" : ""}</p>
                     )}
                     <Button onClick={handlePropose} className="w-full rounded-lg" disabled={proposeMutation.isPending}>
                       {proposeMutation.isPending ? "Proposing..." : "Propose Dates"}
                     </Button>
                   </TabsContent>
-
-                  {/* Natural language entry */}
                   <TabsContent value="natural" className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <Label>Describe your availability</Label>
-                      <Textarea
-                        placeholder="e.g., any weekends in July 2025, or Tuesdays to Thursdays in June, or first two weeks of August"
-                        value={nlText}
-                        onChange={e => setNlText(e.target.value)}
-                        rows={3}
-                        className="rounded-lg resize-none text-sm"
-                      />
+                      <Textarea placeholder="e.g., any weekends in July 2025, or first two weeks of August" value={nlText} onChange={e => setNlText(e.target.value)} rows={3} className="rounded-lg resize-none text-sm" />
                     </div>
-                    <Button
-                      onClick={handleParseNatural}
-                      variant="outline"
-                      className="w-full rounded-lg gap-2"
-                      disabled={nlParsing}
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      {nlParsing ? "Parsing..." : "Parse Dates"}
+                    <Button onClick={handleParseNatural} variant="outline" className="w-full rounded-lg gap-2" disabled={nlParsing}>
+                      <Sparkles className="h-4 w-4" />{nlParsing ? "Parsing..." : "Parse Dates"}
                     </Button>
-
                     {nlProposals.length > 0 && (
                       <div className="space-y-2">
                         <p className="text-xs font-medium text-muted-foreground">{nlProposals.length} date{nlProposals.length > 1 ? "s" : ""} found:</p>
@@ -252,9 +257,7 @@ export default function TripDates() {
                                   <p className="font-medium">{p.label}</p>
                                   <p className="text-muted-foreground">{startDay} → {endDay} · {nights} night{nights !== 1 ? "s" : ""}</p>
                                 </div>
-                                <Button size="sm" variant="outline" className="h-7 text-xs rounded-lg px-2" onClick={() => handleAddNlProposal(p)} disabled={proposeMutation.isPending}>
-                                  Add
-                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs rounded-lg px-2" onClick={() => handleAddNlProposal(p)} disabled={proposeMutation.isPending}>Add</Button>
                               </div>
                             );
                           })}
@@ -282,6 +285,7 @@ export default function TripDates() {
               const unavailable = p.votes?.filter((v: any) => v.vote === "unavailable").length || 0;
               const totalVotes = p.votes?.length || 0;
               const isOwner = p.proposedBy === user?.id;
+              const canManage = isOwner || isOrganizer;
               const nights = getNightsCount(new Date(p.startDate), new Date(p.endDate));
               const { startDay, endDay } = formatDateRange(new Date(p.startDate), new Date(p.endDate));
 
@@ -298,27 +302,33 @@ export default function TripDates() {
                             <p className="text-muted-foreground text-xs">to {endDay}</p>
                           </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {nights} night{nights !== 1 ? "s" : ""}
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{nights} night{nights !== 1 ? "s" : ""}</p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0 ml-2">
                         {p.selected && <Badge className="bg-primary text-primary-foreground text-xs flex items-center gap-1"><Lock className="h-3 w-3" /> Locked</Badge>}
-                        {isOwner && !p.selected && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDelete(p.id)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        {canManage && !p.selected && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="text-sm">
+                              <DropdownMenuItem onClick={() => openEdit(p)} className="gap-2">
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClone(p.id)} disabled={cloneMutation.isPending} className="gap-2">
+                                <Copy className="h-3.5 w-3.5" /> Clone
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDelete(p.id)} disabled={deleteMutation.isPending} className="gap-2 text-destructive focus:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </div>
 
-                    {/* Vote counts */}
                     <div className="flex gap-4 text-xs mb-3">
                       <span className="text-green-600 font-medium">{available} available</span>
                       <span className="text-yellow-600 font-medium">{maybe} maybe</span>
@@ -326,7 +336,6 @@ export default function TripDates() {
                       <span className="text-muted-foreground ml-auto">{totalVotes}/{memberCount} voted</span>
                     </div>
 
-                    {/* Availability bar */}
                     {totalVotes > 0 && (
                       <div className="flex h-2 rounded-full overflow-hidden mb-3 bg-muted">
                         {available > 0 && <div className="bg-green-500" style={{ width: `${(available / memberCount) * 100}%` }} />}
@@ -335,7 +344,6 @@ export default function TripDates() {
                       </div>
                     )}
 
-                    {/* Vote buttons */}
                     {!p.selected && (
                       <div className="flex gap-2">
                         {[
@@ -343,32 +351,20 @@ export default function TripDates() {
                           { vote: "maybe" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
                           { vote: "unavailable" as const, icon: X, label: "Can't", active: "bg-red-100 text-red-600 border-red-300" },
                         ].map(btn => (
-                          <Button
-                            key={btn.vote}
-                            variant="outline"
-                            size="sm"
-                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                            onClick={() => handleVote(p.id, btn.vote)}
-                            disabled={voteMutation.isPending}
-                          >
-                            <btn.icon className="h-3.5 w-3.5 mr-1" />
-                            {btn.label}
+                          <Button key={btn.vote} variant="outline" size="sm" className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`} onClick={() => handleVote(p.id, btn.vote)} disabled={voteMutation.isPending}>
+                            <btn.icon className="h-3.5 w-3.5 mr-1" />{btn.label}
                           </Button>
                         ))}
                       </div>
                     )}
 
-                    {/* Select button for organizer */}
                     {isOrganizer && !p.selected && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full mt-2 text-primary text-xs"
-                        onClick={() => handleSelect(p.id)}
-                      >
+                      <Button variant="ghost" size="sm" className="w-full mt-2 text-primary text-xs" onClick={() => handleSelect(p.id)}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock this date
                       </Button>
                     )}
+
+                    <ProposalComments proposalType="date" proposalId={p.id} tripId={tripId} isOrganizer={isOrganizer} />
                   </CardContent>
                 </Card>
               );
@@ -379,11 +375,37 @@ export default function TripDates() {
             <CardContent className="p-8 text-center">
               <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No dates proposed yet. Add the first one!</p>
-              <p className="text-xs text-muted-foreground mt-1">Try the Natural Language tab — just describe when you're free!</p>
+              <p className="text-xs text-muted-foreground mt-1">Try the Smart tab — just describe when you're free!</p>
             </CardContent>
           </Card>
         )}
       </div>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Edit Date Proposal</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-1">
+            <div>
+              <Label className="text-xs">Label (optional)</Label>
+              <Input value={editLabel} onChange={e => setEditLabel(e.target.value)} placeholder="e.g. Spring Break" className="rounded-lg mt-1" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Start date</Label>
+                <Input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="rounded-lg mt-1" />
+              </div>
+              <div>
+                <Label className="text-xs">End date</Label>
+                <Input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} className="rounded-lg mt-1" />
+              </div>
+            </div>
+            <Button onClick={handleEdit} className="w-full rounded-lg" disabled={editMutation.isPending}>
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }

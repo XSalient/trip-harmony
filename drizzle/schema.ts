@@ -1,4 +1,5 @@
 import { pgEnum, pgTable, serial, text, timestamp, varchar, integer, boolean, decimal } from "drizzle-orm/pg-core";
+export const proposalTypeEnum = pgEnum("proposal_type", ["date", "destination", "accommodation"]);
 
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 export const tripPhaseEnum = pgEnum("trip_phase", ["setup", "dates", "destination", "accommodation", "activities", "finalized"]);
@@ -304,3 +305,19 @@ export const accommodationAttributes = pgTable("accommodation_attributes", {
 
 export type AccommodationAttribute = typeof accommodationAttributes.$inferSelect;
 export type InsertAccommodationAttribute = typeof accommodationAttributes.$inferInsert;
+
+/**
+ * Proposal comments — member comments on any proposal type.
+ */
+export const proposalComments = pgTable("proposal_comments", {
+  id: serial("id").primaryKey(),
+  proposalType: proposalTypeEnum("proposalType").notNull(),
+  proposalId: integer("proposalId").notNull(),
+  tripId: integer("tripId").notNull(),
+  userId: integer("userId").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ProposalComment = typeof proposalComments.$inferSelect;
+export type InsertProposalComment = typeof proposalComments.$inferInsert;

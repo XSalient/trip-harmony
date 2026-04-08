@@ -9,15 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import AppShell from "@/components/AppShell";
+import ProposalComments from "@/components/ProposalComments";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath,
-  DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2
+  DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2,
+  MoreVertical, Pencil, Copy,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type FormState = {
   name: string;
@@ -57,6 +60,8 @@ export default function TripAccommodations() {
   const selectMutation = trpc.accommodations.select.useMutation();
   const deselectMutation = trpc.accommodations.deselect.useMutation();
   const deleteMutation = trpc.accommodations.delete.useMutation();
+  const editMutation = trpc.accommodations.edit.useMutation();
+  const cloneMutation = trpc.accommodations.clone.useMutation();
   const fetchFromUrlMutation = trpc.accommodations.fetchFromUrl.useMutation();
   const parseAttributesMutation = trpc.accommodations.parseAttributes.useMutation();
   const utils = trpc.useUtils();
@@ -68,6 +73,10 @@ export default function TripAccommodations() {
   const [nlPrefsText, setNlPrefsText] = useState("");
   const [nlParsing, setNlParsing] = useState(false);
 
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "", location: "", link: "", pricePerNight: "" });
+
   const isOrganizer = trip?.organizerId === user?.id;
   const selectedAccommodation = useMemo(() => accommodations?.find((a: any) => a.selected), [accommodations]);
 
@@ -78,6 +87,43 @@ export default function TripAccommodations() {
     setForm(emptyForm);
     setUrlInput("");
     setNlPrefsText("");
+  };
+
+  const openEdit = (acc: any) => {
+    setEditingId(acc.id);
+    setEditForm({
+      name: acc.name || "",
+      description: acc.description || "",
+      location: acc.location || "",
+      link: acc.link || "",
+      pricePerNight: acc.pricePerNight ? String(parseFloat(acc.pricePerNight)) : "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (!editingId) return;
+    try {
+      await editMutation.mutateAsync({
+        id: editingId,
+        name: editForm.name || undefined,
+        description: editForm.description || undefined,
+        location: editForm.location || undefined,
+        link: editForm.link || undefined,
+        pricePerNight: editForm.pricePerNight || undefined,
+      });
+      utils.accommodations.list.invalidate({ tripId });
+      setEditOpen(false);
+      toast.success("Accommodation updated");
+    } catch { toast.error("Failed to update"); }
+  };
+
+  const handleClone = async (id: number) => {
+    try {
+      await cloneMutation.mutateAsync({ id });
+      utils.accommodations.list.invalidate({ tripId });
+      toast.success("Accommodation cloned");
+    } catch { toast.error("Failed to clone"); }
   };
 
   const handleFetchFromUrl = async () => {
@@ -406,6 +452,7 @@ export default function TripAccommodations() {
               const score = getScore(acc);
               const amenities = acc.amenities ? acc.amenities.split(",").map((a: string) => a.trim()).filter(Boolean) : [];
               const isOwner = acc.proposedBy === user?.id;
+              const canManage = isOwner || isOrganizer;
 
               return (
                 <Card key={acc.id} className={`overflow-hidden ${acc.selected ? "border-primary ring-1 ring-primary" : "border-border/50"}`}>
@@ -425,16 +472,25 @@ export default function TripAccommodations() {
                           {score > 0 ? "+" : ""}{score}
                         </span>
                         {acc.selected && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                        {isOwner && !acc.selected && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:bg-destructive/10"
-                            onClick={() => handleDelete(acc.id)}
-                            disabled={deleteMutation.isPending}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                        {canManage && !acc.selected && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="text-sm">
+                              <DropdownMenuItem onClick={() => openEdit(acc)} className="gap-2">
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleClone(acc.id)} disabled={cloneMutation.isPending} className="gap-2">
+                                <Copy className="h-3.5 w-3.5" /> Clone
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDelete(acc.id)} disabled={deleteMutation.isPending} className="gap-2 text-destructive focus:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </div>
@@ -536,6 +592,8 @@ export default function TripAccommodations() {
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Select this accommodation
                       </Button>
                     )}
+
+                    <ProposalComments proposalType="accommodation" proposalId={acc.id} tripId={tripId} isOrganizer={isOrganizer} />
                   </CardContent>
                 </Card>
               );
@@ -551,6 +609,38 @@ export default function TripAccommodations() {
           </Card>
         )}
       </div>
+
+      {/* Edit dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogHeader><DialogTitle>Edit Accommodation</DialogTitle></DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div>
+              <Label className="text-xs">Name</Label>
+              <Input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className="rounded-lg mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Description (optional)</Label>
+              <Textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={2} className="rounded-lg mt-1 resize-none text-sm" />
+            </div>
+            <div>
+              <Label className="text-xs">Location (optional)</Label>
+              <Input value={editForm.location} onChange={e => setEditForm(p => ({ ...p, location: e.target.value }))} className="rounded-lg mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Booking link (optional)</Label>
+              <Input value={editForm.link} onChange={e => setEditForm(p => ({ ...p, link: e.target.value }))} placeholder="https://..." className="rounded-lg mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Price/night ({trip?.currency || "USD"}) (optional)</Label>
+              <Input type="number" value={editForm.pricePerNight} onChange={e => setEditForm(p => ({ ...p, pricePerNight: e.target.value }))} className="rounded-lg mt-1" />
+            </div>
+            <Button onClick={handleEdit} className="w-full rounded-lg" disabled={editMutation.isPending}>
+              {editMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
