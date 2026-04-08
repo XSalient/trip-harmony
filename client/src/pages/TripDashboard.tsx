@@ -329,6 +329,8 @@ export default function TripDashboard() {
   const [inviteEmail, setInviteEmail] = useState("");
   const sendInviteEmail = trpc.trips.sendInviteEmail.useMutation();
 
+  const utils = trpc.useUtils();
+
   const inviteUrl = useMemo(() => {
     if (!trip?.inviteCode) return "";
     return `${window.location.origin}/join/${trip.inviteCode}`;
@@ -372,8 +374,6 @@ export default function TripDashboard() {
   const lockedDate = dateProposals?.find((d: any) => d.selected);
   const lockedDest = destinations?.find((d: any) => d.selected);
   const lockedAcc = accommodations?.find((a: any) => a.selected);
-
-  const utils = trpc.useUtils();
 
   const handleDateVote = (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
     const currentVote = dateProposals?.find((p: any) => p.id === proposalId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
