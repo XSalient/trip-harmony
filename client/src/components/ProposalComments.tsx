@@ -14,9 +14,10 @@ interface Props {
   proposalId: number;
   tripId: number;
   isOrganizer: boolean;
+  count?: number;
 }
 
-export default function ProposalComments({ proposalType, proposalId, tripId, isOrganizer }: Props) {
+export default function ProposalComments({ proposalType, proposalId, tripId, isOrganizer, count }: Props) {
   const { user } = useAuth({});
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
@@ -61,7 +62,10 @@ export default function ProposalComments({ proposalType, proposalId, tripId, isO
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <MessageCircle className="h-3.5 w-3.5" />
-        <span>Comments</span>
+        {count !== undefined && count > 0
+          ? <span className="font-medium text-foreground/70">{count}</span>
+          : null}
+        <span>{count !== undefined && count > 0 ? (expanded ? "· hide" : "· comments") : "Comments"}</span>
         {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
       </button>
 

@@ -757,7 +757,7 @@ export default function TripAccommodations() {
                       </Button>
                     )}
 
-                    <ProposalComments proposalType="accommodation" proposalId={acc.id} tripId={tripId} isOrganizer={isOrganizer} />
+                    <ProposalComments proposalType="accommodation" proposalId={acc.id} tripId={tripId} isOrganizer={isOrganizer} count={commentCount} />
                   </CardContent>
                 </Card>
               );

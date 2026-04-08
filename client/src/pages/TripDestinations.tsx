@@ -324,7 +324,7 @@ export default function TripDestinations() {
                       </Button>
                     )}
 
-                    <ProposalComments proposalType="destination" proposalId={dest.id} tripId={tripId} isOrganizer={isOrganizer} />
+                    <ProposalComments proposalType="destination" proposalId={dest.id} tripId={tripId} isOrganizer={isOrganizer} count={commentCount} />
                   </CardContent>
                 </Card>
               );
