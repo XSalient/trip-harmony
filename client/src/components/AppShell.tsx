@@ -20,7 +20,7 @@ export default function AppShell({ children, title, showBack, backHref, headerRi
     <div className="min-h-screen bg-background flex flex-col">
       {title && (
         <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border">
-          <div className="flex items-center h-14 px-4 max-w-lg mx-auto">
+          <div className="mx-auto flex h-14 max-w-2xl items-center px-4 sm:px-5">
             {showBack && (
               <Button
                 variant="ghost"
@@ -36,7 +36,7 @@ export default function AppShell({ children, title, showBack, backHref, headerRi
           </div>
         </header>
       )}
-      <main className="flex-1 max-w-lg mx-auto w-full pb-20">
+      <main className="mx-auto w-full max-w-2xl flex-1 pb-24">
         {children}
       </main>
       {!hideNav && <MobileNav />}

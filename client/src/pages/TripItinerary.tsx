@@ -126,11 +126,10 @@ export default function TripItinerary() {
   };
 
   return (
-    <AppShell title="Itinerary" backHref={`/trips/${tripId}`}>
-      <div className="space-y-4">
+    <AppShell title="Itinerary" showBack backHref={`/trips/${tripId}`}>
+      <div className="px-4 py-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">Itinerary</h1>
             <p className="text-sm text-muted-foreground">Plan your days together.</p>
           </div>
           {isOrganizer && (

@@ -254,7 +254,7 @@ export default function TripDestinations() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
                         {commentCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                             <MessageCircle className="h-3.5 w-3.5" />{commentCount}
                           </span>
                         )}

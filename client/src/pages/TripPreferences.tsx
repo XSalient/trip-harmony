@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "wouter";
+import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import AppShell from "@/components/AppShell";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import {
-  CheckCircle2, ChevronLeft, ClipboardList, Star,
+  CheckCircle2, ClipboardList, Star,
   ThumbsDown, MessageSquare, Users, Lightbulb,
 } from "lucide-react";
 
@@ -114,7 +114,7 @@ export default function TripPreferences() {
 
   return (
     <AppShell title="My Trip Preferences" showBack backHref={`/trips/${tripId}`}>
-      <div className="p-4 pb-40 space-y-4 max-w-2xl mx-auto">
+      <div className="mx-auto max-w-2xl space-y-5 p-4 pb-44 sm:p-5 sm:pb-44">
 
         {/* Header info */}
         <Card className="border-border/50">
@@ -128,7 +128,7 @@ export default function TripPreferences() {
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Tell the group what matters to you for this specific trip. The AI uses these to score every accommodation and destination proposal — showing exactly how well each option fits you.
                 </p>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="text-xs gap-1">
                     <Users className="h-3 w-3" />
                     {submittedCount}/{acceptedCount} members submitted
@@ -146,7 +146,7 @@ export default function TripPreferences() {
         </Card>
 
         {/* AI tip */}
-        <div className="flex gap-2 p-3 bg-muted/40 rounded-xl border border-border/50">
+        <div className="flex gap-2 rounded-xl border border-border/50 bg-muted/40 p-3">
           <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Tip:</span> Be specific. "Ground floor or elevator only" is more useful than "accessibility". The more detail you add, the more accurate the AI match scores will be for every proposal.
@@ -157,20 +157,20 @@ export default function TripPreferences() {
         {SECTIONS.map(section => {
           const Icon = section.icon;
           return (
-            <Card key={section.key} className={`border ${section.border}`}>
-              <CardHeader className={`${section.bg} rounded-t-xl pb-2`}>
-                <CardTitle className="flex items-center gap-2 text-sm">
+            <Card key={section.key} className={`overflow-hidden rounded-2xl border ${section.border}`}>
+              <CardHeader className={`${section.bg} space-y-1.5 border-b px-4 py-3`}>
+                <CardTitle className="flex items-center gap-2 text-[1.05rem] leading-tight">
                   <Icon className={`h-4 w-4 ${section.color}`} />
                   <span>{section.label}</span>
                 </CardTitle>
-                <p className="text-xs text-muted-foreground">{section.hint}</p>
+                <p className="text-sm leading-snug text-muted-foreground">{section.hint}</p>
               </CardHeader>
-              <CardContent className="p-3">
+              <CardContent className="p-0">
                 <Textarea
                   value={form[section.key]}
                   onChange={e => setForm(prev => ({ ...prev, [section.key]: e.target.value }))}
                   placeholder={section.placeholder}
-                  className="min-h-[90px] text-sm resize-none border-0 shadow-none focus-visible:ring-0 p-0 bg-transparent"
+                  className="min-h-[130px] resize-none border-0 bg-background px-4 py-3 text-base leading-relaxed shadow-none focus-visible:ring-0"
                 />
               </CardContent>
             </Card>
@@ -178,10 +178,10 @@ export default function TripPreferences() {
         })}
 
         {/* Save button — sits above the bottom nav bar (h-14 = 56px) */}
-        <div className="fixed bottom-14 left-0 right-0 p-4 bg-background/90 backdrop-blur border-t border-border/50 z-10">
+        <div className="fixed bottom-14 left-0 right-0 z-10 border-t border-border/50 bg-background/90 p-4 backdrop-blur">
           <div className="max-w-2xl mx-auto">
             <Button
-              className="w-full"
+              className="h-11 w-full text-base font-medium"
               onClick={handleSave}
               disabled={saveMutation.isPending}
             >

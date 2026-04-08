@@ -322,11 +322,11 @@ export default function TripDates() {
                         <p className="text-xs text-muted-foreground mt-1">{nights} night{nights !== 1 ? "s" : ""}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                        {commentCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                        {/*{commentCount > 0 && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                             <MessageCircle className="h-3.5 w-3.5" />{commentCount}
                           </span>
-                        )}
+                        )}*/}
                         {p.selected && <Badge className="bg-primary text-primary-foreground text-xs flex items-center gap-1"><Lock className="h-3 w-3" /> Locked</Badge>}
                         {canManage && !p.selected && (
                           <DropdownMenu>

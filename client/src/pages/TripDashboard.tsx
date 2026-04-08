@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import {
@@ -221,9 +221,7 @@ function QuickAddStay({ tripId, onAdded }: { tripId: number; onAdded: () => void
   );
 }
 
-function SectionCard({
-  title, icon: Icon, href, locked, pendingCount, addSlot, children, emptyText,
-}: {
+type SectionCardProps = {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
@@ -232,9 +230,16 @@ function SectionCard({
   addSlot: React.ReactNode;
   children?: React.ReactNode;
   emptyText: string;
-}) {
+} & Omit<React.ComponentProps<typeof Card>, "children" | "title">;
+
+function SectionCard({
+  title, icon: Icon, href, locked, pendingCount, addSlot, children, emptyText, className, ...cardProps
+}: SectionCardProps) {
   return (
-    <Card className={`border ${locked ? "border-green-200 bg-green-50/40 dark:bg-green-950/10" : "border-border/50"}`}>
+    <Card
+      {...cardProps}
+      className={`border ${locked ? "border-green-200 bg-green-50/40 dark:bg-green-950/10" : "border-border/50"} ${className ?? ""}`}
+    >
       <CardContent className="p-0">
         <div className="flex items-center gap-3 px-3 pt-3 pb-2">
           <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${locked ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"}`}>
@@ -268,6 +273,7 @@ function SectionCard({
 export default function TripDashboard() {
   const { user } = useAuth({ redirectOnUnauthenticated: true });
   const params = useParams<{ id: string }>();
+  const [, navigate] = useLocation();
   const tripId = parseInt(params.id || "0");
 
   const { data: trip, isLoading } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
@@ -642,45 +648,53 @@ export default function TripDashboard() {
         )}
 
         {/* Trip Preferences CTA */}
-        <Link href={`/trips/${tripId}/preferences`}>
-          <Card className={`cursor-pointer transition-shadow hover:shadow-sm ${!myPrefs ? "border-primary/40 bg-primary/5" : "border-border/50"}`}>
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(`/trips/${tripId}/preferences`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/preferences`)}
+          className={`cursor-pointer transition-shadow hover:shadow-sm ${!myPrefs ? "border-primary/40 bg-primary/5" : "border-border/50"}`}
+        >
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${myPrefs ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-primary/10 text-primary"}`}>
+              {myPrefs ? <CheckCircle2 className="h-5 w-5" /> : <ClipboardList className="h-5 w-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">
+                {myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {myPrefs
+                  ? `Your preferences saved · ${prefCount?.count || 0}/${memberCount} members submitted`
+                  : "Set must-haves & dealbreakers — AI uses these to score proposals for you"}
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
+
+        {/* Budget snapshot */}
+        {budgetSummary && budgetSummary.total > 0 && (
+          <Card
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/trips/${tripId}/budget`)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/budget`)}
+            className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
+          >
             <CardContent className="p-3 flex items-center gap-3">
-              <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${myPrefs ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-primary/10 text-primary"}`}>
-                {myPrefs ? <CheckCircle2 className="h-5 w-5" /> : <ClipboardList className="h-5 w-5" />}
+              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <DollarSign className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">
-                  {myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
-                </p>
+                <p className="text-sm font-medium">Budget</p>
                 <p className="text-xs text-muted-foreground">
-                  {myPrefs
-                    ? `Your preferences saved · ${prefCount?.count || 0}/${memberCount} members submitted`
-                    : "Set must-haves & dealbreakers — AI uses these to score proposals for you"}
+                  {trip.currency} {budgetSummary.total.toFixed(0)} total · ~{trip.currency} {budgetSummary.perPerson.toFixed(0)} per person
                 </p>
               </div>
               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
             </CardContent>
           </Card>
-        </Link>
-
-        {/* Budget snapshot */}
-        {budgetSummary && budgetSummary.total > 0 && (
-          <Link href={`/trips/${tripId}/budget`}>
-            <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <DollarSign className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">Budget</p>
-                  <p className="text-xs text-muted-foreground">
-                    {trip.currency} {budgetSummary.total.toFixed(0)} total · ~{trip.currency} {budgetSummary.perPerson.toFixed(0)} per person
-                  </p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </CardContent>
-            </Card>
-          </Link>
         )}
 
         {/* ── Dates ── */}
@@ -692,6 +706,9 @@ export default function TripDashboard() {
           pendingCount={pendingVotes.dates}
           addSlot={<QuickAddDates tripId={tripId} onAdded={() => refetchDates()} />}
           emptyText="No dates proposed yet — add the first one above!"
+          onClick={() => navigate(`/trips/${tripId}/dates`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/dates`)}
+          className="cursor-pointer hover:shadow-sm transition-shadow"
         >
           {topDates.length > 0 ? topDates.map((p: any) => {
             const myVote = p.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -705,8 +722,12 @@ export default function TripDashboard() {
               <div key={p.id} className={`rounded-lg border p-2.5 text-xs ${p.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex-1 min-w-0">
-                    {p.label && <span className="font-medium mr-1">{p.label} · </span>}
-                    <span className="text-muted-foreground">{format(new Date(p.startDate), "MMM d")} – {format(new Date(p.endDate), "MMM d, yyyy")} · {nights}n</span>
+                    <Link href={`/trips/${tripId}/dates`}>
+                      <span className="cursor-pointer hover:underline">
+                        {p.label && <span className="font-medium mr-1">{p.label} · </span>}
+                        <span className="text-muted-foreground">{format(new Date(p.startDate), "MMM d")} – {format(new Date(p.endDate), "MMM d, yyyy")} · {nights}n</span>
+                      </span>
+                    </Link>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 ml-1">
                     {p.selected && <Lock className="h-3.5 w-3.5 text-green-600" />}
@@ -762,6 +783,9 @@ export default function TripDashboard() {
           pendingCount={pendingVotes.destinations}
           addSlot={<QuickAddDestination tripId={tripId} onAdded={() => refetchDest()} />}
           emptyText="No destinations yet — suggest the first one!"
+          onClick={() => navigate(`/trips/${tripId}/destinations`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/destinations`)}
+          className="cursor-pointer hover:shadow-sm transition-shadow"
         >
           {topDests.length > 0 ? topDests.map((d: any) => {
             const myVote = d.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -773,7 +797,9 @@ export default function TripDashboard() {
             return (
               <div key={d.id} className={`rounded-lg border p-2.5 text-xs ${d.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-medium truncate flex-1">{d.name}</span>
+                  <Link href={`/trips/${tripId}/destinations`} className="flex-1 min-w-0">
+                    <span className="font-medium truncate block cursor-pointer hover:underline">{d.name}</span>
+                  </Link>
                   <div className="flex items-center gap-1 shrink-0 ml-1">
                     {d.selected && <Lock className="h-3.5 w-3.5 text-green-600" />}
                     {commentCount > 0 && <span className="flex items-center gap-0.5 text-muted-foreground"><MessageCircle className="h-3 w-3" />{commentCount}</span>}
@@ -828,6 +854,9 @@ export default function TripDashboard() {
           pendingCount={pendingVotes.accommodations}
           addSlot={<QuickAddStay tripId={tripId} onAdded={() => refetchAcc()} />}
           emptyText="No stays suggested yet — add an option!"
+          onClick={() => navigate(`/trips/${tripId}/accommodations`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/accommodations`)}
+          className="cursor-pointer hover:shadow-sm transition-shadow"
         >
           {topAccs.length > 0 ? topAccs.map((a: any) => {
             const myVote = a.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -840,7 +869,9 @@ export default function TripDashboard() {
               <div key={a.id} className={`rounded-lg border p-2.5 text-xs ${a.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex-1 min-w-0">
-                    <span className="font-medium truncate block">{a.name}</span>
+                    <Link href={`/trips/${tripId}/accommodations`}>
+                      <span className="font-medium truncate block cursor-pointer hover:underline">{a.name}</span>
+                    </Link>
                     {a.pricePerNight && <span className="text-muted-foreground">{trip.currency}{a.pricePerNight}/night</span>}
                   </div>
                   <div className="flex items-center gap-1 shrink-0 ml-1">
@@ -890,69 +921,85 @@ export default function TripDashboard() {
 
         {/* ── Budget (no proposals needed, just a link) ── */}
         {(!budgetSummary || budgetSummary.total === 0) && (
-          <Link href={`/trips/${tripId}/budget`}>
-            <Card className="border-dashed border-border/50 cursor-pointer hover:bg-muted/20 transition-colors">
-              <CardContent className="p-3 flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
-                  <DollarSign className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-muted-foreground">Budget</p>
-                  <p className="text-xs text-muted-foreground">Track expenses and set limits</p>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </CardContent>
-            </Card>
-          </Link>
+          <Card
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/trips/${tripId}/budget`)}
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/budget`)}
+            className="border-dashed border-border/50 cursor-pointer hover:bg-muted/20 transition-colors"
+          >
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                <DollarSign className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-muted-foreground">Budget</p>
+                <p className="text-xs text-muted-foreground">Track expenses and set limits</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
         )}
 
         {/* ── Vibe Board ── */}
-        <Link href={`/trips/${tripId}/vibe`}>
-          <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center shrink-0">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Vibe Board</p>
-                <p className="text-xs text-muted-foreground">Share inspiration — links, photos, ideas</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            </CardContent>
-          </Card>
-        </Link>
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(`/trips/${tripId}/vibe`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/vibe`)}
+          className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
+        >
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-pink-100 dark:bg-pink-900/30 text-pink-600 flex items-center justify-center shrink-0">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Vibe Board</p>
+              <p className="text-xs text-muted-foreground">Share inspiration — links, photos, ideas</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
 
         {/* ── Itinerary ── */}
-        <Link href={`/trips/${tripId}/itinerary`}>
-          <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0">
-                <Calendar className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Itinerary</p>
-                <p className="text-xs text-muted-foreground">Plan your days with activities & logistics</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            </CardContent>
-          </Card>
-        </Link>
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(`/trips/${tripId}/itinerary`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/itinerary`)}
+          className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
+        >
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center shrink-0">
+              <Calendar className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium">Itinerary</p>
+              <p className="text-xs text-muted-foreground">Plan your days with activities & logistics</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
 
         {/* ── AI Referee ── */}
-        <Link href={`/trips/${tripId}/referee`}>
-          <Card className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow">
-            <CardContent className="p-3 flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Bot className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">AI Referee</p>
-                <p className="text-xs text-muted-foreground">Get mediation &amp; suggestions</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-            </CardContent>
-          </Card>
-        </Link>
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(`/trips/${tripId}/referee`)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/trips/${tripId}/referee`)}
+          className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
+        >
+          <CardContent className="p-3 flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">AI Referee</p>
+              <p className="text-xs text-muted-foreground">Get mediation &amp; suggestions</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </CardContent>
+        </Card>
 
       </div>
 

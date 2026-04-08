@@ -78,7 +78,7 @@ export default function Notifications() {
         ) : null
       }
     >
-      <div className="px-4 py-4 space-y-2">
+      <div className="px-4 py-4 space-y-3">
         {isLoading ? (
           <div className="space-y-2">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
         ) : notifications && notifications.length > 0 ? (
@@ -91,7 +91,7 @@ export default function Notifications() {
                 className={`border-border/50 cursor-pointer transition-all hover:shadow-sm ${!notif.read ? "bg-primary/[0.02] border-primary/20" : ""}`}
                 onClick={() => handleClick(notif)}
               >
-                <CardContent className="p-3 flex gap-3">
+                <CardContent className="p-4 flex gap-3">
                   <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
                     <Icon className="h-4 w-4" />
                   </div>
