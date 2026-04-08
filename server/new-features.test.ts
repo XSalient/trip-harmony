@@ -267,3 +267,89 @@ describe("itinerary.getDays input validation", () => {
     ).rejects.toThrow();
   });
 });
+
+// ─── Preferences ─────────────────────────────────────────────────────────────
+
+describe("preferences.getMy input validation", () => {
+  it("requires a numeric tripId", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(
+      caller.preferences.getMy({ tripId: "abc" as any })
+    ).rejects.toThrow();
+  });
+
+  it("rejects unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(makeUnauthCtx());
+    await expect(
+      caller.preferences.getMy({ tripId: 1 })
+    ).rejects.toThrow();
+  });
+});
+
+describe("preferences.save input validation", () => {
+  it("rejects unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(makeUnauthCtx());
+    await expect(
+      caller.preferences.save({ tripId: 1, mustHaves: "", strongPreferences: "", avoids: "", openComments: "" })
+    ).rejects.toThrow();
+  });
+
+  it("rejects a text field exceeding 2000 characters", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(
+      caller.preferences.save({
+        tripId: 1,
+        mustHaves: "x".repeat(2001),
+        strongPreferences: "",
+        avoids: "",
+        openComments: "",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("accepts valid empty-string preferences without crashing on validation", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    try {
+      await caller.preferences.save({ tripId: 999999, mustHaves: "", strongPreferences: "", avoids: "", openComments: "" });
+    } catch (e: any) {
+      expect(e.message).not.toMatch(/too_big|invalid_type/);
+    }
+  });
+});
+
+describe("preferences.countForTrip input validation", () => {
+  it("requires a numeric tripId", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(
+      caller.preferences.countForTrip({ tripId: "abc" as any })
+    ).rejects.toThrow();
+  });
+
+  it("rejects unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(makeUnauthCtx());
+    await expect(
+      caller.preferences.countForTrip({ tripId: 1 })
+    ).rejects.toThrow();
+  });
+});
+
+// ─── accommodations.analyzeMatch ─────────────────────────────────────────────
+
+describe("accommodations.analyzeMatch input validation", () => {
+  it("requires numeric accommodationId and tripId", async () => {
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(
+      caller.accommodations.analyzeMatch({ accommodationId: "abc" as any, tripId: 1 })
+    ).rejects.toThrow();
+    await expect(
+      caller.accommodations.analyzeMatch({ accommodationId: 1, tripId: "abc" as any })
+    ).rejects.toThrow();
+  });
+
+  it("rejects unauthenticated callers", async () => {
+    const caller = appRouter.createCaller(makeUnauthCtx());
+    await expect(
+      caller.accommodations.analyzeMatch({ accommodationId: 1, tripId: 1 })
+    ).rejects.toThrow();
+  });
+});

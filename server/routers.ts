@@ -602,6 +602,126 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
       await db.updateAccommodation(id, data);
       return { success: true };
     }),
+    analyzeMatch: protectedProcedure.input(z.object({
+      accommodationId: z.number(),
+      tripId: z.number(),
+    })).mutation(async ({ input }) => {
+      const accommodation = await db.getAccommodation(input.accommodationId);
+      if (!accommodation) throw new TRPCError({ code: "NOT_FOUND", message: "Accommodation not found" });
+
+      const [members, allDna, allPrefs] = await Promise.all([
+        db.getTripMembers(input.tripId),
+        db.getGroupTravelDna(input.tripId),
+        db.getAllTripPreferences(input.tripId),
+      ]);
+
+      const accepted = members.filter((m: any) => m.status === "accepted");
+
+      const memberProfiles = accepted.map((m: any) => {
+        const dna = allDna.find((d: any) => d.userId === m.userId);
+        const prefRow = allPrefs.find((p: any) => p.userId === m.userId);
+        let tripPrefs: any = null;
+        try { if (prefRow) tripPrefs = JSON.parse(prefRow.rawText); } catch {}
+        return {
+          name: m.userName || m.userEmail || `Member #${m.userId}`,
+          userId: m.userId,
+          dna: dna ? {
+            budget: dna.budgetComfort,
+            adventure: dna.adventureLevel,
+            comfort: dna.comfortNeed,
+            dietary: dna.dietaryNeeds,
+            accessibility: dna.accessibilityNeeds,
+          } : null,
+          tripPrefs: tripPrefs ? {
+            mustHaves: tripPrefs.mustHaves || "",
+            strongPreferences: tripPrefs.strongPreferences || "",
+            avoids: tripPrefs.avoids || "",
+            openComments: tripPrefs.openComments || "",
+          } : null,
+        };
+      });
+
+      const accSummary = [
+        `Name: ${accommodation.name}`,
+        accommodation.description ? `Description: ${accommodation.description}` : "",
+        accommodation.location ? `Location: ${accommodation.location}` : "",
+        accommodation.bedrooms ? `Bedrooms: ${accommodation.bedrooms}` : "",
+        accommodation.bathrooms ? `Bathrooms: ${accommodation.bathrooms}` : "",
+        accommodation.ensuites ? `En-suites: ${accommodation.ensuites}` : "",
+        accommodation.amenities ? `Amenities: ${accommodation.amenities}` : "",
+        accommodation.totalPrice ? `Total price: ${accommodation.totalPrice}` : "",
+        accommodation.pricePerNight ? `Per night: ${accommodation.pricePerNight}` : "",
+        accommodation.link ? `Link: ${accommodation.link}` : "",
+      ].filter(Boolean).join("\n");
+
+      const profileText = memberProfiles.map(p => {
+        const lines = [`Member: ${p.name}`];
+        if (p.dna) {
+          lines.push(`  Travel DNA — Budget comfort: ${p.dna.budget}/10, Adventure: ${p.dna.adventure}/10, Comfort need: ${p.dna.comfort}/10${p.dna.dietary ? `, Dietary: ${p.dna.dietary}` : ""}${p.dna.accessibility ? `, Accessibility: ${p.dna.accessibility}` : ""}`);
+        } else {
+          lines.push("  Travel DNA: not set");
+        }
+        if (p.tripPrefs) {
+          if (p.tripPrefs.mustHaves) lines.push(`  Must-haves: ${p.tripPrefs.mustHaves}`);
+          if (p.tripPrefs.strongPreferences) lines.push(`  Strong preferences: ${p.tripPrefs.strongPreferences}`);
+          if (p.tripPrefs.avoids) lines.push(`  Avoids/dealbreakers: ${p.tripPrefs.avoids}`);
+          if (p.tripPrefs.openComments) lines.push(`  Comments: ${p.tripPrefs.openComments}`);
+        } else {
+          lines.push("  Trip preferences: not set");
+        }
+        return lines.join("\n");
+      }).join("\n\n");
+
+      const prompt = `You are an expert group travel analyst. Analyze how well this accommodation matches each group member's preferences and Travel DNA.
+
+ACCOMMODATION:
+${accSummary}
+
+GROUP MEMBERS (${memberProfiles.length} people):
+${profileText}
+
+Return ONLY a valid JSON object with this exact structure:
+{
+  "groupFitScore": <0-100 integer, overall group fit>,
+  "comfortScore": <1-10 number, one decimal, overall comfort>,
+  "resentmentRisk": <"low" | "medium" | "high">,
+  "summary": "<2-3 sentence honest group-level summary>",
+  "flags": ["<critical issue 1>", "<critical issue 2>"],
+  "memberMatches": [
+    {
+      "name": "<member name>",
+      "score": <0-100 integer match score>,
+      "verdict": "<one short emoji+word verdict like ✅ Great fit | ⚠️ Some concerns | ❌ Poor match>",
+      "reason": "<1-2 sentences explaining the match or mismatch for this person>"
+    }
+  ]
+}
+
+Be honest and specific. Flag hard constraint failures (stairs, accessibility, required bedrooms, dietary, etc.) clearly. If a member has no preferences set, give them a neutral score of 65.`;
+
+      const raw = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are a travel group analyst. Reply only with valid JSON." },
+          { role: "user", content: prompt },
+        ],
+      });
+      const text = extractLLMText(raw, "{}");
+      const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      try {
+        const result = JSON.parse(clean);
+        return {
+          groupFitScore: result.groupFitScore ?? 50,
+          comfortScore: result.comfortScore ?? 5,
+          resentmentRisk: result.resentmentRisk ?? "medium",
+          summary: result.summary ?? "Analysis unavailable.",
+          flags: result.flags ?? [],
+          memberMatches: result.memberMatches ?? [],
+        };
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI analysis failed to parse. Try again." });
+      }
+    }),
+
     clone: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
       const accommodation = await db.getAccommodation(input.id);
       if (!accommodation) throw new Error("Accommodation not found");
@@ -898,6 +1018,33 @@ Output: [{"startDate":"2026-09-19","endDate":"2026-09-20","label":"Weekend Sep 1
       return { success: true };
     }),
   }),
+  preferences: router({
+    getMy: protectedProcedure.input(z.object({ tripId: z.number() })).query(async ({ ctx, input }) => {
+      return db.getMyTripPreferences(input.tripId, ctx.user.id);
+    }),
+    save: protectedProcedure.input(z.object({
+      tripId: z.number(),
+      mustHaves: z.string().max(2000),
+      strongPreferences: z.string().max(2000),
+      avoids: z.string().max(2000),
+      openComments: z.string().max(2000),
+    })).mutation(async ({ ctx, input }) => {
+      await db.saveTripPreferences({
+        tripId: input.tripId,
+        userId: ctx.user.id,
+        mustHaves: input.mustHaves,
+        strongPreferences: input.strongPreferences,
+        avoids: input.avoids,
+        openComments: input.openComments,
+      });
+      return { success: true };
+    }),
+    countForTrip: protectedProcedure.input(z.object({ tripId: z.number() })).query(async ({ input }) => {
+      const count = await db.countTripPreferences(input.tripId);
+      return { count };
+    }),
+  }),
+
   vibeBoard: router({
     list: protectedProcedure.input(z.object({ tripId: z.number() })).query(async ({ input }) => {
       return db.getVibeItems(input.tripId);

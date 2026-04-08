@@ -1,0 +1,85 @@
+every trip is unique. A Goa family reunion has different priorities than a Dutch cycling weekend or a US road trip with kids.
+Trip-specific preferences solve real pain points: people express needs tied to this exact trip (e.g., “I need a ground-floor room because of my knee for this June trip” or “We must have a full kitchen with pressure cooker — we’re cooking all meals”). This makes matching far more accurate, reduces generic mismatches, and keeps everyone invested without restarting discussions.
+Updated Design: Dual-Layer Preference System
+Harmony now uses two complementary layers for maximum intelligence and low friction:
+
+Travel DNA (General Profile) — Persistent across trips
+Created once, editable anytime.
+Covers baseline traits: overall budget range, default vibe (chill/adventure), dietary style (veg/Jain/gluten-free), accessibility needs (wheelchair, stroller), comfort baseline (attached toilet preference), frugality level, etc.
+Auto-filled into new trips for speed.
+
+Trip-Specific Preferences (New Core Feature) — Per-trip input
+Every member can add, edit, or comment on their criteria for this trip only.
+Collected early (right after joining the group) via a quick, guided form or conversational prompts.
+Includes hard constraints, must-haves, nice-to-haves, and veto-level conditions.
+Referee actively prompts: “Sarah, any specific needs for this Goa trip regarding elders or cooking?”
+
+
+This dual system is smart and skippable: If someone has strong DNA data, the app pre-fills and asks for trip-specific overrides only. Passive users can skip or add minimal input.
+How Trip-Specific Preferences Work in Practice
+
+Collection Flow (low friction, high engagement):
+After joining: One-tap “Add My Trip Preferences” card.
+Guided sections with examples and country-aware suggestions:
+Must-Haves / Hard Constraints (enforceable): “Ground floor only”, “Minimum 2 attached bathrooms for our family”, “EV charger required”.
+Strong Preferences: “Large kitchen with 4+ burners and pressure cooker”, “Pool essential for kids”, “Bike storage for 4 adults”.
+Avoids / Veto Risks: “No more than 10 stairs”, “No car-free park (long walk with luggage)”, “Avoid high energy-cost cottages”.
+Open Comments: Voice note or text: “I’m happy with most things but need quiet for early bedtime.”
+
+AI Referee suggests relevant questions based on trip type, group composition, and cultural mode (e.g., for Indian groups: chef availability, attached toilets; for Dutch: energy label; for US: kitchen island size).
+
+Storage & Visibility:
+Stored per user per trip (so DNA stays clean).
+Visible in group dashboard as a “Preferences Summary” (anonymous aggregates + individual breakdowns when viewing proposals).
+Elder/Payer roles can mark certain items as “Veto-level”.
+
+
+Enhanced Link Analysis & Matching (Even Smarter Now)
+When any member pastes a link (villa, park cottage, cabin, etc.):
+
+Magic-Link Parser extracts structured details (bedrooms, attached/en-suite bathrooms, kitchen specs, stairs count, chef mention, energy label, EV charger, bike storage, pool, walk distance, etc.).
+AI Matching Engine now runs dual scoring:
+Against Travel DNA (general fit).
+Against Trip-Specific Preferences (this-trip relevance — weighted higher for accuracy).
+
+Output on Proposal Card (clear, visual, per-member):
+Overall Group Fit Score (0–100) + Comfort Score (1–10) + Resentment Risk.
+Per-Member Breakdown (shows why someone matches or doesn’t):
+Example for Indian Goa trip (4 families + grandparents):
+Link: 6BR villa with 3 total bathrooms (2 attached), small kitchen (2 burners), 15 stairs, pool, no chef mentioned.
+AI Output:
+Group Fit: 62/100 | Comfort Score: 4.5/10
+Grandma (Trip-Specific: ground floor required due to knee): 30% match → ⚠️ “Fails hard constraint: 15 stairs detected. Veto risk high.”
+Aunt Priya (Trip-Specific: full kitchen with pressure cooker for Jain cooking this trip): 25% match → “Kitchen too limited — only 2 burners, no pressure cooker indicators.”
+Uncle Raj (DNA: budget cap + Trip-Specific: at least 1 attached toilet per couple): 75% match → “Budget ok, but only 2 attached toilets for 4 couples.”
+Young family (Trip-Specific: pool for kids): 95% match.
+
+Referee note: “This option has low trip-specific matches for 3 members, especially elders and cooking needs. Here are 2 stronger alternatives with ground-floor access + better kitchen.”
+
+
+
+Voting Becomes Informed & Easy:
+Users see the rich breakdown before voting ❤️ / 👍 / ❌.
+One-tap reactions or comments tied to specific mismatches (“The stairs are a dealbreaker for me”).
+Hard failures auto-flag with ⚠️ and can trigger Referee nudges or Wildcard suggestions.
+
+
+Real-World Examples (Ready for Vibe Coding)
+Example 1: Indian Multi-Gen Family (Goa Reunion)
+
+Trip-Specific inputs:
+Grandma: “Ground floor or elevator only — bad knee this summer.”
+Cooking team: “Large kitchen with pressure cooker + chef option preferred (we want home-cooked Jain meals).”
+Group: “At least 4 attached toilets.”
+
+Link pasted → AI flags low matches on stairs and kitchen → shows exact gaps per person → group quickly discards or discusses with data.
+
+Example 2: Dutch Cycling Group
+
+Trip-Specific: “Secure bike storage for 8 bikes”, “Energy Label A/B (high electricity costs in June)”, “Short walk from parking.”
+Link: Center Parcs cottage → Frugal Hunter + parser shows Energy Label C + good bike storage → Sarah sees personal 55% match due to energy cost estimate → informed vote.
+
+Example 3: US Road-Trip Families
+
+Trip-Specific: “EV Level 2 charger”, “Large kitchen island for group meals”, “Minimum 5 bedrooms.”
+Cabin link → AI computes per-family matches and Comfort Score → highlights kitchen win vs. EV miss.

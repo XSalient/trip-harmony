@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import {
   Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath,
   DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2,
-  MoreVertical, Pencil, Copy, HelpCircle, MessageCircle,
+  MoreVertical, Pencil, Copy, HelpCircle, MessageCircle, Brain, ChevronDown, ChevronUp,
+  AlertTriangle, Users,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -66,7 +67,25 @@ export default function TripAccommodations() {
   const cloneMutation = trpc.accommodations.clone.useMutation();
   const fetchFromUrlMutation = trpc.accommodations.fetchFromUrl.useMutation();
   const parseAttributesMutation = trpc.accommodations.parseAttributes.useMutation();
+  const analyzeMatchMutation = trpc.accommodations.analyzeMatch.useMutation();
   const utils = trpc.useUtils();
+
+  const [matchResults, setMatchResults] = useState<Record<number, any>>({});
+  const [matchLoading, setMatchLoading] = useState<Record<number, boolean>>({});
+  const [matchExpanded, setMatchExpanded] = useState<Record<number, boolean>>({});
+
+  const handleAnalyzeMatch = async (accId: number) => {
+    setMatchLoading(prev => ({ ...prev, [accId]: true }));
+    setMatchExpanded(prev => ({ ...prev, [accId]: true }));
+    try {
+      const result = await analyzeMatchMutation.mutateAsync({ accommodationId: accId, tripId });
+      setMatchResults(prev => ({ ...prev, [accId]: result }));
+    } catch {
+      toast.error("AI analysis failed — try again");
+    } finally {
+      setMatchLoading(prev => ({ ...prev, [accId]: false }));
+    }
+  };
 
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -592,6 +611,101 @@ export default function TripAccommodations() {
                         <ExternalLink className="h-3 w-3" /> View listing
                       </a>
                     )}
+
+                    {/* AI Match Analysis */}
+                    {(() => {
+                      const match = matchResults[acc.id];
+                      const loading = matchLoading[acc.id];
+                      const expanded = matchExpanded[acc.id];
+                      return (
+                        <div className="mb-3">
+                          {match ? (
+                            <div className="rounded-xl border border-border/60 overflow-hidden">
+                              {/* Summary row */}
+                              <button
+                                className="w-full flex items-center justify-between p-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                                onClick={() => setMatchExpanded(prev => ({ ...prev, [acc.id]: !prev[acc.id] }))}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
+                                  <span className="text-xs font-medium">AI Match</span>
+                                  <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                                    match.groupFitScore >= 70 ? "bg-green-100 text-green-700" :
+                                    match.groupFitScore >= 45 ? "bg-yellow-100 text-yellow-700" :
+                                    "bg-red-100 text-red-700"
+                                  }`}>{match.groupFitScore}/100</span>
+                                  <span className="text-xs text-yellow-600 flex items-center gap-0.5">
+                                    <Star className="h-3 w-3" />{typeof match.comfortScore === 'number' ? match.comfortScore.toFixed(1) : match.comfortScore}
+                                  </span>
+                                  {match.resentmentRisk === "high" && (
+                                    <span className="text-xs text-red-600 flex items-center gap-0.5">
+                                      <AlertTriangle className="h-3 w-3" /> High risk
+                                    </span>
+                                  )}
+                                </div>
+                                {expanded ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                              </button>
+                              {expanded && (
+                                <div className="p-2.5 space-y-2">
+                                  <p className="text-xs text-muted-foreground">{match.summary}</p>
+                                  {match.flags?.length > 0 && (
+                                    <div className="space-y-1">
+                                      {match.flags.map((f: string, i: number) => (
+                                        <div key={i} className="flex items-start gap-1.5 text-xs text-red-600">
+                                          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />{f}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {match.memberMatches?.length > 0 && (
+                                    <div className="space-y-1.5">
+                                      <p className="text-xs font-medium flex items-center gap-1"><Users className="h-3 w-3" /> Per-member breakdown</p>
+                                      {match.memberMatches.map((m: any, i: number) => (
+                                        <div key={i} className="flex items-start gap-2 p-1.5 rounded-lg bg-muted/30">
+                                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                            m.score >= 70 ? "bg-green-100 text-green-700" :
+                                            m.score >= 45 ? "bg-yellow-100 text-yellow-700" :
+                                            "bg-red-100 text-red-700"
+                                          }`}>{m.score}</span>
+                                          <div>
+                                            <p className="text-xs font-medium">{m.name} <span className="font-normal text-muted-foreground">{m.verdict}</span></p>
+                                            <p className="text-xs text-muted-foreground">{m.reason}</p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-xs h-7 text-muted-foreground"
+                                    onClick={() => handleAnalyzeMatch(acc.id)}
+                                    disabled={loading}
+                                  >
+                                    {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />}
+                                    Re-analyze
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs h-8 border-dashed gap-1.5 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleAnalyzeMatch(acc.id)}
+                              disabled={loading}
+                            >
+                              {loading ? (
+                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analysing preferences…</>
+                              ) : (
+                                <><Brain className="h-3.5 w-3.5" /> AI Match Analysis</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Vote counts */}
                     <div className="flex gap-4 text-xs mb-3">

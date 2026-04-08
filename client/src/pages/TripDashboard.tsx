@@ -12,7 +12,7 @@ import {
   Calendar, MapPin, Home as HomeIcon, DollarSign, Users,
   ChevronRight, CheckCircle2, Circle, Bot, Copy, UserPlus,
   Send, Plus, Lock, Check, HelpCircle, X, Sparkles, AlertCircle,
-  MessageCircle, MoreVertical, Pencil, Trash2,
+  MessageCircle, MoreVertical, Pencil, Trash2, ClipboardList,
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -292,6 +292,8 @@ export default function TripDashboard() {
   const createDestMutation = trpc.destinations.create.useMutation();
   const createAccMutation = trpc.accommodations.create.useMutation();
   const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: myPrefs } = trpc.preferences.getMy.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: prefCount } = trpc.preferences.countForTrip.useQuery({ tripId }, { enabled: tripId > 0 });
 
   const isOrganizer = trip?.organizerId === user?.id;
 
@@ -638,6 +640,28 @@ export default function TripDashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Trip Preferences CTA */}
+        <Link href={`/trips/${tripId}/preferences`}>
+          <Card className={`cursor-pointer transition-shadow hover:shadow-sm ${!myPrefs ? "border-primary/40 bg-primary/5" : "border-border/50"}`}>
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${myPrefs ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-primary/10 text-primary"}`}>
+                {myPrefs ? <CheckCircle2 className="h-5 w-5" /> : <ClipboardList className="h-5 w-5" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">
+                  {myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {myPrefs
+                    ? `Your preferences saved · ${prefCount?.count || 0}/${memberCount} members submitted`
+                    : "Set must-haves & dealbreakers — AI uses these to score proposals for you"}
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
 
         {/* Budget snapshot */}
         {budgetSummary && budgetSummary.total > 0 && (

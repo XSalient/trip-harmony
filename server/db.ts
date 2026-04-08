@@ -21,6 +21,7 @@ import {
   vibeVotes, InsertVibeVote,
   itineraryDays, InsertItineraryDay,
   itineraryItems, InsertItineraryItem,
+  memberPreferences,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -712,4 +713,95 @@ export async function getItineraryItem(id: number) {
   if (!db) return null;
   const [row] = await db.select().from(itineraryItems).where(eq(itineraryItems.id, id)).limit(1);
   return row || null;
+}
+
+export async function saveTripPreferences(data: {
+  tripId: number;
+  userId: number;
+  mustHaves: string;
+  strongPreferences: string;
+  avoids: string;
+  openComments: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const rawText = JSON.stringify({
+    mustHaves: data.mustHaves,
+    strongPreferences: data.strongPreferences,
+    avoids: data.avoids,
+    openComments: data.openComments,
+  });
+  const existing = await db.select()
+    .from(memberPreferences)
+    .where(and(
+      eq(memberPreferences.tripId, data.tripId),
+      eq(memberPreferences.userId, data.userId),
+      eq(memberPreferences.category, "general"),
+    ))
+    .limit(1);
+  if (existing.length) {
+    await db.update(memberPreferences)
+      .set({ rawText, attributes: rawText, updatedAt: new Date() })
+      .where(eq(memberPreferences.id, existing[0].id));
+  } else {
+    await db.insert(memberPreferences).values({
+      tripId: data.tripId,
+      userId: data.userId,
+      category: "general",
+      rawText,
+      attributes: rawText,
+    });
+  }
+}
+
+export async function getMyTripPreferences(tripId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select()
+    .from(memberPreferences)
+    .where(and(
+      eq(memberPreferences.tripId, tripId),
+      eq(memberPreferences.userId, userId),
+      eq(memberPreferences.category, "general"),
+    ))
+    .limit(1);
+  if (!row) return null;
+  try {
+    return JSON.parse(row.rawText) as {
+      mustHaves: string;
+      strongPreferences: string;
+      avoids: string;
+      openComments: string;
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getAllTripPreferences(tripId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: memberPreferences.id,
+    userId: memberPreferences.userId,
+    rawText: memberPreferences.rawText,
+    updatedAt: memberPreferences.updatedAt,
+  })
+    .from(memberPreferences)
+    .where(and(
+      eq(memberPreferences.tripId, tripId),
+      eq(memberPreferences.category, "general"),
+    ));
+}
+
+export async function countTripPreferences(tripId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db.select({ id: memberPreferences.id })
+    .from(memberPreferences)
+    .where(and(
+      eq(memberPreferences.tripId, tripId),
+      eq(memberPreferences.category, "general"),
+    ));
+  return rows.length;
 }
