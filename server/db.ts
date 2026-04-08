@@ -715,6 +715,14 @@ export async function getItineraryItem(id: number) {
   return row || null;
 }
 
+export async function saveAccommodationMatchAnalysis(id: number, analysis: object) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(accommodations)
+    .set({ matchAnalysis: JSON.stringify(analysis), matchAnalysedAt: new Date() })
+    .where(eq(accommodations.id, id));
+}
+
 export async function saveTripPreferences(data: {
   tripId: number;
   userId: number;

@@ -186,6 +186,8 @@ export const accommodations = pgTable("accommodations", {
   location: varchar("location", { length: 500 }),
   link: text("link"),
   comfortScore: decimal("comfortScore", { precision: 3, scale: 1 }),
+  matchAnalysis: text("matchAnalysis"),
+  matchAnalysedAt: timestamp("matchAnalysedAt"),
   proposedBy: integer("proposedBy").notNull(),
   selected: boolean("selected").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

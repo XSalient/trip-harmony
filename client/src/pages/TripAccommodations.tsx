@@ -10,14 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
-import { useParams } from "wouter";
+import { useParams, Link } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Home, Plus, Heart, ThumbsUp, Ban, CheckCircle2, Bed, Bath,
-  DollarSign, ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2,
+  ExternalLink, Star, Trash2, Sparkles, Link2, Unlock, Car, Loader2,
   MoreVertical, Pencil, Copy, HelpCircle, MessageCircle, Brain, ChevronDown, ChevronUp,
-  AlertTriangle, Users,
+  AlertTriangle, Users, ClipboardList, RefreshCw,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,9 +54,20 @@ export default function TripAccommodations() {
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
 
-  const { data: accommodations, isLoading } = trpc.accommodations.list.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: accommodations, isLoading } = trpc.accommodations.list.useQuery(
+    { tripId },
+    {
+      enabled: tripId > 0,
+      refetchInterval: (data: any) => {
+        if (!data) return false;
+        const anyPending = (Array.isArray(data) ? data : []).some((a: any) => !a.matchAnalysis);
+        return anyPending ? 5000 : false;
+      },
+    }
+  );
   const { data: trip } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
   const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: myPrefs } = trpc.preferences.getMy.useQuery({ tripId }, { enabled: tripId > 0 });
   const createMutation = trpc.accommodations.create.useMutation();
   const voteMutation = trpc.accommodations.vote.useMutation();
   const unvoteMutation = trpc.accommodations.unvote.useMutation();
@@ -67,23 +78,22 @@ export default function TripAccommodations() {
   const cloneMutation = trpc.accommodations.clone.useMutation();
   const fetchFromUrlMutation = trpc.accommodations.fetchFromUrl.useMutation();
   const parseAttributesMutation = trpc.accommodations.parseAttributes.useMutation();
-  const analyzeMatchMutation = trpc.accommodations.analyzeMatch.useMutation();
+  const refreshMatchMutation = trpc.accommodations.refreshMatch.useMutation();
   const utils = trpc.useUtils();
 
-  const [matchResults, setMatchResults] = useState<Record<number, any>>({});
-  const [matchLoading, setMatchLoading] = useState<Record<number, boolean>>({});
   const [matchExpanded, setMatchExpanded] = useState<Record<number, boolean>>({});
+  const [refreshingMatch, setRefreshingMatch] = useState<Record<number, boolean>>({});
 
-  const handleAnalyzeMatch = async (accId: number) => {
-    setMatchLoading(prev => ({ ...prev, [accId]: true }));
-    setMatchExpanded(prev => ({ ...prev, [accId]: true }));
+  const handleRefreshMatch = async (accId: number) => {
+    setRefreshingMatch(prev => ({ ...prev, [accId]: true }));
     try {
-      const result = await analyzeMatchMutation.mutateAsync({ accommodationId: accId, tripId });
-      setMatchResults(prev => ({ ...prev, [accId]: result }));
+      await refreshMatchMutation.mutateAsync({ accommodationId: accId, tripId });
+      await utils.accommodations.list.invalidate({ tripId });
+      toast.success("Analysis updated");
     } catch {
-      toast.error("AI analysis failed — try again");
+      toast.error("Refresh failed — try again");
     } finally {
-      setMatchLoading(prev => ({ ...prev, [accId]: false }));
+      setRefreshingMatch(prev => ({ ...prev, [accId]: false }));
     }
   };
 
@@ -320,6 +330,20 @@ export default function TripAccommodations() {
   return (
     <AppShell title="Accommodations" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
+        {/* Preferences prompt — shown if user hasn't submitted prefs yet */}
+        {myPrefs === null && (
+          <Link href={`/trips/${tripId}/preferences`}>
+            <div className="flex items-center gap-2.5 p-3 rounded-xl bg-primary/5 border border-primary/20 cursor-pointer hover:bg-primary/10 transition-colors">
+              <ClipboardList className="h-4 w-4 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-primary">Add your trip preferences</p>
+                <p className="text-[11px] text-muted-foreground">Help AI match accommodations to your must-haves, avoids, and comfort needs</p>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-primary rotate-[-90deg]" />
+            </div>
+          </Link>
+        )}
+
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Compare stays and vote on your favorites</p>
@@ -612,16 +636,16 @@ export default function TripAccommodations() {
                       </a>
                     )}
 
-                    {/* AI Match Analysis */}
+                    {/* AI Match Analysis — auto-populated from DB */}
                     {(() => {
-                      const match = matchResults[acc.id];
-                      const loading = matchLoading[acc.id];
+                      let match: any = null;
+                      try { if (acc.matchAnalysis) match = JSON.parse(acc.matchAnalysis); } catch {}
                       const expanded = matchExpanded[acc.id];
+                      const refreshing = refreshingMatch[acc.id];
                       return (
                         <div className="mb-3">
                           {match ? (
                             <div className="rounded-xl border border-border/60 overflow-hidden">
-                              {/* Summary row */}
                               <button
                                 className="w-full flex items-center justify-between p-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
                                 onClick={() => setMatchExpanded(prev => ({ ...prev, [acc.id]: !prev[acc.id] }))}
@@ -679,29 +703,20 @@ export default function TripAccommodations() {
                                     variant="ghost"
                                     size="sm"
                                     className="w-full text-xs h-7 text-muted-foreground"
-                                    onClick={() => handleAnalyzeMatch(acc.id)}
-                                    disabled={loading}
+                                    onClick={() => handleRefreshMatch(acc.id)}
+                                    disabled={refreshing}
                                   >
-                                    {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Brain className="h-3 w-3 mr-1" />}
-                                    Re-analyze
+                                    {refreshing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                                    {refreshing ? "Refreshing..." : "Refresh analysis"}
                                   </Button>
                                 </div>
                               )}
                             </div>
                           ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full text-xs h-8 border-dashed gap-1.5 text-muted-foreground hover:text-foreground"
-                              onClick={() => handleAnalyzeMatch(acc.id)}
-                              disabled={loading}
-                            >
-                              {loading ? (
-                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analysing preferences…</>
-                              ) : (
-                                <><Brain className="h-3.5 w-3.5" /> AI Match Analysis</>
-                              )}
-                            </Button>
+                            <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-center gap-2 text-xs text-muted-foreground">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-primary" />
+                              <span>AI match analysis running in the background…</span>
+                            </div>
                           )}
                         </div>
                       );

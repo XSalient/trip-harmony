@@ -333,23 +333,23 @@ describe("preferences.countForTrip input validation", () => {
   });
 });
 
-// ─── accommodations.analyzeMatch ─────────────────────────────────────────────
+// ─── accommodations.refreshMatch ─────────────────────────────────────────────
 
-describe("accommodations.analyzeMatch input validation", () => {
+describe("accommodations.refreshMatch input validation", () => {
   it("requires numeric accommodationId and tripId", async () => {
     const caller = appRouter.createCaller(makeCtx());
     await expect(
-      caller.accommodations.analyzeMatch({ accommodationId: "abc" as any, tripId: 1 })
+      caller.accommodations.refreshMatch({ accommodationId: "abc" as any, tripId: 1 })
     ).rejects.toThrow();
     await expect(
-      caller.accommodations.analyzeMatch({ accommodationId: 1, tripId: "abc" as any })
+      caller.accommodations.refreshMatch({ accommodationId: 1, tripId: "abc" as any })
     ).rejects.toThrow();
   });
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
     await expect(
-      caller.accommodations.analyzeMatch({ accommodationId: 1, tripId: 1 })
+      caller.accommodations.refreshMatch({ accommodationId: 1, tripId: 1 })
     ).rejects.toThrow();
   });
 });
