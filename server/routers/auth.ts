@@ -11,10 +11,11 @@ import { getSessionCookieOptions } from "../_core/cookies";
 import { sdk } from "../_core/sdk";
 import * as db from "../db";
 import { sendMagicLinkEmail } from "../utils/mailer";
-import { hashPassword, verifyPassword } from "./_shared";
+import { hashPassword, toPublicUser, verifyPassword } from "./_shared";
 
 export const authRouter = router({
-  me: publicProcedure.query(opts => opts.ctx.user),
+  /** Current session user. Never returns credential columns — see `toPublicUser`. */
+  me: publicProcedure.query(({ ctx }) => toPublicUser(ctx.user)),
   logout: publicProcedure.mutation(({ ctx }) => {
     const cookieOptions = getSessionCookieOptions(ctx.req);
     ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
