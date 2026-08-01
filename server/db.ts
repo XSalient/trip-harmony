@@ -169,6 +169,12 @@ export async function createUserWithPassword(data: { openId: string; name: strin
   return result[0];
 }
 
+export async function setUserPassword(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}
+
 export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

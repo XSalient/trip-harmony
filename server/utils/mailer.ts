@@ -36,6 +36,21 @@ export function isEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY) || getSmtpTransport() !== null;
 }
 
+/**
+ * True when mail can reach *any* recipient, not just the operator.
+ *
+ * Resend refuses to deliver to third parties while the sender is its shared sandbox address,
+ * so a Resend key alone is not enough — MAIL_FROM must name a verified domain. SMTP
+ * authenticates as a real mailbox, so it can always reach anyone.
+ *
+ * The sign-in UI keys off this: offering passwordless sign-in that only works for one
+ * address is worse than not offering it.
+ */
+export function canEmailAnyRecipient() {
+  if (getSmtpTransport() !== null) return true;
+  return Boolean(process.env.RESEND_API_KEY) && getFromAddress() !== RESEND_SANDBOX_FROM;
+}
+
 type Message = { to: string; subject: string; text: string; html: string };
 
 async function sendViaResend(apiKey: string, msg: Message) {

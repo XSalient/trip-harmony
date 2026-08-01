@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import nodemailer from "nodemailer";
-import { isEmailConfigured, sendMagicLinkEmail } from "./mailer";
+import { canEmailAnyRecipient, isEmailConfigured, sendMagicLinkEmail } from "./mailer";
 
 const MAIL_ENV = ["RESEND_API_KEY", "MAIL_FROM", "MAIL_PROVIDER", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
 
@@ -73,6 +73,34 @@ describe("mailer delivery reporting", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const unconfigured = await sendMagicLinkEmail("someone-else@example.com", "https://example.com/auth/magic/abc");
     expect(unconfigured.reason).toBe("not_configured");
+  });
+
+  it("does not count Resend's sandbox sender as able to reach any recipient", () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+
+    // A key alone still means onboarding@resend.dev, which only reaches the account owner.
+    expect(isEmailConfigured()).toBe(true);
+    expect(canEmailAnyRecipient()).toBe(false);
+
+    process.env.MAIL_FROM = "Harmony <hello@verified-domain.com>";
+    expect(canEmailAnyRecipient()).toBe(true);
+  });
+
+  it("counts SMTP as able to reach any recipient", () => {
+    process.env.SMTP_HOST = "smtp.gmail.com";
+    process.env.SMTP_USER = "sender@example.com";
+    process.env.SMTP_PASS = "app-password";
+
+    expect(canEmailAnyRecipient()).toBe(true);
+  });
+
+  it("treats a half-configured SMTP block as no provider at all", () => {
+    process.env.SMTP_HOST = "smtp.gmail.com";
+    process.env.SMTP_PASS = "app-password";
+    // SMTP_USER missing — nodemailer would have nothing to authenticate as.
+
+    expect(isEmailConfigured()).toBe(false);
+    expect(canEmailAnyRecipient()).toBe(false);
   });
 
   it("falls back to SMTP when Resend rejects the send", async () => {

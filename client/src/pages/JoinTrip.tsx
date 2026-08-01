@@ -89,18 +89,18 @@ export default function JoinTrip() {
           </Button>
         ) : (
           <div className="space-y-3">
-            <p className="text-center text-sm text-muted-foreground">Sign in to join this trip</p>
+            <p className="text-center text-sm text-muted-foreground">Create an account to join this trip</p>
             <Button
               onClick={() => setAuthOpen(true)}
               className="w-full h-12 rounded-xl text-base font-semibold gap-2"
             >
-              <LogIn className="h-5 w-5" /> Sign In & Join Trip
+              <LogIn className="h-5 w-5" /> Sign Up & Join Trip
             </Button>
           </div>
         )}
       </div>
 
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={handleAuthSuccess} />
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={handleAuthSuccess} defaultMode="register" />
     </AppShell>
   );
 }

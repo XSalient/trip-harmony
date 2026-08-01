@@ -33,10 +33,12 @@ interface AuthDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /** Which form to show first. Invite links land on "register" since those visitors are new. */
+  defaultMode?: "login" | "register" | "magic";
 }
 
-export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
-  const [mode, setMode] = useState<"login" | "register" | "magic">("magic");
+export function AuthDialog({ open, onOpenChange, onSuccess, defaultMode = "magic" }: AuthDialogProps) {
+  const [mode, setMode] = useState<"login" | "register" | "magic">(defaultMode);
   const [serverError, setServerError] = useState<string | null>(null);
   const [magicSent, setMagicSent] = useState(false);
   const [magicDebugUrl, setMagicDebugUrl] = useState<string | null>(null);
@@ -45,7 +47,8 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
   // Until we know otherwise, assume magic links work so the dialog doesn't flicker.
   const { data: capabilities } = trpc.auth.capabilities.useQuery();
   const magicLinkEnabled = capabilities?.magicLink ?? true;
-  const effectiveMode = mode === "magic" && !magicLinkEnabled ? "login" : mode;
+  const magicFallback = defaultMode === "register" ? "register" : "login";
+  const effectiveMode = mode === "magic" && !magicLinkEnabled ? magicFallback : mode;
 
   const loginForm = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
   const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
