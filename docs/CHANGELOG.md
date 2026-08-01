@@ -8,6 +8,36 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-01 — Share links and a map fallback for blocked listings
+
+### Added
+
+- **A share link now imports.** `fetchListingPage` reports the URL the redirects
+  ended up on, and the hints are merged across the canonical URL, that landing
+  URL and the pasted one — each field from the first that has it. A pasted
+  `booking.com/Share-xTk9pQ` encodes nothing, but the page it lands on encodes
+  the property and country, while the pasted URL keeps the dates and guest
+  counts a canonical URL never carries. The stay length is recomputed after the
+  merge, since the winning dates can come from different URLs.
+- **A blocked site no longer means an empty form.** When the page gives us
+  nothing and the URL yields a property name, that name plus its country is
+  looked up through Google Places (`server/utils/placeLookup.ts`), which returns
+  the real name and postal address — a lookup, not a scrape: nothing is fetched
+  from the site that refused us. It runs only on the blocked path, so it costs
+  no quota when a page answers. Places knows what a property is called, not what
+  a stay costs, so price, beds and amenities stay empty and the model is told
+  as much. The toast says the details came from the map, and `source` is
+  `"place"` alongside the existing `"page"` and `"url"`.
+
+### Fixed
+
+- **A share link was named after its id.** `booking.com/Share-xTk9pQ` produced a
+  property called "Share XTk9pQ". A path token that mixes letters and digits is
+  an id, not a word, and a segment that is nothing but furniture once the ids are
+  dropped now names nothing at all — which is the better answer.
+
+---
+
 ## 2026-08-01 — Proposals count as votes, listing import, dialog sizing
 
 ### Changed

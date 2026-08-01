@@ -16,9 +16,15 @@ import {
   hasUsableSignal,
   hintsFromListingUrl,
   looksLikeBotCheck,
+  mergeListingHints,
   parseListingHtml,
   type ListingPageFacts,
 } from "../utils/listingPage.js";
+import {
+  lookupPlace,
+  placeQuery,
+  type PlaceFacts,
+} from "../utils/placeLookup.js";
 
 const log = logger.child({ scope: "accommodations" });
 
@@ -250,13 +256,14 @@ export const accommodationsRouter = router({
     .input(z.object({ url: z.string().url() }))
     .mutation(async ({ input }) => {
       const url = input.url.trim();
-      const hints = hintsFromListingUrl(url);
       let facts: ListingPageFacts | null = null;
       let blocked = false;
 
       const page = await fetchListingPage(url);
+      // A share link says nothing; the page it redirects to says everything.
+      const resolvedUrl = page.finalUrl ?? url;
       if (page.ok) {
-        const parsed = parseListingHtml(page.html, url);
+        const parsed = parseListingHtml(page.html, resolvedUrl);
         // Booking sites answer a server-side fetch with a robot check often
         // enough that a 200 is not evidence the details are there.
         if (looksLikeBotCheck(parsed)) blocked = true;
@@ -264,10 +271,19 @@ export const accommodationsRouter = router({
       } else {
         blocked = page.reason === "blocked";
       }
+
+      const hints = mergeListingHints(
+        facts?.canonicalUrl
+          ? hintsFromListingUrl(facts.canonicalUrl)
+          : undefined,
+        page.finalUrl ? hintsFromListingUrl(page.finalUrl) : undefined,
+        hintsFromListingUrl(url)
+      );
       if (!facts)
         log.info("listing page unreadable, falling back to URL hints", {
           host: hints.host,
           blocked,
+          redirected: Boolean(page.finalUrl),
           status: page.ok ? 200 : page.status,
         });
 
@@ -275,11 +291,17 @@ export const accommodationsRouter = router({
       if (!hasUsableSignal(facts, hints))
         return { success: false, data: {}, source: "none" as const, blocked };
 
+      // Only when the site gave us nothing: a lookup by name costs Places quota,
+      // and a page that answered already knows more than a map does.
+      const query = facts ? undefined : placeQuery(hints);
+      const place: PlaceFacts | null = query ? await lookupPlace(query) : null;
+
       try {
         const context = JSON.stringify({
-          url: cleanListingUrl(url),
+          url: cleanListingUrl(resolvedUrl),
           page: facts ?? null,
           urlHints: hints,
+          place,
         }).slice(0, 8000);
 
         const response = await invokeLLM({
@@ -288,11 +310,12 @@ export const accommodationsRouter = router({
               role: "system",
               content: `You extract accommodation details for a trip-planning form.
 
-You are given "page" (metadata the listing published, or null when the site refused our request) and "urlHints" (what the URL itself encodes: property slug, ISO 3166-1 country code, stay dates, guest counts).
+You are given "page" (metadata the listing published, or null when the site refused our request), "urlHints" (what the URL itself encodes: property slug, ISO 3166-1 country code, stay dates, guest counts), and "place" (a map lookup of that slug, or null — it knows the property's real name and postal address and nothing about this stay).
 
 RULES:
 - Use ONLY the supplied data. Never invent a price, a rating, a bed count or a city.
 - When "page" is null, still return what the URL supports: "slug" is the property name (tidy the capitalisation), "countryCode" gives the country (expand the ISO code, e.g. "si" is Slovenia) — and nothing else.
+- When "place" is present it is the better name and location than the slug: use "place.name" for name and shorten "place.address" to a town and country for location. It never carries a price, a bed count or an amenity — leave those null.
 - Titles often carry trailing site furniture ("… — Updated 2026 Prices", "| Booking.com"). Strip it from name; keep the town or city for location.
 - location is a place ("Ljubljana, Slovenia"), not a full postal address, unless only an address is given.
 - Prices are plain numbers in the listing's own currency, no symbols or thousands separators. If a price covers the whole stay it is totalPrice, not pricePerNight; urlHints.nights tells you the stay length.
@@ -310,14 +333,18 @@ Return ONLY JSON with these fields, null for anything unknown: name, description
 
         const data = coerceExtractedAccommodation(
           parseJsonObject(extractLLMText(response, "{}")),
-          url
+          resolvedUrl
         );
         // The page's own image beats whatever the model echoed back.
         if (facts?.imageUrl) data.imageUrl = facts.imageUrl;
         return {
           success: Object.keys(data).length > 0,
           data,
-          source: facts ? ("page" as const) : ("url" as const),
+          source: facts
+            ? ("page" as const)
+            : place
+              ? ("place" as const)
+              : ("url" as const),
           blocked,
         };
       } catch (err) {
