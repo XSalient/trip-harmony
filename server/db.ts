@@ -51,6 +51,18 @@ const CONNECTION_ENV_KEYS = [
   "POSTGRES_URL_NON_POOLING",
 ] as const;
 
+/**
+ * Managed Postgres providers (Supabase included) present a certificate chain
+ * that is not in Node's default trust store. Recent pg-connection-string
+ * promotes `sslmode=require` to `verify-full`, so those connections now fail
+ * with SELF_SIGNED_CERT_IN_CHAIN. Keep the connection encrypted but skip chain
+ * verification, matching the libpq meaning of `require`.
+ */
+function sslConfig(url: string) {
+  if (/@(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(url)) return undefined;
+  return { rejectUnauthorized: false };
+}
+
 function resolveConnectionString() {
   for (const key of CONNECTION_ENV_KEYS) {
     const value = process.env[key];
@@ -81,6 +93,7 @@ export async function getDb() {
       console.log(`[Database] Connecting using ${connection.source}`);
       const pool = new Pool({
         connectionString: connection.url,
+        ssl: sslConfig(connection.url),
         connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
         query_timeout: QUERY_TIMEOUT_MS,
         statement_timeout: QUERY_TIMEOUT_MS,
