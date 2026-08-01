@@ -31,8 +31,26 @@ let _db: ReturnType<typeof drizzle> | null = null;
 const CONNECTION_TIMEOUT_MS = 5_000;
 const QUERY_TIMEOUT_MS = 15_000;
 
+/**
+ * This app runs on Postgres. Pointing DATABASE_URL at anything else (an old
+ * MySQL/TiDB URL, an HTTP endpoint) fails deep inside the driver as an opaque
+ * "error establishing an SSL connection", so check the scheme up front.
+ */
+function isPostgresUrl(url: string) {
+  return /^postgres(ql)?:\/\//i.test(url.trim());
+}
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
+    if (!isPostgresUrl(process.env.DATABASE_URL)) {
+      const scheme = process.env.DATABASE_URL.split("://")[0];
+      console.error(
+        `[Database] DATABASE_URL is not a Postgres connection string ` +
+          `(scheme: "${scheme}"). Expected postgres:// or postgresql://. ` +
+          `Every query will fail until this is corrected.`
+      );
+      return null;
+    }
     try {
       const pool = new Pool({
         connectionString: process.env.DATABASE_URL,
