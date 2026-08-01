@@ -51,16 +51,28 @@ const CONNECTION_ENV_KEYS = [
   "POSTGRES_URL_NON_POOLING",
 ] as const;
 
+function isLocalUrl(url: string) {
+  return /@(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(url);
+}
+
 /**
  * Managed Postgres providers (Supabase included) present a certificate chain
- * that is not in Node's default trust store. Recent pg-connection-string
- * promotes `sslmode=require` to `verify-full`, so those connections now fail
- * with SELF_SIGNED_CERT_IN_CHAIN. Keep the connection encrypted but skip chain
- * verification, matching the libpq meaning of `require`.
+ * that is not in Node's default trust store, and recent pg-connection-string
+ * promotes `sslmode=require` to `verify-full` — so the connection fails with
+ * SELF_SIGNED_CERT_IN_CHAIN.
+ *
+ * This has to be fixed in the connection string rather than the `ssl` pool
+ * option: pg builds its config as Object.assign({}, config, parse(connectionString)),
+ * so anything parsed out of the string overwrites the explicit option. Edit the
+ * parameter textually to avoid re-encoding credentials through the URL parser.
  */
-function sslConfig(url: string) {
-  if (/@(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(url)) return undefined;
-  return { rejectUnauthorized: false };
+function withRelaxedSsl(url: string) {
+  if (isLocalUrl(url)) return url;
+  if (/[?&]sslmode=disable\b/i.test(url)) return url;
+  if (/[?&]sslmode=/i.test(url)) {
+    return url.replace(/([?&]sslmode=)[^&]*/i, "$1no-verify");
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=no-verify`;
 }
 
 function resolveConnectionString() {
@@ -92,8 +104,7 @@ export async function getDb() {
     try {
       console.log(`[Database] Connecting using ${connection.source}`);
       const pool = new Pool({
-        connectionString: connection.url,
-        ssl: sslConfig(connection.url),
+        connectionString: withRelaxedSsl(connection.url),
         connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
         query_timeout: QUERY_TIMEOUT_MS,
         statement_timeout: QUERY_TIMEOUT_MS,
