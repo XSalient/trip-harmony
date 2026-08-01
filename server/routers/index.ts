@@ -5,21 +5,21 @@
  * a change to (say) budgeting never requires reading the accommodation code —
  * which also keeps the context an AI agent has to load small.
  */
-import { router } from "../_core/trpc";
-import { systemRouter } from "../_core/systemRouter";
-import { authRouter } from "./auth";
-import { travelDnaRouter } from "./travelDna";
-import { tripsRouter } from "./trips";
-import { datesRouter } from "./dates";
-import { destinationsRouter } from "./destinations";
-import { accommodationsRouter } from "./accommodations";
-import { budgetRouter } from "./budget";
-import { refereeRouter } from "./referee";
-import { notificationsRouter } from "./notifications";
-import { commentsRouter } from "./comments";
-import { preferencesRouter } from "./preferences";
-import { vibeBoardRouter } from "./vibeBoard";
-import { itineraryRouter } from "./itinerary";
+import { router } from "../_core/trpc.js";
+import { systemRouter } from "../_core/systemRouter.js";
+import { authRouter } from "./auth.js";
+import { travelDnaRouter } from "./travelDna.js";
+import { tripsRouter } from "./trips.js";
+import { datesRouter } from "./dates.js";
+import { destinationsRouter } from "./destinations.js";
+import { accommodationsRouter } from "./accommodations.js";
+import { budgetRouter } from "./budget.js";
+import { refereeRouter } from "./referee.js";
+import { notificationsRouter } from "./notifications.js";
+import { commentsRouter } from "./comments.js";
+import { preferencesRouter } from "./preferences.js";
+import { vibeBoardRouter } from "./vibeBoard.js";
+import { itineraryRouter } from "./itinerary.js";
 
 export const appRouter = router({
   system: systemRouter,

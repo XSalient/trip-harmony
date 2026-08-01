@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { appRouter } from "./routers";
-import { COOKIE_NAME } from "../shared/const";
-import type { TrpcContext } from "./_core/context";
+import { appRouter } from "./routers/index.js";
+import { COOKIE_NAME } from "../shared/const.js";
+import type { TrpcContext } from "./_core/context.js";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 

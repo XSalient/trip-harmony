@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { Modality } from "@google/genai";
-import { ai } from "./client";
+import { ai } from "./client.js";
 
 export function registerImageRoutes(app: Express): void {
   app.post("/api/generate-image", async (req: Request, res: Response) => {

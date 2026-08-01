@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { GoogleGenAI } from "@google/genai";
-import { chatStorage } from "./storage";
+import { chatStorage } from "./storage.js";
 
 /*
 Supported models: gemini-2.5-flash (fast), gemini-2.5-pro (advanced reasoning)

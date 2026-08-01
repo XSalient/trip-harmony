@@ -15,7 +15,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { config, type LogLevel } from "./env";
+import { config, type LogLevel } from "./env.js";
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
   debug: 10,

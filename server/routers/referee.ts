@@ -1,11 +1,11 @@
 /**
  * AI mediation: conflict detection and compromise suggestions.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
-import { invokeLLM } from "../_core/llm";
-import * as db from "../db";
-import { extractLLMText } from "./_shared";
+import { invokeLLM } from "../_core/llm.js";
+import * as db from "../db.js";
+import { extractLLMText } from "./_shared.js";
 
 export const refereeRouter = router({
   messages: protectedProcedure

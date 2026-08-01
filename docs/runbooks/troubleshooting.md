@@ -36,13 +36,17 @@ Production mode with no `dist/public`. Run `pnpm build`, or use `pnpm dev`.
 
 ### Everything returns empty, no errors
 
-`DATABASE_URL` is unset. `getDb()` returns `null` and queries no-op by design, so
-the app boots for frontend-only work. Confirm with `/api/health` —
-`"database": "missing"`. Set `DATABASE_URL` and restart.
+No usable connection string. `getDb()` returns `null` and queries no-op by
+design, so the app boots for frontend-only work. Confirm with `/api/health` —
+`"database": "missing"`. If a variable _is_ set, check `databaseIgnored` in the
+same response: a value that isn't a Postgres URL is skipped deliberately rather
+than handed to the driver.
 
-### `ECONNREFUSED` / `password authentication failed`
+### `ECONNREFUSED` / `password authentication failed` / `SELF_SIGNED_CERT_IN_CHAIN`
 
-Wrong connection string, or Postgres isn't running.
+Wrong connection string, or Postgres isn't running. Managed providers' TLS
+chains are handled automatically (`sslmode=no-verify` for non-local hosts), so a
+certificate error usually means the host is wrong rather than the TLS setup.
 
 ```bash
 psql "$DATABASE_URL" -c "select 1"
@@ -52,7 +56,7 @@ Hosted databases usually need `?sslmode=require`.
 
 ### `relation "…" does not exist`
 
-The schema was never applied: `pnpm db:push`.
+The schema was never applied: `pnpm db:migrate` (or `pnpm db:push` locally).
 
 ### Connection limit exhausted on a serverless deploy
 
@@ -72,14 +76,23 @@ string (Supabase: port 6543 with `pgbouncer=true`). See [database.md](database.m
 
 ### No magic-link email
 
-Expected without SMTP. The link is written to the log at `warn`:
+With no provider configured this is expected — the link is written to the log at
+`warn`, which is what local sign-in relies on:
 
 ```bash
 pnpm logs:tail | grep magic
 ```
 
-`/api/health` shows `"smtp": "console-fallback"`. Configure `SMTP_*` to send real
-mail.
+`/api/health` reports one of three states:
+
+| `email`      | Meaning                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `log-only`   | No provider. Set `RESEND_API_KEY` or `SMTP_*`.                                                                                            |
+| `owner-only` | Resend is configured but `MAIL_FROM` is still its sandbox sender, so it only delivers to the Resend account owner. Set a verified domain. |
+| `configured` | Mail can reach any recipient.                                                                                                             |
+
+In production a failed send surfaces as an error to the user rather than a false
+"check your inbox" — look for `mailer` in the logs for the provider's reason.
 
 ---
 

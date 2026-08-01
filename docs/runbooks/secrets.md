@@ -51,10 +51,10 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Required in preview and production
 
-| Variable       | Purpose               | Notes                                      |
-| -------------- | --------------------- | ------------------------------------------ |
-| `DATABASE_URL` | Postgres connection   | Boot fails without it when deployed        |
-| `JWT_SECRET`   | Signs session cookies | ≥ 32 chars. Rotating it signs everyone out |
+| Variable       | Purpose               | Notes                                                                                                                                   |
+| -------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | Postgres connection   | Or `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` from the Supabase integration. Boot fails if none is a usable Postgres URL when deployed |
+| `JWT_SECRET`   | Signs session cookies | ≥ 32 chars. Rotating it signs everyone out                                                                                              |
 
 ### Runtime
 
@@ -69,12 +69,14 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Optional — the app runs without them
 
-| Variable                                                            | Missing behaviour                                                                                                 |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `AI_INTEGRATIONS_GEMINI_API_KEY`, `AI_INTEGRATIONS_GEMINI_BASE_URL` | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected |
-| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`                  | Legacy aliases; take precedence over the Gemini pair when set                                                     |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`     | Magic links and invites are logged at `warn` instead of emailed. Intended local behaviour                         |
-| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                         | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                   |
+| Variable                                                            | Missing behaviour                                                                                                                                  |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_INTEGRATIONS_GEMINI_API_KEY`, `AI_INTEGRATIONS_GEMINI_BASE_URL` | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected                                  |
+| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`                  | Legacy aliases; take precedence over the Gemini pair when set                                                                                      |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                      | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`     | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour     |
+| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                          | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration                                                                |
+| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                         | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                    |
 
 `GET /api/health` reports which of these are configured, without revealing values.
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,12 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TRPCClientError } from "@trpc/client";
 import { Mail, CheckCircle } from "lucide-react";
 
-const loginSchema = z.object({
+/** Password is optional here because the same form sends a magic link or signs in. */
+const signInSchema = z.object({
   email: z.string().email("Enter a valid email"),
-  password: z.string().min(1, "Password is required"),
+  password: z.string().optional(),
 });
 
 const registerSchema = z.object({
@@ -26,32 +26,50 @@ const registerSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-const magicSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-});
-
-type LoginForm = z.infer<typeof loginSchema>;
+type SignInForm = z.infer<typeof signInSchema>;
 type RegisterForm = z.infer<typeof registerSchema>;
-type MagicForm = z.infer<typeof magicSchema>;
 
 interface AuthDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  defaultMode?: "signin" | "register";
+  /** Opens with the password field already showing, e.g. from an expired magic link. */
+  startWithPassword?: boolean;
 }
 
-export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
-  const [mode, setMode] = useState<"login" | "register" | "magic">("magic");
+export function AuthDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  defaultMode = "signin",
+  startWithPassword = false,
+}: AuthDialogProps) {
+  const [mode, setMode] = useState<"signin" | "register">(defaultMode);
   const [serverError, setServerError] = useState<string | null>(null);
   const [magicSent, setMagicSent] = useState(false);
   const [magicDebugUrl, setMagicDebugUrl] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(startWithPassword);
   const utils = trpc.useUtils();
 
-  const loginForm = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
+  const { data: capabilities } = trpc.auth.capabilities.useQuery();
+  // Assume magic links work until told otherwise, so the dialog doesn't flicker on open.
+  const magicLinkEnabled = capabilities?.magicLink ?? true;
+  const magicLinkReliable = capabilities?.magicLinkReliable ?? true;
+
+  // Only force the password field when no link can be sent at all. Passwordless stays the
+  // primary action otherwise — an unreliable link is still worth offering first, because the
+  // password route is one click away and a failed send reveals it automatically.
+  useEffect(() => {
+    if (!magicLinkEnabled) setShowPassword(true);
+  }, [magicLinkEnabled]);
+
+  const signInForm = useForm<SignInForm>({
+    resolver: zodResolver(signInSchema),
+  });
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   });
-  const magicForm = useForm<MagicForm>({ resolver: zodResolver(magicSchema) });
 
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async () => {
@@ -71,10 +89,15 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
   const magicMutation = trpc.auth.requestMagicLink.useMutation({
     onSuccess: data => {
+      setServerError(null);
       setMagicSent(true);
       if (data.debugUrl) setMagicDebugUrl(data.debugUrl);
     },
-    onError: err => setServerError(err.message),
+    onError: err => {
+      // A link that cannot be sent must not be a dead end: surface the password route at once.
+      setServerError(err.message);
+      setShowPassword(true);
+    },
   });
 
   const isPending =
@@ -82,19 +105,32 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
     registerMutation.isPending ||
     magicMutation.isPending;
 
-  function switchMode(next: "login" | "register" | "magic") {
+  function switchMode(next: "signin" | "register") {
     setMode(next);
     setServerError(null);
     setMagicSent(false);
     setMagicDebugUrl(null);
-    loginForm.reset();
+    signInForm.reset();
     registerForm.reset();
-    magicForm.reset();
   }
 
-  function onLogin(data: LoginForm) {
+  function revealPassword() {
     setServerError(null);
-    loginMutation.mutate(data);
+    setMagicSent(false);
+    setShowPassword(true);
+  }
+
+  function onSignInSubmit(data: SignInForm) {
+    setServerError(null);
+    if (showPassword) {
+      if (!data.password) {
+        signInForm.setError("password", { message: "Password is required" });
+        return;
+      }
+      loginMutation.mutate({ email: data.email, password: data.password });
+      return;
+    }
+    magicMutation.mutate({ email: data.email });
   }
 
   function onRegister(data: RegisterForm) {
@@ -102,17 +138,12 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
     registerMutation.mutate(data);
   }
 
-  function onMagicRequest(data: MagicForm) {
-    setServerError(null);
-    magicMutation.mutate(data);
-  }
-
   const title =
-    mode === "login"
-      ? "Welcome back"
-      : mode === "register"
-        ? "Create your account"
-        : "Sign in with email link";
+    mode === "register"
+      ? "Create your account"
+      : magicSent
+        ? "Check your inbox"
+        : "Sign in";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -123,68 +154,159 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           </DialogTitle>
         </DialogHeader>
 
-        {mode === "login" && (
+        {mode === "signin" && magicSent && (
+          <div className="space-y-4 mt-2 text-center">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+            <p className="text-sm text-muted-foreground">
+              We've sent a sign-in link to{" "}
+              <strong>{signInForm.getValues("email")}</strong>. Click it to log
+              in — it expires in 15 minutes.
+            </p>
+            {magicDebugUrl && (
+              <div className="text-left bg-muted rounded-lg p-3 space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Dev mode — link:
+                </p>
+                <a
+                  href={magicDebugUrl}
+                  className="text-xs text-primary break-all hover:underline"
+                >
+                  {magicDebugUrl}
+                </a>
+              </div>
+            )}
+            <div className="space-y-2 pt-2 border-t">
+              <p className="text-sm text-muted-foreground">
+                Email taking a while to arrive?
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={revealPassword}
+              >
+                Log in with your password instead
+              </Button>
+            </div>
+            <button
+              type="button"
+              className="text-sm text-primary font-medium hover:underline"
+              onClick={() => {
+                setMagicSent(false);
+                setMagicDebugUrl(null);
+              }}
+            >
+              Send again
+            </button>
+          </div>
+        )}
+
+        {mode === "signin" && !magicSent && (
           <form
-            onSubmit={loginForm.handleSubmit(onLogin)}
+            onSubmit={signInForm.handleSubmit(onSignInSubmit)}
             className="space-y-4 mt-2"
           >
+            {!showPassword && (
+              <p className="text-sm text-muted-foreground text-center">
+                Enter your email and we'll send you a sign-in link — no password
+                needed.
+              </p>
+            )}
             <div className="space-y-1.5">
-              <Label htmlFor="login-email">Email</Label>
+              <Label htmlFor="signin-email">Email</Label>
               <Input
-                id="login-email"
+                id="signin-email"
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
-                {...loginForm.register("email")}
+                {...signInForm.register("email")}
               />
-              {loginForm.formState.errors.email && (
+              {signInForm.formState.errors.email && (
                 <p className="text-xs text-destructive">
-                  {loginForm.formState.errors.email.message}
+                  {signInForm.formState.errors.email.message}
                 </p>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="login-password">Password</Label>
-              <Input
-                id="login-password"
-                type="password"
-                placeholder="••••••••"
-                autoComplete="current-password"
-                {...loginForm.register("password")}
-              />
-              {loginForm.formState.errors.password && (
-                <p className="text-xs text-destructive">
-                  {loginForm.formState.errors.password.message}
-                </p>
-              )}
-            </div>
+
+            {showPassword && (
+              <div className="space-y-1.5">
+                <Label htmlFor="signin-password">Password</Label>
+                <Input
+                  id="signin-password"
+                  type="password"
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  {...signInForm.register("password")}
+                />
+                {signInForm.formState.errors.password && (
+                  <p className="text-xs text-destructive">
+                    {signInForm.formState.errors.password.message}
+                  </p>
+                )}
+              </div>
+            )}
+
             {serverError && (
               <p className="text-sm text-destructive text-center">
                 {serverError}
               </p>
             )}
-            <Button type="submit" className="w-full" disabled={isPending}>
-              {isPending ? "Signing in…" : "Sign In"}
+
+            <Button type="submit" className="w-full gap-2" disabled={isPending}>
+              {showPassword ? (
+                isPending ? (
+                  "Signing in…"
+                ) : (
+                  "Sign In"
+                )
+              ) : (
+                <>
+                  <Mail className="h-4 w-4" />
+                  {isPending ? "Sending…" : "Send Magic Link"}
+                </>
+              )}
             </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  or
-                </span>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => switchMode("magic")}
-              disabled={isPending}
-            >
-              <Mail className="h-4 w-4" /> Send me a magic link
-            </Button>
+
+            {magicLinkEnabled && showPassword && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2"
+                disabled={isPending}
+                onClick={() => {
+                  setServerError(null);
+                  setShowPassword(false);
+                }}
+              >
+                <Mail className="h-4 w-4" /> Email me a sign-in link instead
+              </Button>
+            )}
+
+            {/* Weight the password route by how likely the link is to land, without ever
+                displacing passwordless as the primary action. */}
+            {!showPassword &&
+              (magicLinkReliable ? (
+                <p className="text-center text-sm">
+                  <button
+                    type="button"
+                    className="text-primary font-medium hover:underline"
+                    onClick={revealPassword}
+                  >
+                    Sign in with password
+                  </button>
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isPending}
+                  onClick={revealPassword}
+                >
+                  Sign in with password
+                </Button>
+              ))}
+
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
               <button
@@ -256,112 +378,17 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Creating account…" : "Create Account"}
             </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  or
-                </span>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => switchMode("magic")}
-              disabled={isPending}
-            >
-              <Mail className="h-4 w-4" /> Use a magic link instead
-            </Button>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <button
                 type="button"
                 className="text-primary font-medium hover:underline"
-                onClick={() => switchMode("login")}
+                onClick={() => switchMode("signin")}
               >
                 Sign in
               </button>
             </p>
           </form>
-        )}
-
-        {mode === "magic" && !magicSent && (
-          <form
-            onSubmit={magicForm.handleSubmit(onMagicRequest)}
-            className="space-y-4 mt-2"
-          >
-            <p className="text-sm text-muted-foreground text-center">
-              Enter your email and we'll send you a sign-in link — no password
-              needed.
-            </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="magic-email">Email</Label>
-              <Input
-                id="magic-email"
-                type="email"
-                placeholder="you@example.com"
-                autoComplete="email"
-                {...magicForm.register("email")}
-              />
-              {magicForm.formState.errors.email && (
-                <p className="text-xs text-destructive">
-                  {magicForm.formState.errors.email.message}
-                </p>
-              )}
-            </div>
-            {serverError && (
-              <p className="text-sm text-destructive text-center">
-                {serverError}
-              </p>
-            )}
-            <Button type="submit" className="w-full gap-2" disabled={isPending}>
-              <Mail className="h-4 w-4" />
-              {isPending ? "Sending…" : "Send Magic Link"}
-            </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              <button
-                type="button"
-                className="text-primary font-medium hover:underline"
-                onClick={() => switchMode("login")}
-              >
-                Back to sign in
-              </button>
-            </p>
-          </form>
-        )}
-
-        {mode === "magic" && magicSent && (
-          <div className="space-y-4 mt-2 text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
-            <h3 className="font-semibold">Check your inbox</h3>
-            <p className="text-sm text-muted-foreground">
-              We've sent a sign-in link to your email. Click it to log in — it
-              expires in 15 minutes.
-            </p>
-            {magicDebugUrl && (
-              <div className="text-left bg-muted rounded-lg p-3 space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Dev mode — link:
-                </p>
-                <a
-                  href={magicDebugUrl}
-                  className="text-xs text-primary break-all hover:underline"
-                >
-                  {magicDebugUrl}
-                </a>
-              </div>
-            )}
-            <button
-              type="button"
-              className="text-sm text-primary font-medium hover:underline"
-              onClick={() => switchMode("magic")}
-            >
-              Send again
-            </button>
-          </div>
         )}
       </DialogContent>
     </Dialog>

@@ -3,10 +3,10 @@
  * The Vercel serverless entrypoint is `api/server.ts`; both build the same app
  * via `createApp`.
  */
-import { createApp } from "./app";
-import { config, describeConfig } from "./env";
-import { installProcessLogging } from "./httpLogging";
-import { logger } from "./logger";
+import { createApp } from "./app.js";
+import { config, describeConfig } from "./env.js";
+import { installProcessLogging } from "./httpLogging.js";
+import { logger } from "./logger.js";
 
 installProcessLogging();
 

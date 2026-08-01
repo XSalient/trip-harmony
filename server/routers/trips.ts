@@ -1,12 +1,13 @@
 /**
  * Trip records, membership, invite codes and invite emails.
  */
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
-import * as db from "../db";
-import { sendTripInviteEmail } from "../utils/mailer";
+import * as db from "../db.js";
+import { config } from "../_core/env.js";
+import { sendTripInviteEmail } from "../utils/mailer.js";
 
 export const tripsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -42,12 +43,23 @@ export const tripsRouter = router({
       const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
       const origin = `${proto}://${ctx.req.get("host")}`;
       const inviteUrl = `${origin}/join/${trip.inviteCode}`;
-      await sendTripInviteEmail(
+      const delivery = await sendTripInviteEmail(
         input.email,
         ctx.user.name || "Someone",
         trip.name,
         inviteUrl
       );
+      // Outside production the link is in the log, so a failed send is
+      // recoverable; in production, say so rather than implying it arrived.
+      if (!delivery.delivered && config.isProduction) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            delivery.reason === "not_configured"
+              ? "We couldn't send the invite email. Email delivery isn't configured for this deployment yet — share the invite link directly for now."
+              : "We couldn't send the invite email to that address. Copy the invite link and share it directly instead.",
+        });
+      }
       return { success: true };
     }),
   create: protectedProcedure

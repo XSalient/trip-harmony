@@ -57,7 +57,7 @@ DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/harmony_dev
 Native Postgres works equally well; only the connection string matters. Then:
 
 ```bash
-pnpm db:push     # apply drizzle/schema.ts
+pnpm db:migrate  # apply the committed migrations
 ```
 
 ## Everyday commands
@@ -68,7 +68,7 @@ pnpm verify       # typecheck + tests + build — run before you call something 
 pnpm check        # typecheck only (fast)
 pnpm test:watch   # tests in watch mode
 pnpm format       # prettier; CI enforces it
-pnpm db:push      # apply schema changes
+pnpm db:migrate   # apply committed migrations
 pnpm db:studio    # browse the database
 pnpm logs:tail    # follow local structured logs
 ```
@@ -85,13 +85,13 @@ curl -s localhost:5000/api/health
   "appEnv": "development",
   "database": "configured",
   "ai": "missing",
-  "smtp": "console-fallback",
+  "email": "log-only",
   "sessionSecret": "configured"
 }
 ```
 
-`ai: missing` and `smtp: console-fallback` are normal locally — AI features need
-a key, and without SMTP magic links are written to the log instead of emailed.
+`ai: missing` and `email: log-only` are normal locally — AI features need a key,
+and with no email provider magic links are written to the log instead of sent.
 Register an account at http://localhost:5000, then watch the console for the
 sign-in link.
 

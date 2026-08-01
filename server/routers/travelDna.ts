@@ -1,9 +1,9 @@
 /**
  * The per-user travel personality profile and its group-level aggregate.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
-import * as db from "../db";
+import * as db from "../db.js";
 
 export const travelDnaRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {

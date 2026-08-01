@@ -104,6 +104,8 @@ git push origin main
 | `SUPABASE_SERVICE_KEY` | (from Supabase API)                                                       | Production only |
 | `OPENAI_API_KEY`       | `sk-proj-...`                                                             | Production only |
 | `JWT_SECRET`           | (generated string)                                                        | All             |
+| `RESEND_API_KEY`       | `re_...` (required for magic-link + invite emails)                        | All             |
+| `MAIL_FROM`            | `Harmony <hello@yourdomain.com>`                                          | All             |
 | `NODE_ENV`             | `production`                                                              | Production      |
 
 **Replace placeholders:**

@@ -8,6 +8,52 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-01 — Email delivery, database resilience, migrations
+
+Developed in parallel with the infrastructure work below and merged together.
+
+### Added
+
+- **Real email delivery.** Resend (over HTTPS) is tried first, SMTP second —
+  serverless platforms commonly block outbound SMTP ports. Sends report a
+  `DeliveryResult` rather than throwing, so a failed magic link surfaces as an
+  honest error instead of "check your inbox" for a mail that never left.
+- **Capability-aware sign-in.** `auth.capabilities` tells the UI what this
+  deployment can actually deliver, so passwordless is not offered when mail
+  cannot reach the recipient — Resend's sandbox sender only reaches the account
+  owner, which `MAIL_FROM` on a verified domain fixes.
+- **`auth.setPassword` / `auth.hasPassword`.** Accounts created by magic link
+  had no password and therefore no way back in if email broke.
+- **Versioned migrations** under `drizzle/`, replacing `drizzle-kit push` for
+  deployed environments. CI applies them to a scratch Postgres on every PR.
+- **Database resilience:** connection-string fallback (`DATABASE_URL`, then the
+  Supabase integration's `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING`), a
+  Postgres scheme check so a wrong URL fails legibly instead of as an opaque SSL
+  error, relaxed TLS verification for managed providers, and connect/query
+  timeouts so an unreachable database stops hanging the loading screen.
+
+### Changed
+
+- Server imports carry explicit `.js` extensions and `api/package.json` is ESM,
+  which is what the Vercel Node runtime needs to resolve them.
+- `lastSignedIn` is written fire-and-forget, so a slow database no longer delays
+  an already-resolved session.
+- tRPC failures log their whole `cause` chain — pg buries the useful part
+  (error code, host, port) several levels down.
+
+### Merge notes
+
+- Mail settings are read lazily rather than frozen at boot. Unlike the database
+  URL or session secret, email is optional and its absence only degrades
+  behaviour; reading it live keeps the provider tests honest. Every read still
+  happens inside `server/_core/env.ts`.
+- The connection-string fallback moved into the validated config, so `db.ts`
+  keeps only pool concerns (TLS, timeouts) and no `process.env` reads.
+- `logTrpcError` now routes through the structured logger and skips client
+  errors, which the procedure middleware already records at `warn`.
+
+---
+
 ## 2026-08-01 — Infrastructure hardening
 
 ### Security

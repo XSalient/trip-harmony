@@ -45,6 +45,18 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 
 </details>
 
+<details>
+<summary>Email delivery, DB resilience and migrations — 2026-08-01</summary>
+
+- [x] Versioned migrations replacing `drizzle-kit push` for deployed environments
+- [x] Real email delivery via Resend with SMTP fallback, and honest failure reporting
+- [x] Sign-in UI driven by what the deployment can actually deliver
+- [x] Password set/change for magic-link accounts
+- [x] Connection-string fallback, TLS handling and timeouts for managed Postgres
+- [x] Explicit `.js` import extensions for ESM resolution in the serverless runtime
+
+</details>
+
 ---
 
 ## Next — highest value first
@@ -57,31 +69,25 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 - [ ] Verify `/api/health` on a preview deployment
 - [ ] Record the URLs in [PROJECT_STATUS.md](PROJECT_STATUS.md)
 
-### 2. Make schema changes safe
-
-- [ ] Switch from `drizzle-kit push` to generated, versioned migrations
-- [ ] Commit the migration files and apply them in CI before deploy
-- [ ] Document rollback in [runbooks/database.md](runbooks/database.md)
-
-### 3. Close the authorisation gap
+### 2. Close the authorisation gap
 
 - [ ] Add a `tripMemberProcedure` that asserts membership of `input.tripId`
 - [ ] Apply it to every trip-scoped mutation
 - [ ] Add tests covering a non-member attempting each mutation
 
-### 4. Frontend confidence
+### 3. Frontend confidence
 
 - [ ] Add Vitest + Testing Library for components
 - [ ] Cover the dashboard, voting and auth dialog
 - [ ] Add a smoke test that boots the app and asserts the shell renders
 
-### 5. Performance
+### 4. Performance
 
 - [ ] Route-level code splitting (`React.lazy`) to break up the 2.2 MB bundle
 - [ ] Lazy-load the syntax highlighter and mermaid, which dominate the build
 - [ ] Set a bundle-size budget in CI
 
-### 6. Remove dead weight
+### 5. Remove dead weight
 
 - [ ] Delete `server/replit_integrations/` if genuinely unused
 - [ ] Remove `vite-plugin-manus-runtime` and the Manus debug collector

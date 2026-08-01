@@ -1,10 +1,10 @@
 /**
  * Destination suggestions with vibe tags and voting.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import * as db from "../db";
+import * as db from "../db.js";
 
 export const destinationsRouter = router({
   list: protectedProcedure

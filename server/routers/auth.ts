@@ -1,17 +1,22 @@
 /**
  * Registration, password + magic-link sign-in, session cookie lifecycle.
  */
-import { publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
-import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const";
-import { getSessionCookieOptions } from "../_core/cookies";
-import { sdk } from "../_core/sdk";
-import * as db from "../db";
-import { sendMagicLinkEmail } from "../utils/mailer";
-import { hashPassword, toPublicUser, verifyPassword } from "./_shared";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { getSessionCookieOptions } from "../_core/cookies.js";
+import { sdk } from "../_core/sdk.js";
+import * as db from "../db.js";
+import { config } from "../_core/env.js";
+import {
+  canEmailAnyRecipient,
+  isEmailConfigured,
+  sendMagicLinkEmail,
+} from "../utils/mailer.js";
+import { hashPassword, toPublicUser, verifyPassword } from "./_shared.js";
 
 export const authRouter = router({
   /** Current session user. Never returns credential columns — see `toPublicUser`. */
@@ -105,9 +110,83 @@ export const authRouter = router({
       const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
       const origin = `${proto}://${ctx.req.get("host")}`;
       const magicUrl = `${origin}/auth/magic/${token}`;
-      await sendMagicLinkEmail(input.email, magicUrl);
-      const isDev = process.env.NODE_ENV === "development";
+      const delivery = await sendMagicLinkEmail(input.email, magicUrl);
+      // Outside production the link is recoverable from the log, so a failed
+      // send is not a dead end and the URL is handed back for convenience.
+      const isDev = !config.isProduction;
+      // Never report success when the email did not go out — otherwise the UI
+      // tells people to check an inbox that will stay empty.
+      if (!delivery.delivered && !isDev) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            delivery.reason === "not_configured"
+              ? "We couldn't send the sign-in email. Email delivery isn't configured for this deployment yet — set RESEND_API_KEY (or the SMTP_* variables) and try again."
+              : "We couldn't send the sign-in email to that address just now. Please try again in a moment, or sign in with your password instead.",
+        });
+      }
       return { success: true, ...(isDev ? { debugUrl: magicUrl } : {}) };
+    }),
+
+  // Lets the sign-in UI hide email-based options this deployment cannot
+  // actually serve, instead of offering a link that will never arrive.
+  capabilities: publicProcedure.query(() => ({
+    // Offer passwordless whenever a provider exists — the UI keeps a password
+    // route one click away, so a link that fails to arrive is a detour rather
+    // than a dead end.
+    magicLink: isEmailConfigured() || !config.isProduction,
+    // False when mail can only reach the operator (Resend's sandbox sender).
+    // The UI then shows the password field up front instead of after a link
+    // that will never land.
+    magicLinkReliable: canEmailAnyRecipient() || !config.isProduction,
+  })),
+
+  // Whether the signed-in account can sign in with a password. Accounts created
+  // by magic link have no password hash, so without one they would have no way
+  // back in if magic link is unavailable.
+  hasPassword: protectedProcedure.query(async ({ ctx }) => {
+    const user = await db.getUserById(ctx.user.id);
+    return { hasPassword: Boolean(user?.passwordHash) };
+  }),
+
+  setPassword: protectedProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().optional(),
+        newPassword: z
+          .string()
+          .min(8, "Password must be at least 8 characters"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.getUserById(ctx.user.id);
+      if (!user)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Account not found.",
+        });
+      // Only accounts that already have a password must prove the old one;
+      // magic-link accounts have none to prove, and the session cookie is the
+      // authorisation there.
+      if (user.passwordHash) {
+        if (!input.currentPassword) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Enter your current password.",
+          });
+        }
+        const valid = await verifyPassword(
+          input.currentPassword,
+          user.passwordHash
+        );
+        if (!valid)
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Current password is incorrect.",
+          });
+      }
+      await db.setUserPassword(user.id, await hashPassword(input.newPassword));
+      return { success: true };
     }),
   verifyMagicLink: publicProcedure
     .input(

@@ -119,9 +119,12 @@ const schema = z.object({
   OWNER_OPEN_ID: z.string().trim().default(""),
 
   // --- Data ---------------------------------------------------------------
-  DATABASE_URL: IS_DEPLOYED
-    ? z.string().min(1, "is required in a deployed environment")
-    : z.string().default(""),
+  // Any one of these may carry the connection string; see `resolveDatabaseUrl`.
+  // The "at least one in a deployed environment" rule is enforced below, since
+  // no single field can express it.
+  DATABASE_URL: z.string().trim().default(""),
+  POSTGRES_URL: z.string().trim().default(""),
+  POSTGRES_URL_NON_POOLING: z.string().trim().default(""),
 
   // --- AI provider --------------------------------------------------------
   BUILT_IN_FORGE_API_URL: optionalUrl,
@@ -130,6 +133,11 @@ const schema = z.object({
   AI_INTEGRATIONS_GEMINI_API_KEY: z.string().trim().default(""),
 
   // --- Email --------------------------------------------------------------
+  // Resend is tried first; SMTP is the fallback, because serverless platforms
+  // commonly block outbound SMTP ports.
+  RESEND_API_KEY: z.string().trim().default(""),
+  MAIL_FROM: z.string().trim().default(""),
+  MAIL_PROVIDER: z.enum(["resend", "smtp"]).optional(),
   SMTP_HOST: z.string().trim().default(""),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().trim().default(""),
@@ -137,25 +145,83 @@ const schema = z.object({
   SMTP_FROM: z.string().trim().default(""),
 });
 
-function parseEnv() {
-  const result = schema.safeParse(process.env);
-  if (result.success) return result.data;
+/**
+ * This app runs on Postgres. Pointing a connection variable at anything else
+ * (an old MySQL/TiDB URL, an HTTP endpoint) fails deep inside the driver as an
+ * opaque "error establishing an SSL connection", so check the scheme up front.
+ */
+function isPostgresUrl(url: string) {
+  return /^postgres(ql)?:\/\//i.test(url.trim());
+}
 
-  const issues = result.error.issues
-    .map(i => `  - ${i.path.join(".") || "(root)"} ${i.message}`)
-    .join("\n");
+/**
+ * `DATABASE_URL` first, then the variables the Supabase/Vercel integration
+ * manages. `POSTGRES_URL` is the pooled connection, which is what serverless
+ * wants; the non-pooling host is a last resort since it resolves over IPv6 only.
+ *
+ * A variable holding a non-Postgres URL is skipped rather than used, and the
+ * reason is reported through `describeConfig()`.
+ */
+const DB_URL_KEYS = [
+  "DATABASE_URL",
+  "POSTGRES_URL",
+  "POSTGRES_URL_NON_POOLING",
+] as const;
+
+function resolveDatabaseUrl(env: Record<(typeof DB_URL_KEYS)[number], string>) {
+  const rejected: string[] = [];
+  for (const key of DB_URL_KEYS) {
+    const value = env[key];
+    if (!value) continue;
+    if (!isPostgresUrl(value)) {
+      rejected.push(key);
+      continue;
+    }
+    return { url: value, source: key as string, rejected };
+  }
+  return { url: "", source: "", rejected };
+}
+
+function fail(issues: string[]): never {
   throw new Error(
-    `Invalid environment configuration for APP_ENV=${APP_ENV}:\n${issues}\n\n` +
+    `Invalid environment configuration for APP_ENV=${APP_ENV}:\n${issues.join("\n")}\n\n` +
       `Fix your secrets and retry. Local: copy .env.example to .env. ` +
       `Deployed: run 'doppler secrets' or check the Vercel project settings. ` +
       `See docs/runbooks/environments.md.`
   );
 }
 
+function parseEnv() {
+  const result = schema.safeParse(process.env);
+  if (!result.success) {
+    fail(
+      result.error.issues.map(
+        i => `  - ${i.path.join(".") || "(root)"} ${i.message}`
+      )
+    );
+  }
+  return result.data;
+}
+
 const parsed = parseEnv();
+const database = resolveDatabaseUrl(parsed);
+
+// Cross-field rule: a deployed environment needs a usable Postgres URL from
+// *some* variable. Reported here rather than per-field so the message can name
+// every variable that was tried.
+if (IS_DEPLOYED && !database.url) {
+  fail([
+    database.rejected.length
+      ? `  - ${database.rejected.join(", ")} is set but is not a Postgres connection string`
+      : `  - no database connection string: set one of ${DB_URL_KEYS.join(", ")}`,
+  ]);
+}
 
 const defaultLogLevel: LogLevel =
   APP_ENV === "test" ? "silent" : APP_ENV === "development" ? "debug" : "info";
+
+/** Resend's shared sender needs no domain verification but only delivers to the account owner. */
+export const RESEND_SANDBOX_FROM = "onboarding@resend.dev";
 
 /**
  * Validated configuration, grouped by concern.
@@ -178,9 +244,13 @@ export const config = {
   },
 
   db: {
-    url: parsed.DATABASE_URL,
+    url: database.url,
+    /** Which variable the URL came from — worth logging, unlike the URL itself. */
+    source: database.source,
+    /** Variables that were set but ignored because they aren't Postgres URLs. */
+    rejected: database.rejected,
     get isConfigured() {
-      return parsed.DATABASE_URL.length > 0;
+      return database.url.length > 0;
     },
   },
 
@@ -199,17 +269,76 @@ export const config = {
     },
   },
 
-  smtp: {
-    host: parsed.SMTP_HOST,
-    port: parsed.SMTP_PORT,
-    user: parsed.SMTP_USER,
-    pass: parsed.SMTP_PASS,
-    from: parsed.SMTP_FROM || parsed.SMTP_USER,
-    get isConfigured() {
-      return Boolean(parsed.SMTP_HOST && parsed.SMTP_USER && parsed.SMTP_PASS);
+  /**
+   * Mail settings are read live rather than frozen at boot.
+   *
+   * Unlike the database URL or session secret — which must be right before the
+   * process serves a request — email is an optional capability whose absence
+   * only degrades behaviour. Reading it lazily lets the mailer tests vary
+   * providers without reloading modules, and costs nothing at runtime. The
+   * shapes are still validated at boot by the schema above; these getters only
+   * re-read the values.
+   */
+  mail: {
+    get resendApiKey() {
+      return process.env.RESEND_API_KEY?.trim() ?? "";
+    },
+    /** Pins a provider when both are configured; otherwise Resend then SMTP. */
+    get preferredProvider() {
+      const value = process.env.MAIL_PROVIDER?.trim().toLowerCase();
+      return value === "resend" || value === "smtp" ? value : undefined;
+    },
+    get from() {
+      return (
+        process.env.MAIL_FROM?.trim() ||
+        process.env.SMTP_FROM?.trim() ||
+        process.env.SMTP_USER?.trim() ||
+        RESEND_SANDBOX_FROM
+      );
+    },
+    smtp: {
+      get host() {
+        return process.env.SMTP_HOST?.trim() ?? "";
+      },
+      get port() {
+        return Number.parseInt(process.env.SMTP_PORT || "587", 10);
+      },
+      get user() {
+        return process.env.SMTP_USER?.trim() ?? "";
+      },
+      get pass() {
+        return process.env.SMTP_PASS?.trim() ?? "";
+      },
+      get isConfigured() {
+        return Boolean(this.host && this.user && this.pass);
+      },
     },
   },
 } as const;
+
+/** True when some provider exists; when false, emails can only be logged, never delivered. */
+export function isEmailConfigured() {
+  return Boolean(config.mail.resendApiKey) || config.mail.smtp.isConfigured;
+}
+
+/**
+ * True when mail can reach *any* recipient, not just the operator.
+ *
+ * Resend refuses to deliver to third parties while the sender is its shared
+ * sandbox address, so a Resend key alone is not enough — `MAIL_FROM` must name
+ * a verified domain. SMTP authenticates as a real mailbox, so it can always
+ * reach anyone.
+ *
+ * The sign-in UI keys off this: offering passwordless sign-in that only works
+ * for one address is worse than not offering it.
+ */
+export function canEmailAnyRecipient() {
+  if (config.mail.smtp.isConfigured) return true;
+  return (
+    Boolean(config.mail.resendApiKey) &&
+    config.mail.from !== RESEND_SANDBOX_FROM
+  );
+}
 
 /**
  * Flat, legacy-shaped view of the config kept so existing imports keep working.
@@ -236,8 +365,18 @@ export function describeConfig() {
     port: config.port,
     logLevel: config.logLevel,
     database: config.db.isConfigured ? "configured" : "missing",
+    /** Which variable supplied the connection string — a name, never the value. */
+    databaseSource: config.db.source || null,
+    /** Variables set but ignored for not being Postgres URLs; a common misconfiguration. */
+    databaseIgnored: config.db.rejected.length ? config.db.rejected : undefined,
     ai: config.ai.isConfigured ? "configured" : "missing",
-    smtp: config.smtp.isConfigured ? "configured" : "console-fallback",
+    // Three states, because "can send" and "can send to anyone" differ: Resend's
+    // sandbox sender only reaches the account owner.
+    email: !isEmailConfigured()
+      ? "log-only"
+      : canEmailAnyRecipient()
+        ? "configured"
+        : "owner-only",
     oauth: config.auth.oAuthServerUrl ? "configured" : "disabled",
     sessionSecret: config.auth.cookieSecret ? "configured" : "missing",
   };

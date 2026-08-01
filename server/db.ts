@@ -40,25 +40,68 @@ import {
   itineraryItems,
   InsertItineraryItem,
   memberPreferences,
-} from "../drizzle/schema";
-import { ENV } from "./_core/env";
-import { logger } from "./_core/logger";
+} from "../drizzle/schema.js";
+import { config, ENV } from "./_core/env.js";
+import { logger } from "./_core/logger.js";
 
 const log = logger.child({ scope: "db" });
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/** Give up on an unreachable database instead of waiting forever (pg defaults to no timeout). */
+const CONNECTION_TIMEOUT_MS = 5_000;
+const QUERY_TIMEOUT_MS = 15_000;
+
+function isLocalUrl(url: string) {
+  return /@(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(url);
+}
+
+/**
+ * Managed Postgres providers (Supabase included) present a certificate chain
+ * that is not in Node's default trust store, and recent pg-connection-string
+ * promotes `sslmode=require` to `verify-full` — so the connection fails with
+ * SELF_SIGNED_CERT_IN_CHAIN.
+ *
+ * This has to be fixed in the connection string rather than the `ssl` pool
+ * option: pg builds its config as Object.assign({}, config, parse(connectionString)),
+ * so anything parsed out of the string overwrites the explicit option. Edit the
+ * parameter textually to avoid re-encoding credentials through the URL parser.
+ */
+function withRelaxedSsl(url: string) {
+  if (isLocalUrl(url)) return url;
+  if (/[?&]sslmode=disable\b/i.test(url)) return url;
+  if (/[?&]sslmode=/i.test(url)) {
+    return url.replace(/([?&]sslmode=)[^&]*/i, "$1no-verify");
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=no-verify`;
+}
+
 /**
  * Lazily creates the pooled Drizzle client.
  *
- * Returns `null` when `DATABASE_URL` is unset so the app still boots for
- * frontend-only work and for tests; every caller must handle the null case.
+ * Returns `null` when no connection string is configured so the app still boots
+ * for frontend-only work and for tests; every caller must handle the null case.
+ * Which variable the URL came from is resolved in `_core/env.ts`.
  */
 export async function getDb() {
-  if (!_db && ENV.databaseUrl) {
+  if (!_db) {
+    if (!config.db.isConfigured) {
+      log.error("no usable Postgres connection string configured", {
+        ignored: config.db.rejected.length ? config.db.rejected : undefined,
+      });
+      return null;
+    }
     try {
-      const pool = new Pool({ connectionString: ENV.databaseUrl });
-      pool.on("error", err => log.error("idle connection error", { err }));
+      log.info("connecting to database", { source: config.db.source });
+      const pool = new Pool({
+        connectionString: withRelaxedSsl(config.db.url),
+        connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+        query_timeout: QUERY_TIMEOUT_MS,
+        statement_timeout: QUERY_TIMEOUT_MS,
+        idleTimeoutMillis: 30_000,
+      });
+      // Without a listener an idle-client error crashes the process.
+      pool.on("error", err => log.error("idle client error", { err }));
       _db = drizzle(pool);
     } catch (error) {
       log.error("failed to create connection pool", { err: error });
@@ -151,6 +194,12 @@ export async function createUserWithPassword(data: {
     .where(eq(users.openId, data.openId))
     .limit(1);
   return result[0];
+}
+
+export async function setUserPassword(userId: number, passwordHash: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
 
 export async function getUserById(id: number) {

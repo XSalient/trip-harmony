@@ -26,7 +26,10 @@ account setup, which requires credentials no one should commit.
 Verified by running the app against Postgres, not just by reading code:
 
 - **Auth** — registration, email+password login, magic link, logout, session
-  cookies (1-year JWT). `auth.me` returns a projected user with no credential columns.
+  cookies (1-year JWT). `auth.me` returns a projected user with no credential
+  columns. The sign-in UI asks `auth.capabilities` what this deployment can
+  actually deliver, and magic-link accounts can set a password via
+  `auth.setPassword` so they always have a way back in.
 - **Trips** — create, list, update, invite by code or email, join, membership roles.
 - **Planning** — date proposals, destinations, accommodations, vibe board and
   itinerary, each with proposal/vote/comment/clone/edit/delete.
@@ -36,6 +39,8 @@ Verified by running the app against Postgres, not just by reading code:
 - **AI features** — referee mediation, natural-language date parsing,
   accommodation URL import, accommodation↔member match scoring. These require an
   AI key; without one the rest of the app is unaffected.
+- **Email** — Resend then SMTP, tried in order. Delivery failures are reported
+  to the user instead of being swallowed; with no provider, links go to the log.
 
 ## Infrastructure (added 2026-08-01)
 
@@ -53,15 +58,12 @@ Verified by running the app against Postgres, not just by reading code:
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
 1. **No frontend tests.** All 50 tests are server-side. Page components are unverified.
-2. **No database migration history.** `drizzle-kit push` mutates the schema
-   directly; there are no versioned migrations, so production schema changes are
-   not reviewable or reversible. See [runbooks/database.md](runbooks/database.md).
-3. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
-4. **Authorisation is thin.** Most `protectedProcedure`s check that a caller is
+2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
+3. **Authorisation is thin.** Most `protectedProcedure`s check that a caller is
    signed in, not that they belong to the trip they're mutating.
-5. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
+4. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
-6. **AI prompts are inline** in router files and unversioned.
+5. **AI prompts are inline** in router files and unversioned.
 
 ## Verifying the current state yourself
 

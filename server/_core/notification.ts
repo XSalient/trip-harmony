@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
-import { ENV } from "./env";
-import { logger } from "./logger";
+import { ENV } from "./env.js";
+import { logger } from "./logger.js";
 
 const log = logger.child({ scope: "notification" });
 

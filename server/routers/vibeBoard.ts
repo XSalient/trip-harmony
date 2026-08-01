@@ -1,9 +1,9 @@
 /**
  * Shared inspiration board with Love/Maybe/No voting.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
-import * as db from "../db";
+import * as db from "../db.js";
 
 export const vibeBoardRouter = router({
   list: protectedProcedure

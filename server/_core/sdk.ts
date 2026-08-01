@@ -1,22 +1,27 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const";
-import { ForbiddenError } from "../../shared/_core/errors";
+import {
+  AXIOS_TIMEOUT_MS,
+  COOKIE_NAME,
+  ONE_YEAR_MS,
+} from "../../shared/const.js";
+import { ForbiddenError } from "../../shared/_core/errors.js";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
-import type { User } from "../../drizzle/schema";
-import * as db from "../db";
-import { ENV } from "./env";
-import { logger } from "./logger";
-
-const log = logger.child({ scope: "auth" });
+import type { User } from "../../drizzle/schema.js";
+import * as db from "../db.js";
+import { ENV } from "./env.js";
+import { logger } from "./logger.js";
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
   GetUserInfoResponse,
   GetUserInfoWithJwtRequest,
   GetUserInfoWithJwtResponse,
-} from "./types/manusTypes";
+} from "./types/manusTypes.js";
+
+const log = logger.child({ scope: "auth" });
+
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -295,10 +300,15 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    // Bookkeeping only — never let a slow write hold up an already-resolved session.
+    void db
+      .upsertUser({
+        openId: user.openId,
+        lastSignedIn: signedInAt,
+      })
+      .catch(error =>
+        log.warn("failed to record lastSignedIn", { err: error })
+      );
 
     return user;
   }

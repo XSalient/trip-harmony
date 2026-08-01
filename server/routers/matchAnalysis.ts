@@ -6,10 +6,10 @@
  * failure here must never fail the user's write, so everything is wrapped and
  * logged rather than thrown.
  */
-import { invokeLLM } from "../_core/llm";
-import { logger } from "../_core/logger";
-import * as db from "../db";
-import { extractLLMText } from "./_shared";
+import { invokeLLM } from "../_core/llm.js";
+import { logger } from "../_core/logger.js";
+import * as db from "../db.js";
+import { extractLLMText } from "./_shared.js";
 
 const log = logger.child({ scope: "matchAnalysis" });
 

@@ -10,14 +10,13 @@
  */
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
-import type { TRPCError } from "@trpc/server";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { appRouter } from "../routers";
-import { createContext } from "./context";
-import { config, describeConfig } from "./env";
-import { errorLogging, requestLogging } from "./httpLogging";
-import { logger } from "./logger";
-import { registerOAuthRoutes } from "./oauth";
+import { appRouter } from "../routers/index.js";
+import { createContext } from "./context.js";
+import { config, describeConfig } from "./env.js";
+import { errorLogging, requestLogging } from "./httpLogging.js";
+import { registerOAuthRoutes } from "./oauth.js";
+import { logTrpcError } from "./trpcErrors.js";
 
 export type CreateAppOptions = {
   /**
@@ -59,14 +58,8 @@ export async function createApp({
     createExpressMiddleware({
       router: appRouter,
       createContext,
-      onError({ error, path }: { error: TRPCError; path?: string }) {
-        if (error.code === "INTERNAL_SERVER_ERROR") {
-          logger.error("trpc internal error", {
-            procedure: path,
-            err: error.cause ?? error,
-          });
-        }
-      },
+      // Flattens the cause chain — pg errors hide the useful detail there.
+      onError: logTrpcError,
     })
   );
 

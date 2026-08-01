@@ -6,8 +6,8 @@
  * `server/_core/app.ts` — keep runtime-specific logic out of this file.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createApp } from "../server/_core/app";
-import { installProcessLogging } from "../server/_core/httpLogging";
+import { createApp } from "../server/_core/app.js";
+import { installProcessLogging } from "../server/_core/httpLogging.js";
 
 installProcessLogging();
 

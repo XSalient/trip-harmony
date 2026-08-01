@@ -17,6 +17,8 @@
     "verify": "pnpm check && pnpm test && pnpm build",
     "db:push": "drizzle-kit push",
     "db:push:doppler": "doppler run --config dev -- drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:doppler": "doppler run --config prd -- drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "logs:tail": "tail -f logs/*.jsonl"

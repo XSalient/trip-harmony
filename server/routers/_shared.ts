@@ -3,7 +3,7 @@
  * Anything used by a single router belongs in that router's own file.
  */
 import crypto from "crypto";
-import type { User } from "../../drizzle/schema";
+import type { User } from "../../drizzle/schema.js";
 
 /**
  * The user fields that are safe to send to a browser.

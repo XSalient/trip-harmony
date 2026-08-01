@@ -1,13 +1,13 @@
 /**
  * Stay proposals, voting, URL import, and AI match analysis.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { invokeLLM } from "../_core/llm";
-import * as db from "../db";
-import { extractLLMText } from "./_shared";
-import { runAccommodationMatchAnalysis } from "./matchAnalysis";
+import { invokeLLM } from "../_core/llm.js";
+import * as db from "../db.js";
+import { extractLLMText } from "./_shared.js";
+import { runAccommodationMatchAnalysis } from "./matchAnalysis.js";
 
 export const accommodationsRouter = router({
   list: protectedProcedure

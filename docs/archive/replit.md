@@ -41,7 +41,12 @@ Harmony is a full-stack web application that helps groups plan trips collaborati
 
 - `DATABASE_URL` — PostgreSQL connection string (Replit-provided)
 - `JWT_SECRET` — Secret for signing session cookies (required)
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — Optional SMTP config for email delivery; if absent, magic links and invite emails are logged to the server console
+- `RESEND_API_KEY` — Preferred email provider (HTTP API, works on serverless where outbound SMTP is blocked)
+- `MAIL_FROM` — Sender address, e.g. `Harmony <hello@yourdomain.com>`. Defaults to `onboarding@resend.dev`, which Resend only delivers to the account owner's own address
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — SMTP config. Used as a fallback when Resend is absent or rejects a send
+- `MAIL_PROVIDER` — Optional, `resend` or `smtp`, to pin one provider when both are configured
+- Sending from `onboarding@resend.dev` only reaches the Resend account owner's own address. To email anyone else, verify a domain at resend.com/domains and set `MAIL_FROM` to an address on it — or configure SMTP instead
+- If no provider is configured, magic links and invite emails are logged to the server console and the API returns an error in production (in dev it succeeds and returns the link)
 
 ## Authentication
 

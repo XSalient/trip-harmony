@@ -42,12 +42,12 @@ jobs:
         run: pnpm build
 
   migrations:
-    name: Schema push (dry check)
+    name: Migrations apply cleanly
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # A throwaway Postgres proves drizzle/schema.ts is applyable before it ever
-    # reaches a real environment.
+    # A throwaway Postgres proves the committed migrations still apply in order
+    # before they ever reach a real environment.
     services:
       postgres:
         image: postgres:16
@@ -72,7 +72,7 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Push schema to a scratch database
-        run: pnpm db:push --force
+      - name: Apply migrations to a scratch database
+        run: pnpm db:migrate
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/harmony_ci

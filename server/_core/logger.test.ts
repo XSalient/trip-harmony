@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { redact } from "./logger";
+import { redact } from "./logger.js";
 
 describe("redact", () => {
   it("replaces secret-looking keys at the top level", () => {

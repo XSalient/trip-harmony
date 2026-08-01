@@ -9,7 +9,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
-import { logger } from "./logger";
+import { logger } from "./logger.js";
 
 /** Paths that would otherwise flood the log with noise in development. */
 const IGNORED_PREFIXES = [

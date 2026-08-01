@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { User } from "../../drizzle/schema";
-import { hashPassword, toPublicUser, verifyPassword } from "./_shared";
+import type { User } from "../../drizzle/schema.js";
+import { hashPassword, toPublicUser, verifyPassword } from "./_shared.js";
 
 const user: User = {
   id: 1,

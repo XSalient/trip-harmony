@@ -1,10 +1,10 @@
 /**
  * Per-member, per-trip requirements used by match analysis.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
-import * as db from "../db";
-import { runTripMatchAnalyses } from "./matchAnalysis";
+import * as db from "../db.js";
+import { runTripMatchAnalyses } from "./matchAnalysis.js";
 
 export const preferencesRouter = router({
   getMy: protectedProcedure

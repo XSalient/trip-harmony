@@ -1,7 +1,7 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import type { User } from "../../drizzle/schema";
-import { logger, type Logger } from "./logger";
-import { sdk } from "./sdk";
+import type { User } from "../../drizzle/schema.js";
+import { logger, type Logger } from "./logger.js";
+import { sdk } from "./sdk.js";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];

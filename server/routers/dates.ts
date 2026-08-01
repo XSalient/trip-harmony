@@ -1,13 +1,13 @@
 /**
  * Date-range proposals, voting, and natural-language date parsing.
  */
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
-import { logger } from "../_core/logger";
+import { logger } from "../_core/logger.js";
 import { TRPCError } from "@trpc/server";
-import { invokeLLM } from "../_core/llm";
-import * as db from "../db";
-import { extractLLMText } from "./_shared";
+import { invokeLLM } from "../_core/llm.js";
+import * as db from "../db.js";
+import { extractLLMText } from "./_shared.js";
 
 const log = logger.child({ scope: "dates" });
 
