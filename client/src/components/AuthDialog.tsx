@@ -52,11 +52,12 @@ export function AuthDialog({
   const magicLinkEnabled = capabilities?.magicLink ?? true;
   const magicLinkReliable = capabilities?.magicLinkReliable ?? true;
 
-  // When we already know delivery is unreliable, put the password field up front rather than
-  // letting someone discover it only after an email that never arrives.
+  // Only force the password field when no link can be sent at all. Passwordless stays the
+  // primary action otherwise — an unreliable link is still worth offering first, because the
+  // password route is one click away and a failed send reveals it automatically.
   useEffect(() => {
-    if (!magicLinkEnabled || !magicLinkReliable) setShowPassword(true);
-  }, [magicLinkEnabled, magicLinkReliable]);
+    if (!magicLinkEnabled) setShowPassword(true);
+  }, [magicLinkEnabled]);
 
   const signInForm = useForm<SignInForm>({ resolver: zodResolver(signInSchema) });
   const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
@@ -218,7 +219,9 @@ export function AuthDialog({
               </Button>
             )}
 
-            {!showPassword && (
+            {/* Weight the password route by how likely the link is to land, without ever
+                displacing passwordless as the primary action. */}
+            {!showPassword && (magicLinkReliable ? (
               <p className="text-center text-sm">
                 <button
                   type="button"
@@ -228,7 +231,11 @@ export function AuthDialog({
                   Sign in with password
                 </button>
               </p>
-            )}
+            ) : (
+              <Button type="button" variant="outline" className="w-full" disabled={isPending} onClick={revealPassword}>
+                Sign in with password
+              </Button>
+            ))}
 
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
