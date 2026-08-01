@@ -288,6 +288,10 @@ export default function TripAccommodations() {
           toast.info(
             "That site blocked us — filled in what the link itself says. Please check the details."
           );
+        else if (result.source === "place")
+          toast.info(
+            "That site blocked us — looked the property up on the map instead. Please check the details and add the price."
+          );
         else toast.success("Details fetched from URL!");
       } else if (result.blocked) {
         toast.info(

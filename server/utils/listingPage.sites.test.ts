@@ -13,6 +13,7 @@ import {
   hasUsableSignal,
   hintsFromListingUrl,
   looksLikeBotCheck,
+  mergeListingHints,
   parseListingHtml,
 } from "./listingPage.js";
 
@@ -197,6 +198,60 @@ describe("URL hints across the sites people paste", () => {
   });
 });
 
+describe("Share links — the pasted URL names nothing, the one it lands on does", () => {
+  const shared = "https://www.booking.com/Share-xTk9pQ";
+  const landed =
+    "https://www.booking.com/hotel/si/ti-club.en-gb.html?checkin=2026-08-18&checkout=2026-08-24&group_adults=2";
+
+  it("has nothing to work with before the redirect is followed", () => {
+    const hints = hintsFromListingUrl(shared);
+    expect(hints.slug).toBeUndefined();
+    expect(hasUsableSignal(null, hints)).toBe(false);
+  });
+
+  it("names the property once the landing URL is merged in", () => {
+    const hints = mergeListingHints(
+      hintsFromListingUrl(landed),
+      hintsFromListingUrl(shared)
+    );
+    expect(hints).toMatchObject({
+      slug: "Ti Club",
+      countryCode: "si",
+      nights: 6,
+      adults: 2,
+    });
+    // Blocked at the landing page, and still worth a model call.
+    expect(hasUsableSignal(null, hints)).toBe(true);
+  });
+
+  it("keeps the stay from the pasted URL and the name from the canonical one", () => {
+    const canonical = "https://www.booking.com/hotel/si/ti-club.html";
+    const pasted = `${canonical}?checkin=2026-08-18&checkout=2026-08-24&selected_currency=EUR`;
+    const hints = mergeListingHints(
+      hintsFromListingUrl(canonical),
+      hintsFromListingUrl(pasted)
+    );
+    expect(hints).toMatchObject({
+      slug: "Ti Club",
+      checkIn: "2026-08-18",
+      nights: 6,
+      currency: "EUR",
+    });
+  });
+
+  it("recomputes the stay length when the dates come from different URLs", () => {
+    const merged = mergeListingHints(
+      { host: "example.com", checkIn: "2026-08-18" },
+      { checkOut: "2026-08-20", nights: 9 }
+    );
+    expect(merged.nights).toBe(2);
+  });
+
+  it("drops a stay length it can no longer justify", () => {
+    expect(mergeListingHints({ nights: 9 }).nights).toBeUndefined();
+  });
+});
+
 describe("fetchListingPage — how each kind of answer is classified", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -268,6 +323,40 @@ describe("fetchListingPage — how each kind of answer is classified", () => {
     stub(html(`<title>Big</title>${"x".repeat(2_000_000)}`));
     const page = await fetchListingPage("https://example.com/big");
     expect(page.ok && page.html.length).toBe(1_500_000);
+  });
+
+  /** `Response.url` is read-only, and empty on a hand-built one. */
+  const landedOn = (response: Response, url: string) => {
+    Object.defineProperty(response, "url", { value: url });
+    return response;
+  };
+
+  it("reports where the redirects ended up", async () => {
+    const landed = "https://www.booking.com/hotel/si/ti-club.en-gb.html";
+    stub(landedOn(html("<html><title>Ti Club</title></html>"), landed));
+    const page = await fetchListingPage("https://www.booking.com/Share-xTk9pQ");
+    expect(page).toMatchObject({ ok: true, finalUrl: landed });
+  });
+
+  it("reports it even when the page it landed on refused us", async () => {
+    const landed = "https://www.booking.com/hotel/si/ti-club.en-gb.html";
+    stub(landedOn(new Response("no", { status: 403 }), landed));
+    const page = await fetchListingPage("https://www.booking.com/Share-xTk9pQ");
+    expect(page).toEqual({
+      ok: false,
+      reason: "blocked",
+      status: 403,
+      finalUrl: landed,
+    });
+  });
+
+  it("stays quiet when nothing redirected", async () => {
+    const url = "https://example.com/x";
+    stub(landedOn(html("<html><title>Villa</title></html>"), url));
+    expect(await fetchListingPage(url)).toEqual({
+      ok: true,
+      html: "<html><title>Villa</title></html>",
+    });
   });
 
   it("never leaves the public internet", async () => {

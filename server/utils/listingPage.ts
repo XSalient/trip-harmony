@@ -36,13 +36,20 @@ export type ListingUrlHints = {
   currency?: string;
 };
 
+/**
+ * `finalUrl` is where the redirects ended up, and only set when that differs
+ * from what was asked for. A share link (`/Share-xTk9pQ`) encodes nothing at
+ * all; the page it lands on encodes the property — so the URL we were answered
+ * from is worth more than the one that was pasted, blocked or not.
+ */
 export type FetchedListingPage =
-  | { ok: true; html: string }
+  | { ok: true; html: string; finalUrl?: string }
   | {
       ok: false;
       /** `blocked` means the site answered, but refused us. */
       reason: "blocked" | "not-html" | "unreachable";
       status?: number;
+      finalUrl?: string;
     };
 
 /** Fields the client form knows how to fill. */
@@ -108,19 +115,31 @@ export async function fetchListingPage(
   } catch {
     return { ok: false, reason: "unreachable" };
   }
+  // Only worth carrying when the redirects actually moved us.
+  const finalUrl = res.url && res.url !== url ? res.url : undefined;
   if (!res.ok) {
     const blocked = [401, 403, 405, 406, 418, 429].includes(res.status);
     return {
       ok: false,
       reason: blocked ? "blocked" : "unreachable",
       status: res.status,
+      ...(finalUrl ? { finalUrl } : {}),
     };
   }
   const contentType = res.headers.get("content-type") ?? "";
   if (contentType && !/html|xml/i.test(contentType))
-    return { ok: false, reason: "not-html", status: res.status };
+    return {
+      ok: false,
+      reason: "not-html",
+      status: res.status,
+      ...(finalUrl ? { finalUrl } : {}),
+    };
   const html = await res.text();
-  return { ok: true, html: html.slice(0, MAX_HTML_CHARS) };
+  return {
+    ok: true,
+    html: html.slice(0, MAX_HTML_CHARS),
+    ...(finalUrl ? { finalUrl } : {}),
+  };
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -422,15 +441,22 @@ function firstParam(
 
 /** Path segments that are furniture, not a property: `/en/rooms/` names nothing. */
 const GENERIC_SEGMENTS =
-  /^(en|en-gb|en-us|de|fr|es|it|nl|www|hotel|hotels|property|properties|apartment|apartments|rooms?|suites?|accommodation|accommodations|lodging|stay|stays|booking|bookings|reserve|reservation|reservations|search|listing|listings|detail|details|index|home|page|hotel-information|rates|availability)$/i;
+  /^(en|en-gb|en-us|de|fr|es|it|nl|www|hotel|hotels|property|properties|apartment|apartments|rooms?|suites?|accommodation|accommodations|lodging|stay|stays|booking|bookings|reserve|reservation|reservations|search|listing|listings|detail|details|index|home|page|hotel-information|rates|availability|share|shared|link)$/i;
 
 function humaniseSlug(segment: string): string | undefined {
   // "ti-club.en-gb.html" → "ti-club": the locale and extension are not a name.
   const base = segment.split(/[?#]/)[0].split(".")[0];
   if (GENERIC_SEGMENTS.test(base)) return undefined;
-  const words = base.split(/[-_+%]/).filter(Boolean);
+  const words = base
+    .split(/[-_+%]/)
+    .filter(Boolean)
+    // A token mixing letters and digits is an id, not a word: `Share-xTk9pQ` is
+    // a share link, and naming the stay after it is worse than naming nothing.
+    .filter(word => !(/\d/.test(word) && /[a-z]/i.test(word)));
   // Opaque ids ("1234567", "1a") say nothing; only word-ish slugs are a name.
   if (!words.length || !/[a-z]{3}/i.test(words.join(""))) return undefined;
+  // What survived can be furniture on its own: "share" alone names nothing.
+  if (words.every(word => GENERIC_SEGMENTS.test(word))) return undefined;
   return words
     .map(word =>
       /^[a-z]/.test(word) ? word[0].toUpperCase() + word.slice(1) : word
@@ -459,6 +485,14 @@ function slugFromSegments(segments: string[]): string | undefined {
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function nightsBetween(checkIn: string, checkOut: string): number | undefined {
+  const nights = differenceInCalendarDays(
+    new Date(checkOut),
+    new Date(checkIn)
+  );
+  return nights > 0 && nights <= 365 ? nights : undefined;
+}
 
 export function hintsFromListingUrl(raw: string): ListingUrlHints {
   let url: URL;
@@ -514,11 +548,8 @@ export function hintsFromListingUrl(raw: string): ListingUrlHints {
   if (checkIn && ISO_DATE.test(checkIn)) hints.checkIn = checkIn;
   if (checkOut && ISO_DATE.test(checkOut)) hints.checkOut = checkOut;
   if (hints.checkIn && hints.checkOut) {
-    const nights = differenceInCalendarDays(
-      new Date(hints.checkOut),
-      new Date(hints.checkIn)
-    );
-    if (nights > 0 && nights <= 365) hints.nights = nights;
+    const nights = nightsBetween(hints.checkIn, hints.checkOut);
+    if (nights) hints.nights = nights;
   }
 
   const adults = toCount(
@@ -546,6 +577,33 @@ export function hintsFromListingUrl(raw: string): ListingUrlHints {
   if (currency && /^[A-Za-z]{3}$/.test(currency))
     hints.currency = currency.toUpperCase();
 
+  return hints;
+}
+
+/**
+ * The same page has several spellings, and none of them carries everything: a
+ * share link redirects to the URL that names the property but drops the search,
+ * and a canonical URL never carries the search at all. So take each field from
+ * the first candidate that has it, most authoritative first, and let the pasted
+ * URL supply the dates and guest counts it alone knows.
+ */
+export function mergeListingHints(
+  ...candidates: (ListingUrlHints | undefined)[]
+): ListingUrlHints {
+  const merged: Record<string, unknown> = {};
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    for (const [key, value] of Object.entries(candidate)) {
+      if (value !== undefined && merged[key] === undefined) merged[key] = value;
+    }
+  }
+  const hints = merged as ListingUrlHints;
+  // The winning dates can come from a different URL than the winning nights did.
+  delete hints.nights;
+  if (hints.checkIn && hints.checkOut) {
+    const nights = nightsBetween(hints.checkIn, hints.checkOut);
+    if (nights) hints.nights = nights;
+  }
   return hints;
 }
 
