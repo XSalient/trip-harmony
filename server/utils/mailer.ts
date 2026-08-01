@@ -1,8 +1,18 @@
 import nodemailer from "nodemailer";
 
-export type DeliveryResult = { delivered: boolean; error?: string };
+/**
+ * `not_configured` means no provider exists at all — an operator problem.
+ * `provider_rejected` means a provider was reached and refused the send, which needs a
+ * different message: telling someone to set an API key that is already set sends them
+ * chasing the wrong thing.
+ */
+export type DeliveryResult = {
+  delivered: boolean;
+  reason?: "not_configured" | "provider_rejected";
+  error?: string;
+};
 
-/** Resend's shared sender works without domain verification, but only delivers to the Resend account owner. */
+/** Resend's shared sender needs no domain verification, but only delivers to the Resend account owner. */
 const RESEND_SANDBOX_FROM = "onboarding@resend.dev";
 
 function getFromAddress() {
@@ -41,38 +51,64 @@ async function sendViaResend(apiKey: string, msg: Message) {
   }
 }
 
+/** Providers to try, in order. MAIL_PROVIDER pins one when both are configured. */
+function getProviders(): Array<{ name: string; send: (msg: Message) => Promise<void> }> {
+  const resendKey = process.env.RESEND_API_KEY;
+  const smtp = getSmtpTransport();
+  const preferred = process.env.MAIL_PROVIDER?.toLowerCase();
+
+  const providers: Array<{ name: string; send: (msg: Message) => Promise<void> }> = [];
+  if (resendKey && preferred !== "smtp") {
+    providers.push({ name: "Resend", send: (msg) => sendViaResend(resendKey, msg) });
+  }
+  // SMTP is the fallback rather than the default: serverless platforms often block outbound SMTP ports.
+  if (smtp && preferred !== "resend") {
+    providers.push({
+      name: "SMTP",
+      send: async (msg) => {
+        await smtp.sendMail({ from: getFromAddress(), to: msg.to, subject: msg.subject, text: msg.text, html: msg.html });
+      },
+    });
+  }
+  return providers;
+}
+
 /**
- * Sends a message via Resend (HTTP) or SMTP, whichever is configured. Resend is preferred because
- * serverless platforms frequently block outbound SMTP ports.
+ * Tries each configured provider in turn and reports what happened.
  * Never throws — callers get the delivery status so they can tell the user the truth.
  */
 async function deliver(msg: Message, consoleLabel: string, consoleLines: string[]): Promise<DeliveryResult> {
-  const resendKey = process.env.RESEND_API_KEY;
-  const smtp = getSmtpTransport();
+  const providers = getProviders();
 
-  try {
-    if (resendKey) {
-      await sendViaResend(resendKey, msg);
-      console.log(`[Mailer] ${consoleLabel} sent to ${msg.to} via Resend`);
-      return { delivered: true };
-    }
-    if (smtp) {
-      await smtp.sendMail({ from: getFromAddress(), to: msg.to, subject: msg.subject, text: msg.text, html: msg.html });
-      console.log(`[Mailer] ${consoleLabel} sent to ${msg.to} via SMTP`);
-      return { delivered: true };
-    }
-  } catch (err) {
-    const error = err instanceof Error ? err.message : String(err);
-    console.error(`[Mailer] Failed to send ${consoleLabel} to ${msg.to}: ${error}`);
-    return { delivered: false, error };
+  if (providers.length === 0) {
+    console.warn(`\n========== ${consoleLabel.toUpperCase()} (NOT SENT — no email provider configured) ==========`);
+    console.warn(`To: ${msg.to}`);
+    for (const line of consoleLines) console.warn(line);
+    console.warn("Set RESEND_API_KEY (or SMTP_HOST/SMTP_USER/SMTP_PASS) to deliver this email.");
+    console.warn("================================================================\n");
+    return {
+      delivered: false,
+      reason: "not_configured",
+      error: "No email provider is configured (set RESEND_API_KEY or SMTP_*).",
+    };
   }
 
-  console.warn(`\n========== ${consoleLabel.toUpperCase()} (NOT SENT — no email provider configured) ==========`);
-  console.warn(`To: ${msg.to}`);
-  for (const line of consoleLines) console.warn(line);
-  console.warn("Set RESEND_API_KEY (or SMTP_HOST/SMTP_USER/SMTP_PASS) to deliver this email.");
-  console.warn("================================================================\n");
-  return { delivered: false, error: "No email provider is configured (set RESEND_API_KEY or SMTP_*)." };
+  let lastError = "";
+  for (const provider of providers) {
+    try {
+      await provider.send(msg);
+      console.log(`[Mailer] ${consoleLabel} sent to ${msg.to} via ${provider.name}`);
+      return { delivered: true };
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`[Mailer] ${provider.name} failed to send ${consoleLabel} to ${msg.to}: ${lastError}`);
+    }
+  }
+
+  // Every provider rejected the send. The most common cause is an unverified sender domain,
+  // so name the sender we actually used — that is what has to change.
+  console.error(`[Mailer] ${consoleLabel} to ${msg.to} was not delivered. Sender in use: ${getFromAddress()}`);
+  return { delivered: false, reason: "provider_rejected", error: lastError };
 }
 
 export async function sendMagicLinkEmail(to: string, magicUrl: string): Promise<DeliveryResult> {

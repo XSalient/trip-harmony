@@ -235,7 +235,9 @@ export const appRouter = router({
       if (!delivery.delivered && !isDev) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "We couldn't send the sign-in email. Email delivery isn't configured for this deployment yet — set RESEND_API_KEY (or the SMTP_* variables) and try again.",
+          message: delivery.reason === "not_configured"
+            ? "We couldn't send the sign-in email. Email delivery isn't configured for this deployment yet — set RESEND_API_KEY (or the SMTP_* variables) and try again."
+            : "We couldn't send the sign-in email to that address just now. Please try again in a moment, or sign in with your password instead.",
         });
       }
       return { success: true, ...(isDev ? { debugUrl: magicUrl } : {}) };
@@ -311,7 +313,9 @@ export const appRouter = router({
       if (!delivery.delivered && process.env.NODE_ENV === "production") {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: "We couldn't send the invite email. Email delivery isn't configured for this deployment yet — share the invite link directly for now.",
+          message: delivery.reason === "not_configured"
+            ? "We couldn't send the invite email. Email delivery isn't configured for this deployment yet — share the invite link directly for now."
+            : "We couldn't send the invite email to that address. Copy the invite link and share it directly instead.",
         });
       }
       return { success: true };

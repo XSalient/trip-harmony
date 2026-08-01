@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import nodemailer from "nodemailer";
 import { isEmailConfigured, sendMagicLinkEmail } from "./mailer";
 
-const MAIL_ENV = ["RESEND_API_KEY", "MAIL_FROM", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
+const MAIL_ENV = ["RESEND_API_KEY", "MAIL_FROM", "MAIL_PROVIDER", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
 
 describe("mailer delivery reporting", () => {
   let saved: Record<string, string | undefined>;
@@ -56,5 +57,40 @@ describe("mailer delivery reporting", () => {
 
     expect(result.delivered).toBe(false);
     expect(result.error).toContain("403");
+  });
+
+  it("distinguishes a rejected send from a missing provider", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response('{"message":"You can only send testing emails to your own email address"}', { status: 403 }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const rejected = await sendMagicLinkEmail("someone-else@example.com", "https://example.com/auth/magic/abc");
+    expect(rejected.reason).toBe("provider_rejected");
+
+    delete process.env.RESEND_API_KEY;
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const unconfigured = await sendMagicLinkEmail("someone-else@example.com", "https://example.com/auth/magic/abc");
+    expect(unconfigured.reason).toBe("not_configured");
+  });
+
+  it("falls back to SMTP when Resend rejects the send", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.SMTP_HOST = "smtp.example.com";
+    process.env.SMTP_USER = "sender@example.com";
+    process.env.SMTP_PASS = "app-password";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("domain not verified", { status: 403 }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const sendMail = vi.fn().mockResolvedValue({});
+    vi.spyOn(nodemailer, "createTransport").mockReturnValue({ sendMail } as never);
+
+    const result = await sendMagicLinkEmail("someone-else@example.com", "https://example.com/auth/magic/abc");
+
+    expect(result.delivered).toBe(true);
+    expect(sendMail).toHaveBeenCalledOnce();
+    expect(sendMail.mock.calls[0][0]).toMatchObject({ to: "someone-else@example.com" });
   });
 });
