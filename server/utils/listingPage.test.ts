@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanListingUrl,
   coerceExtractedAccommodation,
+  condenseListingText,
   decodeHtmlEntities,
   hasUsableSignal,
   hintsFromListingUrl,
@@ -292,5 +293,76 @@ describe("coerceExtractedAccommodation", () => {
 
   it("returns nothing for a non-object", () => {
     expect(coerceExtractedAccommodation("[]")).toEqual({});
+  });
+});
+
+describe("condenseListingText", () => {
+  /** What a copied Booking.com page actually looks like, shortened. */
+  const copiedPage = [
+    "Skip to main content",
+    "Sign in",
+    "List your property",
+    "We use cookies",
+    "",
+    "Ti Club",
+    "Trubarjeva cesta 12, 1000 Ljubljana, Slovenia",
+    "Rated 8.6 · 412 reviews",
+    "Apartment with 2 bedrooms and 1 bathroom",
+    "Sleeps 4 · 1 double bed, 2 single beds",
+    "Free WiFi",
+    "Free private parking",
+    ...Array.from({ length: 80 }, (_, i) => `Nearby attraction ${i}`),
+    "€ 720 total for 6 nights",
+    "Price for 2 adults, 1 child",
+    "Reserve",
+    "Copyright",
+  ].join("\n");
+
+  it("keeps the property, the facts and the price the traveller was quoted", () => {
+    const text = condenseListingText(copiedPage);
+    expect(text).toContain("Ti Club");
+    expect(text).toContain("Trubarjeva cesta 12, 1000 Ljubljana, Slovenia");
+    expect(text).toContain("2 bedrooms and 1 bathroom");
+    // Far below the head, and the only line that carries what this stay costs.
+    expect(text).toContain("€ 720 total for 6 nights");
+  });
+
+  it("drops the site's own furniture", () => {
+    const text = condenseListingText(copiedPage);
+    expect(text).not.toContain("Skip to main content");
+    expect(text).not.toContain("List your property");
+    expect(text).not.toContain("We use cookies");
+    expect(text).not.toContain("Copyright");
+  });
+
+  it("says a repeated rate row once", () => {
+    const text = condenseListingText(
+      [
+        "Ti Club",
+        ...Array(20).fill("Standard Double Room € 120 per night"),
+      ].join("\n")
+    );
+    expect(text.match(/Standard Double Room/g)).toHaveLength(1);
+  });
+
+  it("stays inside the character budget", () => {
+    const text = condenseListingText(
+      Array.from({ length: 5000 }, (_, i) => `Room ${i} €${i} per night`).join(
+        "\n"
+      ),
+      2000
+    );
+    expect(text.length).toBeLessThanOrEqual(2000);
+  });
+
+  it("normalises the entities and hard spaces a copy carries", () => {
+    expect(condenseListingText("Caf &eacute;   Bar  Rooms")).toBe(
+      "Caf é Bar Rooms"
+    );
+  });
+
+  it("has nothing to say about an empty paste", () => {
+    expect(condenseListingText("")).toBe("");
+    expect(condenseListingText("   \n \n ")).toBe("");
   });
 });

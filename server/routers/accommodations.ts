@@ -12,12 +12,15 @@ import { runAccommodationMatchAnalysis } from "./matchAnalysis.js";
 import {
   cleanListingUrl,
   coerceExtractedAccommodation,
+  condenseListingText,
   fetchListingPage,
   hasUsableSignal,
   hintsFromListingUrl,
   looksLikeBotCheck,
   mergeListingHints,
+  MIN_PASTED_CHARS,
   parseListingHtml,
+  type FetchedListingPage,
   type ListingPageFacts,
 } from "../utils/listingPage.js";
 import {
@@ -253,13 +256,32 @@ export const accommodationsRouter = router({
       return { id: newId };
     }),
   fetchFromUrl: protectedProcedure
-    .input(z.object({ url: z.string().url() }))
+    .input(
+      z.object({
+        url: z.string().url(),
+        /**
+         * The page as the member's own browser rendered it, pasted in after we
+         * were refused. Their request is not the one the site blocked, so this
+         * is the only path that ever sees a price on Booking.com.
+         */
+        pageText: z.string().max(400_000).optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       const url = input.url.trim();
       let facts: ListingPageFacts | null = null;
       let blocked = false;
 
-      const page = await fetchListingPage(url);
+      const pastedText = input.pageText
+        ? condenseListingText(input.pageText)
+        : "";
+      const pasted = pastedText.length >= MIN_PASTED_CHARS;
+
+      // Nothing to gain from asking a site that already refused us, and the
+      // paste knows more than the page we would have got anyway.
+      const page: FetchedListingPage = pasted
+        ? { ok: false, reason: "blocked" }
+        : await fetchListingPage(url);
       // A share link says nothing; the page it redirects to says everything.
       const resolvedUrl = page.finalUrl ?? url;
       if (page.ok) {
@@ -269,7 +291,7 @@ export const accommodationsRouter = router({
         if (looksLikeBotCheck(parsed)) blocked = true;
         else facts = parsed;
       } else {
-        blocked = page.reason === "blocked";
+        blocked = !pasted && page.reason === "blocked";
       }
 
       const hints = mergeListingHints(
@@ -279,7 +301,7 @@ export const accommodationsRouter = router({
         page.finalUrl ? hintsFromListingUrl(page.finalUrl) : undefined,
         hintsFromListingUrl(url)
       );
-      if (!facts)
+      if (!facts && !pasted)
         log.info("listing page unreadable, falling back to URL hints", {
           host: hints.host,
           blocked,
@@ -287,22 +309,24 @@ export const accommodationsRouter = router({
           status: page.ok ? 200 : page.status,
         });
 
-      // With neither page metadata nor a readable URL there is nothing to extract.
-      if (!hasUsableSignal(facts, hints))
+      // With no page metadata, no paste and no readable URL there is nothing
+      // to extract.
+      if (!pasted && !hasUsableSignal(facts, hints))
         return { success: false, data: {}, source: "none" as const, blocked };
 
-      // Only when the site gave us nothing: a lookup by name costs Places quota,
-      // and a page that answered already knows more than a map does.
-      const query = facts ? undefined : placeQuery(hints);
+      // Only when neither the site nor the member gave us the page: a lookup by
+      // name costs Places quota, and a page already knows more than a map does.
+      const query = facts || pasted ? undefined : placeQuery(hints);
       const place: PlaceFacts | null = query ? await lookupPlace(query) : null;
 
       try {
         const context = JSON.stringify({
           url: cleanListingUrl(resolvedUrl),
           page: facts ?? null,
+          pageText: pasted ? pastedText : null,
           urlHints: hints,
           place,
-        }).slice(0, 8000);
+        }).slice(0, 24_000);
 
         const response = await invokeLLM({
           messages: [
@@ -310,11 +334,12 @@ export const accommodationsRouter = router({
               role: "system",
               content: `You extract accommodation details for a trip-planning form.
 
-You are given "page" (metadata the listing published, or null when the site refused our request), "urlHints" (what the URL itself encodes: property slug, ISO 3166-1 country code, stay dates, guest counts), and "place" (a map lookup of that slug, or null — it knows the property's real name and postal address and nothing about this stay).
+You are given "page" (metadata the listing published, or null when the site refused our request), "pageText" (the listing page as the traveller copied it out of their own browser, or null — noisy, but it is the real page and the only source that carries the price for these dates), "urlHints" (what the URL itself encodes: property slug, ISO 3166-1 country code, stay dates, guest counts), and "place" (a map lookup of that slug, or null — it knows the property's real name and postal address and nothing about this stay).
 
 RULES:
 - Use ONLY the supplied data. Never invent a price, a rating, a bed count or a city.
-- When "page" is null, still return what the URL supports: "slug" is the property name (tidy the capitalisation), "countryCode" gives the country (expand the ISO code, e.g. "si" is Slovenia) — and nothing else.
+- "pageText" outranks everything else when present: it is what the traveller is looking at. Read the price they were quoted, the room and bed counts, the address and the amenities out of it, and ignore the site's navigation, footer and unrelated properties around them.
+- When "page" and "pageText" are both null, still return what the URL supports: "slug" is the property name (tidy the capitalisation), "countryCode" gives the country (expand the ISO code, e.g. "si" is Slovenia) — and nothing else.
 - When "place" is present it is the better name and location than the slug: use "place.name" for name and shorten "place.address" to a town and country for location. It never carries a price, a bed count or an amenity — leave those null.
 - Titles often carry trailing site furniture ("… — Updated 2026 Prices", "| Booking.com"). Strip it from name; keep the town or city for location.
 - location is a place ("Ljubljana, Slovenia"), not a full postal address, unless only an address is given.
@@ -340,11 +365,13 @@ Return ONLY JSON with these fields, null for anything unknown: name, description
         return {
           success: Object.keys(data).length > 0,
           data,
-          source: facts
-            ? ("page" as const)
-            : place
-              ? ("place" as const)
-              : ("url" as const),
+          source: pasted
+            ? ("paste" as const)
+            : facts
+              ? ("page" as const)
+              : place
+                ? ("place" as const)
+                : ("url" as const),
           blocked,
         };
       } catch (err) {

@@ -1,11 +1,13 @@
 /**
  * Turning an accommodation listing URL into facts the extractor LLM can use.
  *
- * Two independent sources, because booking sites routinely refuse a server-side
- * fetch: whatever the page's HTML gives us, and whatever the URL itself
- * encodes. Booking.com answers a plain `fetch` with a robot check, but its URL
- * still carries the property slug, the country and the stay dates — enough to
- * prefill most of the form instead of failing outright.
+ * Three independent sources, because booking sites routinely refuse a
+ * server-side fetch: whatever the page's HTML gives us, whatever the URL itself
+ * encodes, and — when both fall short — whatever the member copied out of the
+ * page in their own browser. Booking.com answers a plain `fetch` with a robot
+ * check no header will talk it out of, but its URL still carries the property
+ * slug, the country and the stay dates, and the browser that just rendered the
+ * page is not blocked at all.
  *
  * Everything below the fetch is pure so it can be tested without a network.
  */
@@ -619,6 +621,67 @@ export function hasUsableSignal(
     return true;
   return Boolean(hints.slug || hints.countryCode);
 }
+
+/**
+ * Lines that are the site, not the stay. A copied Booking.com page opens with
+ * a nav bar and closes with every city they sell; neither says anything about
+ * this property, and both crowd out the lines that do.
+ */
+const PASTE_NOISE =
+  /^(skip to (main )?content|sign in|sign up|register|log ?in|my account|your account|list your property|manage your bookings?|customer service|help( cent(re|er))?|we use cookies|cookie (policy|settings|preferences)|accept( all)?( cookies)?|manage settings|privacy( policy| statement)?|terms( (and|&) conditions)?|subscribe|newsletter|save time,? save money|loading\.{0,3}|see availability|show prices|i'?ll reserve|it only takes \d+ minutes?|home|search|menu|close|back|share|save|next|previous|©.*|all rights reserved.*|language|currency|english \(.*\)|copyright.*)$/i;
+
+/**
+ * Lines that carry a fact worth extracting. Anything matching survives even
+ * deep in the page, because the price for these dates is usually far below the
+ * fold, under a wall of rate rows.
+ */
+const PASTE_SIGNAL =
+  /([€$£¥₹]\s?\d|\d\s?(€|£|\$|EUR|USD|GBP|CHF|SEK|NOK|PLN|CZK)\b|\bper night\b|\btotal\b|\b\d+\s?(night|bedroom|bathroom|bed|guest|adult|child|person|people|sq ?m|m²|km|metre|meter|mile)s?\b|\bsleeps\b|\bcheck[- ]?(in|out)\b|\bfree (wifi|parking|cancellation)\b|\b(wifi|parking|breakfast|pool|kitchen|kitchenette|air ?condition|balcony|terrace|garden|sauna|washing machine|dishwasher|bbq|pets?)\b|\b(apartment|studio|villa|chalet|cottage|suite|dormitory|hostel|hotel|guesthouse|bed and breakfast)\b|\b(rated|rating|reviews?|scored?)\b|\b(address|street|road|avenue)\b|\b\d{4,5}\s+[A-Z])/i;
+
+const PASTE_MAX_LINE = 300;
+/** The head almost always holds the name, the address and the headline price. */
+const PASTE_HEAD_LINES = 60;
+
+/**
+ * A copied listing page → something worth putting in a prompt.
+ *
+ * When a site refuses us, the member's own browser is not refused: they can
+ * select the page and copy it. What arrives is ~100k characters of chrome
+ * around a few hundred that matter, so keep the head of the page and every
+ * line that carries a fact, drop the furniture, and never repeat a line — the
+ * same room row appears once per rate plan.
+ */
+export function condenseListingText(raw: string, maxChars = 12_000): string {
+  if (typeof raw !== "string") return "";
+  const seen = new Set<string>();
+  const head: string[] = [];
+  const facts: string[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    // `\s` covers the non-breaking spaces a copied page is full of.
+    const text = decodeHtmlEntities(line).replace(/\s+/g, " ").trim();
+    if (text.length < 2 || PASTE_NOISE.test(text)) continue;
+    const clipped =
+      text.length > PASTE_MAX_LINE
+        ? `${text.slice(0, PASTE_MAX_LINE).trim()}…`
+        : text;
+    const key = clipped.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (head.length < PASTE_HEAD_LINES) head.push(clipped);
+    else if (PASTE_SIGNAL.test(clipped)) facts.push(clipped);
+  }
+  const kept: string[] = [];
+  let length = 0;
+  for (const line of [...head, ...facts]) {
+    if (length + line.length + 1 > maxChars) break;
+    kept.push(line);
+    length += line.length + 1;
+  }
+  return kept.join("\n");
+}
+
+/** Below this a paste is a stray click, not a page worth asking the model about. */
+export const MIN_PASTED_CHARS = 40;
 
 /**
  * Money as the schema stores it. Models return "€1,234.50", "1.234,56 EUR" or a

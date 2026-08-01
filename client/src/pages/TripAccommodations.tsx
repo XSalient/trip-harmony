@@ -167,6 +167,10 @@ export default function TripAccommodations() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [urlInput, setUrlInput] = useState("");
   const [urlFetching, setUrlFetching] = useState(false);
+  // Only offered once a site has actually refused us — until then it is a
+  // chore no one should be asked to do.
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
   const [nlPrefsText, setNlPrefsText] = useState("");
   const [nlParsing, setNlParsing] = useState(false);
 
@@ -193,6 +197,8 @@ export default function TripAccommodations() {
     setForm(emptyForm);
     setUrlInput("");
     setNlPrefsText("");
+    setPasteOpen(false);
+    setPasteText("");
   };
 
   const openEdit = (acc: any) => {
@@ -253,12 +259,13 @@ export default function TripAccommodations() {
     setAddOpen(true);
   };
 
-  const handleFetchFromUrl = async () => {
+  const runUrlExtraction = async (pageText?: string) => {
     if (!urlInput.trim()) return;
     setUrlFetching(true);
     try {
       const result = await fetchFromUrlMutation.mutateAsync({
         url: urlInput.trim(),
+        ...(pageText ? { pageText } : {}),
       });
       if (result.success && result.data) {
         const d = result.data as any;
@@ -292,11 +299,18 @@ export default function TripAccommodations() {
           toast.info(
             "That site blocked us — looked the property up on the map instead. Please check the details and add the price."
           );
-        else toast.success("Details fetched from URL!");
+        else if (result.source === "paste") {
+          toast.success("Read the page you pasted — please check the details.");
+          setPasteOpen(false);
+          setPasteText("");
+        } else toast.success("Details fetched from URL!");
+        // A blocked site never gives up the price; the paste box is how that
+        // gets filled without typing the whole form.
+        if (result.source === "url" || result.source === "place")
+          setPasteOpen(true);
       } else if (result.blocked) {
-        toast.info(
-          "That site blocked our request — please fill in the details manually"
-        );
+        toast.info("That site blocked our request — try pasting the page");
+        setPasteOpen(true);
       } else {
         toast.info("Could not extract details — please fill in manually");
       }
@@ -305,6 +319,16 @@ export default function TripAccommodations() {
     } finally {
       setUrlFetching(false);
     }
+  };
+
+  const handleFetchFromUrl = () => runUrlExtraction();
+
+  const handleReadPastedPage = () => {
+    if (pasteText.trim().length < 40) {
+      toast.info("That looks too short — copy the whole listing page");
+      return;
+    }
+    return runUrlExtraction(pasteText);
   };
 
   const handleParseNlPrefs = async () => {
@@ -569,6 +593,52 @@ export default function TripAccommodations() {
                       Paste a booking URL and we'll try to fill in the details
                       automatically
                     </p>
+
+                    {/* Booking.com and friends refuse our server but not your
+                        browser: copying the page you can already see is the
+                        only way the price ever reaches this form. */}
+                    {pasteOpen && (
+                      <div className="rounded-lg border border-dashed p-2.5 space-y-2">
+                        <div className="flex items-start gap-1.5">
+                          <ClipboardList className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            This site won't let our server read the page.{" "}
+                            <a
+                              href={urlInput.trim()}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="underline underline-offset-2"
+                            >
+                              Open the listing
+                            </a>
+                            , select all (Ctrl/⌘ + A), copy, and paste it below
+                            — your browser isn't blocked, so this gets the
+                            price, beds and amenities too.
+                          </p>
+                        </div>
+                        <Textarea
+                          placeholder="Paste the copied listing page here…"
+                          value={pasteText}
+                          onChange={e => setPasteText(e.target.value)}
+                          rows={3}
+                          className="rounded-lg resize-none text-xs"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg w-full gap-1.5"
+                          onClick={handleReadPastedPage}
+                          disabled={!pasteText.trim() || urlFetching}
+                        >
+                          {urlFetching ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5" />
+                          )}
+                          Read pasted page
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="border-t pt-3 space-y-3">

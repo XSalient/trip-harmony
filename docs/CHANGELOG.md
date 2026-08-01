@@ -8,6 +8,26 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-01 — Import a blocked listing from the page you can see
+
+### Added
+
+- **Paste the page when the site refuses us.** Booking.com answers a
+  server-side fetch with a 403 no header will talk it out of — its bot
+  protection judges the IP and the TLS handshake, not the request, so a
+  datacenter is refused whatever it claims to be. The browser that just
+  rendered the listing is not refused, so after a block the add-stay dialog now
+  offers a paste box: open the listing, select all, copy, paste. The pasted
+  page goes through `condenseListingText` — noise lines dropped, repeats
+  collapsed, the head kept plus every line carrying a price, a count or an
+  amenity, capped at 12k characters — and then to the same extractor.
+  `accommodations.fetchFromUrl` takes an optional `pageText`, skips the fetch
+  and the Places lookup when it has one, and reports `source: "paste"`. This is
+  the only path that ever fills in the price a blocked site quoted for these
+  dates.
+
+---
+
 ## 2026-08-01 — Share links and a map fallback for blocked listings
 
 ### Added

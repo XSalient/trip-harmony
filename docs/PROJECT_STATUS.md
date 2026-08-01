@@ -5,7 +5,7 @@ finish a piece of work — the next person (or agent) starts here.
 
 - **Last updated:** 2026-08-01
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
-- **Health:** typecheck ✅ · 150 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 156 tests ✅ · production build ✅ · dev server ✅
   (verified end-to-end against a real Postgres on 2026-08-01, including a full
   passkey enrol → sign-out → passkey sign-in round trip in a real browser)
 
@@ -48,12 +48,14 @@ Verified by running the app against Postgres, not just by reading code:
   accommodation URL import, accommodation↔member match scoring. These require an
   AI key; without one the rest of the app is unaffected. The URL import reads
   Open Graph and schema.org data when the site allows a server-side fetch, and
-  degrades in steps when it does not (Booking.com usually does not): it follows
-  the redirect a share link hides the property behind, falls back to what the
-  URL itself encodes, then looks the property up on Google Places for a real
-  name and address — see `server/utils/listingPage.ts` and
-  `server/utils/placeLookup.ts`. The client is told which step answered, so a
-  half-filled form never claims to be a scrape.
+  degrades in steps when it does not (Booking.com never does — it refuses any
+  datacenter request with a 403): it follows the redirect a share link hides the
+  property behind, falls back to what the URL itself encodes, looks the property
+  up on Google Places for a real name and address, and then offers a paste box —
+  the member's own browser is not blocked, so a copied page fills in the price,
+  beds and amenities no server-side fetch can reach. See
+  `server/utils/listingPage.ts` and `server/utils/placeLookup.ts`. The client is
+  told which step answered, so a half-filled form never claims to be a scrape.
 - **Email** — Resend then SMTP, tried in order. Delivery failures are reported
   to the user instead of being swallowed; with no provider, links go to the log.
 
@@ -72,7 +74,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 150 tests are server-side. Page components are
+1. **No frontend tests.** All 156 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
