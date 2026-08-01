@@ -27,10 +27,22 @@ import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/** Give up on an unreachable database instead of waiting forever (pg defaults to no timeout). */
+const CONNECTION_TIMEOUT_MS = 5_000;
+const QUERY_TIMEOUT_MS = 15_000;
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+        query_timeout: QUERY_TIMEOUT_MS,
+        statement_timeout: QUERY_TIMEOUT_MS,
+        idleTimeoutMillis: 30_000,
+      });
+      // Without a listener an idle-client error crashes the process.
+      pool.on("error", error => console.error("[Database] Idle client error:", error));
       _db = drizzle(pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);

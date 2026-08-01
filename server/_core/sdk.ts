@@ -292,10 +292,15 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    await db.upsertUser({
-      openId: user.openId,
-      lastSignedIn: signedInAt,
-    });
+    // Bookkeeping only — never let a slow write hold up an already-resolved session.
+    void db
+      .upsertUser({
+        openId: user.openId,
+        lastSignedIn: signedInAt,
+      })
+      .catch(error =>
+        console.warn("[Auth] Failed to record lastSignedIn:", String(error))
+      );
 
     return user;
   }

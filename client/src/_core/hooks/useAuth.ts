@@ -40,11 +40,19 @@ export function useAuth(options?: UseAuthOptions) {
     }
   }, [logoutMutation, utils]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "manus-runtime-user-info",
+        JSON.stringify(meQuery.data ?? null)
+      );
+    } catch {
+      // Storage can be unavailable (private mode, blocked third-party storage).
+      // It is a cache for the runtime, so failing to write it is not fatal.
+    }
+  }, [meQuery.data]);
+
   const state = useMemo(() => {
-    localStorage.setItem(
-      "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
-    );
     return {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,
