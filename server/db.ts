@@ -32,28 +32,55 @@ const CONNECTION_TIMEOUT_MS = 5_000;
 const QUERY_TIMEOUT_MS = 15_000;
 
 /**
- * This app runs on Postgres. Pointing DATABASE_URL at anything else (an old
- * MySQL/TiDB URL, an HTTP endpoint) fails deep inside the driver as an opaque
- * "error establishing an SSL connection", so check the scheme up front.
+ * This app runs on Postgres. Pointing a connection variable at anything else
+ * (an old MySQL/TiDB URL, an HTTP endpoint) fails deep inside the driver as an
+ * opaque "error establishing an SSL connection", so check the scheme up front.
  */
 function isPostgresUrl(url: string) {
   return /^postgres(ql)?:\/\//i.test(url.trim());
 }
 
-export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
-    if (!isPostgresUrl(process.env.DATABASE_URL)) {
-      const scheme = process.env.DATABASE_URL.split("://")[0];
+/**
+ * DATABASE_URL first, then the variables the Supabase integration manages.
+ * POSTGRES_URL is the pooled connection, which is what serverless wants;
+ * the non-pooling host is a last resort since it resolves over IPv6 only.
+ */
+const CONNECTION_ENV_KEYS = [
+  "DATABASE_URL",
+  "POSTGRES_URL",
+  "POSTGRES_URL_NON_POOLING",
+] as const;
+
+function resolveConnectionString() {
+  for (const key of CONNECTION_ENV_KEYS) {
+    const value = process.env[key];
+    if (!value) continue;
+    if (!isPostgresUrl(value)) {
       console.error(
-        `[Database] DATABASE_URL is not a Postgres connection string ` +
-          `(scheme: "${scheme}"). Expected postgres:// or postgresql://. ` +
-          `Every query will fail until this is corrected.`
+        `[Database] ${key} is not a Postgres connection string ` +
+          `(scheme: "${value.split("://")[0]}") — ignoring it.`
+      );
+      continue;
+    }
+    return { url: value, source: key };
+  }
+  return null;
+}
+
+export async function getDb() {
+  if (!_db) {
+    const connection = resolveConnectionString();
+    if (!connection) {
+      console.error(
+        `[Database] No usable Postgres connection string. Set one of: ` +
+          `${CONNECTION_ENV_KEYS.join(", ")}.`
       );
       return null;
     }
     try {
+      console.log(`[Database] Connecting using ${connection.source}`);
       const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: connection.url,
         connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
         query_timeout: QUERY_TIMEOUT_MS,
         statement_timeout: QUERY_TIMEOUT_MS,
