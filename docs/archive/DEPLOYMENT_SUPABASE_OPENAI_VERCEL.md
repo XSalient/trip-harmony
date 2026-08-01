@@ -11,6 +11,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 **URL:** https://supabase.com
 
 **Steps:**
+
 1. Click "Start your project"
 2. Sign up or log in
 3. Click "New project"
@@ -22,6 +23,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 6. Wait 2-3 minutes for provisioning
 
 **After creation, you'll get:**
+
 - **Project URL:** `https://[project-id].supabase.co`
 - **Anon Key:** (public, safe to expose in frontend)
 - **Service Role Key:** (secret, keep on server only)
@@ -29,6 +31,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 ### Step 1.2: Get Supabase Credentials
 
 **In Supabase Dashboard:**
+
 1. Go to **Settings** → **API**
 2. Copy and save these values:
    ```
@@ -42,16 +45,19 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 **In your local project:**
 
 1. Install Supabase CLI:
+
    ```bash
    npm install -g supabase
    ```
 
 2. Link to your Supabase project:
+
    ```bash
    supabase link --project-ref [project-id]
    ```
 
 3. Update `drizzle.config.ts` to use PostgreSQL:
+
    ```typescript
    import type { Config } from "drizzle-kit";
 
@@ -66,12 +72,14 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
    ```
 
 4. Update `package.json` dependencies:
+
    ```bash
    npm uninstall mysql2
    npm install pg
    ```
 
 5. Update `server/db.ts` to use PostgreSQL:
+
    ```typescript
    import { drizzle } from "drizzle-orm/postgres-js";
    import postgres from "postgres";
@@ -93,11 +101,13 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
    ```
 
 6. Generate migration from schema:
+
    ```bash
    pnpm drizzle-kit generate
    ```
 
 7. Push to Supabase:
+
    ```bash
    DATABASE_URL="postgresql://postgres:[password]@[project-id].supabase.co:5432/postgres" \
    pnpm drizzle-kit migrate
@@ -110,6 +120,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 ### Step 1.4: Enable Supabase Auth
 
 **In Supabase Dashboard:**
+
 1. Go to **Authentication** → **Providers**
 2. Enable "Email" (default, already enabled)
 3. Go to **URL Configuration**
@@ -122,6 +133,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 ### Step 1.5: Set Up Storage Bucket
 
 **In Supabase Dashboard:**
+
 1. Go to **Storage**
 2. Click "Create a new bucket"
 3. Name: `harmony-files`
@@ -137,6 +149,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 **URL:** https://platform.openai.com
 
 **Steps:**
+
 1. Sign up or log in
 2. Go to **API keys** section
 3. Click "Create new secret key"
@@ -148,6 +161,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 ### Step 2.2: Set Up Billing
 
 **In OpenAI Dashboard:**
+
 1. Go to **Billing** → **Overview**
 2. Add payment method (credit card)
 3. Set usage limits (optional but recommended)
@@ -155,6 +169,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
    - Set monthly limit to $50 or your preference
 
 **Cost estimate for Harmony:**
+
 - Travel DNA quiz analysis: ~$0.001 per analysis
 - Referee engine: ~$0.01 per analysis
 - Natural language parsing: ~$0.001 per proposal
@@ -169,6 +184,7 @@ This guide provides **all data, steps, prompts, variables, and values** needed t
 **File: `server/_core/oauth.ts`**
 
 Replace entire file with:
+
 ```typescript
 import { createClient } from "@supabase/supabase-js";
 import type { Request, Response } from "express";
@@ -226,6 +242,7 @@ export function getLoginUrl(returnPath = "/") {
 **File: `server/_core/context.ts`**
 
 Replace with:
+
 ```typescript
 import { createClient } from "@supabase/supabase-js";
 import type { Request, Response } from "express";
@@ -265,6 +282,7 @@ export async function createContext(req: Request, res: Response) {
 **File: `server/_core/llm.ts`**
 
 Replace entire file with:
+
 ```typescript
 import OpenAI from "openai";
 
@@ -294,6 +312,7 @@ export async function invokeLLM(params: {
 ```
 
 Install OpenAI SDK:
+
 ```bash
 npm install openai
 ```
@@ -303,6 +322,7 @@ npm install openai
 **File: `server/storage.ts`**
 
 Replace entire file with:
+
 ```typescript
 import { createClient } from "@supabase/supabase-js";
 
@@ -405,6 +425,7 @@ NODE_ENV=development
 ```
 
 To generate JWT_SECRET:
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
@@ -416,6 +437,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ### Step 4.1: Prepare GitHub Repository
 
 **Steps:**
+
 1. Ensure your code is pushed to GitHub
 2. Make sure `vercel.json` exists in root:
    ```json
@@ -446,6 +468,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 **URL:** https://vercel.com
 
 **Steps:**
+
 1. Sign up or log in
 2. Click "Add New..." → "Project"
 3. Import your GitHub repository
@@ -454,25 +477,27 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ### Step 4.3: Set Environment Variables
 
 **In Vercel Dashboard:**
+
 1. Go to your project
 2. Click "Settings" → "Environment Variables"
 3. Add each variable:
 
-| Variable | Value | Environment |
-|----------|-------|-------------|
-| `DATABASE_URL` | `postgresql://postgres:[password]@[project-id].supabase.co:5432/postgres` | Production, Preview, Development |
-| `SUPABASE_URL` | `https://[project-id].supabase.co` | Production, Preview, Development |
-| `SUPABASE_ANON_KEY` | Your anon key | Production, Preview, Development |
-| `SUPABASE_SERVICE_KEY` | Your service role key | Production only |
-| `OPENAI_API_KEY` | `sk-[your-key]` | Production only |
-| `JWT_SECRET` | Your generated secret | Production, Preview, Development |
-| `NODE_ENV` | `production` | Production |
+| Variable               | Value                                                                     | Environment                      |
+| ---------------------- | ------------------------------------------------------------------------- | -------------------------------- |
+| `DATABASE_URL`         | `postgresql://postgres:[password]@[project-id].supabase.co:5432/postgres` | Production, Preview, Development |
+| `SUPABASE_URL`         | `https://[project-id].supabase.co`                                        | Production, Preview, Development |
+| `SUPABASE_ANON_KEY`    | Your anon key                                                             | Production, Preview, Development |
+| `SUPABASE_SERVICE_KEY` | Your service role key                                                     | Production only                  |
+| `OPENAI_API_KEY`       | `sk-[your-key]`                                                           | Production only                  |
+| `JWT_SECRET`           | Your generated secret                                                     | Production, Preview, Development |
+| `NODE_ENV`             | `production`                                                              | Production                       |
 
 **Important:** Service keys should ONLY be in Production environment.
 
 ### Step 4.4: Deploy
 
 **Steps:**
+
 1. Click "Deploy"
 2. Wait for build to complete (5-10 minutes)
 3. Once complete, you'll get a URL: `https://[your-project].vercel.app`
@@ -480,6 +505,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ### Step 4.5: Update Supabase Redirect URLs
 
 **Back in Supabase Dashboard:**
+
 1. Go to **Authentication** → **URL Configuration**
 2. Add your Vercel URL:
    ```
@@ -519,6 +545,7 @@ pnpm build
 ### Step 6.1: Add Domain to Vercel
 
 **In Vercel Dashboard:**
+
 1. Go to **Settings** → **Domains**
 2. Enter your domain (e.g., `harmony.example.com`)
 3. Follow DNS configuration steps
@@ -526,6 +553,7 @@ pnpm build
 ### Step 6.2: Update DNS
 
 **At your domain registrar (GoDaddy, Namecheap, etc.):**
+
 1. Add CNAME record pointing to Vercel
 2. Wait 24-48 hours for DNS propagation
 
@@ -534,6 +562,7 @@ pnpm build
 ## Complete Environment Variables Reference
 
 ### Development (`.env.local`)
+
 ```env
 DATABASE_URL=postgresql://postgres:[password]@[project-id].supabase.co:5432/postgres
 SUPABASE_URL=https://[project-id].supabase.co
@@ -545,6 +574,7 @@ NODE_ENV=development
 ```
 
 ### Production (Vercel)
+
 ```
 DATABASE_URL=postgresql://postgres:[password]@[project-id].supabase.co:5432/postgres
 SUPABASE_URL=https://[project-id].supabase.co
@@ -560,19 +590,25 @@ NODE_ENV=production
 ## Troubleshooting
 
 ### Issue: "DATABASE_URL not set"
+
 **Solution:** Check Vercel environment variables are set correctly
 
 ### Issue: "Authentication fails"
+
 **Solution:** Ensure Supabase redirect URLs include your Vercel domain
 
 ### Issue: "LLM calls timeout"
+
 **Solution:** Check OpenAI API key is valid and has credits
 
 ### Issue: "Storage upload fails"
+
 **Solution:** Ensure `harmony-files` bucket exists and is public
 
 ### Issue: "Build fails on Vercel"
-**Solution:** 
+
+**Solution:**
+
 1. Check logs in Vercel dashboard
 2. Run `pnpm build` locally to reproduce
 3. Ensure all dependencies are in `package.json`
@@ -581,12 +617,12 @@ NODE_ENV=production
 
 ## Cost Breakdown (Monthly Estimates)
 
-| Service | Free Tier | Paid Tier |
-|---------|-----------|-----------|
-| **Supabase** | 500MB DB, 1GB storage | $25+/month |
-| **OpenAI** | $5 free credits | $0.01-0.10 per 1K tokens |
-| **Vercel** | 100GB bandwidth | $20+/month |
-| **Total** | Free | $30-50/month |
+| Service      | Free Tier             | Paid Tier                |
+| ------------ | --------------------- | ------------------------ |
+| **Supabase** | 500MB DB, 1GB storage | $25+/month               |
+| **OpenAI**   | $5 free credits       | $0.01-0.10 per 1K tokens |
+| **Vercel**   | 100GB bandwidth       | $20+/month               |
+| **Total**    | Free                  | $30-50/month             |
 
 ---
 

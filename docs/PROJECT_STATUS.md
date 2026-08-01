@@ -1,0 +1,72 @@
+# Project status
+
+**Single source of truth for where this project stands.** Update it when you
+finish a piece of work — the next person (or agent) starts here.
+
+- **Last updated:** 2026-08-01
+- **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
+- **Health:** typecheck ✅ · 50 tests ✅ · production build ✅ · dev server ✅
+  (verified end-to-end against a real Postgres on 2026-08-01)
+
+---
+
+## Where it runs
+
+| Environment         | Status                 | Notes                                                                     |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                          |
+| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md) |
+| Production (Vercel) | ⚠️ Not yet provisioned | Needs a Postgres URL, `JWT_SECRET`, and a Doppler project                 |
+
+Nothing is deployed yet. The repository is ready to deploy; the remaining work is
+account setup, which requires credentials no one should commit.
+
+## What works
+
+Verified by running the app against Postgres, not just by reading code:
+
+- **Auth** — registration, email+password login, magic link, logout, session
+  cookies (1-year JWT). `auth.me` returns a projected user with no credential columns.
+- **Trips** — create, list, update, invite by code or email, join, membership roles.
+- **Planning** — date proposals, destinations, accommodations, vibe board and
+  itinerary, each with proposal/vote/comment/clone/edit/delete.
+- **Budget** — expense logging, category breakdown, per-person split, per-member caps.
+- **Notifications** — in-app feed with unread counts.
+- **Preferences** — per-member, per-trip requirements feeding AI match analysis.
+- **AI features** — referee mediation, natural-language date parsing,
+  accommodation URL import, accommodation↔member match scoring. These require an
+  AI key; without one the rest of the app is unaffected.
+
+## Infrastructure (added 2026-08-01)
+
+| Concern       | State                                                                                                                                        |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Configuration | Zod-validated in `server/_core/env.ts`; fails fast with a readable message. `APP_ENV` selects development/test/preview/production.           |
+| Secrets       | Doppler (`doppler.yaml`, configs dev/stg/prd) locally; Vercel env vars when deployed. `.env.example` is the contract. Nothing secret in git. |
+| Logging       | Structured JSON with levels, per-request correlation ids and secret redaction. JSONL files under `logs/` locally, stdout on Vercel.          |
+| API structure | 13 domain routers under `server/routers/` (was one 1,182-line file).                                                                         |
+| CI            | GitHub Actions: typecheck, test, format check, build, plus a schema push against a scratch Postgres.                                         |
+| Health check  | `GET /api/health` reports which capabilities are configured, leaking no values.                                                              |
+
+## Known gaps
+
+Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
+
+1. **No frontend tests.** All 50 tests are server-side. Page components are unverified.
+2. **No database migration history.** `drizzle-kit push` mutates the schema
+   directly; there are no versioned migrations, so production schema changes are
+   not reviewable or reversible. See [runbooks/database.md](runbooks/database.md).
+3. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
+4. **Authorisation is thin.** Most `protectedProcedure`s check that a caller is
+   signed in, not that they belong to the trip they're mutating.
+5. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
+   `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
+6. **AI prompts are inline** in router files and unversioned.
+
+## Verifying the current state yourself
+
+```bash
+pnpm setup     # bootstrap
+pnpm verify    # typecheck + tests + build — the definition of "working"
+pnpm dev       # then open http://localhost:5000 and GET /api/health
+```

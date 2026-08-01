@@ -4,13 +4,14 @@
 
 **Total Setup Time:** 1-2 hours  
 **Difficulty:** Intermediate  
-**Cost:** Free to $75/month  
+**Cost:** Free to $75/month
 
 ---
 
 ## 📋 Critical Values to Collect
 
 ### From Supabase (Settings → API)
+
 ```
 SUPABASE_URL = https://[project-id].supabase.co
 SUPABASE_ANON_KEY = eyJhbGc...
@@ -19,11 +20,13 @@ DATABASE_URL = postgresql://postgres:[password]@[project-id].supabase.co:5432/po
 ```
 
 ### From OpenAI (API Keys)
+
 ```
 OPENAI_API_KEY = sk-proj-...
 ```
 
 ### Generated
+
 ```
 JWT_SECRET = [run: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"]
 ```
@@ -33,6 +36,7 @@ JWT_SECRET = [run: node -e "console.log(require('crypto').randomBytes(32).toStri
 ## 🚀 Quick Steps
 
 ### 1. Supabase (15 min)
+
 ```bash
 # Create project at https://supabase.com
 # Copy credentials from Settings → API
@@ -42,12 +46,14 @@ pnpm drizzle-kit migrate
 ```
 
 ### 2. OpenAI (5 min)
+
 ```bash
 # Get API key from https://platform.openai.com/api-keys
 # Add payment method in Billing section
 ```
 
 ### 3. Code Updates (20 min)
+
 ```bash
 # Install dependencies
 npm install pg openai
@@ -66,6 +72,7 @@ pnpm build
 ```
 
 ### 4. Vercel (10 min)
+
 ```bash
 # Push to GitHub
 git push origin main
@@ -77,6 +84,7 @@ git push origin main
 ```
 
 ### 5. Update Supabase URLs (2 min)
+
 ```
 # In Supabase → Authentication → URL Configuration
 # Add: https://[your-project].vercel.app/api/oauth/callback
@@ -88,17 +96,18 @@ git push origin main
 
 **Copy-paste this table into Vercel Settings → Environment Variables:**
 
-| Variable | Value | Environment |
-|----------|-------|-------------|
-| `DATABASE_URL` | `postgresql://postgres:[PASSWORD]@[PROJECT-ID].supabase.co:5432/postgres` | All |
-| `SUPABASE_URL` | `https://[PROJECT-ID].supabase.co` | All |
-| `SUPABASE_ANON_KEY` | (from Supabase API) | All |
-| `SUPABASE_SERVICE_KEY` | (from Supabase API) | Production only |
-| `OPENAI_API_KEY` | `sk-proj-...` | Production only |
-| `JWT_SECRET` | (generated string) | All |
-| `NODE_ENV` | `production` | Production |
+| Variable               | Value                                                                     | Environment     |
+| ---------------------- | ------------------------------------------------------------------------- | --------------- |
+| `DATABASE_URL`         | `postgresql://postgres:[PASSWORD]@[PROJECT-ID].supabase.co:5432/postgres` | All             |
+| `SUPABASE_URL`         | `https://[PROJECT-ID].supabase.co`                                        | All             |
+| `SUPABASE_ANON_KEY`    | (from Supabase API)                                                       | All             |
+| `SUPABASE_SERVICE_KEY` | (from Supabase API)                                                       | Production only |
+| `OPENAI_API_KEY`       | `sk-proj-...`                                                             | Production only |
+| `JWT_SECRET`           | (generated string)                                                        | All             |
+| `NODE_ENV`             | `production`                                                              | Production      |
 
 **Replace placeholders:**
+
 - `[PASSWORD]` = Database password from Supabase
 - `[PROJECT-ID]` = Your Supabase project ID
 - Other values = Copy from respective dashboards
@@ -108,13 +117,14 @@ git push origin main
 ## 📝 Code Changes Summary
 
 ### File: `drizzle.config.ts`
+
 ```typescript
 import type { Config } from "drizzle-kit";
 
 export default {
   schema: "./drizzle/schema.ts",
   out: "./drizzle",
-  driver: "pg",  // Changed from "mysql2"
+  driver: "pg", // Changed from "mysql2"
   dbCredentials: {
     connectionString: process.env.DATABASE_URL || "",
   },
@@ -122,6 +132,7 @@ export default {
 ```
 
 ### File: `server/db.ts` (first 35 lines)
+
 ```typescript
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -143,6 +154,7 @@ export async function getDb() {
 ```
 
 ### File: `server/_core/llm.ts`
+
 ```typescript
 import OpenAI from "openai";
 
@@ -163,6 +175,7 @@ export async function invokeLLM(params: any) {
 ```
 
 ### File: `server/storage.ts` (key functions)
+
 ```typescript
 import { createClient } from "@supabase/supabase-js";
 
@@ -171,7 +184,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || ""
 );
 
-export async function storagePut(relKey: string, data: any, contentType?: string) {
+export async function storagePut(
+  relKey: string,
+  data: any,
+  contentType?: string
+) {
   const { data: uploadData, error } = await supabase.storage
     .from("harmony-files")
     .upload(relKey, data, { contentType, upsert: true });
@@ -200,13 +217,13 @@ After deployment, verify:
 
 ## 🔗 Useful URLs
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Supabase | https://supabase.com | Database, Auth, Storage |
-| OpenAI | https://platform.openai.com | LLM API |
-| Vercel | https://vercel.com | Deployment |
-| GitHub | https://github.com | Code repository |
-| Your App | `https://[project].vercel.app` | Live app |
+| Service  | URL                            | Purpose                 |
+| -------- | ------------------------------ | ----------------------- |
+| Supabase | https://supabase.com           | Database, Auth, Storage |
+| OpenAI   | https://platform.openai.com    | LLM API                 |
+| Vercel   | https://vercel.com             | Deployment              |
+| GitHub   | https://github.com             | Code repository         |
+| Your App | `https://[project].vercel.app` | Live app                |
 
 ---
 
@@ -223,14 +240,14 @@ After deployment, verify:
 
 ## 🚨 Common Errors & Fixes
 
-| Error | Fix |
-|-------|-----|
-| `DATABASE_URL not set` | Add to Vercel env vars |
-| `Auth fails` | Check Supabase redirect URLs |
-| `LLM timeout` | Verify OpenAI API key and billing |
-| `Build fails` | Run `pnpm build` locally to debug |
-| `Storage 404` | Ensure `harmony-files` bucket is public |
-| `Blank page` | Check browser console and Vercel logs |
+| Error                  | Fix                                     |
+| ---------------------- | --------------------------------------- |
+| `DATABASE_URL not set` | Add to Vercel env vars                  |
+| `Auth fails`           | Check Supabase redirect URLs            |
+| `LLM timeout`          | Verify OpenAI API key and billing       |
+| `Build fails`          | Run `pnpm build` locally to debug       |
+| `Storage 404`          | Ensure `harmony-files` bucket is public |
+| `Blank page`           | Check browser console and Vercel logs   |
 
 ---
 

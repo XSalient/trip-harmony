@@ -1,0 +1,24 @@
+---
+description: Harmony project rules — always applied
+alwaysApply: true
+---
+
+Read `AGENTS.md` at the repository root before making changes. It is the single
+source of instructions for all AI tools here and is deliberately short.
+
+Key rules, repeated so they are always in context:
+
+- All server config lives in `server/_core/env.ts`. Never read `process.env`
+  elsewhere on the server.
+- Log via `server/_core/logger.ts`, never `console.*`.
+- One domain per file in `server/routers/`; register it in `server/routers/index.ts`.
+- Never return `passwordHash` (or any credential column) to a client — use
+  `toPublicUser()` from `server/routers/_shared.ts`.
+- Never commit secrets. Doppler locally, Vercel env vars when deployed.
+- Run `pnpm verify` (typecheck + test + build) before declaring work complete.
+- Update `docs/PROJECT_STATUS.md` and `docs/CHANGELOG.md` when you finish work.
+
+Do not read `pnpm-lock.yaml`, `client/src/components/ui/**`, `attached_assets/`,
+`docs/archive/**`, or `client/src/pages/ComponentShowcase.tsx` — they are large and
+carry no signal. Use `docs/architecture/repo-map.md` to locate code instead of
+searching broadly.
