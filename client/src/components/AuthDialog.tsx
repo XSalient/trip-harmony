@@ -42,6 +42,11 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
   const [magicDebugUrl, setMagicDebugUrl] = useState<string | null>(null);
   const utils = trpc.useUtils();
 
+  // Until we know otherwise, assume magic links work so the dialog doesn't flicker.
+  const { data: capabilities } = trpc.auth.capabilities.useQuery();
+  const magicLinkEnabled = capabilities?.magicLink ?? true;
+  const effectiveMode = mode === "magic" && !magicLinkEnabled ? "login" : mode;
+
   const loginForm = useForm<LoginForm>({ resolver: zodResolver(loginSchema) });
   const registerForm = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
   const magicForm = useForm<MagicForm>({ resolver: zodResolver(magicSchema) });
@@ -91,7 +96,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
     magicMutation.mutate(data);
   }
 
-  const title = mode === "login" ? "Welcome back" : mode === "register" ? "Create your account" : "Sign in with email link";
+  const title = effectiveMode === "login" ? "Welcome back" : effectiveMode === "register" ? "Create your account" : "Sign in with email link";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,7 +105,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           <DialogTitle className="text-center text-xl font-bold">{title}</DialogTitle>
         </DialogHeader>
 
-        {mode === "login" && (
+        {effectiveMode === "login" && (
           <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4 mt-2">
             <div className="space-y-1.5">
               <Label htmlFor="login-email">Email</Label>
@@ -116,13 +121,17 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Signing in…" : "Sign In"}
             </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
-            </div>
-            <Button type="button" variant="outline" className="w-full gap-2" onClick={() => switchMode("magic")} disabled={isPending}>
-              <Mail className="h-4 w-4" /> Send me a magic link
-            </Button>
+            {magicLinkEnabled && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
+                </div>
+                <Button type="button" variant="outline" className="w-full gap-2" onClick={() => switchMode("magic")} disabled={isPending}>
+                  <Mail className="h-4 w-4" /> Send me a magic link
+                </Button>
+              </>
+            )}
             <p className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
               <button type="button" className="text-primary font-medium hover:underline" onClick={() => switchMode("register")}>Sign up</button>
@@ -130,7 +139,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           </form>
         )}
 
-        {mode === "register" && (
+        {effectiveMode === "register" && (
           <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4 mt-2">
             <div className="space-y-1.5">
               <Label htmlFor="reg-name">Name</Label>
@@ -151,13 +160,17 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Creating account…" : "Create Account"}
             </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
-            </div>
-            <Button type="button" variant="outline" className="w-full gap-2" onClick={() => switchMode("magic")} disabled={isPending}>
-              <Mail className="h-4 w-4" /> Use a magic link instead
-            </Button>
+            {magicLinkEnabled && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
+                </div>
+                <Button type="button" variant="outline" className="w-full gap-2" onClick={() => switchMode("magic")} disabled={isPending}>
+                  <Mail className="h-4 w-4" /> Use a magic link instead
+                </Button>
+              </>
+            )}
             <p className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
               <button type="button" className="text-primary font-medium hover:underline" onClick={() => switchMode("login")}>Sign in</button>
@@ -165,7 +178,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           </form>
         )}
 
-        {mode === "magic" && !magicSent && (
+        {effectiveMode === "magic" && !magicSent && (
           <form onSubmit={magicForm.handleSubmit(onMagicRequest)} className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground text-center">Enter your email and we'll send you a sign-in link — no password needed.</p>
             <div className="space-y-1.5">
@@ -183,7 +196,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           </form>
         )}
 
-        {mode === "magic" && magicSent && (
+        {effectiveMode === "magic" && magicSent && (
           <div className="space-y-4 mt-2 text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <h3 className="font-semibold">Check your inbox</h3>

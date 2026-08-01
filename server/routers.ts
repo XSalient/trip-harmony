@@ -9,7 +9,7 @@ import * as db from "./db.js";
 import { sdk } from "./_core/sdk.js";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
-import { sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer.js";
+import { isEmailConfigured, sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer.js";
 
 /** Gemini 2.5 thinking models return content as an array of parts; extract plain text safely */
 function extractLLMText(response: any, fallback = ""): string {
@@ -214,6 +214,11 @@ export const appRouter = router({
       ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
       return { success: true };
     }),
+    // Lets the sign-in UI hide email-based options when this deployment cannot send email,
+    // instead of offering a link that will never arrive.
+    capabilities: publicProcedure.query(() => ({
+      magicLink: isEmailConfigured() || process.env.NODE_ENV !== "production",
+    })),
     requestMagicLink: publicProcedure.input(z.object({
       email: z.string().email(),
     })).mutation(async ({ ctx, input }) => {
@@ -223,8 +228,16 @@ export const appRouter = router({
       const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
       const origin = `${proto}://${ctx.req.get("host")}`;
       const magicUrl = `${origin}/auth/magic/${token}`;
-      await sendMagicLinkEmail(input.email, magicUrl);
-      const isDev = process.env.NODE_ENV === "development";
+      const delivery = await sendMagicLinkEmail(input.email, magicUrl);
+      const isDev = process.env.NODE_ENV !== "production";
+      // Never report success when the email did not go out — otherwise the UI tells people to
+      // check an inbox that will stay empty.
+      if (!delivery.delivered && !isDev) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "We couldn't send the sign-in email. Email delivery isn't configured for this deployment yet — set RESEND_API_KEY (or the SMTP_* variables) and try again.",
+        });
+      }
       return { success: true, ...(isDev ? { debugUrl: magicUrl } : {}) };
     }),
     verifyMagicLink: publicProcedure.input(z.object({
@@ -294,7 +307,13 @@ export const appRouter = router({
       const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
       const origin = `${proto}://${ctx.req.get("host")}`;
       const inviteUrl = `${origin}/join/${trip.inviteCode}`;
-      await sendTripInviteEmail(input.email, ctx.user.name || "Someone", trip.name, inviteUrl);
+      const delivery = await sendTripInviteEmail(input.email, ctx.user.name || "Someone", trip.name, inviteUrl);
+      if (!delivery.delivered && process.env.NODE_ENV === "production") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "We couldn't send the invite email. Email delivery isn't configured for this deployment yet — share the invite link directly for now.",
+        });
+      }
       return { success: true };
     }),
     create: protectedProcedure.input(z.object({
