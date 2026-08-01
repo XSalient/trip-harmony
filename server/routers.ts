@@ -9,7 +9,7 @@ import * as db from "./db.js";
 import { sdk } from "./_core/sdk.js";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
-import { canEmailAnyRecipient, sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer.js";
+import { canEmailAnyRecipient, isEmailConfigured, sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer.js";
 
 /** Gemini 2.5 thinking models return content as an array of parts; extract plain text safely */
 function extractLLMText(response: any, fallback = ""): string {
@@ -217,7 +217,12 @@ export const appRouter = router({
     // Lets the sign-in UI hide email-based options this deployment cannot actually serve,
     // instead of offering a link that will never arrive.
     capabilities: publicProcedure.query(() => ({
-      magicLink: canEmailAnyRecipient() || process.env.NODE_ENV !== "production",
+      // Offer passwordless whenever a provider exists — the UI keeps a password route one
+      // click away, so a link that fails to arrive is a detour rather than a dead end.
+      magicLink: isEmailConfigured() || process.env.NODE_ENV !== "production",
+      // False when mail can only reach the operator (Resend's sandbox sender). The UI then
+      // shows the password field up front instead of after a link that will never land.
+      magicLinkReliable: canEmailAnyRecipient() || process.env.NODE_ENV !== "production",
     })),
     // Whether the signed-in account can sign in with a password. Accounts created by magic
     // link have no password hash, so without one they would have no way back in if magic
