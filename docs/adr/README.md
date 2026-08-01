@@ -17,6 +17,7 @@ or operated. Skip it for routine feature work.
 | [0004](0004-structured-logging.md)            | Structured JSON logging with request correlation | Accepted |
 | [0005](0005-domain-split-routers.md)          | One router file per domain                       | Accepted |
 | [0006](0006-validated-config-at-boot.md)      | Validate configuration at boot, fail fast        | Accepted |
+| [0007](0007-passkeys-for-sign-in.md)          | Passkeys as a first-class sign-in method         | Accepted |
 
 ## Template
 

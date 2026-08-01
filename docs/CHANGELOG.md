@@ -8,6 +8,39 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-01 — Profile page, passkeys, reachable password setup
+
+### Added
+
+- **Profile page** at `/profile`, reachable from a new tab in the bottom
+  navigation. Shows the account, the saved Travel DNA played back trait by trait
+  (there was previously no way to see an answered quiz — only to retake it), and
+  every sign-in method in one place. Sign out moved here too.
+- **Passkeys.** Sign in with Face ID, Touch ID, Windows Hello or a hardware key.
+  Enrol from the profile; sign in from the sign-in dialog with one tap and no
+  email typed, since the browser offers whichever discoverable passkey it holds.
+  New `passkeys` router, `webauthn_credentials` and `webauthn_challenges`
+  tables, migration `0001_passkeys`. Rationale in
+  [ADR 0007](adr/0007-passkeys-for-sign-in.md).
+- **`travelDna` axis definitions** extracted to `client/src/lib/travelDna.ts`,
+  so the quiz and the profile cannot describe the same trait differently.
+
+### Fixed
+
+- **Password setup was unreachable.** `auth.setPassword` and
+  `SetPasswordDialog` shipped previously, but the only entry point was the
+  user menu in `DashboardLayout` — a scaffold component no route renders. A
+  magic-link account had a documented way to set a password and no way to click
+  it. The profile page now surfaces it, with the account's current state.
+
+### Notes for operators
+
+- `PUBLIC_BASE_URL` should be set wherever passkeys are used. It fixes the
+  WebAuthn relying party; without it the request's `Host` header is trusted
+  instead, which weakens the phishing resistance passkeys are there for.
+
+---
+
 ## 2026-08-01 — Email delivery, database resilience, migrations
 
 Developed in parallel with the infrastructure work below and merged together.

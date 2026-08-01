@@ -8,95 +8,11 @@ import AppShell from "@/components/AppShell";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
-import {
-  Wallet,
-  Users,
-  Mountain,
-  ClipboardList,
-  Globe,
-  Bed,
-  UtensilsCrossed,
-  Zap,
-  ChevronRight,
-  ChevronLeft,
-  Check,
-  Sparkles,
-} from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, Sparkles } from "lucide-react";
+import { travelDnaTraits } from "@/lib/travelDna";
 
-const questions = [
-  {
-    key: "budgetComfort",
-    icon: Wallet,
-    title: "Budget Comfort",
-    question: "How do you feel about spending on trips?",
-    low: "Budget-conscious",
-    high: "Spare no expense",
-    color: "text-chart-4",
-  },
-  {
-    key: "socialEnergy",
-    icon: Users,
-    title: "Social Energy",
-    question: "How social are you while traveling?",
-    low: "Quiet & private",
-    high: "Party animal",
-    color: "text-chart-2",
-  },
-  {
-    key: "adventureLevel",
-    icon: Mountain,
-    title: "Adventure Level",
-    question: "What's your thrill tolerance?",
-    low: "Relaxed & easy",
-    high: "Extreme thrills",
-    color: "text-primary",
-  },
-  {
-    key: "planningStyle",
-    icon: ClipboardList,
-    title: "Planning Style",
-    question: "How structured do you like your trips?",
-    low: "Go with the flow",
-    high: "Minute-by-minute",
-    color: "text-chart-3",
-  },
-  {
-    key: "culturalCuriosity",
-    icon: Globe,
-    title: "Cultural Curiosity",
-    question: "How important is cultural immersion?",
-    low: "Tourist classics",
-    high: "Deep dive local",
-    color: "text-chart-5",
-  },
-  {
-    key: "comfortNeed",
-    icon: Bed,
-    title: "Comfort Need",
-    question: "What's your accommodation standard?",
-    low: "Hostel is fine",
-    high: "5-star only",
-    color: "text-chart-2",
-  },
-  {
-    key: "foodPriority",
-    icon: UtensilsCrossed,
-    title: "Food Priority",
-    question: "How important is food in your trip?",
-    low: "Fuel, not focus",
-    high: "Foodie first",
-    color: "text-chart-4",
-  },
-  {
-    key: "activityPace",
-    icon: Zap,
-    title: "Activity Pace",
-    question: "How packed should each day be?",
-    low: "Slow & relaxed",
-    high: "Non-stop action",
-    color: "text-primary",
-  },
-];
+/** The axes themselves live in `lib/travelDna` so the profile can replay them. */
+const questions = travelDnaTraits;
 
 type DnaValues = Record<string, number>;
 

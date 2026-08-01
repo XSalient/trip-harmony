@@ -5,8 +5,9 @@ finish a piece of work — the next person (or agent) starts here.
 
 - **Last updated:** 2026-08-01
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
-- **Health:** typecheck ✅ · 50 tests ✅ · production build ✅ · dev server ✅
-  (verified end-to-end against a real Postgres on 2026-08-01)
+- **Health:** typecheck ✅ · 85 tests ✅ · production build ✅ · dev server ✅
+  (verified end-to-end against a real Postgres on 2026-08-01, including a full
+  passkey enrol → sign-out → passkey sign-in round trip in a real browser)
 
 ---
 
@@ -30,6 +31,12 @@ Verified by running the app against Postgres, not just by reading code:
   columns. The sign-in UI asks `auth.capabilities` what this deployment can
   actually deliver, and magic-link accounts can set a password via
   `auth.setPassword` so they always have a way back in.
+- **Passkeys** — enrol from the profile page, then sign in with Face ID, Touch
+  ID, Windows Hello or a hardware key. Sign-in is usernameless: the browser
+  offers whichever discoverable passkey it holds, so nothing is typed. Only
+  public keys are stored. See [ADR 0007](adr/0007-passkeys-for-sign-in.md).
+- **Profile** — `/profile` shows the account, the saved Travel DNA trait by
+  trait, and every sign-in method (password state, passkeys) in one place.
 - **Trips** — create, list, update, invite by code or email, join, membership roles.
 - **Planning** — date proposals, destinations, accommodations, vibe board and
   itinerary, each with proposal/vote/comment/clone/edit/delete.
@@ -49,7 +56,7 @@ Verified by running the app against Postgres, not just by reading code:
 | Configuration | Zod-validated in `server/_core/env.ts`; fails fast with a readable message. `APP_ENV` selects development/test/preview/production.           |
 | Secrets       | Doppler (`doppler.yaml`, configs dev/stg/prd) locally; Vercel env vars when deployed. `.env.example` is the contract. Nothing secret in git. |
 | Logging       | Structured JSON with levels, per-request correlation ids and secret redaction. JSONL files under `logs/` locally, stdout on Vercel.          |
-| API structure | 13 domain routers under `server/routers/` (was one 1,182-line file).                                                                         |
+| API structure | 14 domain routers under `server/routers/` (was one 1,182-line file).                                                                         |
 | CI            | GitHub Actions: typecheck, test, format check, build, plus a schema push against a scratch Postgres.                                         |
 | Health check  | `GET /api/health` reports which capabilities are configured, leaking no values.                                                              |
 
@@ -57,7 +64,9 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 50 tests are server-side. Page components are unverified.
+1. **No frontend tests.** All 85 tests are server-side. Page components are
+   unverified — the passkey flow was checked with a scripted browser and a
+   virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
 3. **Authorisation is thin.** Most `protectedProcedure`s check that a caller is
    signed in, not that they belong to the trip they're mutating.

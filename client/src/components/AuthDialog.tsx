@@ -12,7 +12,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Mail, CheckCircle } from "lucide-react";
+import { Mail, CheckCircle, Fingerprint } from "lucide-react";
+import {
+  browserSupportsWebAuthn,
+  startAuthentication,
+} from "@simplewebauthn/browser";
 
 /** Password is optional here because the same form sends a magic link or signs in. */
 const signInSchema = z.object({
@@ -100,10 +104,50 @@ export function AuthDialog({
     },
   });
 
+  const passkeyStartMutation = trpc.passkeys.startAuthentication.useMutation();
+  const passkeyFinishMutation =
+    trpc.passkeys.finishAuthentication.useMutation();
+  const [passkeyPending, setPasskeyPending] = useState(false);
+  // No point offering a passkey the browser cannot produce.
+  const passkeysSupported = browserSupportsWebAuthn();
+
+  /**
+   * Usernameless by design: the server sends no credential list, so the browser
+   * offers whichever passkey it holds for this site and the user never types an
+   * address.
+   */
+  async function signInWithPasskey() {
+    setServerError(null);
+    setPasskeyPending(true);
+    try {
+      const { challengeId, options } = await passkeyStartMutation.mutateAsync();
+      const response = await startAuthentication({ optionsJSON: options });
+      await passkeyFinishMutation.mutateAsync({ challengeId, response });
+      await utils.auth.me.invalidate();
+      onSuccess();
+    } catch (error) {
+      // Dismissing the system prompt is a choice, not a failure to report.
+      if (
+        error instanceof Error &&
+        (error.name === "NotAllowedError" || error.name === "AbortError")
+      ) {
+        return;
+      }
+      setServerError(
+        error instanceof Error
+          ? error.message
+          : "Couldn't sign in with a passkey."
+      );
+    } finally {
+      setPasskeyPending(false);
+    }
+  }
+
   const isPending =
     loginMutation.isPending ||
     registerMutation.isPending ||
-    magicMutation.isPending;
+    magicMutation.isPending ||
+    passkeyPending;
 
   function switchMode(next: "signin" | "register") {
     setMode(next);
@@ -279,6 +323,19 @@ export function AuthDialog({
                 }}
               >
                 <Mail className="h-4 w-4" /> Email me a sign-in link instead
+              </Button>
+            )}
+
+            {passkeysSupported && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2"
+                disabled={isPending}
+                onClick={signInWithPasskey}
+              >
+                <Fingerprint className="h-4 w-4" />
+                {passkeyPending ? "Waiting for your device…" : "Use a passkey"}
               </Button>
             )}
 

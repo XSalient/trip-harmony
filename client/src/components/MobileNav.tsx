@@ -21,6 +21,7 @@ export default function MobileNav() {
     { href: "/quiz", icon: Compass, label: "DNA" },
     { href: "/trips/new", icon: Plus, label: "New Trip" },
     { href: "/notifications", icon: Bell, label: "Alerts", badge: unreadCount },
+    { href: "/profile", icon: User, label: "Profile" },
   ];
 
   return (

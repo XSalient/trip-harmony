@@ -58,14 +58,14 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Runtime
 
-| Variable          | Default                        | Purpose                                              |
-| ----------------- | ------------------------------ | ---------------------------------------------------- |
-| `APP_ENV`         | derived                        | `development` \| `test` \| `preview` \| `production` |
-| `PORT`            | `5000`                         | Ignored on Vercel                                    |
-| `LOG_LEVEL`       | `debug` local, `info` deployed | `debug`…`silent`                                     |
-| `PUBLIC_BASE_URL` | —                              | Origin for magic-link and invite URLs                |
-| `VITE_APP_ID`     | `harmony`                      | Application identifier                               |
-| `OWNER_OPEN_ID`   | —                              | This user is granted `admin` on sign-in              |
+| Variable          | Default                        | Purpose                                                       |
+| ----------------- | ------------------------------ | ------------------------------------------------------------- |
+| `APP_ENV`         | derived                        | `development` \| `test` \| `preview` \| `production`          |
+| `PORT`            | `5000`                         | Ignored on Vercel                                             |
+| `LOG_LEVEL`       | `debug` local, `info` deployed | `debug`…`silent`                                              |
+| `PUBLIC_BASE_URL` | —                              | Origin for magic links, invites and the passkey relying party |
+| `VITE_APP_ID`     | `harmony`                      | Application identifier                                        |
+| `OWNER_OPEN_ID`   | —                              | This user is granted `admin` on sign-in                       |
 
 ### Optional — the app runs without them
 

@@ -25,19 +25,24 @@ trips ──┬── date_proposals      ── date_votes
         ├── referee_messages          (AI output)
         └── notifications
 
+users ── webauthn_credentials        (0:n  enrolled passkeys)
+
 proposal_comments ── (proposal_type, proposal_id)   polymorphic, all proposal kinds
 magic_link_tokens                                    standalone, short-lived
+webauthn_challenges                                  standalone, short-lived
 ```
 
 ## Tables
 
 ### Identity
 
-| Table               | Purpose                                                                                                                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `users`             | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`. |
-| `magic_link_tokens` | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                             |
-| `travel_dna`        | Eight 1–10 personality axes plus dietary and accessibility needs. Feeds referee and match analysis.                                                                                              |
+| Table                  | Purpose                                                                                                                                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                |
+| `magic_link_tokens`    | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                            |
+| `travel_dna`           | Eight 1–10 personality axes plus dietary and accessibility needs. Feeds referee and match analysis.                                                                                                                                                                                             |
+| `webauthn_credentials` | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices. |
+| `webauthn_challenges`  | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                        |
 
 ### Trips
 

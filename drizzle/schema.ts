@@ -362,6 +362,59 @@ export const magicLinkTokens = pgTable("magic_link_tokens", {
 export type MagicLinkToken = typeof magicLinkTokens.$inferSelect;
 
 /**
+ * Passkeys (WebAuthn credentials) — one row per authenticator a user has
+ * enrolled: Face ID / Touch ID on a phone or laptop, Windows Hello, a password
+ * manager, or a hardware key.
+ *
+ * `publicKey` is a public value, not a secret: possession of it does not let
+ * anyone sign an assertion. `counter` is the authenticator's signature counter,
+ * kept so a cloned authenticator can be detected.
+ */
+export const webauthnCredentials = pgTable("webauthn_credentials", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
+  /** Base64url credential ID as produced by the authenticator. */
+  credentialId: text("credentialId").notNull().unique(),
+  /** Base64url COSE public key. */
+  publicKey: text("publicKey").notNull(),
+  counter: integer("counter").default(0).notNull(),
+  /** Comma-separated transport hints ("internal,hybrid"); speeds up later prompts. */
+  transports: text("transports"),
+  /** "singleDevice" or "multiDevice" — whether the passkey syncs across devices. */
+  deviceType: varchar("deviceType", { length: 32 }),
+  backedUp: boolean("backedUp").default(false).notNull(),
+  /** Human label shown in the UI, e.g. "iPhone" — derived from the user agent. */
+  label: text("label"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  lastUsedAt: timestamp("lastUsedAt"),
+});
+
+export type WebauthnCredential = typeof webauthnCredentials.$inferSelect;
+export type InsertWebauthnCredential = typeof webauthnCredentials.$inferInsert;
+
+/**
+ * In-flight WebAuthn challenges.
+ *
+ * A challenge must be issued by the server, used once and expire quickly, so it
+ * cannot live in the client. `userId` is null for sign-in, where the account is
+ * only known once the authenticator answers.
+ */
+export const webauthnChallenges = pgTable("webauthn_challenges", {
+  id: serial("id").primaryKey(),
+  /** Opaque handle the client echoes back; not the challenge itself. */
+  challengeId: varchar("challengeId", { length: 64 }).notNull().unique(),
+  challenge: text("challenge").notNull(),
+  userId: integer("userId"),
+  /** "registration" or "authentication" — a challenge is never valid for both. */
+  purpose: varchar("purpose", { length: 32 }).notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WebauthnChallenge = typeof webauthnChallenges.$inferSelect;
+
+/**
  * Accommodation attributes — structured attributes extracted from listings.
  */
 export const accommodationAttributes = pgTable("accommodation_attributes", {

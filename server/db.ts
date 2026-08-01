@@ -40,6 +40,9 @@ import {
   itineraryItems,
   InsertItineraryItem,
   memberPreferences,
+  webauthnCredentials,
+  InsertWebauthnCredential,
+  webauthnChallenges,
 } from "../drizzle/schema.js";
 import { config, ENV } from "./_core/env.js";
 import { logger } from "./_core/logger.js";
@@ -243,6 +246,135 @@ export async function consumeMagicLinkToken(token: string) {
     .set({ used: true })
     .where(eq(magicLinkTokens.id, row.id));
   return row;
+}
+
+// ---- Passkeys (WebAuthn) ----
+export async function createWebauthnChallenge(data: {
+  challengeId: string;
+  challenge: string;
+  userId: number | null;
+  purpose: "registration" | "authentication";
+  expiresAt: Date;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(webauthnChallenges).values(data);
+}
+
+/**
+ * Returns the challenge only once: a replayed response finds it already used.
+ * The purpose is part of the lookup so a registration challenge can never be
+ * spent as a sign-in one.
+ */
+export async function consumeWebauthnChallenge(
+  challengeId: string,
+  purpose: "registration" | "authentication"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .select()
+    .from(webauthnChallenges)
+    .where(
+      and(
+        eq(webauthnChallenges.challengeId, challengeId),
+        eq(webauthnChallenges.purpose, purpose),
+        eq(webauthnChallenges.used, false)
+      )
+    )
+    .limit(1);
+  if (!row) return null;
+  await db
+    .update(webauthnChallenges)
+    .set({ used: true })
+    .where(eq(webauthnChallenges.id, row.id));
+  if (row.expiresAt < new Date()) return null;
+  return row;
+}
+
+/** Housekeeping so spent and expired challenges do not accumulate forever. */
+export async function deleteExpiredWebauthnChallenges() {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(webauthnChallenges)
+    .where(sql`${webauthnChallenges.expiresAt} < now()`);
+}
+
+export async function createWebauthnCredential(data: InsertWebauthnCredential) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .insert(webauthnCredentials)
+    .values(data)
+    .returning({ id: webauthnCredentials.id });
+  return row;
+}
+
+export async function getWebauthnCredentialsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(webauthnCredentials)
+    .where(eq(webauthnCredentials.userId, userId))
+    .orderBy(desc(webauthnCredentials.createdAt));
+}
+
+export async function getWebauthnCredentialById(credentialId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(webauthnCredentials)
+    .where(eq(webauthnCredentials.credentialId, credentialId))
+    .limit(1);
+  return result[0];
+}
+
+export async function touchWebauthnCredential(id: number, counter: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(webauthnCredentials)
+    .set({ counter, lastUsedAt: new Date() })
+    .where(eq(webauthnCredentials.id, id));
+}
+
+export async function renameWebauthnCredential(
+  id: number,
+  userId: number,
+  label: string
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const result = await db
+    .update(webauthnCredentials)
+    .set({ label })
+    .where(
+      and(
+        eq(webauthnCredentials.id, id),
+        eq(webauthnCredentials.userId, userId)
+      )
+    )
+    .returning({ id: webauthnCredentials.id });
+  return result.length > 0;
+}
+
+/** Scoped by user so one account can never delete another's passkey. */
+export async function deleteWebauthnCredential(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const result = await db
+    .delete(webauthnCredentials)
+    .where(
+      and(
+        eq(webauthnCredentials.id, id),
+        eq(webauthnCredentials.userId, userId)
+      )
+    )
+    .returning({ id: webauthnCredentials.id });
+  return result.length > 0;
 }
 
 // ---- Travel DNA ----

@@ -35,7 +35,7 @@ scripts/setup.sh   One-command bootstrap.
 | `_core/vite.ts`         |    67 | Vite dev middleware and static file serving.                                         |
 | `_core/llm.ts`          |   184 | LLM invocation wrapper.                                                              |
 | `_core/systemRouter.ts` |    29 | Built-in system procedures.                                                          |
-| `db.ts`                 |   820 | Every database query. Large but flat — jump to the function you need.                |
+| `db.ts`                 |  1462 | Every database query. Large but flat — jump to the function you need.                |
 | `routers/`              |     — | The API surface, one file per domain (below).                                        |
 | `utils/mailer.ts`       |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
 | `replit_integrations/`  |     — | **Legacy, unused.** Don't read or extend.                                            |
@@ -47,10 +47,11 @@ open only its domain file.
 
 | File                | Lines | Covers                                                |
 | ------------------- | ----: | ----------------------------------------------------- |
-| `index.ts`          |    41 | Table of contents — the whole API in one screen       |
+| `index.ts`          |    43 | Table of contents — the whole API in one screen       |
 | `_shared.ts`        |    70 | `toPublicUser`, password hashing, LLM text extraction |
 | `matchAnalysis.ts`  |   142 | AI accommodation↔member scoring (fire-and-forget)    |
 | `auth.ts`           |    86 | Register, login, magic link, logout, `me`             |
+| `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in   |
 | `trips.ts`          |    98 | Trips, membership, invites                            |
 | `dates.ts`          |   158 | Date proposals, votes, natural-language parsing       |
 | `destinations.ts`   |   108 | Destination suggestions and votes                     |
@@ -74,12 +75,17 @@ open only its domain file.
 | `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …) |
 | `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**      |
 | `src/lib/trpc.ts`                 | Typed tRPC React client                                                   |
+| `src/lib/travelDna.ts`            | The eight Travel DNA axes — shared by the quiz and the profile            |
 | `src/_core/hooks/useAuth.ts`      | Session hook                                                              |
 | `src/contexts/ThemeContext.tsx`   | Dark mode                                                                 |
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                    |
 
-Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub) and
-`TripAccommodations.tsx` (810 lines — the most complex screen).
+Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub),
+`TripAccommodations.tsx` (810 lines — the most complex screen) and
+`Profile.tsx` (the account screen: Travel DNA, password, passkeys, sign out).
+
+`DashboardLayout.tsx` is scaffold from the project template — no route renders
+it. Don't add features there expecting anyone to see them.
 
 ## `shared/`, `drizzle/`
 
@@ -88,7 +94,7 @@ Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub) and
 | `shared/const.ts`        | Cookie name, TTLs, shared error messages           |
 | `shared/types.ts`        | Types used by both client and server               |
 | `shared/_core/errors.ts` | `HttpError` and constructors                       |
-| `drizzle/schema.ts`      | All 21 tables and enums — the canonical data model |
+| `drizzle/schema.ts`      | All 23 tables and enums — the canonical data model |
 
 ## Deliberately noisy — never read
 
