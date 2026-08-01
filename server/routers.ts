@@ -1,15 +1,15 @@
-import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const.js";
+import { getSessionCookieOptions } from "./_core/cookies.js";
+import { systemRouter } from "./_core/systemRouter.js";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc.js";
 import { z } from "zod";
 import { nanoid } from "nanoid";
-import { invokeLLM } from "./_core/llm";
-import * as db from "./db";
-import { sdk } from "./_core/sdk";
+import { invokeLLM } from "./_core/llm.js";
+import * as db from "./db.js";
+import { sdk } from "./_core/sdk.js";
 import { TRPCError } from "@trpc/server";
 import crypto from "crypto";
-import { sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer";
+import { sendMagicLinkEmail, sendTripInviteEmail } from "./utils/mailer.js";
 
 /** Gemini 2.5 thinking models return content as an array of parts; extract plain text safely */
 function extractLLMText(response: any, fallback = ""): string {

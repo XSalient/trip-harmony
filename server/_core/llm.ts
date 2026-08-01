@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { ENV } from "./env";
+import { ENV } from "./env.js";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
