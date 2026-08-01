@@ -1,23 +1,81 @@
 import nodemailer from "nodemailer";
 
-function getTransport() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
-  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-    return {
-      transport: nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: parseInt(SMTP_PORT || "587"),
-        secure: parseInt(SMTP_PORT || "587") === 465,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-      }),
-      from: SMTP_FROM || SMTP_USER,
-    };
-  }
-  return null;
+export type DeliveryResult = { delivered: boolean; error?: string };
+
+/** Resend's shared sender works without domain verification, but only delivers to the Resend account owner. */
+const RESEND_SANDBOX_FROM = "onboarding@resend.dev";
+
+function getFromAddress() {
+  return process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || RESEND_SANDBOX_FROM;
 }
 
-export async function sendMagicLinkEmail(to: string, magicUrl: string) {
-  const transport = getTransport();
+function getSmtpTransport() {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+  const port = parseInt(SMTP_PORT || "587");
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port,
+    secure: port === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+}
+
+/** True when a provider is configured; when false, emails can only be logged, never delivered. */
+export function isEmailConfigured() {
+  return Boolean(process.env.RESEND_API_KEY) || getSmtpTransport() !== null;
+}
+
+type Message = { to: string; subject: string; text: string; html: string };
+
+async function sendViaResend(apiKey: string, msg: Message) {
+  const from = getFromAddress();
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Resend responded ${res.status}: ${body.slice(0, 500)}`);
+  }
+}
+
+/**
+ * Sends a message via Resend (HTTP) or SMTP, whichever is configured. Resend is preferred because
+ * serverless platforms frequently block outbound SMTP ports.
+ * Never throws — callers get the delivery status so they can tell the user the truth.
+ */
+async function deliver(msg: Message, consoleLabel: string, consoleLines: string[]): Promise<DeliveryResult> {
+  const resendKey = process.env.RESEND_API_KEY;
+  const smtp = getSmtpTransport();
+
+  try {
+    if (resendKey) {
+      await sendViaResend(resendKey, msg);
+      console.log(`[Mailer] ${consoleLabel} sent to ${msg.to} via Resend`);
+      return { delivered: true };
+    }
+    if (smtp) {
+      await smtp.sendMail({ from: getFromAddress(), to: msg.to, subject: msg.subject, text: msg.text, html: msg.html });
+      console.log(`[Mailer] ${consoleLabel} sent to ${msg.to} via SMTP`);
+      return { delivered: true };
+    }
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err);
+    console.error(`[Mailer] Failed to send ${consoleLabel} to ${msg.to}: ${error}`);
+    return { delivered: false, error };
+  }
+
+  console.warn(`\n========== ${consoleLabel.toUpperCase()} (NOT SENT — no email provider configured) ==========`);
+  console.warn(`To: ${msg.to}`);
+  for (const line of consoleLines) console.warn(line);
+  console.warn("Set RESEND_API_KEY (or SMTP_HOST/SMTP_USER/SMTP_PASS) to deliver this email.");
+  console.warn("================================================================\n");
+  return { delivered: false, error: "No email provider is configured (set RESEND_API_KEY or SMTP_*)." };
+}
+
+export async function sendMagicLinkEmail(to: string, magicUrl: string): Promise<DeliveryResult> {
   const subject = "Your Harmony sign-in link";
   const text = `Click the link below to sign in to Harmony. It expires in 15 minutes.\n\n${magicUrl}\n\nIf you didn't request this, you can safely ignore this email.`;
   const html = `
@@ -29,19 +87,15 @@ export async function sendMagicLinkEmail(to: string, magicUrl: string) {
       <p style="color:#9ca3af;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
     </div>`;
 
-  if (transport) {
-    await transport.transport.sendMail({ from: transport.from, to, subject, text, html });
-    console.log(`[Mailer] Magic link email sent to ${to}`);
-  } else {
-    console.log("\n========== MAGIC LINK (dev mode — no SMTP configured) ==========");
-    console.log(`To: ${to}`);
-    console.log(`Link: ${magicUrl}`);
-    console.log("================================================================\n");
-  }
+  return deliver({ to, subject, text, html }, "Magic link", [`Link: ${magicUrl}`]);
 }
 
-export async function sendTripInviteEmail(to: string, inviterName: string, tripName: string, inviteUrl: string) {
-  const transport = getTransport();
+export async function sendTripInviteEmail(
+  to: string,
+  inviterName: string,
+  tripName: string,
+  inviteUrl: string,
+): Promise<DeliveryResult> {
   const subject = `${inviterName} invited you to join "${tripName}" on Harmony`;
   const text = `${inviterName} has invited you to join the trip "${tripName}" on Harmony.\n\nClick the link to join:\n${inviteUrl}`;
   const html = `
@@ -52,14 +106,5 @@ export async function sendTripInviteEmail(to: string, inviterName: string, tripN
       <p style="color:#6b7280;font-size:13px">Or paste this link in your browser:<br/><code>${inviteUrl}</code></p>
     </div>`;
 
-  if (transport) {
-    await transport.transport.sendMail({ from: transport.from, to, subject, text, html });
-    console.log(`[Mailer] Trip invite email sent to ${to}`);
-  } else {
-    console.log("\n========== TRIP INVITE (dev mode — no SMTP configured) ==========");
-    console.log(`To: ${to}`);
-    console.log(`Trip: ${tripName}`);
-    console.log(`Link: ${inviteUrl}`);
-    console.log("=================================================================\n");
-  }
+  return deliver({ to, subject, text, html }, "Trip invite", [`Trip: ${tripName}`, `Link: ${inviteUrl}`]);
 }
