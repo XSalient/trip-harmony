@@ -6,6 +6,7 @@ import { registerOAuthRoutes } from "./oauth.js";
 import { appRouter } from "../routers.js";
 import { createContext } from "./context.js";
 import { serveStatic, setupVite } from "./vite.js";
+import { logTrpcError } from "./trpcErrors.js";
 
 export async function createApp() {
   const app = express();
@@ -21,6 +22,7 @@ export async function createApp() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      onError: logTrpcError,
     })
   );
   // development mode uses Vite, production mode uses static files
