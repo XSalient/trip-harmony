@@ -1,0 +1,15 @@
+# Doppler project/config binding for this repository.
+#
+# `doppler setup` reads this file, so a new developer never has to guess which
+# project or config to attach to — they run `doppler login && doppler setup`
+# and get the dev secrets.
+#
+# Config naming follows Doppler's convention:
+#   dev  -> local development   (APP_ENV=development)
+#   stg  -> Vercel previews     (APP_ENV=preview)
+#   prd  -> production          (APP_ENV=production)
+#
+# See docs/runbooks/secrets.md.
+setup:
+  project: trip-harmony
+  config: dev

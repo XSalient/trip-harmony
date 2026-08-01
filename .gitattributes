@@ -1,0 +1,21 @@
+# Normalise line endings so Windows and macOS/Linux clones produce identical diffs.
+* text=auto eol=lf
+
+# Generated: keep out of diffs, language stats and review noise.
+pnpm-lock.yaml   linguist-generated=true -diff
+patches/*.patch  linguist-generated=true
+
+# Vendored: shadcn/ui primitives are copied in unmodified.
+client/src/components/ui/** linguist-vendored=true
+
+# Not source.
+attached_assets/** linguist-documentation=true
+docs/archive/**    linguist-documentation=true
+
+# Binary — never try to diff or merge.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
