@@ -87,7 +87,7 @@ export default function TravelDnaQuiz() {
               <Sparkles className="h-8 w-8 text-primary mx-auto mb-2" />
               <h2 className="font-semibold text-lg">Your Travel Profile</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Here's how Harmony sees you
+                Here's how Back To Travelling sees you
               </p>
             </CardContent>
           </Card>

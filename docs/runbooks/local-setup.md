@@ -45,13 +45,13 @@ Fill in `DATABASE_URL` and `JWT_SECRET`. Everything else is optional — see
 Docker:
 
 ```bash
-docker run -d --name harmony-db \
-  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=harmony_dev \
+docker run -d --name back-to-travelling-db \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=back_to_travelling_dev \
   -p 5432:5432 postgres:16
 ```
 
 ```
-DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/harmony_dev
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/back_to_travelling_dev
 ```
 
 Native Postgres works equally well; only the connection string matters. Then:

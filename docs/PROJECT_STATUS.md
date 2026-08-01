@@ -4,6 +4,10 @@
 finish a piece of work — the next person (or agent) starts here.
 
 - **Last updated:** 2026-08-01
+- **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
+  `harmony` / `trip-harmony` because they are registered outside this repo —
+  `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
+  before changing them here.
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
 - **Health:** typecheck ✅ · 156 tests ✅ · production build ✅ · dev server ✅
   (verified end-to-end against a real Postgres on 2026-08-01, including a full

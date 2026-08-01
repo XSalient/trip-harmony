@@ -76,7 +76,7 @@ export const refereeRouter = router({
           messages: [
             {
               role: "system",
-              content: `You are Harmony's Active Referee — a witty, empathetic AI mediator for group trip planning. Your job is to detect tension points (budget gaps, preference conflicts, voting deadlocks) and suggest fair compromises. Be concise, warm, and occasionally funny. Keep responses under 200 words. Use emoji sparingly. Address the group directly.`,
+              content: `You are Back To Travelling's Active Referee — a witty, empathetic AI mediator for group trip planning. Your job is to detect tension points (budget gaps, preference conflicts, voting deadlocks) and suggest fair compromises. Be concise, warm, and occasionally funny. Keep responses under 200 words. Use emoji sparingly. Address the group directly.`,
             },
             {
               role: "user",

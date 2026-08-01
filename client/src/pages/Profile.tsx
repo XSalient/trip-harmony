@@ -84,8 +84,9 @@ function TravelDnaCard() {
           <div>
             <p className="text-sm font-medium">No Travel DNA yet</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Answer eight quick questions so Harmony can match you with the
-              right stays and settle group disagreements in your favour.
+              Answer eight quick questions so Back To Travelling can match you
+              with the right stays and settle group disagreements in your
+              favour.
             </p>
           </div>
           <Button className="w-full gap-2" onClick={() => navigate("/quiz")}>

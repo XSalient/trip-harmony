@@ -1,6 +1,6 @@
 # Architecture
 
-## What Harmony is
+## What Back To Travelling is
 
 A group-trip planning app. A group proposes dates, destinations, accommodations
 and activities; everyone votes; an AI "referee" surfaces conflicts and suggests

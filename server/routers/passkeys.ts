@@ -36,7 +36,7 @@ import { logger } from "../_core/logger.js";
 
 const log = logger.child({ scope: "passkeys" });
 
-const RP_NAME = "Harmony";
+const RP_NAME = "Back To Travelling";
 /** Long enough for a user to find their phone, short enough to limit replay. */
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
@@ -163,7 +163,8 @@ export const passkeysRouter = router({
       // passkey instead of leaving a second, confusing entry behind.
       userID: new TextEncoder().encode(ctx.user.openId),
       userName: ctx.user.email || ctx.user.name || ctx.user.openId,
-      userDisplayName: ctx.user.name || ctx.user.email || "Harmony traveller",
+      userDisplayName:
+        ctx.user.name || ctx.user.email || "Back To Travelling traveller",
       attestationType: "none",
       excludeCredentials: existing.map(c => ({
         id: c.credentialId,

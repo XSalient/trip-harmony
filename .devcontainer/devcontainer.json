@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.schema.json",
-  "name": "Harmony",
+  "name": "Back To Travelling",
 
   // Same Node major as CI and Vercel, so "works on my machine" means something.
   "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
@@ -14,7 +14,7 @@
   // Neon) or run one locally — see docs/runbooks/local-setup.md.
   "forwardPorts": [5000],
   "portsAttributes": {
-    "5000": { "label": "Harmony app", "onAutoForward": "notify" }
+    "5000": { "label": "Back To Travelling app", "onAutoForward": "notify" }
   },
 
   "postCreateCommand": "corepack enable && pnpm install",

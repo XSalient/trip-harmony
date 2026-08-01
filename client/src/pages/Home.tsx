@@ -48,8 +48,9 @@ function LandingPage() {
             <span className="text-primary">without the drama</span>
           </h1>
           <p className="text-muted-foreground text-base mb-8 max-w-sm mx-auto leading-relaxed">
-            Harmony resolves group conflicts, finds consensus, and keeps
-            everyone's budget in check — so you can focus on the adventure.
+            Back To Travelling resolves group conflicts, finds consensus, and
+            keeps everyone's budget in check — so you can focus on the
+            adventure.
           </p>
           <Button
             size="lg"
@@ -215,8 +216,8 @@ function Dashboard() {
                     Complete your Travel DNA
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Take a quick quiz so Harmony can match you with the right
-                    trips and resolve conflicts smarter.
+                    Take a quick quiz so Back To Travelling can match you with
+                    the right trips and resolve conflicts smarter.
                   </p>
                 </div>
               </div>

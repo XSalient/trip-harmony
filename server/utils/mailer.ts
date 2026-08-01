@@ -155,13 +155,13 @@ export async function sendMagicLinkEmail(
   to: string,
   magicUrl: string
 ): Promise<DeliveryResult> {
-  const subject = "Your Harmony sign-in link";
-  const text = `Click the link below to sign in to Harmony. It expires in 15 minutes.\n\n${magicUrl}\n\nIf you didn't request this, you can safely ignore this email.`;
+  const subject = "Your Back To Travelling sign-in link";
+  const text = `Click the link below to sign in to Back To Travelling. It expires in 15 minutes.\n\n${magicUrl}\n\nIf you didn't request this, you can safely ignore this email.`;
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
-      <h2 style="color:#10b981">Sign in to Harmony</h2>
+      <h2 style="color:#10b981">Sign in to Back To Travelling</h2>
       <p>Click the button below to sign in. This link expires in <strong>15 minutes</strong>.</p>
-      <a href="${magicUrl}" style="display:inline-block;padding:12px 24px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">Sign In to Harmony</a>
+      <a href="${magicUrl}" style="display:inline-block;padding:12px 24px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">Sign In to Back To Travelling</a>
       <p style="color:#6b7280;font-size:13px">Or paste this link in your browser:<br/><code>${magicUrl}</code></p>
       <p style="color:#9ca3af;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
     </div>`;
@@ -175,12 +175,12 @@ export async function sendTripInviteEmail(
   tripName: string,
   inviteUrl: string
 ): Promise<DeliveryResult> {
-  const subject = `${inviterName} invited you to join "${tripName}" on Harmony`;
-  const text = `${inviterName} has invited you to join the trip "${tripName}" on Harmony.\n\nClick the link to join:\n${inviteUrl}`;
+  const subject = `${inviterName} invited you to join "${tripName}" on Back To Travelling`;
+  const text = `${inviterName} has invited you to join the trip "${tripName}" on Back To Travelling.\n\nClick the link to join:\n${inviteUrl}`;
   const html = `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
       <h2 style="color:#10b981">You're invited to a trip!</h2>
-      <p><strong>${inviterName}</strong> has invited you to join <strong>"${tripName}"</strong> on Harmony.</p>
+      <p><strong>${inviterName}</strong> has invited you to join <strong>"${tripName}"</strong> on Back To Travelling.</p>
       <a href="${inviteUrl}" style="display:inline-block;padding:12px 24px;background:#10b981;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">Join the Trip</a>
       <p style="color:#6b7280;font-size:13px">Or paste this link in your browser:<br/><code>${inviteUrl}</code></p>
     </div>`;

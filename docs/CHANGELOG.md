@@ -110,6 +110,26 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-01 — Renamed to "Back To Travelling"
+
+### Changed
+
+- **Project renamed from "Harmony" to "Back To Travelling."** Page title, landing
+  copy, the Travel DNA and referee screens, magic-link and trip-invite emails,
+  the referee's system prompt, and the outbound `User-Agent` all use the new
+  name. `package.json` is now `back-to-travelling`.
+- **Local and CI database names** are `back_to_travelling_dev` /
+  `back_to_travelling_ci` (were `harmony_dev` / `harmony_ci`). CI creates its own
+  each run; for a local database either recreate it under the new name or keep
+  your existing `DATABASE_URL` — only the connection string matters.
+
+Two identifiers keep the old name on purpose, because they are registered with
+services outside this repository and renaming only here would break them:
+`VITE_APP_ID` (`harmony`, the app's id at the OAuth portal) and the Doppler
+project `trip-harmony`. Rename those in the respective service first, then here.
+
+---
+
 ## 2026-08-01 — Profile page, passkeys, reachable password setup
 
 ### Added
