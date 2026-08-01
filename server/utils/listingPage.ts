@@ -23,7 +23,7 @@ export type ListingPageFacts = {
 
 export type ListingUrlHints = {
   host?: string;
-  /** Property name guessed from the last path segment, e.g. `ti-club` → "Ti Club". */
+  /** Property name guessed from the name-like path segments, `ti-club` → "Ti Club". */
   slug?: string;
   /** ISO 3166-1 alpha-2 code some sites put in the path (Booking: `/hotel/si/…`). */
   countryCode?: string;
@@ -141,7 +141,38 @@ const NAMED_ENTITIES: Record<string, string> = {
   pound: "£",
   yen: "¥",
   deg: "°",
+  middot: "·",
+  bull: "•",
+  laquo: "«",
+  raquo: "»",
+  times: "×",
+  szlig: "ß",
+  aelig: "æ",
+  oslash: "ø",
+  aring: "å",
 };
+
+/**
+ * `&ocirc;` is "o" plus a circumflex. Composing the accent beats enumerating
+ * the hundreds of named entities — and hotel names are full of them.
+ */
+const COMBINING_ACCENTS: Record<string, string> = {
+  grave: "̀",
+  acute: "́",
+  circ: "̂",
+  tilde: "̃",
+  uml: "̈",
+  ring: "̊",
+  cedil: "̧",
+};
+
+function decodeAccentEntity(code: string): string | undefined {
+  const match = /^([a-zA-Z])(grave|acute|circ|tilde|uml|ring|cedil)$/.exec(
+    code
+  );
+  if (!match) return undefined;
+  return (match[1] + COMBINING_ACCENTS[match[2]]).normalize("NFC");
+}
 
 export function decodeHtmlEntities(text: string): string {
   return text.replace(
@@ -157,7 +188,10 @@ export function decodeHtmlEntities(text: string): string {
           ? String.fromCodePoint(value)
           : match;
       }
-      return NAMED_ENTITIES[code.toLowerCase()] ?? match;
+      // Case matters for accents (`&Uuml;` is Ü), not for the rest.
+      return (
+        decodeAccentEntity(code) ?? NAMED_ENTITIES[code.toLowerCase()] ?? match
+      );
     }
   );
 }
@@ -191,8 +225,9 @@ function absoluteUrl(
   }
 }
 
+/** schema.org types that describe somewhere to stay. Vrbo uses `VacationRental`. */
 const STRUCTURED_DATA_TYPES =
-  /(hotel|lodging|apartment|resort|motel|hostel|house|accommodation|campground|place|product|offer)/i;
+  /(hotel|lodging|apartment|resort|motel|hostel|house|accommodation|campground|campsite|rental|villa|cabin|cottage|chalet|guest|bed_?and_?breakfast|inn|room|place|product|offer)/i;
 
 function flattenJsonLd(node: unknown, out: Record<string, unknown>[]): void {
   if (Array.isArray(node)) {
@@ -385,9 +420,14 @@ function firstParam(
   return undefined;
 }
 
+/** Path segments that are furniture, not a property: `/en/rooms/` names nothing. */
+const GENERIC_SEGMENTS =
+  /^(en|en-gb|en-us|de|fr|es|it|nl|www|hotel|hotels|property|properties|apartment|apartments|rooms?|suites?|accommodation|accommodations|lodging|stay|stays|booking|bookings|reserve|reservation|reservations|search|listing|listings|detail|details|index|home|page|hotel-information|rates|availability)$/i;
+
 function humaniseSlug(segment: string): string | undefined {
   // "ti-club.en-gb.html" → "ti-club": the locale and extension are not a name.
   const base = segment.split(/[?#]/)[0].split(".")[0];
+  if (GENERIC_SEGMENTS.test(base)) return undefined;
   const words = base.split(/[-_+%]/).filter(Boolean);
   // Opaque ids ("1234567", "1a") say nothing; only word-ish slugs are a name.
   if (!words.length || !/[a-z]{3}/i.test(words.join(""))) return undefined;
@@ -396,6 +436,26 @@ function humaniseSlug(segment: string): string | undefined {
       /^[a-z]/.test(word) ? word[0].toUpperCase() + word.slice(1) : word
     )
     .join(" ");
+}
+
+/**
+ * The name is not always in the last segment — Agoda ends on the city
+ * (`/the-sukhothai-bangkok/hotel/bangkok-th.html`). Of the segments that could
+ * be a name, the wordiest one is the property; ties go to the deepest.
+ */
+function slugFromSegments(segments: string[]): string | undefined {
+  let best: string | undefined;
+  let bestWords = 0;
+  for (const segment of segments) {
+    const slug = humaniseSlug(segment);
+    if (!slug) continue;
+    const words = slug.split(" ").length;
+    if (words >= bestWords) {
+      best = slug;
+      bestWords = words;
+    }
+  }
+  return best;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -410,8 +470,8 @@ export function hintsFromListingUrl(raw: string): ListingUrlHints {
   const segments = url.pathname.split("/").filter(Boolean);
   const hints: ListingUrlHints = { host: url.hostname.replace(/^www\./, "") };
 
-  const last = segments.at(-1);
-  if (last) hints.slug = humaniseSlug(last);
+  const slug = slugFromSegments(segments);
+  if (slug) hints.slug = slug;
 
   const propertyIndex = segments.findIndex(s =>
     /^(hotel|hotels|property|properties|apartment|apartments)$/i.test(s)
@@ -421,11 +481,18 @@ export function hintsFromListingUrl(raw: string): ListingUrlHints {
     hints.countryCode = afterProperty.toLowerCase();
 
   const params = url.searchParams;
+  // Every booking engine spells these differently; Expedia uses `chkin`,
+  // independent hotels usually `arrival`.
   const checkIn = firstParam(params, [
     "checkin",
     "checkIn",
     "check_in",
     "checkin_date",
+    "q-check-in",
+    "chkin",
+    "arrival",
+    "arrivalDate",
+    "arrival_date",
     "startDate",
     "start_date",
     "from",
@@ -435,6 +502,11 @@ export function hintsFromListingUrl(raw: string): ListingUrlHints {
     "checkOut",
     "check_out",
     "checkout_date",
+    "q-check-out",
+    "chkout",
+    "departure",
+    "departureDate",
+    "departure_date",
     "endDate",
     "end_date",
     "to",

@@ -38,7 +38,7 @@ scripts/setup.sh   One-command bootstrap.
 | `db.ts`                 |  1462 | Every database query. Large but flat — jump to the function you need.                |
 | `routers/`              |     — | The API surface, one file per domain (below).                                        |
 | `utils/mailer.ts`       |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
-| `utils/listingPage.ts`  |   597 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
+| `utils/listingPage.ts`  |   660 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
 | `replit_integrations/`  |     — | **Legacy, unused.** Don't read or extend.                                            |
 
 ### `server/routers/`

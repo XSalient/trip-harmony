@@ -5,7 +5,7 @@ finish a piece of work — the next person (or agent) starts here.
 
 - **Last updated:** 2026-08-01
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
-- **Health:** typecheck ✅ · 109 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 134 tests ✅ · production build ✅ · dev server ✅
   (verified end-to-end against a real Postgres on 2026-08-01, including a full
   passkey enrol → sign-out → passkey sign-in round trip in a real browser)
 
@@ -68,7 +68,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 109 tests are server-side. Page components are
+1. **No frontend tests.** All 134 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.

@@ -229,6 +229,17 @@ describe("decodeHtmlEntities", () => {
     expect(decodeHtmlEntities("caf&#xe9;")).toBe("café");
     expect(decodeHtmlEntities("&unknownentity;")).toBe("&unknownentity;");
   });
+
+  it("composes the accented entities hotel names are full of", () => {
+    expect(decodeHtmlEntities("H&ocirc;tel Mirabeau")).toBe("Hôtel Mirabeau");
+    expect(decodeHtmlEntities("Caf&eacute; M&uuml;nchen")).toBe("Café München");
+    expect(
+      decodeHtmlEntities("&Uuml;berfahrt, Ma&ntilde;ana, &Ccedil;anakkale")
+    ).toBe("Überfahrt, Mañana, Çanakkale");
+    expect(decodeHtmlEntities("4 guests &middot; 2 bedrooms")).toBe(
+      "4 guests · 2 bedrooms"
+    );
+  });
 });
 
 describe("coerceExtractedAccommodation", () => {

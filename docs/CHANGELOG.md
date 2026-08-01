@@ -36,6 +36,16 @@ is built, run or deployed.
     amenities to an array, `name` truncated to 255 chars);
   - tells the client which source was used, so the toast says the site blocked us
     instead of claiming success.
+
+  Checked across Booking.com, Airbnb, Vrbo, Expedia, Agoda, Hotels.com,
+  TripAdvisor and an independent hotel's own site, which turned up four more
+  defects, now fixed: Vrbo's `VacationRental` schema type was not recognised;
+  `arrival`/`departure`/`chkin` date parameters were not read; a generic path
+  segment produced a property called "Rooms" (the wordiest name-like segment is
+  used instead, so Agoda's `/the-sukhothai-bangkok/hotel/bangkok-th.html` gives
+  "The Sukhothai Bangkok"); and accented named entities were left raw, so
+  `H&ocirc;tel` reached the model as-is rather than as "Hôtel".
+
 - **Dialogs were laid out differently on mobile and desktop.** Every dialog
   carried `max-w-sm mx-4`, which `tailwind-merge` resolved by dropping the
   primitive's `max-w-[calc(100%-2rem)]` while keeping its `sm:max-w-lg`. Phones
