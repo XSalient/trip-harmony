@@ -216,7 +216,7 @@ export const accommodationsRouter = router({
         try {
           const res = await fetch(input.url, {
             headers: {
-              "User-Agent": "Mozilla/5.0 (compatible; TripHarmony/1.0)",
+              "User-Agent": "Mozilla/5.0 (compatible; BackToTravelling/1.0)",
             },
             signal: AbortSignal.timeout(8000),
           });

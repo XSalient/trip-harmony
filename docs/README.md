@@ -1,6 +1,6 @@
 # Documentation
 
-Everything needed to work on Harmony from any machine is in this directory and
+Everything needed to work on Back To Travelling from any machine is in this directory and
 committed to git. There is no external wiki or tracker.
 
 ## Start here
