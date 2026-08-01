@@ -13,7 +13,14 @@ interface AppShellProps {
   hideNav?: boolean;
 }
 
-export default function AppShell({ children, title, showBack, backHref, headerRight, hideNav }: AppShellProps) {
+export default function AppShell({
+  children,
+  title,
+  showBack,
+  backHref,
+  headerRight,
+  hideNav,
+}: AppShellProps) {
   const [, navigate] = useLocation();
 
   return (
@@ -26,7 +33,9 @@ export default function AppShell({ children, title, showBack, backHref, headerRi
                 variant="ghost"
                 size="icon"
                 className="mr-2 -ml-2 h-9 w-9"
-                onClick={() => backHref ? navigate(backHref) : window.history.back()}
+                onClick={() =>
+                  backHref ? navigate(backHref) : window.history.back()
+                }
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
@@ -36,9 +45,7 @@ export default function AppShell({ children, title, showBack, backHref, headerRi
           </div>
         </header>
       )}
-      <main className="mx-auto w-full max-w-2xl flex-1 pb-24">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-2xl flex-1 pb-24">{children}</main>
       {!hideNav && <MobileNav />}
     </div>
   );

@@ -35,22 +35,31 @@ export default function MagicLinkVerify() {
           <>
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
             <h2 className="text-xl font-semibold">Signing you in…</h2>
-            <p className="text-muted-foreground text-sm">Just a moment while we verify your link.</p>
+            <p className="text-muted-foreground text-sm">
+              Just a moment while we verify your link.
+            </p>
           </>
         )}
         {isSuccess && (
           <>
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <h2 className="text-xl font-semibold">You're in!</h2>
-            <p className="text-muted-foreground text-sm">Redirecting you to your dashboard…</p>
+            <p className="text-muted-foreground text-sm">
+              Redirecting you to your dashboard…
+            </p>
           </>
         )}
         {isError && (
           <>
             <XCircle className="h-12 w-12 text-destructive mx-auto" />
             <h2 className="text-xl font-semibold">Link expired or invalid</h2>
-            <p className="text-muted-foreground text-sm">{verifyMutation.error?.message ?? "This magic link may have already been used or expired."}</p>
-            <Button onClick={() => navigate("/")} className="mt-2">Back to Home</Button>
+            <p className="text-muted-foreground text-sm">
+              {verifyMutation.error?.message ??
+                "This magic link may have already been used or expired."}
+            </p>
+            <Button onClick={() => navigate("/")} className="mt-2">
+              Back to Home
+            </Button>
           </>
         )}
       </div>

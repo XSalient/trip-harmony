@@ -8,8 +8,16 @@ import AppShell from "@/components/AppShell";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
-  Bell, BellOff, CheckCheck, Mail, Vote, DollarSign,
-  Handshake, ArrowRightLeft, Bot, Info
+  Bell,
+  BellOff,
+  CheckCheck,
+  Mail,
+  Vote,
+  DollarSign,
+  Handshake,
+  ArrowRightLeft,
+  Bot,
+  Info,
 } from "lucide-react";
 
 const typeIcons: Record<string, any> = {
@@ -46,7 +54,9 @@ export default function Notifications() {
       await markReadMutation.mutateAsync({ id });
       utils.notifications.list.invalidate();
       utils.notifications.unreadCount.invalidate();
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   };
 
   const handleMarkAll = async () => {
@@ -55,7 +65,9 @@ export default function Notifications() {
       utils.notifications.list.invalidate();
       utils.notifications.unreadCount.invalidate();
       toast.success("All marked as read");
-    } catch { toast.error("Failed"); }
+    } catch {
+      toast.error("Failed");
+    }
   };
 
   const handleClick = (notif: any) => {
@@ -72,7 +84,12 @@ export default function Notifications() {
       backHref="/"
       headerRight={
         unreadCount > 0 ? (
-          <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={handleMarkAll}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs gap-1"
+            onClick={handleMarkAll}
+          >
             <CheckCheck className="h-3.5 w-3.5" /> Read all
           </Button>
         ) : null
@@ -80,11 +97,16 @@ export default function Notifications() {
     >
       <div className="px-4 py-4 space-y-3">
         {isLoading ? (
-          <div className="space-y-2">{[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-20 rounded-xl" />
+            ))}
+          </div>
         ) : notifications && notifications.length > 0 ? (
           notifications.map((notif: any) => {
             const Icon = typeIcons[notif.type] || Info;
-            const colorClass = typeColors[notif.type] || "bg-muted text-muted-foreground";
+            const colorClass =
+              typeColors[notif.type] || "bg-muted text-muted-foreground";
             return (
               <Card
                 key={notif.id}
@@ -92,17 +114,32 @@ export default function Notifications() {
                 onClick={() => handleClick(notif)}
               >
                 <CardContent className="p-4 flex gap-3">
-                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
+                  <div
+                    className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}
+                  >
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className={`text-sm truncate ${!notif.read ? "font-semibold" : "font-medium"}`}>{notif.title}</p>
-                      {!notif.read && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                      <p
+                        className={`text-sm truncate ${!notif.read ? "font-semibold" : "font-medium"}`}
+                      >
+                        {notif.title}
+                      </p>
+                      {!notif.read && (
+                        <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                      {notif.message}
+                    </p>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      {new Date(notif.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {new Date(notif.createdAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </CardContent>
@@ -113,7 +150,9 @@ export default function Notifications() {
           <Card className="border-dashed">
             <CardContent className="p-8 text-center">
               <BellOff className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No notifications yet. They'll appear as your trip progresses!</p>
+              <p className="text-sm text-muted-foreground">
+                No notifications yet. They'll appear as your trip progresses!
+              </p>
             </CardContent>
           </Card>
         )}

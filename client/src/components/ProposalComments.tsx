@@ -4,7 +4,13 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { MessageCircle, Trash2, ChevronDown, ChevronUp, Send } from "lucide-react";
+import {
+  MessageCircle,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Send,
+} from "lucide-react";
 import { format } from "date-fns";
 
 type ProposalType = "date" | "destination" | "accommodation";
@@ -17,7 +23,13 @@ interface Props {
   count?: number;
 }
 
-export default function ProposalComments({ proposalType, proposalId, tripId, isOrganizer, count }: Props) {
+export default function ProposalComments({
+  proposalType,
+  proposalId,
+  tripId,
+  isOrganizer,
+  count,
+}: Props) {
   const { user } = useAuth({});
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
@@ -32,7 +44,12 @@ export default function ProposalComments({ proposalType, proposalId, tripId, isO
   const handleAdd = async () => {
     if (!text.trim()) return;
     try {
-      await addMutation.mutateAsync({ proposalType, proposalId, tripId, content: text.trim() });
+      await addMutation.mutateAsync({
+        proposalType,
+        proposalId,
+        tripId,
+        content: text.trim(),
+      });
       setText("");
       refetch();
     } catch {
@@ -62,17 +79,29 @@ export default function ProposalComments({ proposalType, proposalId, tripId, isO
         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
       >
         <MessageCircle className="h-3.5 w-3.5" />
-        {count !== undefined && count > 0
-          ? <span className="font-medium text-foreground/70">{count}</span>
-          : null}
-        <span>{count !== undefined && count > 0 ? (expanded ? "· hide" : "· comments") : "Comments"}</span>
-        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        {count !== undefined && count > 0 ? (
+          <span className="font-medium text-foreground/70">{count}</span>
+        ) : null}
+        <span>
+          {count !== undefined && count > 0
+            ? expanded
+              ? "· hide"
+              : "· comments"
+            : "Comments"}
+        </span>
+        {expanded ? (
+          <ChevronUp className="h-3 w-3" />
+        ) : (
+          <ChevronDown className="h-3 w-3" />
+        )}
       </button>
 
       {expanded && (
         <div className="mt-2 space-y-2">
           {comments.length === 0 && (
-            <p className="text-xs text-muted-foreground italic">No comments yet. Be first!</p>
+            <p className="text-xs text-muted-foreground italic">
+              No comments yet. Be first!
+            </p>
           )}
           {comments.map((c: any) => (
             <div key={c.id} className="flex gap-2 group">
@@ -81,10 +110,16 @@ export default function ProposalComments({ proposalType, proposalId, tripId, isO
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-xs font-medium">{c.user?.name || "Unknown"}</span>
-                  <span className="text-[10px] text-muted-foreground">{format(new Date(c.createdAt), "MMM d, h:mm a")}</span>
+                  <span className="text-xs font-medium">
+                    {c.user?.name || "Unknown"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {format(new Date(c.createdAt), "MMM d, h:mm a")}
+                  </span>
                 </div>
-                <p className="text-xs text-foreground/80 break-words">{c.content}</p>
+                <p className="text-xs text-foreground/80 break-words">
+                  {c.content}
+                </p>
               </div>
               {(c.userId === user?.id || isOrganizer) && (
                 <button

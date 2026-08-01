@@ -20,7 +20,12 @@ export type FileContent = {
   type: "file_url";
   file_url: {
     url: string;
-    mime_type?: "audio/mpeg" | "audio/wav" | "application/pdf" | "audio/mp4" | "video/mp4";
+    mime_type?:
+      | "audio/mpeg"
+      | "audio/wav"
+      | "application/pdf"
+      | "audio/mp4"
+      | "video/mp4";
   };
 };
 
@@ -85,11 +90,13 @@ export type InvokeResult = {
   };
 };
 
-function extractTextFromContent(content: MessageContent | MessageContent[]): string {
+function extractTextFromContent(
+  content: MessageContent | MessageContent[]
+): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return content
-      .map((part) => {
+      .map(part => {
         if (typeof part === "string") return part;
         if (part.type === "text") return part.text;
         return "";
@@ -105,7 +112,9 @@ let _ai: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI {
   if (!_ai) {
     if (!ENV.forgeApiKey) {
-      throw new Error("Gemini API key is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY.");
+      throw new Error(
+        "Gemini API key is not configured. Set AI_INTEGRATIONS_GEMINI_API_KEY."
+      );
     }
     const opts: ConstructorParameters<typeof GoogleGenAI>[0] = {
       apiKey: ENV.forgeApiKey,
@@ -124,17 +133,23 @@ function getAI(): GoogleGenAI {
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   const ai = getAI();
 
-  const { messages, responseFormat, response_format, outputSchema, output_schema } = params;
+  const {
+    messages,
+    responseFormat,
+    response_format,
+    outputSchema,
+    output_schema,
+  } = params;
   const maxTokens = params.maxTokens ?? params.max_tokens ?? 8192;
 
-  const systemParts = messages.filter((m) => m.role === "system");
-  const chatMessages = messages.filter((m) => m.role !== "system");
+  const systemParts = messages.filter(m => m.role === "system");
+  const chatMessages = messages.filter(m => m.role !== "system");
 
   const systemInstruction = systemParts
-    .map((m) => extractTextFromContent(m.content))
+    .map(m => extractTextFromContent(m.content))
     .join("\n");
 
-  const contents = chatMessages.map((m) => ({
+  const contents = chatMessages.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: extractTextFromContent(m.content) }],
   }));

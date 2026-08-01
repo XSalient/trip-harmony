@@ -8,7 +8,16 @@ import AppShell from "@/components/AppShell";
 import { useParams } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Bot, Sparkles, RefreshCw, MessageCircle, Shield, Lightbulb, PartyPopper, FileText } from "lucide-react";
+import {
+  Bot,
+  Sparkles,
+  RefreshCw,
+  MessageCircle,
+  Shield,
+  Lightbulb,
+  PartyPopper,
+  FileText,
+} from "lucide-react";
 import { Streamdown } from "streamdown";
 
 const typeIcons: Record<string, any> = {
@@ -32,8 +41,14 @@ export default function TripReferee() {
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
 
-  const { data: messages, isLoading } = trpc.referee.messages.useQuery({ tripId }, { enabled: tripId > 0 });
-  const { data: trip } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
+  const { data: messages, isLoading } = trpc.referee.messages.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const { data: trip } = trpc.trips.get.useQuery(
+    { id: tripId },
+    { enabled: tripId > 0 }
+  );
   const analyzeMutation = trpc.referee.analyze.useMutation();
   const utils = trpc.useUtils();
 
@@ -64,7 +79,8 @@ export default function TripReferee() {
             </div>
             <h2 className="font-semibold text-base">Harmony Referee</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              I analyze your group's preferences, detect conflicts, and suggest fair compromises.
+              I analyze your group's preferences, detect conflicts, and suggest
+              fair compromises.
             </p>
           </CardContent>
         </Card>
@@ -90,20 +106,32 @@ export default function TripReferee() {
 
         {/* Messages */}
         {isLoading ? (
-          <div className="space-y-3">{[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}</div>
+          <div className="space-y-3">
+            {[1, 2].map(i => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
         ) : messages && messages.length > 0 ? (
           <div className="space-y-3">
             {messages.map((msg: any) => {
               const Icon = typeIcons[msg.messageType] || MessageCircle;
-              const colorClass = typeColors[msg.messageType] || "bg-muted text-muted-foreground";
+              const colorClass =
+                typeColors[msg.messageType] || "bg-muted text-muted-foreground";
               return (
                 <Card key={msg.id} className="border-border/50">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${colorClass}`}>
+                      <div
+                        className={`h-7 w-7 rounded-lg flex items-center justify-center ${colorClass}`}
+                      >
                         <Icon className="h-3.5 w-3.5" />
                       </div>
-                      <Badge variant="secondary" className="text-[10px] capitalize">{msg.messageType}</Badge>
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] capitalize"
+                      >
+                        {msg.messageType}
+                      </Badge>
                       <span className="text-[10px] text-muted-foreground ml-auto">
                         {new Date(msg.createdAt).toLocaleDateString()}
                       </span>
@@ -120,7 +148,9 @@ export default function TripReferee() {
           <Card className="border-dashed">
             <CardContent className="p-8 text-center">
               <Bot className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No referee messages yet. Click above to get your first analysis!</p>
+              <p className="text-sm text-muted-foreground">
+                No referee messages yet. Click above to get your first analysis!
+              </p>
             </CardContent>
           </Card>
         )}

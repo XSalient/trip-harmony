@@ -1,19 +1,86 @@
-import { pgEnum, pgTable, serial, text, timestamp, varchar, integer, boolean, decimal } from "drizzle-orm/pg-core";
-export const proposalTypeEnum = pgEnum("proposal_type", ["date", "destination", "accommodation"]);
+import {
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
+  integer,
+  boolean,
+  decimal,
+} from "drizzle-orm/pg-core";
+export const proposalTypeEnum = pgEnum("proposal_type", [
+  "date",
+  "destination",
+  "accommodation",
+]);
 
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
-export const tripPhaseEnum = pgEnum("trip_phase", ["setup", "dates", "destination", "accommodation", "activities", "finalized"]);
-export const tripStatusEnum = pgEnum("trip_status", ["planning", "active", "completed", "cancelled"]);
+export const tripPhaseEnum = pgEnum("trip_phase", [
+  "setup",
+  "dates",
+  "destination",
+  "accommodation",
+  "activities",
+  "finalized",
+]);
+export const tripStatusEnum = pgEnum("trip_status", [
+  "planning",
+  "active",
+  "completed",
+  "cancelled",
+]);
 export const memberRoleEnum = pgEnum("member_role", ["organizer", "member"]);
-export const memberStatusEnum = pgEnum("member_status", ["pending", "accepted", "declined"]);
-export const dateVoteEnum = pgEnum("date_vote", ["available", "maybe", "unavailable"]);
-export const destinationVoteEnum = pgEnum("destination_vote", ["love", "fine", "veto"]);
-export const accommodationVoteEnum = pgEnum("accommodation_vote", ["love", "fine", "veto"]);
-export const budgetCategoryEnum = pgEnum("budget_category", ["accommodation", "transport", "food", "activities", "other"]);
+export const memberStatusEnum = pgEnum("member_status", [
+  "pending",
+  "accepted",
+  "declined",
+]);
+export const dateVoteEnum = pgEnum("date_vote", [
+  "available",
+  "maybe",
+  "unavailable",
+]);
+export const destinationVoteEnum = pgEnum("destination_vote", [
+  "love",
+  "fine",
+  "veto",
+]);
+export const accommodationVoteEnum = pgEnum("accommodation_vote", [
+  "love",
+  "fine",
+  "veto",
+]);
+export const budgetCategoryEnum = pgEnum("budget_category", [
+  "accommodation",
+  "transport",
+  "food",
+  "activities",
+  "other",
+]);
 export const splitTypeEnum = pgEnum("split_type", ["equal", "custom"]);
-export const refereeMessageTypeEnum = pgEnum("referee_message_type", ["nudge", "mediation", "compromise", "celebration", "summary"]);
-export const notificationTypeEnum = pgEnum("notification_type", ["invite", "vote_request", "budget_alert", "consensus", "phase_change", "referee", "general"]);
-export const preferenceCategoryEnum = pgEnum("preference_category", ["accommodation", "destination", "dates", "general"]);
+export const refereeMessageTypeEnum = pgEnum("referee_message_type", [
+  "nudge",
+  "mediation",
+  "compromise",
+  "celebration",
+  "summary",
+]);
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "invite",
+  "vote_request",
+  "budget_alert",
+  "consensus",
+  "phase_change",
+  "referee",
+  "general",
+]);
+export const preferenceCategoryEnum = pgEnum("preference_category", [
+  "accommodation",
+  "destination",
+  "dates",
+  "general",
+]);
 
 /**
  * Core user table backing auth flow.
@@ -305,8 +372,10 @@ export const accommodationAttributes = pgTable("accommodation_attributes", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
-export type AccommodationAttribute = typeof accommodationAttributes.$inferSelect;
-export type InsertAccommodationAttribute = typeof accommodationAttributes.$inferInsert;
+export type AccommodationAttribute =
+  typeof accommodationAttributes.$inferSelect;
+export type InsertAccommodationAttribute =
+  typeof accommodationAttributes.$inferInsert;
 
 /**
  * Vibe board items — inspiration links shared by group members.
@@ -355,7 +424,14 @@ export const itineraryDays = pgTable("itinerary_days", {
 export type ItineraryDay = typeof itineraryDays.$inferSelect;
 export type InsertItineraryDay = typeof itineraryDays.$inferInsert;
 
-export const itineraryItemTypeEnum = pgEnum("itinerary_item_type", ["activity", "food", "transport", "accommodation", "free", "other"]);
+export const itineraryItemTypeEnum = pgEnum("itinerary_item_type", [
+  "activity",
+  "food",
+  "transport",
+  "accommodation",
+  "free",
+  "other",
+]);
 
 export const itineraryItems = pgTable("itinerary_items", {
   id: serial("id").primaryKey(),

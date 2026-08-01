@@ -14,13 +14,34 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
-  Calendar, Plus, Check, X, HelpCircle, CheckCircle2, Trash2, Sparkles, Lock, Unlock,
-  MoreVertical, Pencil, Copy, MessageCircle,
+  Calendar,
+  Plus,
+  Check,
+  X,
+  HelpCircle,
+  CheckCircle2,
+  Trash2,
+  Sparkles,
+  Lock,
+  Unlock,
+  MoreVertical,
+  Pencil,
+  Copy,
+  MessageCircle,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 function getDayName(dateStr: string) {
@@ -43,10 +64,22 @@ export default function TripDates() {
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
 
-  const { data: proposals, isLoading } = trpc.dates.list.useQuery({ tripId }, { enabled: tripId > 0 });
-  const { data: trip } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
-  const { data: members } = trpc.trips.members.useQuery({ tripId }, { enabled: tripId > 0 });
-  const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery({ tripId }, { enabled: tripId > 0 });
+  const { data: proposals, isLoading } = trpc.dates.list.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const { data: trip } = trpc.trips.get.useQuery(
+    { id: tripId },
+    { enabled: tripId > 0 }
+  );
+  const { data: members } = trpc.trips.members.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
   const proposeMutation = trpc.dates.propose.useMutation();
   const voteMutation = trpc.dates.vote.useMutation();
   const unvoteMutation = trpc.dates.unvote.useMutation();
@@ -54,7 +87,7 @@ export default function TripDates() {
   const deselectMutation = trpc.dates.deselect.useMutation();
   const deleteMutation = trpc.dates.delete.useMutation();
   const editMutation = trpc.dates.edit.useMutation();
-  const cloneMutation = trpc.dates.clone.useMutation(); 
+  const cloneMutation = trpc.dates.clone.useMutation();
   const parseNaturalMutation = trpc.dates.parseNatural.useMutation();
   const utils = trpc.useUtils();
 
@@ -64,7 +97,9 @@ export default function TripDates() {
   const [label, setLabel] = useState("");
 
   const [nlText, setNlText] = useState("");
-  const [nlProposals, setNlProposals] = useState<Array<{ startDate: string; endDate: string; label: string }>>([]);
+  const [nlProposals, setNlProposals] = useState<
+    Array<{ startDate: string; endDate: string; label: string }>
+  >([]);
   const [nlParsing, setNlParsing] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -74,8 +109,14 @@ export default function TripDates() {
   const [editOpen, setEditOpen] = useState(false);
 
   const isOrganizer = trip?.organizerId === user?.id;
-  const memberCount = useMemo(() => members?.filter((m: any) => m.status === "accepted").length || 0, [members]);
-  const selectedProposal = useMemo(() => proposals?.find((p: any) => p.selected), [proposals]);
+  const memberCount = useMemo(
+    () => members?.filter((m: any) => m.status === "accepted").length || 0,
+    [members]
+  );
+  const selectedProposal = useMemo(
+    () => proposals?.find((p: any) => p.selected),
+    [proposals]
+  );
 
   const openEdit = (p: any) => {
     setEditingId(p.id);
@@ -86,29 +127,64 @@ export default function TripDates() {
   };
 
   const handlePropose = async () => {
-    if (!startDate || !endDate) { toast.error("Both dates are required"); return; }
+    if (!startDate || !endDate) {
+      toast.error("Both dates are required");
+      return;
+    }
     try {
-      await proposeMutation.mutateAsync({ tripId, startDate, endDate, label: label || undefined });
+      await proposeMutation.mutateAsync({
+        tripId,
+        startDate,
+        endDate,
+        label: label || undefined,
+      });
       utils.dates.list.invalidate({ tripId });
       setAddOpen(false);
-      setStartDate(""); setEndDate(""); setLabel("");
+      setStartDate("");
+      setEndDate("");
+      setLabel("");
       toast.success("Date proposed!");
-    } catch (e: any) { toast.error(e?.message || "Failed to propose dates"); }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to propose dates");
+    }
   };
 
-  const handleVote = (proposalId: number, vote: "available" | "maybe" | "unavailable") => {
-    const currentVote = proposals?.find((p: any) => p.id === proposalId)?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+  const handleVote = (
+    proposalId: number,
+    vote: "available" | "maybe" | "unavailable"
+  ) => {
+    const currentVote = proposals
+      ?.find((p: any) => p.id === proposalId)
+      ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
     const isUnvote = currentVote === vote;
     utils.dates.list.setData({ tripId }, (old: any) => {
       if (!old) return old;
       return old.map((p: any) => {
         if (p.id !== proposalId) return p;
-        const filtered = p.votes?.filter((v: any) => v.userId !== user?.id) || [];
-        return { ...p, votes: isUnvote ? filtered : [...filtered, { userId: user?.id, vote, user: { id: user?.id, name: user?.name } }] };
+        const filtered =
+          p.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return {
+          ...p,
+          votes: isUnvote
+            ? filtered
+            : [
+                ...filtered,
+                {
+                  userId: user?.id,
+                  vote,
+                  user: { id: user?.id, name: user?.name },
+                },
+              ],
+        };
       });
     });
-    const onError = () => { utils.dates.list.invalidate({ tripId }); toast.error("Failed to vote"); };
-    const onSuccess = () => { utils.dates.list.invalidate({ tripId }); };
+    const onError = () => {
+      utils.dates.list.invalidate({ tripId });
+      toast.error("Failed to vote");
+    };
+    const onSuccess = () => {
+      utils.dates.list.invalidate({ tripId });
+    };
     if (isUnvote) {
       unvoteMutation.mutate({ proposalId }, { onError, onSuccess });
     } else {
@@ -121,7 +197,9 @@ export default function TripDates() {
       await selectMutation.mutateAsync({ tripId, proposalId });
       utils.dates.list.invalidate({ tripId });
       toast.success("Date locked in!");
-    } catch { toast.error("Failed to select date"); }
+    } catch {
+      toast.error("Failed to select date");
+    }
   };
 
   const handleDeselect = async () => {
@@ -129,7 +207,9 @@ export default function TripDates() {
       await deselectMutation.mutateAsync({ tripId });
       utils.dates.list.invalidate({ tripId });
       toast.success("Date unlocked");
-    } catch { toast.error("Failed to unlock"); }
+    } catch {
+      toast.error("Failed to unlock");
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -138,7 +218,11 @@ export default function TripDates() {
       utils.dates.list.invalidate({ tripId });
       toast.success("Proposal deleted");
     } catch (e: any) {
-      toast.error(e?.message?.includes("Not authorized") ? "Not authorized to delete" : "Failed to delete");
+      toast.error(
+        e?.message?.includes("Not authorized")
+          ? "Not authorized to delete"
+          : "Failed to delete"
+      );
     }
   };
 
@@ -154,7 +238,9 @@ export default function TripDates() {
       utils.dates.list.invalidate({ tripId });
       setEditOpen(false);
       toast.success("Proposal updated");
-    } catch { toast.error("Failed to update"); }
+    } catch {
+      toast.error("Failed to update");
+    }
   };
 
   const handleCloneIntoForm = (p: any) => {
@@ -167,36 +253,70 @@ export default function TripDates() {
   };
 
   const handleParseNatural = async () => {
-    if (!nlText.trim()) { toast.error("Please enter a description"); return; }
+    if (!nlText.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
     setNlParsing(true);
     try {
-      const result = await parseNaturalMutation.mutateAsync({ text: nlText, referenceYear: new Date().getFullYear() });
+      const result = await parseNaturalMutation.mutateAsync({
+        text: nlText,
+        referenceYear: new Date().getFullYear(),
+      });
       if (result.proposals.length === 0) {
-        toast.error("Could not parse dates. Try being more specific (e.g., 'weekends in July 2025')");
+        toast.error(
+          "Could not parse dates. Try being more specific (e.g., 'weekends in July 2025')"
+        );
       } else {
         setNlProposals(result.proposals);
-        toast.success(`Found ${result.proposals.length} date option${result.proposals.length > 1 ? "s" : ""}`);
+        toast.success(
+          `Found ${result.proposals.length} date option${result.proposals.length > 1 ? "s" : ""}`
+        );
       }
-    } catch { toast.error("Failed to parse dates"); }
-    finally { setNlParsing(false); }
+    } catch {
+      toast.error("Failed to parse dates");
+    } finally {
+      setNlParsing(false);
+    }
   };
 
-  const handleAddNlProposal = async (proposal: { startDate: string; endDate: string; label: string }) => {
+  const handleAddNlProposal = async (proposal: {
+    startDate: string;
+    endDate: string;
+    label: string;
+  }) => {
     try {
-      await proposeMutation.mutateAsync({ tripId, startDate: proposal.startDate, endDate: proposal.endDate, label: proposal.label });
+      await proposeMutation.mutateAsync({
+        tripId,
+        startDate: proposal.startDate,
+        endDate: proposal.endDate,
+        label: proposal.label,
+      });
       utils.dates.list.invalidate({ tripId });
       toast.success("Date added!");
-    } catch { toast.error("Failed to add"); }
+    } catch {
+      toast.error("Failed to add");
+    }
   };
 
   const handleAddAllNlProposals = async () => {
     let added = 0;
     for (const p of nlProposals) {
-      try { await proposeMutation.mutateAsync({ tripId, startDate: p.startDate, endDate: p.endDate, label: p.label }); added++; } catch {}
+      try {
+        await proposeMutation.mutateAsync({
+          tripId,
+          startDate: p.startDate,
+          endDate: p.endDate,
+          label: p.label,
+        });
+        added++;
+      } catch {}
     }
     utils.dates.list.invalidate({ tripId });
     toast.success(`Added ${added} date proposals!`);
-    setNlProposals([]); setNlText(""); setAddOpen(false);
+    setNlProposals([]);
+    setNlText("");
+    setAddOpen(false);
   };
 
   return (
@@ -204,81 +324,184 @@ export default function TripDates() {
       <div className="px-4 py-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Propose dates and vote on availability</p>
+            <p className="text-sm text-muted-foreground">
+              Propose dates and vote on availability
+            </p>
             {selectedProposal && (
               <p className="text-xs text-primary font-medium mt-0.5">
-                {format(new Date(selectedProposal.startDate), "EEE, MMM d")} – {format(new Date(selectedProposal.endDate), "EEE, MMM d, yyyy")} locked
+                {format(new Date(selectedProposal.startDate), "EEE, MMM d")} –{" "}
+                {format(new Date(selectedProposal.endDate), "EEE, MMM d, yyyy")}{" "}
+                locked
               </p>
             )}
           </div>
           <div className="flex items-center gap-2">
             {isOrganizer && selectedProposal && (
-              <Button variant="outline" size="sm" className="rounded-lg gap-1 text-xs h-8" onClick={handleDeselect} disabled={deselectMutation.isPending}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg gap-1 text-xs h-8"
+                onClick={handleDeselect}
+                disabled={deselectMutation.isPending}
+              >
                 <Unlock className="h-3.5 w-3.5" /> Unlock
               </Button>
             )}
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="rounded-lg gap-1"><Plus className="h-4 w-4" /> Add</Button>
+                <Button size="sm" className="rounded-lg gap-1">
+                  <Plus className="h-4 w-4" /> Add
+                </Button>
               </DialogTrigger>
               <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Propose Dates</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Propose Dates</DialogTitle>
+                </DialogHeader>
                 <Tabs defaultValue="manual" className="w-full">
                   <TabsList className="w-full rounded-lg">
-                    <TabsTrigger value="manual" className="flex-1 text-xs">Manual</TabsTrigger>
-                    <TabsTrigger value="natural" className="flex-1 text-xs gap-1"><Sparkles className="h-3 w-3" /> Smart</TabsTrigger>
+                    <TabsTrigger value="manual" className="flex-1 text-xs">
+                      Manual
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="natural"
+                      className="flex-1 text-xs gap-1"
+                    >
+                      <Sparkles className="h-3 w-3" /> Smart
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="manual" className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <Label>Label (optional)</Label>
-                      <Input placeholder="e.g., Spring Break" value={label} onChange={e => setLabel(e.target.value)} className="rounded-lg" />
+                      <Input
+                        placeholder="e.g., Spring Break"
+                        value={label}
+                        onChange={e => setLabel(e.target.value)}
+                        className="rounded-lg"
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>Start</Label>
-                        <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="rounded-lg" />
-                        {startDate && <p className="text-xs text-muted-foreground">{getDayName(startDate)}</p>}
+                        <Input
+                          type="date"
+                          value={startDate}
+                          onChange={e => setStartDate(e.target.value)}
+                          className="rounded-lg"
+                        />
+                        {startDate && (
+                          <p className="text-xs text-muted-foreground">
+                            {getDayName(startDate)}
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label>End</Label>
-                        <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="rounded-lg" />
-                        {endDate && <p className="text-xs text-muted-foreground">{getDayName(endDate)}</p>}
+                        <Input
+                          type="date"
+                          value={endDate}
+                          onChange={e => setEndDate(e.target.value)}
+                          className="rounded-lg"
+                        />
+                        {endDate && (
+                          <p className="text-xs text-muted-foreground">
+                            {getDayName(endDate)}
+                          </p>
+                        )}
                       </div>
                     </div>
-                    {startDate && endDate && new Date(endDate) > new Date(startDate) && (
-                      <p className="text-xs text-muted-foreground text-center">{getNightsCount(new Date(startDate), new Date(endDate))} night{getNightsCount(new Date(startDate), new Date(endDate)) !== 1 ? "s" : ""}</p>
-                    )}
-                    <Button onClick={handlePropose} className="w-full rounded-lg" disabled={proposeMutation.isPending}>
-                      {proposeMutation.isPending ? "Proposing..." : "Propose Dates"}
+                    {startDate &&
+                      endDate &&
+                      new Date(endDate) > new Date(startDate) && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          {getNightsCount(
+                            new Date(startDate),
+                            new Date(endDate)
+                          )}{" "}
+                          night
+                          {getNightsCount(
+                            new Date(startDate),
+                            new Date(endDate)
+                          ) !== 1
+                            ? "s"
+                            : ""}
+                        </p>
+                      )}
+                    <Button
+                      onClick={handlePropose}
+                      className="w-full rounded-lg"
+                      disabled={proposeMutation.isPending}
+                    >
+                      {proposeMutation.isPending
+                        ? "Proposing..."
+                        : "Propose Dates"}
                     </Button>
                   </TabsContent>
                   <TabsContent value="natural" className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <Label>Describe your availability</Label>
-                      <Textarea placeholder="e.g., any weekends in July 2025, or first two weeks of August" value={nlText} onChange={e => setNlText(e.target.value)} rows={3} className="rounded-lg resize-none text-sm" />
+                      <Textarea
+                        placeholder="e.g., any weekends in July 2025, or first two weeks of August"
+                        value={nlText}
+                        onChange={e => setNlText(e.target.value)}
+                        rows={3}
+                        className="rounded-lg resize-none text-sm"
+                      />
                     </div>
-                    <Button onClick={handleParseNatural} variant="outline" className="w-full rounded-lg gap-2" disabled={nlParsing}>
-                      <Sparkles className="h-4 w-4" />{nlParsing ? "Parsing..." : "Parse Dates"}
+                    <Button
+                      onClick={handleParseNatural}
+                      variant="outline"
+                      className="w-full rounded-lg gap-2"
+                      disabled={nlParsing}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {nlParsing ? "Parsing..." : "Parse Dates"}
                     </Button>
                     {nlProposals.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">{nlProposals.length} date{nlProposals.length > 1 ? "s" : ""} found:</p>
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {nlProposals.length} date
+                          {nlProposals.length > 1 ? "s" : ""} found:
+                        </p>
                         <div className="space-y-1.5 max-h-48 overflow-y-auto">
                           {nlProposals.map((p, i) => {
-                            const nights = getNightsCount(new Date(p.startDate), new Date(p.endDate));
-                            const { startDay, endDay } = formatDateRange(new Date(p.startDate), new Date(p.endDate));
+                            const nights = getNightsCount(
+                              new Date(p.startDate),
+                              new Date(p.endDate)
+                            );
+                            const { startDay, endDay } = formatDateRange(
+                              new Date(p.startDate),
+                              new Date(p.endDate)
+                            );
                             return (
-                              <div key={i} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-xs">
+                              <div
+                                key={i}
+                                className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-xs"
+                              >
                                 <div>
                                   <p className="font-medium">{p.label}</p>
-                                  <p className="text-muted-foreground">{startDay} → {endDay} · {nights} night{nights !== 1 ? "s" : ""}</p>
+                                  <p className="text-muted-foreground">
+                                    {startDay} → {endDay} · {nights} night
+                                    {nights !== 1 ? "s" : ""}
+                                  </p>
                                 </div>
-                                <Button size="sm" variant="outline" className="h-7 text-xs rounded-lg px-2" onClick={() => handleAddNlProposal(p)} disabled={proposeMutation.isPending}>Add</Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-xs rounded-lg px-2"
+                                  onClick={() => handleAddNlProposal(p)}
+                                  disabled={proposeMutation.isPending}
+                                >
+                                  Add
+                                </Button>
                               </div>
                             );
                           })}
                         </div>
-                        <Button onClick={handleAddAllNlProposals} className="w-full rounded-lg" disabled={proposeMutation.isPending}>
+                        <Button
+                          onClick={handleAddAllNlProposals}
+                          className="w-full rounded-lg"
+                          disabled={proposeMutation.isPending}
+                        >
                           Add All {nlProposals.length} Proposals
                         </Button>
                       </div>
@@ -291,35 +514,62 @@ export default function TripDates() {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">{[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}</div>
+          <div className="space-y-3">
+            {[1, 2].map(i => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
         ) : proposals && proposals.length > 0 ? (
           <div className="space-y-3">
             {proposals.map((p: any) => {
-              const myVote = p.votes?.find((v: any) => v.userId === user?.id)?.vote;
-              const available = p.votes?.filter((v: any) => v.vote === "available").length || 0;
-              const maybe = p.votes?.filter((v: any) => v.vote === "maybe").length || 0;
-              const unavailable = p.votes?.filter((v: any) => v.vote === "unavailable").length || 0;
+              const myVote = p.votes?.find(
+                (v: any) => v.userId === user?.id
+              )?.vote;
+              const available =
+                p.votes?.filter((v: any) => v.vote === "available").length || 0;
+              const maybe =
+                p.votes?.filter((v: any) => v.vote === "maybe").length || 0;
+              const unavailable =
+                p.votes?.filter((v: any) => v.vote === "unavailable").length ||
+                0;
               const totalVotes = p.votes?.length || 0;
               const isOwner = p.proposedBy === user?.id;
               const canManage = isOwner || isOrganizer;
-              const nights = getNightsCount(new Date(p.startDate), new Date(p.endDate));
-              const { startDay, endDay } = formatDateRange(new Date(p.startDate), new Date(p.endDate));
+              const nights = getNightsCount(
+                new Date(p.startDate),
+                new Date(p.endDate)
+              );
+              const { startDay, endDay } = formatDateRange(
+                new Date(p.startDate),
+                new Date(p.endDate)
+              );
               const commentCount = (commentCounts as any)[`date_${p.id}`] || 0;
 
               return (
-                <Card key={p.id} className={`border ${p.selected ? "border-primary bg-primary/5" : "border-border/50"}`}>
+                <Card
+                  key={p.id}
+                  className={`border ${p.selected ? "border-primary bg-primary/5" : "border-border/50"}`}
+                >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">
-                        {p.label && <p className="text-sm font-medium mb-0.5">{p.label}</p>}
+                        {p.label && (
+                          <p className="text-sm font-medium mb-0.5">
+                            {p.label}
+                          </p>
+                        )}
                         <div className="flex items-start gap-2 text-sm">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
                           <div>
                             <p>{startDay}</p>
-                            <p className="text-muted-foreground text-xs">to {endDay}</p>
+                            <p className="text-muted-foreground text-xs">
+                              to {endDay}
+                            </p>
                           </div>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{nights} night{nights !== 1 ? "s" : ""}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {nights} night{nights !== 1 ? "s" : ""}
+                        </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0 ml-2">
                         {/*{commentCount > 0 && (
@@ -327,22 +577,43 @@ export default function TripDates() {
                             <MessageCircle className="h-3.5 w-3.5" />{commentCount}
                           </span>
                         )}*/}
-                        {p.selected && <Badge className="bg-primary text-primary-foreground text-xs flex items-center gap-1"><Lock className="h-3 w-3" /> Locked</Badge>}
+                        {p.selected && (
+                          <Badge className="bg-primary text-primary-foreground text-xs flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> Locked
+                          </Badge>
+                        )}
                         {canManage && !p.selected && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                              >
                                 <MoreVertical className="h-3.5 w-3.5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="text-sm">
-                              <DropdownMenuItem onClick={() => openEdit(p)} className="gap-2">
+                            <DropdownMenuContent
+                              align="end"
+                              className="text-sm"
+                            >
+                              <DropdownMenuItem
+                                onClick={() => openEdit(p)}
+                                className="gap-2"
+                              >
                                 <Pencil className="h-3.5 w-3.5" /> Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleCloneIntoForm(p)} className="gap-2">
+                              <DropdownMenuItem
+                                onClick={() => handleCloneIntoForm(p)}
+                                className="gap-2"
+                              >
                                 <Copy className="h-3.5 w-3.5" /> Clone & Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDelete(p.id)} disabled={deleteMutation.isPending} className="gap-2 text-destructive focus:text-destructive">
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(p.id)}
+                                disabled={deleteMutation.isPending}
+                                className="gap-2 text-destructive focus:text-destructive"
+                              >
                                 <Trash2 className="h-3.5 w-3.5" /> Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -352,41 +623,104 @@ export default function TripDates() {
                     </div>
 
                     <div className="flex gap-4 text-xs mb-3">
-                      <span className="text-green-600 font-medium">{available} available</span>
-                      <span className="text-yellow-600 font-medium">{maybe} maybe</span>
-                      <span className="text-red-500 font-medium">{unavailable} can't</span>
-                      <span className="text-muted-foreground ml-auto">{totalVotes}/{memberCount} voted</span>
+                      <span className="text-green-600 font-medium">
+                        {available} available
+                      </span>
+                      <span className="text-yellow-600 font-medium">
+                        {maybe} maybe
+                      </span>
+                      <span className="text-red-500 font-medium">
+                        {unavailable} can't
+                      </span>
+                      <span className="text-muted-foreground ml-auto">
+                        {totalVotes}/{memberCount} voted
+                      </span>
                     </div>
 
                     {totalVotes > 0 && (
                       <div className="flex h-2 rounded-full overflow-hidden mb-3 bg-muted">
-                        {available > 0 && <div className="bg-green-500" style={{ width: `${(available / memberCount) * 100}%` }} />}
-                        {maybe > 0 && <div className="bg-yellow-400" style={{ width: `${(maybe / memberCount) * 100}%` }} />}
-                        {unavailable > 0 && <div className="bg-red-400" style={{ width: `${(unavailable / memberCount) * 100}%` }} />}
+                        {available > 0 && (
+                          <div
+                            className="bg-green-500"
+                            style={{
+                              width: `${(available / memberCount) * 100}%`,
+                            }}
+                          />
+                        )}
+                        {maybe > 0 && (
+                          <div
+                            className="bg-yellow-400"
+                            style={{ width: `${(maybe / memberCount) * 100}%` }}
+                          />
+                        )}
+                        {unavailable > 0 && (
+                          <div
+                            className="bg-red-400"
+                            style={{
+                              width: `${(unavailable / memberCount) * 100}%`,
+                            }}
+                          />
+                        )}
                       </div>
                     )}
 
                     {!p.selected && (
                       <div className="flex gap-2">
                         {[
-                          { vote: "available" as const, icon: Check, label: "Yes", active: "bg-green-100 text-green-700 border-green-300" },
-                          { vote: "maybe" as const, icon: HelpCircle, label: "Maybe", active: "bg-yellow-100 text-yellow-700 border-yellow-300" },
-                          { vote: "unavailable" as const, icon: X, label: "No", active: "bg-red-100 text-red-600 border-red-300" },
+                          {
+                            vote: "available" as const,
+                            icon: Check,
+                            label: "Yes",
+                            active:
+                              "bg-green-100 text-green-700 border-green-300",
+                          },
+                          {
+                            vote: "maybe" as const,
+                            icon: HelpCircle,
+                            label: "Maybe",
+                            active:
+                              "bg-yellow-100 text-yellow-700 border-yellow-300",
+                          },
+                          {
+                            vote: "unavailable" as const,
+                            icon: X,
+                            label: "No",
+                            active: "bg-red-100 text-red-600 border-red-300",
+                          },
                         ].map(btn => (
-                          <Button key={btn.vote} variant="outline" size="sm" className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`} onClick={() => handleVote(p.id, btn.vote)}>
-                            <btn.icon className="h-3.5 w-3.5 mr-1" />{btn.label}
+                          <Button
+                            key={btn.vote}
+                            variant="outline"
+                            size="sm"
+                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
+                            onClick={() => handleVote(p.id, btn.vote)}
+                          >
+                            <btn.icon className="h-3.5 w-3.5 mr-1" />
+                            {btn.label}
                           </Button>
                         ))}
                       </div>
                     )}
 
                     {isOrganizer && !p.selected && (
-                      <Button variant="ghost" size="sm" className="w-full mt-2 text-primary text-xs" onClick={() => handleSelect(p.id)}>
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock this date
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full mt-2 text-primary text-xs"
+                        onClick={() => handleSelect(p.id)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock this
+                        date
                       </Button>
                     )}
 
-                    <ProposalComments proposalType="date" proposalId={p.id} tripId={tripId} isOrganizer={isOrganizer} count={commentCount} />
+                    <ProposalComments
+                      proposalType="date"
+                      proposalId={p.id}
+                      tripId={tripId}
+                      isOrganizer={isOrganizer}
+                      count={commentCount}
+                    />
                   </CardContent>
                 </Card>
               );
@@ -396,8 +730,12 @@ export default function TripDates() {
           <Card className="border-dashed">
             <CardContent className="p-8 text-center">
               <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">No dates proposed yet. Add the first one!</p>
-              <p className="text-xs text-muted-foreground mt-1">Try the Smart tab — just describe when you're free!</p>
+              <p className="text-sm text-muted-foreground">
+                No dates proposed yet. Add the first one!
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Try the Smart tab — just describe when you're free!
+              </p>
             </CardContent>
           </Card>
         )}
@@ -406,23 +744,44 @@ export default function TripDates() {
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-sm mx-4 rounded-2xl">
-          <DialogHeader><DialogTitle>Edit Date Proposal</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Edit Date Proposal</DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 pt-1">
             <div>
               <Label className="text-xs">Label (optional)</Label>
-              <Input value={editLabel} onChange={e => setEditLabel(e.target.value)} placeholder="e.g. Spring Break" className="rounded-lg mt-1" />
+              <Input
+                value={editLabel}
+                onChange={e => setEditLabel(e.target.value)}
+                placeholder="e.g. Spring Break"
+                className="rounded-lg mt-1"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Start date</Label>
-                <Input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} className="rounded-lg mt-1" />
+                <Input
+                  type="date"
+                  value={editStartDate}
+                  onChange={e => setEditStartDate(e.target.value)}
+                  className="rounded-lg mt-1"
+                />
               </div>
               <div>
                 <Label className="text-xs">End date</Label>
-                <Input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)} className="rounded-lg mt-1" />
+                <Input
+                  type="date"
+                  value={editEndDate}
+                  onChange={e => setEditEndDate(e.target.value)}
+                  className="rounded-lg mt-1"
+                />
               </div>
             </div>
-            <Button onClick={handleEdit} className="w-full rounded-lg" disabled={editMutation.isPending}>
+            <Button
+              onClick={handleEdit}
+              className="w-full rounded-lg"
+              disabled={editMutation.isPending}
+            >
               {editMutation.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </div>

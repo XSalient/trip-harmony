@@ -9,8 +9,18 @@ import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import {
-  Wallet, Users, Mountain, ClipboardList, Globe,
-  Bed, UtensilsCrossed, Zap, ChevronRight, ChevronLeft, Check, Sparkles
+  Wallet,
+  Users,
+  Mountain,
+  ClipboardList,
+  Globe,
+  Bed,
+  UtensilsCrossed,
+  Zap,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Sparkles,
 } from "lucide-react";
 
 const questions = [
@@ -144,7 +154,9 @@ export default function TravelDnaQuiz() {
     return (
       <AppShell title="Travel DNA" showBack backHref="/">
         <div className="p-4 space-y-4">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          {[1, 2, 3].map(i => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
         </div>
       </AppShell>
     );
@@ -158,18 +170,22 @@ export default function TravelDnaQuiz() {
             <CardContent className="p-4 text-center">
               <Sparkles className="h-8 w-8 text-primary mx-auto mb-2" />
               <h2 className="font-semibold text-lg">Your Travel Profile</h2>
-              <p className="text-sm text-muted-foreground mt-1">Here's how Harmony sees you</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Here's how Harmony sees you
+              </p>
             </CardContent>
           </Card>
 
           <div className="space-y-3">
-            {questions.map((q) => (
+            {questions.map(q => (
               <Card key={q.key} className="border-border/50">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3 mb-2">
                     <q.icon className={`h-4 w-4 ${q.color}`} />
                     <span className="text-sm font-medium">{q.title}</span>
-                    <span className="ml-auto text-sm font-bold text-primary">{values[q.key]}/10</span>
+                    <span className="ml-auto text-sm font-bold text-primary">
+                      {values[q.key]}/10
+                    </span>
                   </div>
                   <div className="flex justify-between text-[11px] text-muted-foreground">
                     <span>{q.low}</span>
@@ -187,7 +203,11 @@ export default function TravelDnaQuiz() {
           </div>
 
           <div className="flex gap-3 pt-2 pb-4">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl" onClick={() => setStep(0)}>
+            <Button
+              variant="outline"
+              className="flex-1 h-12 rounded-xl"
+              onClick={() => setStep(0)}
+            >
               Retake
             </Button>
             <Button
@@ -219,7 +239,9 @@ export default function TravelDnaQuiz() {
 
         {/* Question */}
         <div className="text-center pt-4">
-          <div className={`h-16 w-16 rounded-2xl ${currentQ.color} bg-primary/10 flex items-center justify-center mx-auto mb-4`}>
+          <div
+            className={`h-16 w-16 rounded-2xl ${currentQ.color} bg-primary/10 flex items-center justify-center mx-auto mb-4`}
+          >
             <currentQ.icon className="h-8 w-8" />
           </div>
           <h2 className="text-xl font-bold mb-1">{currentQ.title}</h2>
@@ -229,12 +251,16 @@ export default function TravelDnaQuiz() {
         {/* Slider */}
         <div className="pt-6 pb-2">
           <div className="text-center mb-6">
-            <span className="text-5xl font-extrabold text-primary">{values[currentQ.key] ?? 5}</span>
+            <span className="text-5xl font-extrabold text-primary">
+              {values[currentQ.key] ?? 5}
+            </span>
             <span className="text-xl text-muted-foreground">/10</span>
           </div>
           <Slider
             value={[values[currentQ.key] ?? 5]}
-            onValueChange={([v]) => setValues(prev => ({ ...prev, [currentQ.key]: v }))}
+            onValueChange={([v]) =>
+              setValues(prev => ({ ...prev, [currentQ.key]: v }))
+            }
             min={1}
             max={10}
             step={1}
@@ -249,7 +275,11 @@ export default function TravelDnaQuiz() {
         {/* Navigation */}
         <div className="flex gap-3 pt-4">
           {step > 0 && (
-            <Button variant="outline" className="h-12 rounded-xl px-6" onClick={() => setStep(s => s - 1)}>
+            <Button
+              variant="outline"
+              className="h-12 rounded-xl px-6"
+              onClick={() => setStep(s => s - 1)}
+            >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back
             </Button>

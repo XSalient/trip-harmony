@@ -26,7 +26,9 @@ export default function JoinTrip() {
   const handleJoin = async () => {
     if (!params.code) return;
     try {
-      const result = await joinMutation.mutateAsync({ inviteCode: params.code });
+      const result = await joinMutation.mutateAsync({
+        inviteCode: params.code,
+      });
       toast.success("You've joined the trip!");
       navigate(`/trips/${result.tripId}`);
     } catch {
@@ -49,7 +51,9 @@ export default function JoinTrip() {
   if (isLoading || authLoading) {
     return (
       <AppShell title="Join Trip" showBack backHref="/">
-        <div className="p-4"><Skeleton className="h-40 rounded-xl" /></div>
+        <div className="p-4">
+          <Skeleton className="h-40 rounded-xl" />
+        </div>
       </AppShell>
     );
   }
@@ -59,8 +63,16 @@ export default function JoinTrip() {
       <AppShell title="Join Trip" showBack backHref="/">
         <div className="p-8 text-center">
           <MapPin className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-muted-foreground">Trip not found or invite link is invalid.</p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate("/")}>Go Home</Button>
+          <p className="text-muted-foreground">
+            Trip not found or invite link is invalid.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => navigate("/")}
+          >
+            Go Home
+          </Button>
         </div>
       </AppShell>
     );
@@ -75,7 +87,11 @@ export default function JoinTrip() {
               <Users className="h-8 w-8" />
             </div>
             <h2 className="text-xl font-bold">{trip.name}</h2>
-            {trip.description && <p className="text-sm text-muted-foreground mt-2">{trip.description}</p>}
+            {trip.description && (
+              <p className="text-sm text-muted-foreground mt-2">
+                {trip.description}
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -89,7 +105,9 @@ export default function JoinTrip() {
           </Button>
         ) : (
           <div className="space-y-3">
-            <p className="text-center text-sm text-muted-foreground">Sign in to join this trip</p>
+            <p className="text-center text-sm text-muted-foreground">
+              Sign in to join this trip
+            </p>
             <Button
               onClick={() => setAuthOpen(true)}
               className="w-full h-12 rounded-xl text-base font-semibold gap-2"
@@ -100,7 +118,11 @@ export default function JoinTrip() {
         )}
       </div>
 
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={handleAuthSuccess} />
+      <AuthDialog
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        onSuccess={handleAuthSuccess}
+      />
     </AppShell>
   );
 }

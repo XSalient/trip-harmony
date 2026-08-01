@@ -24,7 +24,8 @@ export async function generateImage(prompt: string): Promise<string> {
 
   const candidate = response.candidates?.[0];
   const imagePart = candidate?.content?.parts?.find(
-    (part: { inlineData?: { data?: string; mimeType?: string } }) => part.inlineData
+    (part: { inlineData?: { data?: string; mimeType?: string } }) =>
+      part.inlineData
   );
 
   if (!imagePart?.inlineData?.data) {
@@ -34,4 +35,3 @@ export async function generateImage(prompt: string): Promise<string> {
   const mimeType = imagePart.inlineData.mimeType || "image/png";
   return `data:${mimeType};base64,${imagePart.inlineData.data}`;
 }
-

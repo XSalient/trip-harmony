@@ -43,9 +43,7 @@ describe("dates.unvote input validation", () => {
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
-    await expect(
-      caller.dates.unvote({ proposalId: 1 })
-    ).rejects.toThrow();
+    await expect(caller.dates.unvote({ proposalId: 1 })).rejects.toThrow();
   });
 });
 
@@ -97,9 +95,7 @@ describe("comments.countsByTrip input validation", () => {
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
-    await expect(
-      caller.comments.countsByTrip({ tripId: 1 })
-    ).rejects.toThrow();
+    await expect(caller.comments.countsByTrip({ tripId: 1 })).rejects.toThrow();
   });
 });
 
@@ -168,9 +164,7 @@ describe("vibeBoard.unvote input validation", () => {
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
-    await expect(
-      caller.vibeBoard.unvote({ vibeItemId: 1 })
-    ).rejects.toThrow();
+    await expect(caller.vibeBoard.unvote({ vibeItemId: 1 })).rejects.toThrow();
   });
 });
 
@@ -184,9 +178,7 @@ describe("vibeBoard.list input validation", () => {
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
-    await expect(
-      caller.vibeBoard.list({ tripId: 1 })
-    ).rejects.toThrow();
+    await expect(caller.vibeBoard.list({ tripId: 1 })).rejects.toThrow();
   });
 });
 
@@ -203,7 +195,11 @@ describe("itinerary.addDay input validation", () => {
   it("accepts valid input without crashing on validation", async () => {
     const caller = appRouter.createCaller(makeCtx());
     try {
-      await caller.itinerary.addDay({ tripId: 999999, date: "2025-08-01", title: "Day 1" });
+      await caller.itinerary.addDay({
+        tripId: 999999,
+        date: "2025-08-01",
+        title: "Day 1",
+      });
     } catch (e: any) {
       expect(e.message).not.toMatch(/too_small|invalid_type/);
     }
@@ -228,16 +224,33 @@ describe("itinerary.addItem input validation", () => {
   it("rejects invalid type enum", async () => {
     const caller = appRouter.createCaller(makeCtx());
     await expect(
-      caller.itinerary.addItem({ dayId: 1, tripId: 1, title: "Lunch", type: "invalid" as any })
+      caller.itinerary.addItem({
+        dayId: 1,
+        tripId: 1,
+        title: "Lunch",
+        type: "invalid" as any,
+      })
     ).rejects.toThrow();
   });
 
   it("accepts all valid type values without validation errors", async () => {
     const caller = appRouter.createCaller(makeCtx());
-    const types = ["activity", "food", "transport", "accommodation", "free", "other"] as const;
+    const types = [
+      "activity",
+      "food",
+      "transport",
+      "accommodation",
+      "free",
+      "other",
+    ] as const;
     for (const type of types) {
       try {
-        await caller.itinerary.addItem({ dayId: 999999, tripId: 999999, title: "Test", type });
+        await caller.itinerary.addItem({
+          dayId: 999999,
+          tripId: 999999,
+          title: "Test",
+          type,
+        });
       } catch (e: any) {
         expect(e.message).not.toContain("invalid_enum_value");
       }
@@ -262,9 +275,7 @@ describe("itinerary.getDays input validation", () => {
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
-    await expect(
-      caller.itinerary.getDays({ tripId: 1 })
-    ).rejects.toThrow();
+    await expect(caller.itinerary.getDays({ tripId: 1 })).rejects.toThrow();
   });
 });
 
@@ -280,9 +291,7 @@ describe("preferences.getMy input validation", () => {
 
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
-    await expect(
-      caller.preferences.getMy({ tripId: 1 })
-    ).rejects.toThrow();
+    await expect(caller.preferences.getMy({ tripId: 1 })).rejects.toThrow();
   });
 });
 
@@ -290,7 +299,13 @@ describe("preferences.save input validation", () => {
   it("rejects unauthenticated callers", async () => {
     const caller = appRouter.createCaller(makeUnauthCtx());
     await expect(
-      caller.preferences.save({ tripId: 1, mustHaves: "", strongPreferences: "", avoids: "", openComments: "" })
+      caller.preferences.save({
+        tripId: 1,
+        mustHaves: "",
+        strongPreferences: "",
+        avoids: "",
+        openComments: "",
+      })
     ).rejects.toThrow();
   });
 
@@ -310,7 +325,13 @@ describe("preferences.save input validation", () => {
   it("accepts valid empty-string preferences without crashing on validation", async () => {
     const caller = appRouter.createCaller(makeCtx());
     try {
-      await caller.preferences.save({ tripId: 999999, mustHaves: "", strongPreferences: "", avoids: "", openComments: "" });
+      await caller.preferences.save({
+        tripId: 999999,
+        mustHaves: "",
+        strongPreferences: "",
+        avoids: "",
+        openComments: "",
+      });
     } catch (e: any) {
       expect(e.message).not.toMatch(/too_big|invalid_type/);
     }
@@ -339,10 +360,16 @@ describe("accommodations.refreshMatch input validation", () => {
   it("requires numeric accommodationId and tripId", async () => {
     const caller = appRouter.createCaller(makeCtx());
     await expect(
-      caller.accommodations.refreshMatch({ accommodationId: "abc" as any, tripId: 1 })
+      caller.accommodations.refreshMatch({
+        accommodationId: "abc" as any,
+        tripId: 1,
+      })
     ).rejects.toThrow();
     await expect(
-      caller.accommodations.refreshMatch({ accommodationId: 1, tripId: "abc" as any })
+      caller.accommodations.refreshMatch({
+        accommodationId: 1,
+        tripId: "abc" as any,
+      })
     ).rejects.toThrow();
   });
 

@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import AppShell from "@/components/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocation } from "wouter";
@@ -22,9 +28,16 @@ export default function CreateTrip() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { toast.error("Trip name is required"); return; }
+    if (!name.trim()) {
+      toast.error("Trip name is required");
+      return;
+    }
     try {
-      const result = await createMutation.mutateAsync({ name: name.trim(), description: description.trim() || undefined, currency });
+      const result = await createMutation.mutateAsync({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        currency,
+      });
       toast.success("Trip created!");
       navigate(`/trips/${result.id}`);
     } catch {
@@ -41,7 +54,9 @@ export default function CreateTrip() {
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                 <Plane className="h-8 w-8" />
               </div>
-              <p className="text-sm text-muted-foreground">Start planning your next group adventure</p>
+              <p className="text-sm text-muted-foreground">
+                Start planning your next group adventure
+              </p>
             </div>
 
             <div className="space-y-4">
@@ -87,7 +102,11 @@ export default function CreateTrip() {
               </div>
             </div>
 
-            <Button type="submit" className="h-12 w-full rounded-xl text-base font-semibold" disabled={createMutation.isPending}>
+            <Button
+              type="submit"
+              className="h-12 w-full rounded-xl text-base font-semibold"
+              disabled={createMutation.isPending}
+            >
               {createMutation.isPending ? "Creating..." : "Create Trip"}
             </Button>
           </CardContent>
