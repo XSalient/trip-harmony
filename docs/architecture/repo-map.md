@@ -38,6 +38,7 @@ scripts/setup.sh   One-command bootstrap.
 | `db.ts`                 |  1462 | Every database query. Large but flat — jump to the function you need.                |
 | `routers/`              |     — | The API surface, one file per domain (below).                                        |
 | `utils/mailer.ts`       |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
+| `utils/listingPage.ts`  |   597 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
 | `replit_integrations/`  |     — | **Legacy, unused.** Don't read or extend.                                            |
 
 ### `server/routers/`
@@ -53,16 +54,16 @@ open only its domain file.
 | `auth.ts`           |    86 | Register, login, magic link, logout, `me`             |
 | `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in   |
 | `trips.ts`          |    98 | Trips, membership, invites                            |
-| `dates.ts`          |   158 | Date proposals, votes, natural-language parsing       |
-| `destinations.ts`   |   108 | Destination suggestions and votes                     |
-| `accommodations.ts` |   228 | Stays, votes, URL import, match refresh               |
+| `dates.ts`          |   223 | Date proposals, votes, natural-language parsing       |
+| `destinations.ts`   |   161 | Destination suggestions and votes                     |
+| `accommodations.ts` |   354 | Stays, votes, URL import, match refresh               |
 | `budget.ts`         |    74 | Expenses and summaries                                |
 | `referee.ts`        |    88 | AI mediation                                          |
 | `travelDna.ts`      |    29 | Personality profile                                   |
 | `preferences.ts`    |    36 | Per-trip member requirements                          |
 | `comments.ts`       |    41 | Comment threads                                       |
 | `notifications.ts`  |    23 | Notification feed                                     |
-| `vibeBoard.ts`      |    50 | Inspiration board                                     |
+| `vibeBoard.ts`      |    75 | Inspiration board                                     |
 | `itinerary.ts`      |    76 | Day-by-day plan                                       |
 
 ## `client/` — SPA

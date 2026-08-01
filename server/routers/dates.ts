@@ -47,6 +47,12 @@ export const datesRouter = router({
         endDate: new Date(input.endDate),
         label: input.label,
       });
+      // Proposing dates says you can make them — record it as the first vote.
+      await db.voteDateProposal({
+        proposalId: id,
+        userId: ctx.user.id,
+        vote: "available",
+      });
       // Notify members
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
@@ -154,6 +160,11 @@ export const datesRouter = router({
         startDate: proposal.startDate,
         endDate: proposal.endDate,
         label: proposal.label ? `${proposal.label} (copy)` : undefined,
+      });
+      await db.voteDateProposal({
+        proposalId: id,
+        userId: ctx.user.id,
+        vote: "available",
       });
       return { id };
     }),

@@ -5,7 +5,7 @@ finish a piece of work — the next person (or agent) starts here.
 
 - **Last updated:** 2026-08-01
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
-- **Health:** typecheck ✅ · 85 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 109 tests ✅ · production build ✅ · dev server ✅
   (verified end-to-end against a real Postgres on 2026-08-01, including a full
   passkey enrol → sign-out → passkey sign-in round trip in a real browser)
 
@@ -39,13 +39,17 @@ Verified by running the app against Postgres, not just by reading code:
   trait, and every sign-in method (password state, passkeys) in one place.
 - **Trips** — create, list, update, invite by code or email, join, membership roles.
 - **Planning** — date proposals, destinations, accommodations, vibe board and
-  itinerary, each with proposal/vote/comment/clone/edit/delete.
+  itinerary, each with proposal/vote/comment/clone/edit/delete. Posting a
+  proposal records its author's vote, so a new option never sits at zero.
 - **Budget** — expense logging, category breakdown, per-person split, per-member caps.
 - **Notifications** — in-app feed with unread counts.
 - **Preferences** — per-member, per-trip requirements feeding AI match analysis.
 - **AI features** — referee mediation, natural-language date parsing,
   accommodation URL import, accommodation↔member match scoring. These require an
-  AI key; without one the rest of the app is unaffected.
+  AI key; without one the rest of the app is unaffected. The URL import reads
+  Open Graph and schema.org data when the site allows a server-side fetch, and
+  falls back to what the URL itself encodes when the site blocks us (Booking.com
+  usually does) — see `server/utils/listingPage.ts`.
 - **Email** — Resend then SMTP, tried in order. Delivery failures are reported
   to the user instead of being swallowed; with no provider, links go to the log.
 
@@ -64,7 +68,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 85 tests are server-side. Page components are
+1. **No frontend tests.** All 109 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.

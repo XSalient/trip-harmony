@@ -37,6 +37,12 @@ export const destinationsRouter = router({
         ...input,
         proposedBy: ctx.user.id,
       });
+      // Suggesting a destination is a vote for it — count it without a second click.
+      await db.voteDestination({
+        destinationId: id,
+        userId: ctx.user.id,
+        vote: "love",
+      });
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
         if (m.userId !== ctx.user.id) {
@@ -144,6 +150,11 @@ export const destinationsRouter = router({
         imageUrl: destination.imageUrl ?? undefined,
         vibes: destination.vibes ?? undefined,
         estimatedCost: destination.estimatedCost ?? undefined,
+      });
+      await db.voteDestination({
+        destinationId: newId,
+        userId: ctx.user.id,
+        vote: "love",
       });
       return { id: newId };
     }),

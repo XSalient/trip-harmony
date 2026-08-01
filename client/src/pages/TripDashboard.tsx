@@ -165,7 +165,7 @@ function QuickAddDates({
           <Plus className="h-3.5 w-3.5" /> Add
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Date Proposal</DialogTitle>
         </DialogHeader>
@@ -346,7 +346,7 @@ function QuickAddDestination({
           <Plus className="h-3.5 w-3.5" /> Add
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm mx-4 rounded-2xl">
+      <DialogContent className="sm:max-w-sm rounded-2xl">
         <DialogHeader>
           <DialogTitle>Add Destination</DialogTitle>
         </DialogHeader>
@@ -430,7 +430,7 @@ function QuickAddStay({
           <Plus className="h-3.5 w-3.5" /> Add
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm mx-4 rounded-2xl">
+      <DialogContent className="sm:max-w-sm rounded-2xl">
         <DialogHeader>
           <DialogTitle>Add Accommodation</DialogTitle>
         </DialogHeader>
@@ -1012,7 +1012,7 @@ export default function TripDashboard() {
               <UserPlus className="h-4 w-4" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogContent className="sm:max-w-sm rounded-2xl">
             <DialogHeader>
               <DialogTitle>Invite Members</DialogTitle>
             </DialogHeader>
@@ -1747,7 +1747,7 @@ export default function TripDashboard() {
 
       {/* ── Edit Dialogs ── */}
       <Dialog open={editDateOpen} onOpenChange={setEditDateOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Date Proposal</DialogTitle>
           </DialogHeader>
@@ -1792,7 +1792,7 @@ export default function TripDashboard() {
       </Dialog>
 
       <Dialog open={editDestOpen} onOpenChange={setEditDestOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Destination</DialogTitle>
           </DialogHeader>
@@ -1826,7 +1826,7 @@ export default function TripDashboard() {
       </Dialog>
 
       <Dialog open={editAccOpen} onOpenChange={setEditAccOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Accommodation</DialogTitle>
           </DialogHeader>
@@ -1861,7 +1861,7 @@ export default function TripDashboard() {
 
       {/* ── Clone & Edit Dialogs ── */}
       <Dialog open={cloneDateOpen} onOpenChange={setCloneDateOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Clone Date Proposal</DialogTitle>
           </DialogHeader>
@@ -1909,7 +1909,7 @@ export default function TripDashboard() {
       </Dialog>
 
       <Dialog open={cloneDestOpen} onOpenChange={setCloneDestOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Clone Destination</DialogTitle>
           </DialogHeader>
@@ -1946,7 +1946,7 @@ export default function TripDashboard() {
       </Dialog>
 
       <Dialog open={cloneAccOpen} onOpenChange={setCloneAccOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Clone Accommodation</DialogTitle>
           </DialogHeader>

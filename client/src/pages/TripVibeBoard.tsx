@@ -176,7 +176,7 @@ export default function TripVibeBoard() {
                 <Plus className="h-4 w-4" /> Add Vibe
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-sm mx-4 rounded-2xl">
+            <DialogContent className="sm:max-w-sm rounded-2xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" /> Add Inspiration

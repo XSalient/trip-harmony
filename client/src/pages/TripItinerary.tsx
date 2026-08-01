@@ -196,7 +196,7 @@ export default function TripItinerary() {
                   <Plus className="h-4 w-4" /> Add Day
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-sm mx-4 rounded-2xl">
+              <DialogContent className="sm:max-w-sm rounded-2xl">
                 <DialogHeader>
                   <DialogTitle>Add a Day</DialogTitle>
                 </DialogHeader>
@@ -423,7 +423,7 @@ export default function TripItinerary() {
       </div>
 
       <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Add Item</DialogTitle>
           </DialogHeader>

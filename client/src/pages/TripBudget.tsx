@@ -161,7 +161,7 @@ export default function TripBudget() {
               <Settings className="h-4 w-4" />
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogContent className="sm:max-w-sm rounded-2xl">
             <DialogHeader>
               <DialogTitle>Your Budget Limit</DialogTitle>
             </DialogHeader>
@@ -292,7 +292,7 @@ export default function TripBudget() {
               <Plus className="h-4 w-4" /> Add Expense
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-sm mx-4 rounded-2xl">
+          <DialogContent className="sm:max-w-sm rounded-2xl">
             <DialogHeader>
               <DialogTitle>Add Expense</DialogTitle>
             </DialogHeader>

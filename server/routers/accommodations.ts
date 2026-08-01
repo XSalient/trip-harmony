@@ -5,9 +5,37 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm.js";
+import { logger } from "../_core/logger.js";
 import * as db from "../db.js";
 import { extractLLMText } from "./_shared.js";
 import { runAccommodationMatchAnalysis } from "./matchAnalysis.js";
+import {
+  cleanListingUrl,
+  coerceExtractedAccommodation,
+  fetchListingPage,
+  hasUsableSignal,
+  hintsFromListingUrl,
+  looksLikeBotCheck,
+  parseListingHtml,
+  type ListingPageFacts,
+} from "../utils/listingPage.js";
+
+const log = logger.child({ scope: "accommodations" });
+
+/** Gemini honours `json_object` but still fences the odd reply; take the object either way. */
+function parseJsonObject(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return {};
+    try {
+      return JSON.parse(match[0]);
+    } catch {
+      return {};
+    }
+  }
+}
 
 export const accommodationsRouter = router({
   list: protectedProcedure
@@ -67,6 +95,12 @@ export const accommodationsRouter = router({
         ...input,
         perPersonCost,
         proposedBy: ctx.user.id,
+      });
+      // Proposing is itself a vote — nobody adds a stay they are against.
+      await db.voteAccommodation({
+        accommodationId: id,
+        userId: ctx.user.id,
+        vote: "love",
       });
       for (const m of members) {
         if (m.userId !== ctx.user.id) {
@@ -205,65 +239,90 @@ export const accommodationsRouter = router({
         freeParking: accommodation.freeParking ?? undefined,
         amenities: accommodation.amenities ?? undefined,
       });
+      await db.voteAccommodation({
+        accommodationId: newId,
+        userId: ctx.user.id,
+        vote: "love",
+      });
       return { id: newId };
     }),
   fetchFromUrl: protectedProcedure
     .input(z.object({ url: z.string().url() }))
     .mutation(async ({ input }) => {
+      const url = input.url.trim();
+      const hints = hintsFromListingUrl(url);
+      let facts: ListingPageFacts | null = null;
+      let blocked = false;
+
+      const page = await fetchListingPage(url);
+      if (page.ok) {
+        const parsed = parseListingHtml(page.html, url);
+        // Booking sites answer a server-side fetch with a robot check often
+        // enough that a 200 is not evidence the details are there.
+        if (looksLikeBotCheck(parsed)) blocked = true;
+        else facts = parsed;
+      } else {
+        blocked = page.reason === "blocked";
+      }
+      if (!facts)
+        log.info("listing page unreadable, falling back to URL hints", {
+          host: hints.host,
+          blocked,
+          status: page.ok ? 200 : page.status,
+        });
+
+      // With neither page metadata nor a readable URL there is nothing to extract.
+      if (!hasUsableSignal(facts, hints))
+        return { success: false, data: {}, source: "none" as const, blocked };
+
       try {
-        // Fetch page content (basic HTML)
-        let pageContent = "";
-        try {
-          const res = await fetch(input.url, {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (compatible; TripHarmony/1.0)",
-            },
-            signal: AbortSignal.timeout(8000),
-          });
-          const html = await res.text();
-          // Extract basic metadata from HTML
-          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-          const descMatch = html.match(
-            /<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i
-          );
-          const ogTitleMatch = html.match(
-            /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i
-          );
-          const ogDescMatch = html.match(
-            /<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i
-          );
-          const ogImageMatch = html.match(
-            /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i
-          );
-          pageContent = JSON.stringify({
-            url: input.url,
-            title: ogTitleMatch?.[1] || titleMatch?.[1] || "",
-            description: ogDescMatch?.[1] || descMatch?.[1] || "",
-            imageUrl: ogImageMatch?.[1] || "",
-          });
-        } catch {
-          pageContent = JSON.stringify({ url: input.url });
-        }
+        const context = JSON.stringify({
+          url: cleanListingUrl(url),
+          page: facts ?? null,
+          urlHints: hints,
+        }).slice(0, 8000);
 
         const response = await invokeLLM({
           messages: [
             {
               role: "system",
-              content: `You are an accommodation data extractor. Given metadata from a booking/accommodation page, extract structured information. Return ONLY JSON with these fields (use null for unknown): name, description, location, pricePerNight (number or null), totalPrice (number or null), bedrooms (int or null), bathrooms (int or null), singleBeds (int or null), doubleBeds (int or null), freeParking (boolean), amenities (string array), imageUrl (string or null).`,
+              content: `You extract accommodation details for a trip-planning form.
+
+You are given "page" (metadata the listing published, or null when the site refused our request) and "urlHints" (what the URL itself encodes: property slug, ISO 3166-1 country code, stay dates, guest counts).
+
+RULES:
+- Use ONLY the supplied data. Never invent a price, a rating, a bed count or a city.
+- When "page" is null, still return what the URL supports: "slug" is the property name (tidy the capitalisation), "countryCode" gives the country (expand the ISO code, e.g. "si" is Slovenia) — and nothing else.
+- Titles often carry trailing site furniture ("… — Updated 2026 Prices", "| Booking.com"). Strip it from name; keep the town or city for location.
+- location is a place ("Ljubljana, Slovenia"), not a full postal address, unless only an address is given.
+- Prices are plain numbers in the listing's own currency, no symbols or thousands separators. If a price covers the whole stay it is totalPrice, not pricePerNight; urlHints.nights tells you the stay length.
+- amenities: only features the page actually names.
+
+Return ONLY JSON with these fields, null for anything unknown: name, description, location, pricePerNight, totalPrice, bedrooms, bathrooms, singleBeds, doubleBeds, toilets, ensuites, freeParking, camperParking, amenities (string array), imageUrl.`,
             },
             {
               role: "user",
-              content: `Extract accommodation info from this page metadata:\n${pageContent}\n\nReturn JSON only, no markdown.`,
+              content: `${context}\n\nReturn JSON only, no markdown.`,
             },
           ],
           responseFormat: { type: "json_object" },
         });
 
-        const raw = extractLLMText(response, "{}");
-        const data = JSON.parse(raw);
-        return { success: true, data };
+        const data = coerceExtractedAccommodation(
+          parseJsonObject(extractLLMText(response, "{}")),
+          url
+        );
+        // The page's own image beats whatever the model echoed back.
+        if (facts?.imageUrl) data.imageUrl = facts.imageUrl;
+        return {
+          success: Object.keys(data).length > 0,
+          data,
+          source: facts ? ("page" as const) : ("url" as const),
+          blocked,
+        };
       } catch (err) {
-        return { success: false, data: {} };
+        log.warn("accommodation URL extraction failed", { err });
+        return { success: false, data: {}, source: "none" as const, blocked };
       }
     }),
   parseAttributes: protectedProcedure
@@ -283,10 +342,12 @@ export const accommodationsRouter = router({
           ],
           responseFormat: { type: "json_object" },
         });
-        const raw = extractLLMText(response, "{}");
-        const data = JSON.parse(raw);
-        return { success: true, data };
-      } catch {
+        const data = coerceExtractedAccommodation(
+          parseJsonObject(extractLLMText(response, "{}"))
+        );
+        return { success: Object.keys(data).length > 0, data };
+      } catch (err) {
+        log.warn("accommodation preference parsing failed", { err });
         return { success: false, data: {} };
       }
     }),

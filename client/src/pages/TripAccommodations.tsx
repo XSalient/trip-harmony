@@ -277,10 +277,22 @@ export default function TripAccommodations() {
           bathrooms: d.bathrooms ? String(d.bathrooms) : prev.bathrooms,
           singleBeds: d.singleBeds ? String(d.singleBeds) : prev.singleBeds,
           doubleBeds: d.doubleBeds ? String(d.doubleBeds) : prev.doubleBeds,
+          toilets: d.toilets ? String(d.toilets) : prev.toilets,
+          ensuites: d.ensuites ? String(d.ensuites) : prev.ensuites,
           freeParking: d.freeParking ?? prev.freeParking,
+          camperParking: d.camperParking ?? prev.camperParking,
           amenities: d.amenities?.join(", ") || prev.amenities,
         }));
-        toast.success("Details fetched from URL!");
+        // Say which it was: half a form filled from the link alone still needs checking.
+        if (result.source === "url")
+          toast.info(
+            "That site blocked us — filled in what the link itself says. Please check the details."
+          );
+        else toast.success("Details fetched from URL!");
+      } else if (result.blocked) {
+        toast.info(
+          "That site blocked our request — please fill in the details manually"
+        );
       } else {
         toast.info("Could not extract details — please fill in manually");
       }
@@ -518,7 +530,7 @@ export default function TripAccommodations() {
                   <Plus className="h-4 w-4" /> Add
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-sm mx-4 rounded-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-sm rounded-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add Accommodation</DialogTitle>
                 </DialogHeader>
@@ -1265,7 +1277,7 @@ export default function TripAccommodations() {
 
       {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Accommodation</DialogTitle>
           </DialogHeader>

@@ -8,6 +8,48 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-01 — Proposals count as votes, listing import, dialog sizing
+
+### Changed
+
+- **Proposing is voting.** Adding a date, destination, stay or vibe-board item
+  now records the proposer's own vote (`available` for dates, `love` elsewhere),
+  including when a proposal is cloned. Nobody proposes an option they are
+  against, and the previous behaviour made every new proposal open on a score of
+  0 until its author voted for it by hand.
+
+### Fixed
+
+- **Booking.com and friends now import.** `accommodations.fetchFromUrl` sent a
+  bot-shaped `User-Agent`, never checked the response status, and matched
+  Open Graph tags with a regex that required `property` before `content`. A
+  Booking.com URL therefore fed the LLM a refusal page — or nothing but the
+  URL — and the UI still reported "Details fetched from URL!". The import now:
+  - asks with browser headers, follows redirects and treats 401/403/405/406/418/429
+    (and a 200 that is really a robot check) as blocked;
+  - reads Open Graph, Twitter and `application/ld+json` data with attributes in
+    any order and HTML entities decoded;
+  - falls back to what the URL itself encodes — property slug, ISO country code,
+    check-in/check-out, nights, guests — so a blocked page still prefills the
+    name and country;
+  - coerces the model's output to what the columns accept ("€1,234.50" → `1234.5`,
+    amenities to an array, `name` truncated to 255 chars);
+  - tells the client which source was used, so the toast says the site blocked us
+    instead of claiming success.
+- **Dialogs were laid out differently on mobile and desktop.** Every dialog
+  carried `max-w-sm mx-4`, which `tailwind-merge` resolved by dropping the
+  primitive's `max-w-[calc(100%-2rem)]` while keeping its `sm:max-w-lg`. Phones
+  got a full-width panel shifted 16 px right (right edge clipped, no left
+  gutter); desktops got a 512 px panel, not the intended 384 px. Dialogs now use
+  `sm:max-w-sm`: even gutters on a phone, 384 px and centred everywhere else.
+
+### Security
+
+- `fetchFromUrl` refuses non-HTTP(S) schemes and private/link-local hosts, so an
+  authenticated user cannot use it to probe the deployment's own network.
+
+---
+
 ## 2026-08-01 — Profile page, passkeys, reachable password setup
 
 ### Added

@@ -32,6 +32,12 @@ export const vibeBoardRouter = router({
         imageUrl: input.imageUrl,
         tags: input.tags,
       });
+      // Pinning something to the board is a vote for it.
+      await db.voteVibeItem({
+        vibeItemId: id,
+        userId: ctx.user.id,
+        vote: "love",
+      });
       return { id };
     }),
   delete: protectedProcedure
