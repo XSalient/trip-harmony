@@ -1,14 +1,52 @@
-import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '../../shared/const';
+import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from "../../shared/const";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
+import { logger } from "./logger";
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
 });
 
 export const router = t.router;
-export const publicProcedure = t.procedure;
+
+/**
+ * Logs every procedure call with its duration, and every failure with the cause.
+ * Applied to all procedures below so no route can silently swallow an error.
+ */
+const withLogging = t.middleware(async ({ ctx, path, type, next }) => {
+  const startedAt = process.hrtime.bigint();
+  const result = await next();
+  const durationMs =
+    Math.round((Number(process.hrtime.bigint() - startedAt) / 1e6) * 100) / 100;
+
+  const log = ctx.log ?? logger;
+  const fields = { procedure: path, type, durationMs, userId: ctx.user?.id };
+
+  if (result.ok) {
+    log.debug("trpc ok", fields);
+  } else {
+    // Client mistakes (auth, validation, not found) are expected; only real
+    // server faults deserve error level and a stack trace.
+    const code = result.error.code;
+    const isServerFault = code === "INTERNAL_SERVER_ERROR";
+    if (isServerFault)
+      log.error("trpc failed", { ...fields, code, err: result.error });
+    else
+      log.warn("trpc rejected", {
+        ...fields,
+        code,
+        reason: result.error.message,
+      });
+  }
+
+  return result;
+});
+
+/** All procedures derive from this, so logging is never opt-in. */
+const base = t.procedure.use(withLogging);
+
+export const publicProcedure = base;
 
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
@@ -25,13 +63,13 @@ const requireUser = t.middleware(async opts => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(requireUser);
+export const protectedProcedure = base.use(requireUser);
 
-export const adminProcedure = t.procedure.use(
+export const adminProcedure = base.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user || ctx.user.role !== "admin") {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
@@ -41,5 +79,5 @@ export const adminProcedure = t.procedure.use(
         user: ctx.user,
       },
     });
-  }),
+  })
 );

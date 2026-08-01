@@ -1,17 +1,25 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
+import { logger, type Logger } from "./logger";
 import { sdk } from "./sdk";
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: User | null;
+  /** Correlates this call with the surrounding HTTP request in the logs. */
+  requestId: string;
+  /** Pre-bound logger; prefer this over importing `logger` inside procedures. */
+  log: Logger;
 };
 
 export async function createContext(
   opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
   let user: User | null = null;
+
+  const requestId = opts.req.requestId ?? "unknown";
+  const log = logger.child({ requestId });
 
   try {
     user = await sdk.authenticateRequest(opts.req);
@@ -24,5 +32,7 @@ export async function createContext(
     req: opts.req,
     res: opts.res,
     user,
+    requestId,
+    log: user ? log.child({ userId: user.id }) : log,
   };
 }

@@ -7,6 +7,9 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { ENV } from "./env";
+import { logger } from "./logger";
+
+const log = logger.child({ scope: "auth" });
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
@@ -30,11 +33,11 @@ const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserI
 
 class OAuthService {
   constructor(private client: ReturnType<typeof axios.create>) {
-    console.log("[OAuth] Initialized with baseURL:", ENV.oAuthServerUrl);
-    if (!ENV.oAuthServerUrl) {
-      console.error(
-        "[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable."
-      );
+    if (ENV.oAuthServerUrl) {
+      log.debug("oauth service initialised", { baseUrl: ENV.oAuthServerUrl });
+    } else {
+      // Not fatal: email/password and magic-link sign-in do not use OAuth.
+      log.debug("oauth service disabled (OAUTH_SERVER_URL unset)");
     }
   }
 
@@ -201,7 +204,7 @@ class SDKServer {
     cookieValue: string | undefined | null
   ): Promise<{ openId: string; appId: string; name: string } | null> {
     if (!cookieValue) {
-      console.warn("[Auth] Missing session cookie");
+      log.debug("no session cookie on request");
       return null;
     }
 
@@ -217,7 +220,7 @@ class SDKServer {
         !isNonEmptyString(appId) ||
         !isNonEmptyString(name)
       ) {
-        console.warn("[Auth] Session payload missing required fields");
+        log.warn("session payload missing required fields");
         return null;
       }
 
@@ -227,7 +230,7 @@ class SDKServer {
         name,
       };
     } catch (error) {
-      console.warn("[Auth] Session verification failed", String(error));
+      log.warn("session verification failed", { reason: String(error) });
       return null;
     }
   }
@@ -283,7 +286,7 @@ class SDKServer {
         });
         user = await db.getUserByOpenId(userInfo.openId);
       } catch (error) {
-        console.error("[Auth] Failed to sync user from OAuth:", error);
+        log.error("failed to sync user from oauth", { err: error });
         throw ForbiddenError("Failed to sync user info");
       }
     }

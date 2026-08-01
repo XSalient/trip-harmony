@@ -1,19 +1,25 @@
 import nodemailer from "nodemailer";
+import { config } from "../_core/env";
+import { logger } from "../_core/logger";
 
+const log = logger.child({ scope: "mailer" });
+
+/**
+ * Returns a configured transport, or `null` when SMTP is not set up.
+ * Without SMTP the app stays usable: links are written to the log instead of
+ * being emailed, which is what local development relies on.
+ */
 function getTransport() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
-  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
-    return {
-      transport: nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: parseInt(SMTP_PORT || "587"),
-        secure: parseInt(SMTP_PORT || "587") === 465,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-      }),
-      from: SMTP_FROM || SMTP_USER,
-    };
-  }
-  return null;
+  if (!config.smtp.isConfigured) return null;
+  return {
+    transport: nodemailer.createTransport({
+      host: config.smtp.host,
+      port: config.smtp.port,
+      secure: config.smtp.port === 465,
+      auth: { user: config.smtp.user, pass: config.smtp.pass },
+    }),
+    from: config.smtp.from,
+  };
 }
 
 export async function sendMagicLinkEmail(to: string, magicUrl: string) {
@@ -30,17 +36,31 @@ export async function sendMagicLinkEmail(to: string, magicUrl: string) {
     </div>`;
 
   if (transport) {
-    await transport.transport.sendMail({ from: transport.from, to, subject, text, html });
-    console.log(`[Mailer] Magic link email sent to ${to}`);
+    await transport.transport.sendMail({
+      from: transport.from,
+      to,
+      subject,
+      text,
+      html,
+    });
+    log.info("magic link email sent", { to });
   } else {
-    console.log("\n========== MAGIC LINK (dev mode — no SMTP configured) ==========");
-    console.log(`To: ${to}`);
-    console.log(`Link: ${magicUrl}`);
-    console.log("================================================================\n");
+    log.warn(
+      "SMTP not configured — magic link written to log instead of sent",
+      {
+        to,
+        magicUrl,
+      }
+    );
   }
 }
 
-export async function sendTripInviteEmail(to: string, inviterName: string, tripName: string, inviteUrl: string) {
+export async function sendTripInviteEmail(
+  to: string,
+  inviterName: string,
+  tripName: string,
+  inviteUrl: string
+) {
   const transport = getTransport();
   const subject = `${inviterName} invited you to join "${tripName}" on Harmony`;
   const text = `${inviterName} has invited you to join the trip "${tripName}" on Harmony.\n\nClick the link to join:\n${inviteUrl}`;
@@ -53,13 +73,22 @@ export async function sendTripInviteEmail(to: string, inviterName: string, tripN
     </div>`;
 
   if (transport) {
-    await transport.transport.sendMail({ from: transport.from, to, subject, text, html });
-    console.log(`[Mailer] Trip invite email sent to ${to}`);
+    await transport.transport.sendMail({
+      from: transport.from,
+      to,
+      subject,
+      text,
+      html,
+    });
+    log.info("trip invite email sent", { to, tripName });
   } else {
-    console.log("\n========== TRIP INVITE (dev mode — no SMTP configured) ==========");
-    console.log(`To: ${to}`);
-    console.log(`Trip: ${tripName}`);
-    console.log(`Link: ${inviteUrl}`);
-    console.log("=================================================================\n");
+    log.warn(
+      "SMTP not configured — trip invite written to log instead of sent",
+      {
+        to,
+        tripName,
+        inviteUrl,
+      }
+    );
   }
 }

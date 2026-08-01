@@ -2,38 +2,66 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import {
-  InsertUser, users,
-  travelDna, InsertTravelDna,
-  trips, InsertTrip,
-  tripMembers, InsertTripMember,
-  dateProposals, InsertDateProposal,
-  dateVotes, InsertDateVote,
-  destinations, InsertDestination,
-  destinationVotes, InsertDestinationVote,
-  accommodations, InsertAccommodation,
-  accommodationVotes, InsertAccommodationVote,
-  budgetItems, InsertBudgetItem,
-  refereeMessages, InsertRefereeMessage,
-  notifications, InsertNotification,
+  InsertUser,
+  users,
+  travelDna,
+  InsertTravelDna,
+  trips,
+  InsertTrip,
+  tripMembers,
+  InsertTripMember,
+  dateProposals,
+  InsertDateProposal,
+  dateVotes,
+  InsertDateVote,
+  destinations,
+  InsertDestination,
+  destinationVotes,
+  InsertDestinationVote,
+  accommodations,
+  InsertAccommodation,
+  accommodationVotes,
+  InsertAccommodationVote,
+  budgetItems,
+  InsertBudgetItem,
+  refereeMessages,
+  InsertRefereeMessage,
+  notifications,
+  InsertNotification,
   magicLinkTokens,
-  proposalComments, InsertProposalComment,
-  vibeItems, InsertVibeItem,
-  vibeVotes, InsertVibeVote,
-  itineraryDays, InsertItineraryDay,
-  itineraryItems, InsertItineraryItem,
+  proposalComments,
+  InsertProposalComment,
+  vibeItems,
+  InsertVibeItem,
+  vibeVotes,
+  InsertVibeVote,
+  itineraryDays,
+  InsertItineraryDay,
+  itineraryItems,
+  InsertItineraryItem,
   memberPreferences,
 } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import { ENV } from "./_core/env";
+import { logger } from "./_core/logger";
+
+const log = logger.child({ scope: "db" });
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
+/**
+ * Lazily creates the pooled Drizzle client.
+ *
+ * Returns `null` when `DATABASE_URL` is unset so the app still boots for
+ * frontend-only work and for tests; every caller must handle the null case.
+ */
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db && ENV.databaseUrl) {
     try {
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const pool = new Pool({ connectionString: ENV.databaseUrl });
+      pool.on("error", err => log.error("idle connection error", { err }));
       _db = drizzle(pool);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      log.error("failed to create connection pool", { err: error });
       _db = null;
     }
   }
@@ -43,7 +71,10 @@ export async function getDb() {
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");
   const db = await getDb();
-  if (!db) { console.warn("[Database] Cannot upsert user: database not available"); return; }
+  if (!db) {
+    log.warn("cannot upsert user: database not configured");
+    return;
+  }
   try {
     const values: InsertUser = { openId: user.openId };
     const updateSet: Record<string, unknown> = {};
@@ -57,34 +88,68 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet[field] = normalized;
     };
     textFields.forEach(assignNullable);
-    if (user.lastSignedIn !== undefined) { values.lastSignedIn = user.lastSignedIn; updateSet.lastSignedIn = user.lastSignedIn; }
-    if (user.role !== undefined) { values.role = user.role; updateSet.role = user.role; }
-    else if (user.openId === ENV.ownerOpenId) { values.role = 'admin'; updateSet.role = 'admin'; }
+    if (user.lastSignedIn !== undefined) {
+      values.lastSignedIn = user.lastSignedIn;
+      updateSet.lastSignedIn = user.lastSignedIn;
+    }
+    if (user.role !== undefined) {
+      values.role = user.role;
+      updateSet.role = user.role;
+    } else if (user.openId === ENV.ownerOpenId) {
+      values.role = "admin";
+      updateSet.role = "admin";
+    }
     if (!values.lastSignedIn) values.lastSignedIn = new Date();
-    if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
-    await db.insert(users).values(values).onConflictDoUpdate({ target: users.openId, set: updateSet });
-  } catch (error) { console.error("[Database] Failed to upsert user:", error); throw error; }
+    if (Object.keys(updateSet).length === 0)
+      updateSet.lastSignedIn = new Date();
+    await db
+      .insert(users)
+      .values(values)
+      .onConflictDoUpdate({ target: users.openId, set: updateSet });
+  } catch (error) {
+    log.error("failed to upsert user", { err: error });
+    throw error;
+  }
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
 export async function getUserByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function createUserWithPassword(data: { openId: string; name: string; email: string; passwordHash: string }) {
+export async function createUserWithPassword(data: {
+  openId: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+}) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.insert(users).values({ ...data, loginMethod: "email", lastSignedIn: new Date() });
-  const result = await db.select().from(users).where(eq(users.openId, data.openId)).limit(1);
+  await db
+    .insert(users)
+    .values({ ...data, loginMethod: "email", lastSignedIn: new Date() });
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, data.openId))
+    .limit(1);
   return result[0];
 }
 
@@ -96,12 +161,18 @@ export async function getUserById(id: number) {
 }
 
 // ---- Magic Link Tokens ----
-export async function createMagicLinkToken(email: string, token: string, expiresAt: Date) {
+export async function createMagicLinkToken(
+  email: string,
+  token: string,
+  expiresAt: Date
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(magicLinkTokens).where(
-    and(eq(magicLinkTokens.email, email), eq(magicLinkTokens.used, false))
-  );
+  await db
+    .delete(magicLinkTokens)
+    .where(
+      and(eq(magicLinkTokens.email, email), eq(magicLinkTokens.used, false))
+    );
   await db.insert(magicLinkTokens).values({ token, email, expiresAt });
 }
 
@@ -109,12 +180,19 @@ export async function consumeMagicLinkToken(token: string) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   const now = new Date();
-  const [row] = await db.select().from(magicLinkTokens)
-    .where(and(eq(magicLinkTokens.token, token), eq(magicLinkTokens.used, false)))
+  const [row] = await db
+    .select()
+    .from(magicLinkTokens)
+    .where(
+      and(eq(magicLinkTokens.token, token), eq(magicLinkTokens.used, false))
+    )
     .limit(1);
   if (!row) return null;
   if (row.expiresAt < now) return null;
-  await db.update(magicLinkTokens).set({ used: true }).where(eq(magicLinkTokens.id, row.id));
+  await db
+    .update(magicLinkTokens)
+    .set({ used: true })
+    .where(eq(magicLinkTokens.id, row.id));
   return row;
 }
 
@@ -122,31 +200,54 @@ export async function consumeMagicLinkToken(token: string) {
 export async function upsertTravelDna(data: InsertTravelDna) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const existing = await db.select().from(travelDna).where(eq(travelDna.userId, data.userId)).limit(1);
+  const existing = await db
+    .select()
+    .from(travelDna)
+    .where(eq(travelDna.userId, data.userId))
+    .limit(1);
   if (existing.length > 0) {
-    await db.update(travelDna).set(data).where(eq(travelDna.userId, data.userId));
+    await db
+      .update(travelDna)
+      .set(data)
+      .where(eq(travelDna.userId, data.userId));
     return { ...existing[0], ...data };
   }
-  const [result] = await db.insert(travelDna).values(data).returning({ id: travelDna.id });
+  const [result] = await db
+    .insert(travelDna)
+    .values(data)
+    .returning({ id: travelDna.id });
   return { id: result.id, ...data };
 }
 
 export async function getTravelDna(userId: number) {
   const db = await getDb();
   if (!db) return null;
-  const result = await db.select().from(travelDna).where(eq(travelDna.userId, userId)).limit(1);
+  const result = await db
+    .select()
+    .from(travelDna)
+    .where(eq(travelDna.userId, userId))
+    .limit(1);
   return result[0] || null;
 }
 
 export async function getGroupTravelDna(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const members = await db.select().from(tripMembers).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.status, "accepted")));
+  const members = await db
+    .select()
+    .from(tripMembers)
+    .where(
+      and(eq(tripMembers.tripId, tripId), eq(tripMembers.status, "accepted"))
+    );
   const userIds = members.map(m => m.userId);
   if (userIds.length === 0) return [];
   const results = [];
   for (const uid of userIds) {
-    const dna = await db.select().from(travelDna).where(eq(travelDna.userId, uid)).limit(1);
+    const dna = await db
+      .select()
+      .from(travelDna)
+      .where(eq(travelDna.userId, uid))
+      .limit(1);
     if (dna[0]) results.push(dna[0]);
   }
   return results;
@@ -156,7 +257,10 @@ export async function getGroupTravelDna(tripId: number) {
 export async function createTrip(data: InsertTrip) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(trips).values(data).returning({ id: trips.id });
+  const [result] = await db
+    .insert(trips)
+    .values(data)
+    .returning({ id: trips.id });
   return result.id;
 }
 
@@ -170,7 +274,11 @@ export async function getTrip(id: number) {
 export async function getTripByInviteCode(code: string) {
   const db = await getDb();
   if (!db) return null;
-  const result = await db.select().from(trips).where(eq(trips.inviteCode, code)).limit(1);
+  const result = await db
+    .select()
+    .from(trips)
+    .where(eq(trips.inviteCode, code))
+    .limit(1);
   return result[0] || null;
 }
 
@@ -183,76 +291,146 @@ export async function updateTrip(id: number, data: Partial<InsertTrip>) {
 export async function getUserTrips(userId: number) {
   const db = await getDb();
   if (!db) return [];
-  const memberships = await db.select().from(tripMembers).where(eq(tripMembers.userId, userId));
+  const memberships = await db
+    .select()
+    .from(tripMembers)
+    .where(eq(tripMembers.userId, userId));
   const tripIds = memberships.map(m => m.tripId);
   if (tripIds.length === 0) return [];
   const results = [];
   for (const tid of tripIds) {
-    const trip = await db.select().from(trips).where(eq(trips.id, tid)).limit(1);
-    if (trip[0]) results.push({ ...trip[0], memberRole: memberships.find(m => m.tripId === tid)?.role, memberStatus: memberships.find(m => m.tripId === tid)?.status });
+    const trip = await db
+      .select()
+      .from(trips)
+      .where(eq(trips.id, tid))
+      .limit(1);
+    if (trip[0])
+      results.push({
+        ...trip[0],
+        memberRole: memberships.find(m => m.tripId === tid)?.role,
+        memberStatus: memberships.find(m => m.tripId === tid)?.status,
+      });
   }
-  return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return results.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
 }
 
 // ---- Trip Members ----
 export async function addTripMember(data: InsertTripMember) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const existing = await db.select().from(tripMembers).where(and(eq(tripMembers.tripId, data.tripId), eq(tripMembers.userId, data.userId))).limit(1);
+  const existing = await db
+    .select()
+    .from(tripMembers)
+    .where(
+      and(
+        eq(tripMembers.tripId, data.tripId),
+        eq(tripMembers.userId, data.userId)
+      )
+    )
+    .limit(1);
   if (existing.length > 0) return existing[0];
-  const [result] = await db.insert(tripMembers).values(data).returning({ id: tripMembers.id });
+  const [result] = await db
+    .insert(tripMembers)
+    .values(data)
+    .returning({ id: tripMembers.id });
   return { id: result.id, ...data };
 }
 
-export async function updateMemberStatus(tripId: number, userId: number, status: "pending" | "accepted" | "declined") {
+export async function updateMemberStatus(
+  tripId: number,
+  userId: number,
+  status: "pending" | "accepted" | "declined"
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(tripMembers).set({ status }).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  await db
+    .update(tripMembers)
+    .set({ status })
+    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
 }
 
 export async function getTripMember(tripId: number, userId: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const [row] = await db.select().from(tripMembers).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId))).limit(1);
+  const [row] = await db
+    .select()
+    .from(tripMembers)
+    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)))
+    .limit(1);
   return row;
 }
 
 export async function getTripMembers(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const members = await db.select().from(tripMembers).where(eq(tripMembers.tripId, tripId));
+  const members = await db
+    .select()
+    .from(tripMembers)
+    .where(eq(tripMembers.tripId, tripId));
   const enriched = [];
   for (const m of members) {
-    const user = await db.select({ id: users.id, name: users.name, email: users.email, avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, m.userId)).limit(1);
+    const user = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        avatarUrl: users.avatarUrl,
+      })
+      .from(users)
+      .where(eq(users.id, m.userId))
+      .limit(1);
     enriched.push({ ...m, user: user[0] || null });
   }
   return enriched;
 }
 
-export async function updateMemberBudget(tripId: number, userId: number, budgetMax: string) {
+export async function updateMemberBudget(
+  tripId: number,
+  userId: number,
+  budgetMax: string
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(tripMembers).set({ budgetMax }).where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  await db
+    .update(tripMembers)
+    .set({ budgetMax })
+    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
 }
 
 // ---- Date Proposals ----
 export async function createDateProposal(data: InsertDateProposal) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(dateProposals).values(data).returning({ id: dateProposals.id });
+  const [result] = await db
+    .insert(dateProposals)
+    .values(data)
+    .returning({ id: dateProposals.id });
   return result.id;
 }
 
 export async function getDateProposals(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const proposals = await db.select().from(dateProposals).where(eq(dateProposals.tripId, tripId)).orderBy(dateProposals.startDate);
+  const proposals = await db
+    .select()
+    .from(dateProposals)
+    .where(eq(dateProposals.tripId, tripId))
+    .orderBy(dateProposals.startDate);
   const enriched = [];
   for (const p of proposals) {
-    const votes = await db.select().from(dateVotes).where(eq(dateVotes.proposalId, p.id));
+    const votes = await db
+      .select()
+      .from(dateVotes)
+      .where(eq(dateVotes.proposalId, p.id));
     const enrichedVotes = [];
     for (const v of votes) {
-      const user = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, v.userId)).limit(1);
+      const user = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.id, v.userId))
+        .limit(1);
       enrichedVotes.push({ ...v, user: user[0] || null });
     }
     enriched.push({ ...p, votes: enrichedVotes });
@@ -263,14 +441,23 @@ export async function getDateProposals(tripId: number) {
 export async function selectDateProposal(tripId: number, proposalId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(dateProposals).set({ selected: false }).where(eq(dateProposals.tripId, tripId));
-  await db.update(dateProposals).set({ selected: true }).where(eq(dateProposals.id, proposalId));
+  await db
+    .update(dateProposals)
+    .set({ selected: false })
+    .where(eq(dateProposals.tripId, tripId));
+  await db
+    .update(dateProposals)
+    .set({ selected: true })
+    .where(eq(dateProposals.id, proposalId));
 }
 
 export async function deselectDateProposals(tripId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(dateProposals).set({ selected: false }).where(eq(dateProposals.tripId, tripId));
+  await db
+    .update(dateProposals)
+    .set({ selected: false })
+    .where(eq(dateProposals.tripId, tripId));
 }
 
 export async function deleteDateProposal(id: number) {
@@ -283,16 +470,32 @@ export async function deleteDateProposal(id: number) {
 export async function getDateProposal(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const result = await db.select().from(dateProposals).where(eq(dateProposals.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(dateProposals)
+    .where(eq(dateProposals.id, id))
+    .limit(1);
   return result[0] || null;
 }
 
 export async function voteDateProposal(data: InsertDateVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const existing = await db.select().from(dateVotes).where(and(eq(dateVotes.proposalId, data.proposalId), eq(dateVotes.userId, data.userId))).limit(1);
+  const existing = await db
+    .select()
+    .from(dateVotes)
+    .where(
+      and(
+        eq(dateVotes.proposalId, data.proposalId),
+        eq(dateVotes.userId, data.userId)
+      )
+    )
+    .limit(1);
   if (existing.length > 0) {
-    await db.update(dateVotes).set({ vote: data.vote }).where(eq(dateVotes.id, existing[0].id));
+    await db
+      .update(dateVotes)
+      .set({ vote: data.vote })
+      .where(eq(dateVotes.id, existing[0].id));
     return;
   }
   await db.insert(dateVotes).values(data);
@@ -301,27 +504,45 @@ export async function voteDateProposal(data: InsertDateVote) {
 export async function unvoteDateProposal(proposalId: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(dateVotes).where(and(eq(dateVotes.proposalId, proposalId), eq(dateVotes.userId, userId)));
+  await db
+    .delete(dateVotes)
+    .where(
+      and(eq(dateVotes.proposalId, proposalId), eq(dateVotes.userId, userId))
+    );
 }
 
 // ---- Destinations ----
 export async function createDestination(data: InsertDestination) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(destinations).values(data).returning({ id: destinations.id });
+  const [result] = await db
+    .insert(destinations)
+    .values(data)
+    .returning({ id: destinations.id });
   return result.id;
 }
 
 export async function getDestinations(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const dests = await db.select().from(destinations).where(eq(destinations.tripId, tripId)).orderBy(desc(destinations.createdAt));
+  const dests = await db
+    .select()
+    .from(destinations)
+    .where(eq(destinations.tripId, tripId))
+    .orderBy(desc(destinations.createdAt));
   const enriched = [];
   for (const d of dests) {
-    const votes = await db.select().from(destinationVotes).where(eq(destinationVotes.destinationId, d.id));
+    const votes = await db
+      .select()
+      .from(destinationVotes)
+      .where(eq(destinationVotes.destinationId, d.id));
     const enrichedVotes = [];
     for (const v of votes) {
-      const user = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, v.userId)).limit(1);
+      const user = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.id, v.userId))
+        .limit(1);
       enrichedVotes.push({ ...v, user: user[0] || null });
     }
     enriched.push({ ...d, votes: enrichedVotes });
@@ -332,9 +553,21 @@ export async function getDestinations(tripId: number) {
 export async function voteDestination(data: InsertDestinationVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const existing = await db.select().from(destinationVotes).where(and(eq(destinationVotes.destinationId, data.destinationId), eq(destinationVotes.userId, data.userId))).limit(1);
+  const existing = await db
+    .select()
+    .from(destinationVotes)
+    .where(
+      and(
+        eq(destinationVotes.destinationId, data.destinationId),
+        eq(destinationVotes.userId, data.userId)
+      )
+    )
+    .limit(1);
   if (existing.length > 0) {
-    await db.update(destinationVotes).set({ vote: data.vote }).where(eq(destinationVotes.id, existing[0].id));
+    await db
+      .update(destinationVotes)
+      .set({ vote: data.vote })
+      .where(eq(destinationVotes.id, existing[0].id));
     return;
   }
   await db.insert(destinationVotes).values(data);
@@ -343,33 +576,55 @@ export async function voteDestination(data: InsertDestinationVote) {
 export async function unvoteDestination(destinationId: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(destinationVotes).where(and(eq(destinationVotes.destinationId, destinationId), eq(destinationVotes.userId, userId)));
+  await db
+    .delete(destinationVotes)
+    .where(
+      and(
+        eq(destinationVotes.destinationId, destinationId),
+        eq(destinationVotes.userId, userId)
+      )
+    );
 }
 
 export async function selectDestination(tripId: number, destinationId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(destinations).set({ selected: false }).where(eq(destinations.tripId, tripId));
-  await db.update(destinations).set({ selected: true }).where(eq(destinations.id, destinationId));
+  await db
+    .update(destinations)
+    .set({ selected: false })
+    .where(eq(destinations.tripId, tripId));
+  await db
+    .update(destinations)
+    .set({ selected: true })
+    .where(eq(destinations.id, destinationId));
 }
 
 export async function deselectDestinations(tripId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(destinations).set({ selected: false }).where(eq(destinations.tripId, tripId));
+  await db
+    .update(destinations)
+    .set({ selected: false })
+    .where(eq(destinations.tripId, tripId));
 }
 
 export async function deleteDestination(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(destinationVotes).where(eq(destinationVotes.destinationId, id));
+  await db
+    .delete(destinationVotes)
+    .where(eq(destinationVotes.destinationId, id));
   await db.delete(destinations).where(eq(destinations.id, id));
 }
 
 export async function getDestination(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const result = await db.select().from(destinations).where(eq(destinations.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(destinations)
+    .where(eq(destinations.id, id))
+    .limit(1);
   return result[0] || null;
 }
 
@@ -377,20 +632,34 @@ export async function getDestination(id: number) {
 export async function createAccommodation(data: InsertAccommodation) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(accommodations).values(data).returning({ id: accommodations.id });
+  const [result] = await db
+    .insert(accommodations)
+    .values(data)
+    .returning({ id: accommodations.id });
   return result.id;
 }
 
 export async function getAccommodations(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const accs = await db.select().from(accommodations).where(eq(accommodations.tripId, tripId)).orderBy(desc(accommodations.createdAt));
+  const accs = await db
+    .select()
+    .from(accommodations)
+    .where(eq(accommodations.tripId, tripId))
+    .orderBy(desc(accommodations.createdAt));
   const enriched = [];
   for (const a of accs) {
-    const votes = await db.select().from(accommodationVotes).where(eq(accommodationVotes.accommodationId, a.id));
+    const votes = await db
+      .select()
+      .from(accommodationVotes)
+      .where(eq(accommodationVotes.accommodationId, a.id));
     const enrichedVotes = [];
     for (const v of votes) {
-      const user = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, v.userId)).limit(1);
+      const user = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.id, v.userId))
+        .limit(1);
       enrichedVotes.push({ ...v, user: user[0] || null });
     }
     enriched.push({ ...a, votes: enrichedVotes });
@@ -401,44 +670,84 @@ export async function getAccommodations(tripId: number) {
 export async function voteAccommodation(data: InsertAccommodationVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const existing = await db.select().from(accommodationVotes).where(and(eq(accommodationVotes.accommodationId, data.accommodationId), eq(accommodationVotes.userId, data.userId))).limit(1);
+  const existing = await db
+    .select()
+    .from(accommodationVotes)
+    .where(
+      and(
+        eq(accommodationVotes.accommodationId, data.accommodationId),
+        eq(accommodationVotes.userId, data.userId)
+      )
+    )
+    .limit(1);
   if (existing.length > 0) {
-    await db.update(accommodationVotes).set({ vote: data.vote }).where(eq(accommodationVotes.id, existing[0].id));
+    await db
+      .update(accommodationVotes)
+      .set({ vote: data.vote })
+      .where(eq(accommodationVotes.id, existing[0].id));
     return;
   }
   await db.insert(accommodationVotes).values(data);
 }
 
-export async function unvoteAccommodation(accommodationId: number, userId: number) {
+export async function unvoteAccommodation(
+  accommodationId: number,
+  userId: number
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(accommodationVotes).where(and(eq(accommodationVotes.accommodationId, accommodationId), eq(accommodationVotes.userId, userId)));
+  await db
+    .delete(accommodationVotes)
+    .where(
+      and(
+        eq(accommodationVotes.accommodationId, accommodationId),
+        eq(accommodationVotes.userId, userId)
+      )
+    );
 }
 
-export async function selectAccommodation(tripId: number, accommodationId: number) {
+export async function selectAccommodation(
+  tripId: number,
+  accommodationId: number
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(accommodations).set({ selected: false }).where(eq(accommodations.tripId, tripId));
-  await db.update(accommodations).set({ selected: true }).where(eq(accommodations.id, accommodationId));
+  await db
+    .update(accommodations)
+    .set({ selected: false })
+    .where(eq(accommodations.tripId, tripId));
+  await db
+    .update(accommodations)
+    .set({ selected: true })
+    .where(eq(accommodations.id, accommodationId));
 }
 
 export async function deselectAccommodations(tripId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(accommodations).set({ selected: false }).where(eq(accommodations.tripId, tripId));
+  await db
+    .update(accommodations)
+    .set({ selected: false })
+    .where(eq(accommodations.tripId, tripId));
 }
 
 export async function deleteAccommodation(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(accommodationVotes).where(eq(accommodationVotes.accommodationId, id));
+  await db
+    .delete(accommodationVotes)
+    .where(eq(accommodationVotes.accommodationId, id));
   await db.delete(accommodations).where(eq(accommodations.id, id));
 }
 
 export async function getAccommodation(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const result = await db.select().from(accommodations).where(eq(accommodations.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(accommodations)
+    .where(eq(accommodations.id, id))
+    .limit(1);
   return result[0] || null;
 }
 
@@ -446,17 +755,27 @@ export async function getAccommodation(id: number) {
 export async function createBudgetItem(data: InsertBudgetItem) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(budgetItems).values(data).returning({ id: budgetItems.id });
+  const [result] = await db
+    .insert(budgetItems)
+    .values(data)
+    .returning({ id: budgetItems.id });
   return result.id;
 }
 
 export async function getBudgetItems(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(budgetItems).where(eq(budgetItems.tripId, tripId)).orderBy(desc(budgetItems.createdAt));
+  return db
+    .select()
+    .from(budgetItems)
+    .where(eq(budgetItems.tripId, tripId))
+    .orderBy(desc(budgetItems.createdAt));
 }
 
-export async function updateBudgetItem(id: number, data: Partial<InsertBudgetItem>) {
+export async function updateBudgetItem(
+  id: number,
+  data: Partial<InsertBudgetItem>
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(budgetItems).set(data).where(eq(budgetItems.id, id));
@@ -472,73 +791,116 @@ export async function deleteBudgetItem(id: number) {
 export async function createRefereeMessage(data: InsertRefereeMessage) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(refereeMessages).values(data).returning({ id: refereeMessages.id });
+  const [result] = await db
+    .insert(refereeMessages)
+    .values(data)
+    .returning({ id: refereeMessages.id });
   return result.id;
 }
 
 export async function getRefereeMessages(tripId: number, limit = 20) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(refereeMessages).where(eq(refereeMessages.tripId, tripId)).orderBy(desc(refereeMessages.createdAt)).limit(limit);
+  return db
+    .select()
+    .from(refereeMessages)
+    .where(eq(refereeMessages.tripId, tripId))
+    .orderBy(desc(refereeMessages.createdAt))
+    .limit(limit);
 }
 
 // ---- Notifications ----
 export async function createNotification(data: InsertNotification) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(notifications).values(data).returning({ id: notifications.id });
+  const [result] = await db
+    .insert(notifications)
+    .values(data)
+    .returning({ id: notifications.id });
   return result.id;
 }
 
 export async function getUserNotifications(userId: number, limit = 50) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(limit);
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
 }
 
 export async function markNotificationRead(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(notifications).set({ read: true }).where(eq(notifications.id, id));
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(eq(notifications.id, id));
 }
 
 export async function markAllNotificationsRead(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
+  await db
+    .update(notifications)
+    .set({ read: true })
+    .where(eq(notifications.userId, userId));
 }
 
 export async function getUnreadNotificationCount(userId: number) {
   const db = await getDb();
   if (!db) return 0;
-  const result = await db.select({ count: sql<number>`count(*)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(notifications)
+    .where(
+      and(eq(notifications.userId, userId), eq(notifications.read, false))
+    );
   return result[0]?.count || 0;
 }
 
 // ---- Update proposals (edit) ----
-export async function updateDateProposal(id: number, data: { label?: string; startDate?: Date; endDate?: Date }) {
+export async function updateDateProposal(
+  id: number,
+  data: { label?: string; startDate?: Date; endDate?: Date }
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(dateProposals).set(data).where(eq(dateProposals.id, id));
 }
 
-export async function updateDestination(id: number, data: Partial<InsertDestination>) {
+export async function updateDestination(
+  id: number,
+  data: Partial<InsertDestination>
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(destinations).set(data).where(eq(destinations.id, id));
 }
 
-export async function updateAccommodation(id: number, data: Partial<InsertAccommodation>) {
+export async function updateAccommodation(
+  id: number,
+  data: Partial<InsertAccommodation>
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(accommodations).set(data).where(eq(accommodations.id, id));
 }
 
 // ---- Check trip organizer ----
-export async function isTripOrganizer(tripId: number, userId: number): Promise<boolean> {
+export async function isTripOrganizer(
+  tripId: number,
+  userId: number
+): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
-  const trip = await db.select({ organizerId: trips.organizerId }).from(trips).where(eq(trips.id, tripId)).limit(1);
+  const trip = await db
+    .select({ organizerId: trips.organizerId })
+    .from(trips)
+    .where(eq(trips.id, tripId))
+    .limit(1);
   return trip[0]?.organizerId === userId;
 }
 
@@ -546,21 +908,36 @@ export async function isTripOrganizer(tripId: number, userId: number): Promise<b
 export async function createComment(data: InsertProposalComment) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(proposalComments).values(data).returning({ id: proposalComments.id });
+  const [result] = await db
+    .insert(proposalComments)
+    .values(data)
+    .returning({ id: proposalComments.id });
   return result.id;
 }
 
-export async function getComments(proposalType: "date" | "destination" | "accommodation", proposalId: number) {
+export async function getComments(
+  proposalType: "date" | "destination" | "accommodation",
+  proposalId: number
+) {
   const db = await getDb();
   if (!db) return [];
   const comments = await db
     .select()
     .from(proposalComments)
-    .where(and(eq(proposalComments.proposalType, proposalType), eq(proposalComments.proposalId, proposalId)))
+    .where(
+      and(
+        eq(proposalComments.proposalType, proposalType),
+        eq(proposalComments.proposalId, proposalId)
+      )
+    )
     .orderBy(proposalComments.createdAt);
   const enriched = [];
   for (const c of comments) {
-    const user = await db.select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl }).from(users).where(eq(users.id, c.userId)).limit(1);
+    const user = await db
+      .select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl })
+      .from(users)
+      .where(eq(users.id, c.userId))
+      .limit(1);
     enriched.push({ ...c, user: user[0] || null });
   }
   return enriched;
@@ -575,11 +952,17 @@ export async function deleteComment(id: number) {
 export async function getComment(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const [row] = await db.select().from(proposalComments).where(eq(proposalComments.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(proposalComments)
+    .where(eq(proposalComments.id, id))
+    .limit(1);
   return row || null;
 }
 
-export async function getCommentCountsByTrip(tripId: number): Promise<Record<string, number>> {
+export async function getCommentCountsByTrip(
+  tripId: number
+): Promise<Record<string, number>> {
   const db = await getDb();
   if (!db) return {};
   const counts = await db
@@ -602,18 +985,32 @@ export async function getCommentCountsByTrip(tripId: number): Promise<Record<str
 export async function createVibeItem(data: InsertVibeItem) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(vibeItems).values(data).returning({ id: vibeItems.id });
+  const [result] = await db
+    .insert(vibeItems)
+    .values(data)
+    .returning({ id: vibeItems.id });
   return result.id;
 }
 
 export async function getVibeItems(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const items = await db.select().from(vibeItems).where(eq(vibeItems.tripId, tripId)).orderBy(desc(vibeItems.createdAt));
+  const items = await db
+    .select()
+    .from(vibeItems)
+    .where(eq(vibeItems.tripId, tripId))
+    .orderBy(desc(vibeItems.createdAt));
   const enriched = [];
   for (const item of items) {
-    const votes = await db.select().from(vibeVotes).where(eq(vibeVotes.vibeItemId, item.id));
-    const proposer = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, item.proposedBy)).limit(1);
+    const votes = await db
+      .select()
+      .from(vibeVotes)
+      .where(eq(vibeVotes.vibeItemId, item.id));
+    const proposer = await db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(eq(users.id, item.proposedBy))
+      .limit(1);
     enriched.push({ ...item, votes, proposedByUser: proposer[0] || null });
   }
   return enriched;
@@ -629,9 +1026,21 @@ export async function deleteVibeItem(id: number) {
 export async function voteVibeItem(data: InsertVibeVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const existing = await db.select().from(vibeVotes).where(and(eq(vibeVotes.vibeItemId, data.vibeItemId), eq(vibeVotes.userId, data.userId))).limit(1);
+  const existing = await db
+    .select()
+    .from(vibeVotes)
+    .where(
+      and(
+        eq(vibeVotes.vibeItemId, data.vibeItemId),
+        eq(vibeVotes.userId, data.userId)
+      )
+    )
+    .limit(1);
   if (existing.length > 0) {
-    await db.update(vibeVotes).set({ vote: data.vote }).where(eq(vibeVotes.id, existing[0].id));
+    await db
+      .update(vibeVotes)
+      .set({ vote: data.vote })
+      .where(eq(vibeVotes.id, existing[0].id));
     return;
   }
   await db.insert(vibeVotes).values(data);
@@ -640,13 +1049,21 @@ export async function voteVibeItem(data: InsertVibeVote) {
 export async function unvoteVibeItem(vibeItemId: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(vibeVotes).where(and(eq(vibeVotes.vibeItemId, vibeItemId), eq(vibeVotes.userId, userId)));
+  await db
+    .delete(vibeVotes)
+    .where(
+      and(eq(vibeVotes.vibeItemId, vibeItemId), eq(vibeVotes.userId, userId))
+    );
 }
 
 export async function getVibeItem(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const [row] = await db.select().from(vibeItems).where(eq(vibeItems.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(vibeItems)
+    .where(eq(vibeItems.id, id))
+    .limit(1);
   return row || null;
 }
 
@@ -654,13 +1071,25 @@ export async function getVibeItem(id: number) {
 export async function getItineraryDays(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const days = await db.select().from(itineraryDays).where(eq(itineraryDays.tripId, tripId)).orderBy(itineraryDays.date, itineraryDays.sortOrder);
+  const days = await db
+    .select()
+    .from(itineraryDays)
+    .where(eq(itineraryDays.tripId, tripId))
+    .orderBy(itineraryDays.date, itineraryDays.sortOrder);
   const enriched = [];
   for (const day of days) {
-    const items = await db.select().from(itineraryItems).where(eq(itineraryItems.dayId, day.id)).orderBy(itineraryItems.sortOrder, itineraryItems.time);
+    const items = await db
+      .select()
+      .from(itineraryItems)
+      .where(eq(itineraryItems.dayId, day.id))
+      .orderBy(itineraryItems.sortOrder, itineraryItems.time);
     const itemsWithUsers = [];
     for (const item of items) {
-      const adder = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, item.addedBy)).limit(1);
+      const adder = await db
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .where(eq(users.id, item.addedBy))
+        .limit(1);
       itemsWithUsers.push({ ...item, addedByUser: adder[0] || null });
     }
     enriched.push({ ...day, items: itemsWithUsers });
@@ -671,11 +1100,17 @@ export async function getItineraryDays(tripId: number) {
 export async function createItineraryDay(data: InsertItineraryDay) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(itineraryDays).values(data).returning({ id: itineraryDays.id });
+  const [result] = await db
+    .insert(itineraryDays)
+    .values(data)
+    .returning({ id: itineraryDays.id });
   return result.id;
 }
 
-export async function updateItineraryDay(id: number, data: Partial<{ title: string; notes: string }>) {
+export async function updateItineraryDay(
+  id: number,
+  data: Partial<{ title: string; notes: string }>
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(itineraryDays).set(data).where(eq(itineraryDays.id, id));
@@ -691,7 +1126,10 @@ export async function deleteItineraryDay(id: number) {
 export async function addItineraryItem(data: InsertItineraryItem) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(itineraryItems).values(data).returning({ id: itineraryItems.id });
+  const [result] = await db
+    .insert(itineraryItems)
+    .values(data)
+    .returning({ id: itineraryItems.id });
   return result.id;
 }
 
@@ -704,22 +1142,37 @@ export async function deleteItineraryItem(id: number) {
 export async function getItineraryDay(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const [row] = await db.select().from(itineraryDays).where(eq(itineraryDays.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(itineraryDays)
+    .where(eq(itineraryDays.id, id))
+    .limit(1);
   return row || null;
 }
 
 export async function getItineraryItem(id: number) {
   const db = await getDb();
   if (!db) return null;
-  const [row] = await db.select().from(itineraryItems).where(eq(itineraryItems.id, id)).limit(1);
+  const [row] = await db
+    .select()
+    .from(itineraryItems)
+    .where(eq(itineraryItems.id, id))
+    .limit(1);
   return row || null;
 }
 
-export async function saveAccommodationMatchAnalysis(id: number, analysis: object) {
+export async function saveAccommodationMatchAnalysis(
+  id: number,
+  analysis: object
+) {
   const db = await getDb();
   if (!db) return;
-  await db.update(accommodations)
-    .set({ matchAnalysis: JSON.stringify(analysis), matchAnalysedAt: new Date() })
+  await db
+    .update(accommodations)
+    .set({
+      matchAnalysis: JSON.stringify(analysis),
+      matchAnalysedAt: new Date(),
+    })
     .where(eq(accommodations.id, id));
 }
 
@@ -739,16 +1192,20 @@ export async function saveTripPreferences(data: {
     avoids: data.avoids,
     openComments: data.openComments,
   });
-  const existing = await db.select()
+  const existing = await db
+    .select()
     .from(memberPreferences)
-    .where(and(
-      eq(memberPreferences.tripId, data.tripId),
-      eq(memberPreferences.userId, data.userId),
-      eq(memberPreferences.category, "general"),
-    ))
+    .where(
+      and(
+        eq(memberPreferences.tripId, data.tripId),
+        eq(memberPreferences.userId, data.userId),
+        eq(memberPreferences.category, "general")
+      )
+    )
     .limit(1);
   if (existing.length) {
-    await db.update(memberPreferences)
+    await db
+      .update(memberPreferences)
       .set({ rawText, attributes: rawText, updatedAt: new Date() })
       .where(eq(memberPreferences.id, existing[0].id));
   } else {
@@ -765,13 +1222,16 @@ export async function saveTripPreferences(data: {
 export async function getMyTripPreferences(tripId: number, userId: number) {
   const db = await getDb();
   if (!db) return null;
-  const [row] = await db.select()
+  const [row] = await db
+    .select()
     .from(memberPreferences)
-    .where(and(
-      eq(memberPreferences.tripId, tripId),
-      eq(memberPreferences.userId, userId),
-      eq(memberPreferences.category, "general"),
-    ))
+    .where(
+      and(
+        eq(memberPreferences.tripId, tripId),
+        eq(memberPreferences.userId, userId),
+        eq(memberPreferences.category, "general")
+      )
+    )
     .limit(1);
   if (!row) return null;
   try {
@@ -789,27 +1249,33 @@ export async function getMyTripPreferences(tripId: number, userId: number) {
 export async function getAllTripPreferences(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({
-    id: memberPreferences.id,
-    userId: memberPreferences.userId,
-    rawText: memberPreferences.rawText,
-    updatedAt: memberPreferences.updatedAt,
-  })
+  return db
+    .select({
+      id: memberPreferences.id,
+      userId: memberPreferences.userId,
+      rawText: memberPreferences.rawText,
+      updatedAt: memberPreferences.updatedAt,
+    })
     .from(memberPreferences)
-    .where(and(
-      eq(memberPreferences.tripId, tripId),
-      eq(memberPreferences.category, "general"),
-    ));
+    .where(
+      and(
+        eq(memberPreferences.tripId, tripId),
+        eq(memberPreferences.category, "general")
+      )
+    );
 }
 
 export async function countTripPreferences(tripId: number): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
-  const rows = await db.select({ id: memberPreferences.id })
+  const rows = await db
+    .select({ id: memberPreferences.id })
     .from(memberPreferences)
-    .where(and(
-      eq(memberPreferences.tripId, tripId),
-      eq(memberPreferences.category, "general"),
-    ));
+    .where(
+      and(
+        eq(memberPreferences.tripId, tripId),
+        eq(memberPreferences.category, "general")
+      )
+    );
   return rows.length;
 }
