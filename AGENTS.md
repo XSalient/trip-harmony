@@ -96,7 +96,14 @@ tracker to consult:
 | ----------------------------- | --------------------------------- |
 | What's the current state?     | `docs/PROJECT_STATUS.md`          |
 | What's next?                  | `docs/ROADMAP.md`                 |
+| What's being built right now? | `docs/product/`                   |
 | What changed and when?        | `docs/CHANGELOG.md`               |
 | Why is it built this way?     | `docs/adr/`                       |
 | How do I run/deploy/debug it? | `docs/runbooks/`                  |
 | What is the stack?            | `docs/architecture/tech-stack.md` |
+
+This file is the instructions. `CLAUDE.md`, `GEMINI.md`,
+`.github/copilot-instructions.md`, `.cursor/rules/project.mdc`, `.windsurfrules`
+and `.clinerules` are pointers back to it — they repeat only the handful of rules
+above that are expensive to violate. Never copy this file into them; see
+`docs/product/ai-rules.md`.

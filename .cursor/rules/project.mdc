@@ -22,3 +22,7 @@ Do not read `pnpm-lock.yaml`, `client/src/components/ui/**`, `attached_assets/`,
 `docs/archive/**`, or `client/src/pages/ComponentShowcase.tsx` — they are large and
 carry no signal. Use `docs/architecture/repo-map.md` to locate code instead of
 searching broadly.
+
+Work that is planned but not yet built lives in `docs/product/` — epics, user
+stories with acceptance criteria, and a progress tracker. Start there before
+implementing anything from a feature request.

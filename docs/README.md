@@ -10,6 +10,7 @@ committed to git. There is no external wiki or tracker.
 | Run the app locally                   | [runbooks/local-setup.md](runbooks/local-setup.md)                                                      |
 | Know what's done and what's in flight | [PROJECT_STATUS.md](PROJECT_STATUS.md)                                                                  |
 | Know what's planned                   | [ROADMAP.md](ROADMAP.md)                                                                                |
+| See the spec for work in flight       | [product/](product/)                                                                                    |
 | See what changed                      | [CHANGELOG.md](CHANGELOG.md)                                                                            |
 | Understand the system                 | [architecture/README.md](architecture/README.md)                                                        |
 | Find a file                           | [architecture/repo-map.md](architecture/repo-map.md)                                                    |
@@ -29,6 +30,9 @@ AI agents: read [../AGENTS.md](../AGENTS.md) first.
 - **PROJECT_STATUS.md** is updated at the end of every substantial piece of work.
   It is the answer to "where is this project?" — treat a stale status file as a bug.
 - **CHANGELOG.md** gets an entry for anything user-visible.
+- **product/** holds the specification for agreed-but-unbuilt work: epics, user
+  stories with acceptance criteria, and a progress tracker updated in the same
+  commit as the code. An epic moves to the changelog when it ships.
 - **ADRs** are append-only. To reverse a decision, add a new ADR that supersedes
   the old one; never edit history.
 - **Runbooks** are updated when the procedure they describe changes — a runbook

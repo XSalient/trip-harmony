@@ -1,0 +1,25 @@
+Read AGENTS.md at the repository root before making changes. It is the single set
+of instructions for every AI tool working here and is deliberately short — read it
+in full rather than exploring the codebase.
+
+Repeated here because they are the expensive ones to get wrong:
+
+- All server configuration lives in server/_core/env.ts. Never read process.env
+  anywhere else on the server.
+- Log through server/_core/logger.ts, never console.*. Logs are JSON and
+  secret-redacted; console.log bypasses both.
+- One domain per file in server/routers/; register a new one in
+  server/routers/index.ts. Do not reintroduce a single large router.
+- Never return credential columns to a client — project user rows through
+  toPublicUser() in server/routers/_shared.ts.
+- Never commit a secret. Doppler locally, Vercel env vars when deployed.
+- Run `pnpm verify` (typecheck + tests + build) before claiming work is complete.
+- Update docs/PROJECT_STATUS.md and docs/CHANGELOG.md when you finish a piece of
+  work.
+
+Use docs/architecture/repo-map.md to locate code instead of searching broadly.
+Work that is planned but not yet built lives in docs/product/.
+
+Do not read pnpm-lock.yaml, client/src/components/ui/**, attached_assets/,
+docs/archive/**, or client/src/pages/ComponentShowcase.tsx — they are large and
+carry no signal.

@@ -59,6 +59,26 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 
 ---
 
+## In flight — trip experience overhaul
+
+Specified in [product/](product/); tracked story by story in
+[product/progress.md](product/progress.md). Delivery order is E1 → E2 → E4 → E6 →
+E3 → E5 → E7 → E8, and the order matters — E2 builds the permission model the
+rest check against.
+
+- [ ] **E1** — Remove Travel DNA, including dropping the table
+- [ ] **E2** — Members, roles (Admin / Tripmate / Watcher), invite tracking, contact book
+- [ ] **E3** — Activity trail, proposal attribution, who-voted-when
+- [ ] **E4** — AI runs only when asked; match analysis stops firing itself
+- [ ] **E5** — Trip page restructure: summary, collapsible sections, new order
+- [ ] **E6** — Finalising proposals: one locked date, many locked places and stays
+- [ ] **E7** — Edit trip name and description; preferences summary
+- [ ] **E8** — Add-proposal buttons route to the detail screen
+
+Three items already on this roadmap are absorbed by that work: "Close the
+authorisation gap" below is E2.1, "Rate-limit auth and AI endpoints" under Later
+is partly E4.4, and "Organizer controls: unlock finalised selections" is E6.2.
+
 ## Next — highest value first
 
 ### 1. Deploy
