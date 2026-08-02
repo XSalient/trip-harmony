@@ -47,6 +47,14 @@ export const refereeRouter = router({
         };
       }
 
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "ai.referee_run",
+        entityType: "trip",
+        entityId: input.tripId,
+      });
+
       const trip = await db.getTrip(input.tripId);
       const members = await db.getTripMembers(input.tripId);
       const allPrefs = await db.getAllTripPreferences(input.tripId);

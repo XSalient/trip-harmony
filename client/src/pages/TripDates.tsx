@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
+import AddedBy from "@/components/trip/AddedBy";
+import VotedCount from "@/components/trip/VotedCount";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -651,9 +653,15 @@ export default function TripDates() {
                       <span className="text-red-500 font-medium">
                         {unavailable} can't
                       </span>
-                      <span className="text-muted-foreground ml-auto">
-                        {totalVotes}/{memberCount} voted
-                      </span>
+                      <VotedCount
+                        className="ml-auto"
+                        tripId={tripId}
+                        proposalType="date"
+                        proposalId={p.id}
+                        votedCount={totalVotes}
+                        memberCount={memberCount}
+                        canSeeDetail={myRole?.role !== "watcher"}
+                      />
                     </div>
 
                     {totalVotes > 0 && (
@@ -721,11 +729,14 @@ export default function TripDates() {
                       </div>
                     )}
 
-                    <FinalisedBy
-                      proposal={p}
-                      members={members}
-                      currentUserId={user?.id}
-                    />
+                    <div className="mt-2 space-y-0.5">
+                      <AddedBy proposal={p} currentUserId={user?.id} />
+                      <FinalisedBy
+                        proposal={p}
+                        members={members}
+                        currentUserId={user?.id}
+                      />
+                    </div>
 
                     {isAdmin && !p.selected && (
                       <Button

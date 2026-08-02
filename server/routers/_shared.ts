@@ -113,6 +113,7 @@ export async function tripRoleOf(
 export function projectProposalForRole<
   T extends {
     proposedBy?: number;
+    proposer?: unknown;
     createdAt?: Date | string;
     lockedBy?: number | null;
     lockedAt?: Date | string | null;
@@ -122,8 +123,15 @@ export function projectProposalForRole<
   if (canSeeMemberDetails(role)) return proposal;
   // `selected` stays: a watcher should see that a decision was made. Who made
   // it, and when, is attribution and goes with the rest.
-  const { proposedBy, createdAt, lockedBy, lockedAt, votes, ...rest } =
-    proposal;
+  const {
+    proposedBy,
+    proposer,
+    createdAt,
+    lockedBy,
+    lockedAt,
+    votes,
+    ...rest
+  } = proposal;
   return {
     ...rest,
     // Keep the shape the client expects — a list of the right length whose
@@ -135,6 +143,7 @@ export function projectProposalForRole<
 export function projectProposalsForRole<
   T extends {
     proposedBy?: number;
+    proposer?: unknown;
     createdAt?: Date | string;
     lockedBy?: number | null;
     lockedAt?: Date | string | null;

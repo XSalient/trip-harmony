@@ -33,6 +33,11 @@ export const preferencesRouter = router({
         avoids: input.avoids,
         openComments: input.openComments,
       });
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "preferences.saved",
+      });
       // Saving preferences used to re-analyse every accommodation in the trip,
       // so a six-member group filling in a form spent six full passes over the
       // same stays. The accommodations screen now marks results older than this

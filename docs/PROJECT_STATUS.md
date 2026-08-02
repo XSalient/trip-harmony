@@ -11,7 +11,7 @@ finish a piece of work — the next person (or agent) starts here.
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
   The trip experience overhaul is in flight — see [product/](product/) for the
   eight epics and [product/progress.md](product/progress.md) for what has landed.
-- **Health:** typecheck ✅ · 193 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 208 tests ✅ · production build ✅ · dev server ✅
   (2026-08-02, after E1, E2 and E4: all four migrations applied to a real
   Postgres, then admin creates a trip → invites a Watcher by email → Watcher
   accepts and is correctly restricted, walked in a real browser with the API
@@ -109,7 +109,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 193 tests are server-side. Page components are
+1. **No frontend tests.** All 208 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.

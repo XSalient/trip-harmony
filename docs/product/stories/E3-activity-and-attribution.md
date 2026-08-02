@@ -1,7 +1,7 @@
 # E3 — Activity trail and attribution
 
 - **Covers request items:** 4, 5
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E2 (watcher projections), E6 (lock events to record)
 
 ## Why
@@ -22,17 +22,17 @@ reaches the screen.
 
 **Acceptance criteria**
 
-- [ ] `activityEvents` table exists and is written on: proposal added, edited,
+- [x] `activityEvents` table exists and is written on: proposal added, edited,
       deleted, locked, unlocked; vote cast, changed, withdrawn; comment added,
       deleted; member invited, joined, declined, removed, role changed; trip
       details edited; AI run triggered.
-- [ ] Every write records actor, trip, action, entity type, entity id, a UTC
+- [x] Every write records actor, trip, action, entity type, entity id, a UTC
       timestamp, and a small metadata object (e.g. the vote value).
-- [ ] Writing an event never fails the user's action — a broken trail is a
+- [x] Writing an event never fails the user's action — a broken trail is a
       logged warning, not a 500.
-- [ ] The event list is queryable per trip, newest first, paginated.
-- [ ] Watchers get an empty list.
-- [ ] Deleting a proposal leaves its events intact.
+- [x] The event list is queryable per trip, newest first, paginated.
+- [x] Watchers get an empty list.
+- [x] Deleting a proposal leaves its events intact.
 
 **Touches**
 
@@ -62,11 +62,11 @@ building one now.
 
 **Acceptance criteria**
 
-- [ ] Each proposal on the dates, places and accommodations detail screens shows
+- [x] Each proposal on the dates, places and accommodations detail screens shows
       "Added by <name> · <relative time>".
-- [ ] The name resolves for the current user as "You".
-- [ ] A watcher sees neither the name nor the time.
-- [ ] A locked proposal also shows who finalised it and when (from E6).
+- [x] The name resolves for the current user as "You".
+- [x] A watcher sees neither the name nor the time.
+- [x] A locked proposal also shows who finalised it and when (from E6).
 
 **Touches**
 
@@ -87,14 +87,14 @@ names in memory; they are all in the same trip.
 
 **Acceptance criteria**
 
-- [ ] `x/x voted` is a control, not static text.
-- [ ] Activating it lists every member with their vote and the time they cast it,
+- [x] `x/x voted` is a control, not static text.
+- [x] Activating it lists every member with their vote and the time they cast it,
       and lists members who have not voted.
-- [ ] Available to admins and tripmates. Watchers see the count only, and the
+- [x] Available to admins and tripmates. Watchers see the count only, and the
       count is not a control for them.
-- [ ] A vote changed after it was first cast shows the time it was **changed**,
+- [x] A vote changed after it was first cast shows the time it was **changed**,
       not the time it was first cast.
-- [ ] Works on the dates, places and accommodations detail screens.
+- [x] Works on the dates, places and accommodations detail screens.
 
 **Touches**
 
@@ -119,11 +119,11 @@ the vote authors — no new query.
 
 **Acceptance criteria**
 
-- [ ] The places detail screen shows `x/x voted` per proposal.
-- [ ] The accommodations detail screen shows `x/x voted` per proposal.
-- [ ] The denominator is accepted members, matching the dashboard's existing
+- [x] The places detail screen shows `x/x voted` per proposal.
+- [x] The accommodations detail screen shows `x/x voted` per proposal.
+- [x] The denominator is accepted members, matching the dashboard's existing
       count.
-- [ ] Both are the E3.3 control, not static text.
+- [x] Both are the E3.3 control, not static text.
 
 **Touches**
 
@@ -138,10 +138,28 @@ E3.3 turn all four into the same control.
 
 ## Open questions
 
-- Where does the activity trail surface? This epic makes it queryable and correct.
-  A dedicated trip activity view is not specified in the request; the natural home
-  is the members page or a tab on the trip. Decide before building E3.1's read
-  path.
+- **Where does the activity trail surface?** **Answered: nowhere, as a feed.**
+  The owner's call: store everything, show it only where showing it makes sense,
+  and keep it as unobtrusive side information. So there is no activity view.
+  What reaches a screen is "Added by … · date" beneath a proposal, and the
+  who-voted-when breakdown behind `x/x voted`. `getTripActivity` exists and is
+  correct; nothing calls it yet, deliberately.
+
+**Found during implementation**
+
+- **The first vote on a proposal was recorded as `vote.changed`.** Creating a
+  proposal already casts the author's own vote ("proposing is itself a vote"),
+  but that implicit vote was never recorded — so the trail showed a change from
+  a vote that, as far as the history went, never happened. All three create
+  paths now record it as `vote.cast` with `implicit: true`. **Caught by reading
+  the actual rows, not by any test** — every unit assertion passed while the
+  story the table told was wrong.
+- The three proposal listings were N+1: a query per proposal for its votes, plus
+  one per vote for the voter's name. Adding the proposer would have made it
+  worse, so they now fetch votes in one `inArray` query and resolve every name
+  through a single `namesByUserId` lookup.
+- `TripDestinations` and `TripAccommodations` had no accepted-member count, so
+  the new `x/x voted` had no denominator. Added to both.
 
 ## Out of scope
 

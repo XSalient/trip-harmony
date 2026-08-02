@@ -36,6 +36,13 @@
       "when": 1785680658018,
       "tag": "0004_lock_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785693567143,
+      "tag": "0005_activity_and_vote_times",
+      "breakpoints": true
     }
   ]
 }

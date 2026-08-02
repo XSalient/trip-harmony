@@ -68,7 +68,7 @@ rest check against.
 
 - [x] **E1** — Remove Travel DNA, including dropping the table
 - [x] **E2** — Members, roles (Admin / Tripmate / Watcher), invite tracking, contact book
-- [ ] **E3** — Activity trail, proposal attribution, who-voted-when
+- [x] **E3** — Activity trail, proposal attribution, who-voted-when
 - [x] **E4** — AI runs only when asked; match analysis stops firing itself
 - [ ] **E5** — Trip page restructure: summary, collapsible sections, new order
 - [x] **E6** — Finalising proposals: one locked date, many locked places and stays

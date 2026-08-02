@@ -27,7 +27,7 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | --- | -------------------------------------------------------------------------------- | ------------- | ----------- |
 | E1  | [Remove Travel DNA](stories/E1-remove-travel-dna.md)                             | 1             | Done        |
 | E2  | [Members, roles and the contact book](stories/E2-members-and-roles.md)           | 2, 3          | Done        |
-| E3  | [Activity trail and attribution](stories/E3-activity-and-attribution.md)         | 4, 5          | Not started |
+| E3  | [Activity trail and attribution](stories/E3-activity-and-attribution.md)         | 4, 5          | Done        |
 | E4  | [AI runs only when asked](stories/E4-ai-runs-on-request-only.md)                 | 6, 7          | Done        |
 | E5  | [Trip page restructure](stories/E5-trip-page-restructure.md)                     | 8, 10, 11, 14 | Not started |
 | E6  | [Finalising proposals](stories/E6-finalising-proposals.md)                       | 9, 16         | Done        |
@@ -47,10 +47,10 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E2.4 | Members page                                            | Done        | `…kzsuz3` | 2026-08-02 |
 | E2.5 | Invite by email and track acceptance                    | Done        | `…kzsuz3` | 2026-08-02 |
 | E2.6 | Contact book                                            | Done        | `…kzsuz3` | 2026-08-02 |
-| E3.1 | Every trip action is recorded                           | Not started |           |            |
-| E3.2 | Proposal shows who added it and when                    | Not started |           |            |
-| E3.3 | Who voted and when                                      | Not started |           |            |
-| E3.4 | `x/x voted` on places and accommodations detail screens | Not started |           |            |
+| E3.1 | Every trip action is recorded                           | Done        | `…kzsuz3` | 2026-08-02 |
+| E3.2 | Proposal shows who added it and when                    | Done        | `…kzsuz3` | 2026-08-02 |
+| E3.3 | Who voted and when                                      | Done        | `…kzsuz3` | 2026-08-02 |
+| E3.4 | `x/x voted` on places and accommodations detail screens | Done        | `…kzsuz3` | 2026-08-02 |
 | E4.1 | Adding a stay or saving preferences triggers no AI      | Done        | `…kzsuz3` | 2026-08-02 |
 | E4.2 | Stale match results are labelled                        | Done        | `…kzsuz3` | 2026-08-02 |
 | E4.3 | Admin chooses when match analysis runs                  | Done        | `…kzsuz3` | 2026-08-02 |
@@ -72,23 +72,20 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 
 Answer these as they come up; they block the story named beside each.
 
-| #   | Question                                                          | Blocks | Answer                                 |
-| --- | ----------------------------------------------------------------- | ------ | -------------------------------------- |
-| Q1  | Do watchers see the AI Referee feed?                              | E2.3   | No — hidden entirely                   |
-| Q2  | Do all existing trip members become tripmates on migration?       | E2.2   | Yes — organizer→admin, member→tripmate |
-| Q3  | What does a section header say when several proposals are locked? | E6.1   | "2 finalised"; dates keep "Decided"    |
-| Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   | No — declined at scoping               |
-| Q5  | Where does the activity trail surface in the UI?                  | E3.1   |                                        |
-| Q6  | Do sections default to collapsed or expanded on first visit?      | E5.3   |                                        |
+| #   | Question                                                          | Blocks | Answer                                  |
+| --- | ----------------------------------------------------------------- | ------ | --------------------------------------- |
+| Q1  | Do watchers see the AI Referee feed?                              | E2.3   | No — hidden entirely                    |
+| Q2  | Do all existing trip members become tripmates on migration?       | E2.2   | Yes — organizer→admin, member→tripmate  |
+| Q3  | What does a section header say when several proposals are locked? | E6.1   | "2 finalised"; dates keep "Decided"     |
+| Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   | No — declined at scoping                |
+| Q5  | Where does the activity trail surface in the UI?                  | E3.1   | Nowhere as a feed; quiet side info only |
+| Q6  | Do sections default to collapsed or expanded on first visit?      | E5.3   |                                         |
 
 ## Notes for whoever picks this up
 
-- **Two deferred criteria, both waiting on E3.** E4.3's "record each trigger in
-  the activity trail" and E6.3's "record locking and unlocking" need the
-  `activityEvents` table. Pick both up with E3.1.
-- **E4.3 has one deferred criterion.** "Every trigger is recorded in the activity
-  trail as `ai.match_refreshed`" needs E3, which has not been built. Pick it up
-  with E3.1; everything else in E4 is done.
+- ~~Two deferred criteria waiting on E3~~ — both delivered with E3:
+  `ai.match_refreshed` (E4.3) and `proposal.locked` / `proposal.unlocked`
+  (E6.3) are recorded.
 
 - ~~Two live authorisation holes~~ — both closed by E2: `trips.update` now
   requires admin (it previously checked nothing at all), and

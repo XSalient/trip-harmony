@@ -68,19 +68,19 @@ open only its domain file.
 
 ## `client/` — SPA
 
-| Path                              | What it is                                                                |
-| --------------------------------- | ------------------------------------------------------------------------- |
-| `src/main.tsx`                    | Entry: tRPC client, React Query, providers                                |
-| `src/App.tsx`                     | Route table                                                               |
-| `src/pages/*.tsx`                 | One file per screen — the bulk of the UI                                  |
-| `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …) |
-| `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**      |
-| `src/lib/trpc.ts`                 | Typed tRPC React client                                                   |
-| `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                       |
-| `src/components/trip/`            | Shared trip UI (`FinalisedBy`) used by the proposal screens               |
-| `src/_core/hooks/useAuth.ts`      | Session hook                                                              |
-| `src/contexts/ThemeContext.tsx`   | Dark mode                                                                 |
-| `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                    |
+| Path                              | What it is                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| `src/main.tsx`                    | Entry: tRPC client, React Query, providers                                       |
+| `src/App.tsx`                     | Route table                                                                      |
+| `src/pages/*.tsx`                 | One file per screen — the bulk of the UI                                         |
+| `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …)        |
+| `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**             |
+| `src/lib/trpc.ts`                 | Typed tRPC React client                                                          |
+| `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                              |
+| `src/components/trip/`            | Shared trip UI (`FinalisedBy`, `AddedBy`, `VotedCount`) for the proposal screens |
+| `src/_core/hooks/useAuth.ts`      | Session hook                                                                     |
+| `src/contexts/ThemeContext.tsx`   | Dark mode                                                                        |
+| `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                           |
 
 Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub),
 `TripAccommodations.tsx` (810 lines — the most complex screen) and

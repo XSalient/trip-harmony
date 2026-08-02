@@ -138,6 +138,24 @@ export const accommodationsRouter = router({
         userId: ctx.user.id,
         vote: "love",
       });
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.created",
+        entityType: "accommodation",
+        entityId: id,
+        metadata: { name: input.name },
+      });
+      // Adding a stay counted as a vote a few lines up; record it, or the trail
+      // shows a later `vote.changed` with no vote before it.
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "vote.cast",
+        entityType: "accommodation",
+        entityId: id,
+        metadata: { vote: "love", implicit: true },
+      });
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
           await db.createNotification({
@@ -169,10 +187,22 @@ export const accommodationsRouter = router({
           message: "Accommodation not found.",
         });
       await requireTripRole(accommodation.tripId, ctx.user.id, "tripmate");
+      const had = await db.getMyAccommodationVote(
+        input.accommodationId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: input.accommodationId,
         userId: ctx.user.id,
         vote: input.vote,
+      });
+      await db.recordActivity({
+        tripId: accommodation.tripId,
+        actorUserId: ctx.user.id,
+        action: had ? "vote.changed" : "vote.cast",
+        entityType: "accommodation",
+        entityId: input.accommodationId,
+        metadata: { vote: input.vote, from: had?.vote ?? null },
       });
       return { success: true };
     }),
@@ -191,6 +221,13 @@ export const accommodationsRouter = router({
         });
       await requireTripRole(accommodation.tripId, ctx.user.id, "tripmate");
       await db.unvoteAccommodation(input.accommodationId, ctx.user.id);
+      await db.recordActivity({
+        tripId: accommodation.tripId,
+        actorUserId: ctx.user.id,
+        action: "vote.withdrawn",
+        entityType: "accommodation",
+        entityId: input.accommodationId,
+      });
       return { success: true };
     }),
   /**
@@ -212,6 +249,14 @@ export const accommodationsRouter = router({
         input.locked,
         ctx.user.id
       );
+      await db.recordActivity({
+        tripId: accommodation.tripId,
+        actorUserId: ctx.user.id,
+        action: input.locked ? "proposal.locked" : "proposal.unlocked",
+        entityType: "accommodation",
+        entityId: input.accommodationId,
+        metadata: { name: accommodation.name },
+      });
       return { success: true };
     }),
   /** Clear every finalised accommodation on the trip. */
@@ -220,6 +265,12 @@ export const accommodationsRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.unlockAccommodations(input.tripId);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.unlocked",
+        entityType: "accommodation",
+      });
       return { success: true };
     }),
   delete: protectedProcedure
@@ -239,6 +290,14 @@ export const accommodationsRouter = router({
           message:
             "Only the person who proposed this, or an admin, can remove it.",
         });
+      await db.recordActivity({
+        tripId: accommodation.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.deleted",
+        entityType: "accommodation",
+        entityId: input.id,
+        metadata: { name: accommodation.name },
+      });
       await db.deleteAccommodation(input.id);
       return { success: true };
     }),
@@ -303,6 +362,13 @@ export const accommodationsRouter = router({
         });
       markAnalysisRunning(input.accommodationId);
       try {
+        await db.recordActivity({
+          tripId,
+          actorUserId: ctx.user.id,
+          action: "ai.match_refreshed",
+          entityType: "accommodation",
+          entityId: input.accommodationId,
+        });
         await runAccommodationMatchAnalysis(input.accommodationId, tripId);
       } finally {
         markAnalysisDone(input.accommodationId);
@@ -324,6 +390,14 @@ export const accommodationsRouter = router({
         });
       markAnalysisRunning(tripKey(input.tripId));
       try {
+        await db.recordActivity({
+          tripId: input.tripId,
+          actorUserId: ctx.user.id,
+          action: "ai.match_refreshed",
+          entityType: "trip",
+          entityId: input.tripId,
+          metadata: { scope: "all" },
+        });
         const analysed = await runTripMatchAnalyses(input.tripId);
         return { analysed };
       } finally {

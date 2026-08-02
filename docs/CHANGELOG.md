@@ -8,6 +8,41 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — A trip remembers what happened
+
+### Added
+
+- **Every action on a trip is recorded** — proposals created, edited, deleted,
+  finalised and un-finalised; votes cast, changed and withdrawn; comments;
+  members invited, joined, declined, removed and re-roled; trip edits;
+  preference saves; and each AI run. Recording never fails the thing you
+  actually asked for: it logs and moves on.
+
+  There is **no activity feed**, deliberately. The history is there so questions
+  asked later have an answer; what reaches a screen is only what earns its place.
+
+- **"Added by … · date" beneath a proposal**, on the dates, places and
+  accommodations screens — quiet side information in the same register as
+  "Finalised by …", not a headline.
+- **`x/x voted` now opens the answer.** Who voted, what they chose, when — and
+  who is still to vote, which is the question people actually have. Admins and
+  tripmates only; a watcher keeps the count as plain text.
+- **Places and accommodations show `x/x voted` at all.** The dashboard and the
+  dates screen had it; those two never did.
+
+### Fixed
+
+- **A changed vote reported the wrong time.** Re-voting updated the row but left
+  `createdAt` at the original vote, so "when did they decide this?" answered
+  with the moment they first made up their mind, not the moment they changed it.
+  Vote rows now carry `updatedAt`, set on every change; existing rows were
+  backfilled from `createdAt` rather than stamped with the migration time.
+- **The three proposal listings were N+1** — a query per proposal for its votes,
+  then one per vote for the voter's name. They now fetch votes in one query and
+  resolve every name in one more.
+
+---
+
 ## 2026-08-02 — Closed the database to the public API key
 
 ### Security

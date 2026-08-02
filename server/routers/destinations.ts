@@ -51,6 +51,24 @@ export const destinationsRouter = router({
         userId: ctx.user.id,
         vote: "love",
       });
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.created",
+        entityType: "destination",
+        entityId: id,
+        metadata: { name: input.name },
+      });
+      // Suggesting counted as a vote a few lines up; record it, or the trail
+      // shows a later `vote.changed` with no vote before it.
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "vote.cast",
+        entityType: "destination",
+        entityId: id,
+        metadata: { vote: "love", implicit: true },
+      });
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
@@ -77,10 +95,22 @@ export const destinationsRouter = router({
       if (!destination)
         throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
       await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
+      const had = await db.getMyDestinationVote(
+        input.destinationId,
+        ctx.user.id
+      );
       await db.voteDestination({
         destinationId: input.destinationId,
         userId: ctx.user.id,
         vote: input.vote,
+      });
+      await db.recordActivity({
+        tripId: destination.tripId,
+        actorUserId: ctx.user.id,
+        action: had ? "vote.changed" : "vote.cast",
+        entityType: "destination",
+        entityId: input.destinationId,
+        metadata: { vote: input.vote, from: had?.vote ?? null },
       });
       return { success: true };
     }),
@@ -96,6 +126,13 @@ export const destinationsRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
       await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
       await db.unvoteDestination(input.destinationId, ctx.user.id);
+      await db.recordActivity({
+        tripId: destination.tripId,
+        actorUserId: ctx.user.id,
+        action: "vote.withdrawn",
+        entityType: "destination",
+        entityId: input.destinationId,
+      });
       return { success: true };
     }),
   /**
@@ -115,6 +152,14 @@ export const destinationsRouter = router({
         input.locked,
         ctx.user.id
       );
+      await db.recordActivity({
+        tripId: destination.tripId,
+        actorUserId: ctx.user.id,
+        action: input.locked ? "proposal.locked" : "proposal.unlocked",
+        entityType: "destination",
+        entityId: input.destinationId,
+        metadata: { name: destination.name },
+      });
       return { success: true };
     }),
   /** Clear every finalised place on the trip. */
@@ -123,6 +168,12 @@ export const destinationsRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.unlockDestinations(input.tripId);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.unlocked",
+        entityType: "destination",
+      });
       return { success: true };
     }),
   delete: protectedProcedure
@@ -139,6 +190,14 @@ export const destinationsRouter = router({
           message:
             "Only the person who proposed this, or an admin, can remove it.",
         });
+      await db.recordActivity({
+        tripId: destination.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.deleted",
+        entityType: "destination",
+        entityId: input.id,
+        metadata: { name: destination.name },
+      });
       await db.deleteDestination(input.id);
       return { success: true };
     }),

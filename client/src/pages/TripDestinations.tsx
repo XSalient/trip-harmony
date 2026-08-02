@@ -10,6 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
+import AddedBy from "@/components/trip/AddedBy";
+import VotedCount from "@/components/trip/VotedCount";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -290,6 +292,13 @@ export default function TripDestinations() {
     );
   }, [destinations]);
 
+  // Denominator for "x/x voted" — accepted members only, matching how the
+  // dashboard counts.
+  const memberCount = useMemo(
+    () => members?.filter((m: any) => m.status === "accepted").length || 0,
+    [members]
+  );
+
   // A trip can finalise several places — Barcelona *and* Girona. This was a
   // `find()` back when the database cleared every other row before setting one,
   // which made every finalised place but one invisible.
@@ -538,7 +547,7 @@ export default function TripDestinations() {
                       </div>
                     )}
 
-                    <div className="flex gap-4 text-xs mb-3">
+                    <div className="flex gap-4 text-xs mb-3 items-center">
                       <span className="text-pink-600 font-medium flex items-center gap-1">
                         <Heart className="h-3 w-3" /> {loves}
                       </span>
@@ -548,6 +557,15 @@ export default function TripDestinations() {
                       <span className="text-red-500 font-medium flex items-center gap-1">
                         <Ban className="h-3 w-3" /> {vetos}
                       </span>
+                      <VotedCount
+                        className="ml-auto"
+                        tripId={tripId}
+                        proposalType="destination"
+                        proposalId={dest.id}
+                        votedCount={dest.votes?.length || 0}
+                        memberCount={memberCount}
+                        canSeeDetail={myRole?.role !== "watcher"}
+                      />
                     </div>
 
                     {!dest.selected && (
@@ -588,11 +606,14 @@ export default function TripDestinations() {
                       </div>
                     )}
 
-                    <FinalisedBy
-                      proposal={dest}
-                      members={members}
-                      currentUserId={user?.id}
-                    />
+                    <div className="mt-2 space-y-0.5">
+                      <AddedBy proposal={dest} currentUserId={user?.id} />
+                      <FinalisedBy
+                        proposal={dest}
+                        members={members}
+                        currentUserId={user?.id}
+                      />
+                    </div>
 
                     {isAdmin && (
                       <Button

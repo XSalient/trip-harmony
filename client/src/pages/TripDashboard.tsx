@@ -50,6 +50,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { format, differenceInDays } from "date-fns";
+import VotedCount from "@/components/trip/VotedCount";
 
 function QuickAddDates({
   tripId,
@@ -1326,9 +1327,15 @@ export default function TripDashboard() {
                       <span className="text-green-600">{available}✓</span>
                       <span className="text-yellow-600">{maybe}?</span>
                       <span className="text-red-500">{unavailable}✗</span>
-                      <span className="text-muted-foreground ml-auto">
-                        {p.votes?.length || 0}/{memberCount} voted
-                      </span>
+                      <VotedCount
+                        className="ml-auto"
+                        tripId={tripId}
+                        proposalType="date"
+                        proposalId={p.id}
+                        votedCount={p.votes?.length || 0}
+                        memberCount={memberCount}
+                        canSeeDetail={canContribute}
+                      />
                     </div>
                     {canContribute && !p.selected && (
                       <div className="flex gap-1.5">
@@ -1475,9 +1482,15 @@ export default function TripDashboard() {
                       <span className="text-pink-600">{loves}❤</span>
                       <span className="text-blue-600">{fines}✓</span>
                       <span className="text-red-500">{vetos}✗</span>
-                      <span className="text-muted-foreground ml-auto">
-                        {d.votes?.length || 0}/{memberCount} voted
-                      </span>
+                      <VotedCount
+                        className="ml-auto"
+                        tripId={tripId}
+                        proposalType="destination"
+                        proposalId={d.id}
+                        votedCount={d.votes?.length || 0}
+                        memberCount={memberCount}
+                        canSeeDetail={canContribute}
+                      />
                     </div>
                     {canContribute && !d.selected && (
                       <div className="flex gap-1.5">
@@ -1622,9 +1635,15 @@ export default function TripDashboard() {
                       <span className="text-pink-600">{loves}❤</span>
                       <span className="text-blue-600">{fines}✓</span>
                       <span className="text-red-500">{vetos}✗</span>
-                      <span className="text-muted-foreground ml-auto">
-                        {a.votes?.length || 0}/{memberCount} voted
-                      </span>
+                      <VotedCount
+                        className="ml-auto"
+                        tripId={tripId}
+                        proposalType="accommodation"
+                        proposalId={a.id}
+                        votedCount={a.votes?.length || 0}
+                        memberCount={memberCount}
+                        canSeeDetail={canContribute}
+                      />
                     </div>
                     {canContribute && !a.selected && (
                       <div className="flex gap-1.5">

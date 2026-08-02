@@ -86,6 +86,14 @@ export const tripsRouter = router({
               : "We couldn't send the invite email to that address. Copy the invite link and share it directly instead.",
         });
       }
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "member.invited",
+        entityType: "invite",
+        entityId: invite.id,
+        metadata: { email: input.email, role: input.role },
+      });
       return { success: true };
     }),
   invites: protectedProcedure
@@ -163,6 +171,14 @@ export const tripsRouter = router({
       await requireTripRole(input.id, ctx.user.id, "admin");
       const { id, ...data } = input;
       await db.updateTrip(id, data);
+      await db.recordActivity({
+        tripId: id,
+        actorUserId: ctx.user.id,
+        action: "trip.edited",
+        entityType: "trip",
+        entityId: id,
+        metadata: { fields: Object.keys(data) },
+      });
       return { success: true };
     }),
   join: protectedProcedure
@@ -208,6 +224,15 @@ export const tripsRouter = router({
         respondedAt: new Date(),
       });
 
+      await db.recordActivity({
+        tripId: trip.id,
+        actorUserId: ctx.user.id,
+        action: "member.joined",
+        entityType: "member",
+        entityId: ctx.user.id,
+        metadata: { role, joinedVia },
+      });
+
       // Tell the admins, not the whole trip — and never a watcher.
       const members = await db.getTripMembers(trip.id);
       for (const m of members) {
@@ -226,7 +251,7 @@ export const tripsRouter = router({
   /** Turning down an emailed invite, without joining. */
   declineInvite: protectedProcedure
     .input(z.object({ inviteToken: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const invite = await db.getTripInviteByToken(input.inviteToken);
       if (!invite)
         throw new TRPCError({
@@ -234,6 +259,13 @@ export const tripsRouter = router({
           message: "Invite not found.",
         });
       await db.setInviteStatus(invite.id, "declined");
+      await db.recordActivity({
+        tripId: invite.tripId,
+        actorUserId: ctx.user.id,
+        action: "member.declined",
+        entityType: "invite",
+        entityId: invite.id,
+      });
       return { success: true };
     }),
   members: protectedProcedure
@@ -276,6 +308,14 @@ export const tripsRouter = router({
           });
       }
       await db.updateMemberRole(input.tripId, input.userId, input.role);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "member.role_changed",
+        entityType: "member",
+        entityId: input.userId,
+        metadata: { from: target.role, to: input.role },
+      });
       return { success: true };
     }),
   removeMember: protectedProcedure
@@ -298,6 +338,13 @@ export const tripsRouter = router({
           });
       }
       await db.removeTripMember(input.tripId, input.userId);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "member.removed",
+        entityType: "member",
+        entityId: input.userId,
+      });
       return { success: true };
     }),
   updateMemberBudget: protectedProcedure

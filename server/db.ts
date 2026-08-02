@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import {
@@ -45,6 +45,7 @@ import {
   InsertTripInvite,
   contacts,
   InsertContact,
+  activityEvents,
 } from "../drizzle/schema.js";
 import type { TripRole } from "../shared/roles.js";
 import { config, ENV } from "./_core/env.js";
@@ -577,6 +578,178 @@ export async function countTripAdmins(tripId: number): Promise<number> {
   return rows.length;
 }
 
+/**
+ * A member's existing vote, if any. Lets the activity trail distinguish a first
+ * vote from a change of mind, which is the difference between "Sam voted" and
+ * "Sam changed their vote".
+ */
+export async function getMyDateVote(proposalId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(dateVotes)
+    .where(
+      and(eq(dateVotes.proposalId, proposalId), eq(dateVotes.userId, userId))
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getMyDestinationVote(
+  destinationId: number,
+  userId: number
+) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(destinationVotes)
+    .where(
+      and(
+        eq(destinationVotes.destinationId, destinationId),
+        eq(destinationVotes.userId, userId)
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getMyAccommodationVote(
+  accommodationId: number,
+  userId: number
+) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(accommodationVotes)
+    .where(
+      and(
+        eq(accommodationVotes.accommodationId, accommodationId),
+        eq(accommodationVotes.userId, userId)
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Who voted on a proposal, how, and when — plus who has not.
+ *
+ * "3/6 voted" answers how many; the question people actually have is which
+ * three, and who to chase. `updatedAt` is used rather than `createdAt` so a
+ * changed vote reports when it changed.
+ */
+export async function getProposalVoters(
+  proposalType: "date" | "destination" | "accommodation",
+  proposalId: number,
+  tripId: number
+) {
+  const db = await getDb();
+  if (!db) return { voted: [], notVoted: [] };
+
+  const rows =
+    proposalType === "date"
+      ? await db
+          .select()
+          .from(dateVotes)
+          .where(eq(dateVotes.proposalId, proposalId))
+      : proposalType === "destination"
+        ? await db
+            .select()
+            .from(destinationVotes)
+            .where(eq(destinationVotes.destinationId, proposalId))
+        : await db
+            .select()
+            .from(accommodationVotes)
+            .where(eq(accommodationVotes.accommodationId, proposalId));
+
+  const members = await getTripMembers(tripId);
+  const accepted = members.filter(m => m.status === "accepted");
+  const votedIds = new Set(rows.map(r => r.userId));
+
+  return {
+    voted: rows.map(r => ({
+      userId: r.userId,
+      name: accepted.find(m => m.userId === r.userId)?.user?.name ?? null,
+      vote: r.vote as string,
+      at: r.updatedAt ?? r.createdAt,
+    })),
+    notVoted: accepted
+      .filter(m => !votedIds.has(m.userId))
+      .map(m => ({ userId: m.userId, name: m.user?.name ?? null })),
+  };
+}
+
+// ---- Activity trail ----
+
+/**
+ * Every action worth remembering, named once so ten routers cannot invent ten
+ * spellings of the same event. Shape is `<entity>.<verb>`.
+ */
+export const ACTIVITY_ACTIONS = [
+  "proposal.created",
+  "proposal.edited",
+  "proposal.deleted",
+  "proposal.locked",
+  "proposal.unlocked",
+  "vote.cast",
+  "vote.changed",
+  "vote.withdrawn",
+  "comment.added",
+  "comment.deleted",
+  "member.invited",
+  "member.joined",
+  "member.declined",
+  "member.removed",
+  "member.role_changed",
+  "trip.edited",
+  "preferences.saved",
+  "ai.match_refreshed",
+  "ai.referee_run",
+] as const;
+export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
+
+/**
+ * Records an action. **Never throws** — a broken trail must not fail the thing
+ * the member actually asked for, so this logs and returns instead.
+ */
+export async function recordActivity(entry: {
+  tripId: number;
+  actorUserId: number;
+  action: ActivityAction;
+  entityType?: string;
+  entityId?: number;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(activityEvents).values({
+      tripId: entry.tripId,
+      actorUserId: entry.actorUserId,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
+    });
+  } catch (err) {
+    log.warn("failed to record activity", { action: entry.action, err });
+  }
+}
+
+export async function getTripActivity(tripId: number, limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(activityEvents)
+    .where(eq(activityEvents.tripId, tripId))
+    .orderBy(desc(activityEvents.createdAt))
+    .limit(limit);
+}
+
 // ---- Trip Invites ----
 
 /**
@@ -706,39 +879,64 @@ export async function createDateProposal(data: InsertDateProposal) {
   return result.id;
 }
 
+/**
+ * Resolves a set of user ids to display names in one query.
+ *
+ * The three proposal listings used to run a query per vote to do this, plus one
+ * per proposal — a trip with 20 proposals and 6 members each was well over a
+ * hundred round trips for one screen. They now collect the ids first and call
+ * this once.
+ */
+async function namesByUserId(
+  ids: number[]
+): Promise<Map<number, { id: number; name: string | null }>> {
+  const unique = Array.from(new Set(ids.filter(Boolean)));
+  const byId = new Map<number, { id: number; name: string | null }>();
+  if (unique.length === 0) return byId;
+  const db = await getDb();
+  if (!db) return byId;
+  const rows = await db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(inArray(users.id, unique));
+  for (const r of rows) byId.set(r.id, r);
+  return byId;
+}
+
 export async function getDateProposals(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const proposals = await db
+  const rows = await db
     .select()
     .from(dateProposals)
     .where(eq(dateProposals.tripId, tripId))
     .orderBy(dateProposals.startDate);
-  const enriched = [];
-  for (const p of proposals) {
-    const votes = await db
-      .select()
-      .from(dateVotes)
-      .where(eq(dateVotes.proposalId, p.id));
-    const enrichedVotes = [];
-    for (const v of votes) {
-      const user = await db
-        .select({ id: users.id, name: users.name })
-        .from(users)
-        .where(eq(users.id, v.userId))
-        .limit(1);
-      enrichedVotes.push({ ...v, user: user[0] || null });
-    }
-    enriched.push({ ...p, votes: enrichedVotes });
-  }
-  return enriched;
-}
+  if (rows.length === 0) return [];
 
-/**
- * Finalise one date range. A trip goes away on **exactly one** set of dates, so
- * this clears the trip's other selections first — unlike places and
- * accommodations, where several can be locked at once.
- */
+  const votes = await db
+    .select()
+    .from(dateVotes)
+    .where(
+      inArray(
+        dateVotes.proposalId,
+        rows.map(r => r.id)
+      )
+    );
+
+  // Proposer and voter names in one lookup, rather than one query per row.
+  const names = await namesByUserId([
+    ...rows.map(r => r.proposedBy),
+    ...votes.map(v => v.userId),
+  ]);
+
+  return rows.map(r => ({
+    ...r,
+    proposer: names.get(r.proposedBy) ?? null,
+    votes: votes
+      .filter(v => v.proposalId === r.id)
+      .map(v => ({ ...v, user: names.get(v.userId) ?? null })),
+  }));
+}
 export async function lockDateProposal(
   tripId: number,
   proposalId: number,
@@ -797,9 +995,12 @@ export async function voteDateProposal(data: InsertDateVote) {
     )
     .limit(1);
   if (existing.length > 0) {
+    // `createdAt` stays at the first vote; `updatedAt` is when they changed
+    // their mind. Without this the breakdown reports the wrong moment for
+    // anyone who re-voted.
     await db
       .update(dateVotes)
-      .set({ vote: data.vote })
+      .set({ vote: data.vote, updatedAt: new Date() })
       .where(eq(dateVotes.id, existing[0].id));
     return;
   }
@@ -830,31 +1031,37 @@ export async function createDestination(data: InsertDestination) {
 export async function getDestinations(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const dests = await db
+  const rows = await db
     .select()
     .from(destinations)
     .where(eq(destinations.tripId, tripId))
     .orderBy(desc(destinations.createdAt));
-  const enriched = [];
-  for (const d of dests) {
-    const votes = await db
-      .select()
-      .from(destinationVotes)
-      .where(eq(destinationVotes.destinationId, d.id));
-    const enrichedVotes = [];
-    for (const v of votes) {
-      const user = await db
-        .select({ id: users.id, name: users.name })
-        .from(users)
-        .where(eq(users.id, v.userId))
-        .limit(1);
-      enrichedVotes.push({ ...v, user: user[0] || null });
-    }
-    enriched.push({ ...d, votes: enrichedVotes });
-  }
-  return enriched;
-}
+  if (rows.length === 0) return [];
 
+  const votes = await db
+    .select()
+    .from(destinationVotes)
+    .where(
+      inArray(
+        destinationVotes.destinationId,
+        rows.map(r => r.id)
+      )
+    );
+
+  // Proposer and voter names in one lookup, rather than one query per row.
+  const names = await namesByUserId([
+    ...rows.map(r => r.proposedBy),
+    ...votes.map(v => v.userId),
+  ]);
+
+  return rows.map(r => ({
+    ...r,
+    proposer: names.get(r.proposedBy) ?? null,
+    votes: votes
+      .filter(v => v.destinationId === r.id)
+      .map(v => ({ ...v, user: names.get(v.userId) ?? null })),
+  }));
+}
 export async function voteDestination(data: InsertDestinationVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
@@ -869,9 +1076,12 @@ export async function voteDestination(data: InsertDestinationVote) {
     )
     .limit(1);
   if (existing.length > 0) {
+    // `createdAt` stays at the first vote; `updatedAt` is when they changed
+    // their mind. Without this the breakdown reports the wrong moment for
+    // anyone who re-voted.
     await db
       .update(destinationVotes)
-      .set({ vote: data.vote })
+      .set({ vote: data.vote, updatedAt: new Date() })
       .where(eq(destinationVotes.id, existing[0].id));
     return;
   }
@@ -959,31 +1169,37 @@ export async function createAccommodation(data: InsertAccommodation) {
 export async function getAccommodations(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  const accs = await db
+  const rows = await db
     .select()
     .from(accommodations)
     .where(eq(accommodations.tripId, tripId))
     .orderBy(desc(accommodations.createdAt));
-  const enriched = [];
-  for (const a of accs) {
-    const votes = await db
-      .select()
-      .from(accommodationVotes)
-      .where(eq(accommodationVotes.accommodationId, a.id));
-    const enrichedVotes = [];
-    for (const v of votes) {
-      const user = await db
-        .select({ id: users.id, name: users.name })
-        .from(users)
-        .where(eq(users.id, v.userId))
-        .limit(1);
-      enrichedVotes.push({ ...v, user: user[0] || null });
-    }
-    enriched.push({ ...a, votes: enrichedVotes });
-  }
-  return enriched;
-}
+  if (rows.length === 0) return [];
 
+  const votes = await db
+    .select()
+    .from(accommodationVotes)
+    .where(
+      inArray(
+        accommodationVotes.accommodationId,
+        rows.map(r => r.id)
+      )
+    );
+
+  // Proposer and voter names in one lookup, rather than one query per row.
+  const names = await namesByUserId([
+    ...rows.map(r => r.proposedBy),
+    ...votes.map(v => v.userId),
+  ]);
+
+  return rows.map(r => ({
+    ...r,
+    proposer: names.get(r.proposedBy) ?? null,
+    votes: votes
+      .filter(v => v.accommodationId === r.id)
+      .map(v => ({ ...v, user: names.get(v.userId) ?? null })),
+  }));
+}
 export async function voteAccommodation(data: InsertAccommodationVote) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
@@ -998,9 +1214,12 @@ export async function voteAccommodation(data: InsertAccommodationVote) {
     )
     .limit(1);
   if (existing.length > 0) {
+    // `createdAt` stays at the first vote; `updatedAt` is when they changed
+    // their mind. Without this the breakdown reports the wrong moment for
+    // anyone who re-voted.
     await db
       .update(accommodationVotes)
-      .set({ vote: data.vote })
+      .set({ vote: data.vote, updatedAt: new Date() })
       .where(eq(accommodationVotes.id, existing[0].id));
     return;
   }

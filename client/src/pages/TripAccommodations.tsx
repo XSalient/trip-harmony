@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
+import AddedBy from "@/components/trip/AddedBy";
+import VotedCount from "@/components/trip/VotedCount";
 import { useParams, Link } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -227,6 +229,13 @@ export default function TripAccommodations() {
     link: "",
     pricePerNight: "",
   });
+
+  // Denominator for "x/x voted" — accepted members only, matching how the
+  // dashboard counts.
+  const memberCount = useMemo(
+    () => members?.filter((m: any) => m.status === "accepted").length || 0,
+    [members]
+  );
 
   // A two-stop trip books two places to sleep, so this is a list. It was a
   // `find()` while the database cleared every other row before setting one.
@@ -1354,7 +1363,7 @@ export default function TripAccommodations() {
                     })()}
 
                     {/* Vote counts */}
-                    <div className="flex gap-4 text-xs mb-3">
+                    <div className="flex gap-4 text-xs mb-3 items-center">
                       <span className="text-pink-600 font-medium flex items-center gap-1">
                         <Heart className="h-3 w-3" /> {loves}
                       </span>
@@ -1364,6 +1373,15 @@ export default function TripAccommodations() {
                       <span className="text-red-500 font-medium flex items-center gap-1">
                         <Ban className="h-3 w-3" /> {vetos}
                       </span>
+                      <VotedCount
+                        className="ml-auto"
+                        tripId={tripId}
+                        proposalType="accommodation"
+                        proposalId={acc.id}
+                        votedCount={acc.votes?.length || 0}
+                        memberCount={memberCount}
+                        canSeeDetail={myRole?.role !== "watcher"}
+                      />
                     </div>
 
                     {/* Vote buttons */}
@@ -1405,11 +1423,14 @@ export default function TripAccommodations() {
                       </div>
                     )}
 
-                    <FinalisedBy
-                      proposal={acc}
-                      members={members}
-                      currentUserId={user?.id}
-                    />
+                    <div className="mt-2 space-y-0.5">
+                      <AddedBy proposal={acc} currentUserId={user?.id} />
+                      <FinalisedBy
+                        proposal={acc}
+                        members={members}
+                        currentUserId={user?.id}
+                      />
+                    </div>
 
                     {isAdmin && (
                       <Button

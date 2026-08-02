@@ -61,6 +61,24 @@ export const datesRouter = router({
         userId: ctx.user.id,
         vote: "available",
       });
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.created",
+        entityType: "date",
+        entityId: id,
+        metadata: { label: input.label },
+      });
+      // Proposing counted as a vote a few lines up; record it, or the trail
+      // shows a later `vote.changed` with no vote before it.
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "vote.cast",
+        entityType: "date",
+        entityId: id,
+        metadata: { vote: "available", implicit: true },
+      });
       // Notify members. Watchers opted out of trip updates by being watchers.
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
@@ -91,10 +109,19 @@ export const datesRouter = router({
           message: "Proposal not found.",
         });
       await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
+      const had = await db.getMyDateVote(input.proposalId, ctx.user.id);
       await db.voteDateProposal({
         proposalId: input.proposalId,
         userId: ctx.user.id,
         vote: input.vote,
+      });
+      await db.recordActivity({
+        tripId: proposal.tripId,
+        actorUserId: ctx.user.id,
+        action: had ? "vote.changed" : "vote.cast",
+        entityType: "date",
+        entityId: input.proposalId,
+        metadata: { vote: input.vote, from: had?.vote ?? null },
       });
       return { success: true };
     }),
@@ -113,6 +140,13 @@ export const datesRouter = router({
         });
       await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
       await db.unvoteDateProposal(input.proposalId, ctx.user.id);
+      await db.recordActivity({
+        tripId: proposal.tripId,
+        actorUserId: ctx.user.id,
+        action: "vote.withdrawn",
+        entityType: "date",
+        entityId: input.proposalId,
+      });
       return { success: true };
     }),
   /** Finalise these dates. A trip has one set, so this replaces any other. */
@@ -126,6 +160,13 @@ export const datesRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.lockDateProposal(input.tripId, input.proposalId, ctx.user.id);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.locked",
+        entityType: "date",
+        entityId: input.proposalId,
+      });
       return { success: true };
     }),
   unlock: protectedProcedure
@@ -133,6 +174,12 @@ export const datesRouter = router({
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.unlockDateProposals(input.tripId);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.unlocked",
+        entityType: "date",
+      });
       return { success: true };
     }),
   delete: protectedProcedure
@@ -152,6 +199,14 @@ export const datesRouter = router({
           message:
             "Only the person who proposed this, or an admin, can remove it.",
         });
+      await db.recordActivity({
+        tripId: proposal.tripId,
+        actorUserId: ctx.user.id,
+        action: "proposal.deleted",
+        entityType: "date",
+        entityId: input.id,
+        metadata: { label: proposal.label },
+      });
       await db.deleteDateProposal(input.id);
       return { success: true };
     }),

@@ -216,6 +216,33 @@ export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = typeof contacts.$inferInsert;
 
 /**
+ * Everything members do to a trip, kept whether or not anything displays it.
+ *
+ * Deliberately not surfaced as a feed. Only a few of these reach a screen —
+ * "added by X", "finalised by Y" — as quiet side information. The rest is here
+ * so the trip has a history at all, and so a question asked later ("when did
+ * this change?") has an answer.
+ *
+ * This is the fastest-growing table in the schema and has no retention policy
+ * yet. That is a known and accepted gap, not an oversight.
+ */
+export const activityEvents = pgTable("activity_events", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  actorUserId: integer("actorUserId").notNull(),
+  /** One of `ACTIVITY_ACTIONS` in `server/db.ts` — "<entity>.<verb>". */
+  action: varchar("action", { length: 64 }).notNull(),
+  entityType: varchar("entityType", { length: 32 }),
+  entityId: integer("entityId"),
+  /** JSON, matching how `accommodations.matchAnalysis` is already stored. */
+  metadata: text("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ActivityEvent = typeof activityEvents.$inferSelect;
+export type InsertActivityEvent = typeof activityEvents.$inferInsert;
+
+/**
  * Date proposals — suggested date ranges for a trip.
  */
 export const dateProposals = pgTable("date_proposals", {
@@ -248,6 +275,12 @@ export const dateVotes = pgTable("date_votes", {
   userId: integer("userId").notNull(),
   vote: dateVoteEnum("vote").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  /**
+   * When the vote last changed. `createdAt` records the first vote and is never
+   * touched again, so it cannot answer "when did they decide this?" for anyone
+   * who changed their mind.
+   */
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type DateVote = typeof dateVotes.$inferSelect;
@@ -284,6 +317,12 @@ export const destinationVotes = pgTable("destination_votes", {
   userId: integer("userId").notNull(),
   vote: destinationVoteEnum("vote").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  /**
+   * When the vote last changed. `createdAt` records the first vote and is never
+   * touched again, so it cannot answer "when did they decide this?" for anyone
+   * who changed their mind.
+   */
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type DestinationVote = typeof destinationVotes.$inferSelect;
@@ -336,6 +375,12 @@ export const accommodationVotes = pgTable("accommodation_votes", {
   userId: integer("userId").notNull(),
   vote: accommodationVoteEnum("vote").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  /**
+   * When the vote last changed. `createdAt` records the first vote and is never
+   * touched again, so it cannot answer "when did they decide this?" for anyone
+   * who changed their mind.
+   */
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type AccommodationVote = typeof accommodationVotes.$inferSelect;
