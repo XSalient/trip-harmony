@@ -63,7 +63,14 @@ export default function TripVibeBoard() {
   const unvoteMutation = trpc.vibeBoard.unvote.useMutation();
   const utils = trpc.useUtils();
 
-  const isOrganizer = trip?.organizerId === user?.id;
+  // Role, not authorship: `organizerId` names whoever created the trip and
+  // cannot see a second admin, so gating on it hid these controls from admins
+  // who had them and showed them to a creator who had been demoted.
+  const { data: myRole } = trpc.trips.myRole.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const isAdmin = myRole?.role === "admin";
 
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -270,7 +277,7 @@ export default function TripVibeBoard() {
                   item.votes?.filter((v: any) => v.vote === "veto").length || 0;
                 const score = getScore(item);
                 const tags = item.tags ? JSON.parse(item.tags) : [];
-                const canDelete = item.proposedBy === user?.id || isOrganizer;
+                const canDelete = item.proposedBy === user?.id || isAdmin;
 
                 return (
                   <Card

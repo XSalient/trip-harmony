@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import { useParams } from "wouter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { refereeCooldownRemainingMs } from "@shared/const";
 import {
   Bot,
   Sparkles,
@@ -49,20 +50,46 @@ export default function TripReferee() {
     { id: tripId },
     { enabled: tripId > 0 }
   );
+  const { data: myRole } = trpc.trips.myRole.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const isAdmin = myRole?.role === "admin";
   const analyzeMutation = trpc.referee.analyze.useMutation();
   const utils = trpc.useUtils();
 
   const [analyzing, setAnalyzing] = useState(false);
+  // Ticks so the countdown moves and the button re-enables on its own.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // The cooldown is simply the age of the newest message — the server reads it
+  // the same way, so there is no separate state to keep in step.
+  const cooldownLeftMs = refereeCooldownRemainingMs(
+    messages?.[0]?.createdAt,
+    now
+  );
+  const cooldownMinutes = Math.ceil(cooldownLeftMs / 60_000);
 
   const handleAnalyze = async () => {
     if (!trip) return;
     setAnalyzing(true);
     try {
-      await analyzeMutation.mutateAsync({ tripId, phase: trip.phase });
+      const result = await analyzeMutation.mutateAsync({
+        tripId,
+        phase: trip.phase,
+      });
       utils.referee.messages.invalidate({ tripId });
-      toast.success("Referee analysis complete!");
-    } catch {
-      toast.error("Referee couldn't analyze right now");
+      toast.success(
+        result.fromCooldown
+          ? "Showing the referee's last read — it was analysed moments ago."
+          : "Referee analysis complete!"
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Referee couldn't analyze right now");
     } finally {
       setAnalyzing(false);
     }
@@ -87,24 +114,39 @@ export default function TripReferee() {
           </CardContent>
         </Card>
 
-        {/* Analyze button */}
-        <Button
-          onClick={handleAnalyze}
-          className="w-full h-12 rounded-xl gap-2"
-          disabled={analyzing}
-        >
-          {analyzing ? (
-            <>
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Analyzing your trip...
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Get Referee Analysis
-            </>
-          )}
-        </Button>
+        {/* Analyze button — admins only, and once per cooldown. Each run reads
+            every member's preferences and every vote on every proposal. */}
+        {isAdmin ? (
+          <div className="space-y-1.5">
+            <Button
+              onClick={handleAnalyze}
+              className="w-full h-12 rounded-xl gap-2"
+              disabled={analyzing || cooldownLeftMs > 0}
+            >
+              {analyzing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Analyzing your trip...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Get Referee Analysis
+                </>
+              )}
+            </Button>
+            {cooldownLeftMs > 0 && (
+              <p className="text-xs text-muted-foreground text-center">
+                Just analysed — available again in {cooldownMinutes} minute
+                {cooldownMinutes === 1 ? "" : "s"}.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground text-center">
+            A trip admin can ask the referee for a fresh read.
+          </p>
+        )}
 
         {/* Messages */}
         {isLoading ? (

@@ -1,8 +1,14 @@
 /**
  * AI scoring of an accommodation against every member's trip preferences.
  *
- * Called fire-and-forget from the accommodation and preference routers: a
- * failure here must never fail the user's write, so everything is wrapped and
+ * **Only ever runs because a person asked.** It used to fire itself on every
+ * accommodation added, and re-run for every accommodation in the trip whenever
+ * any member saved their preferences — ten stays and six members was seventy
+ * unrequested model calls, most superseded before anyone read them. Both
+ * triggers are gone; the only entry points are the admin actions in
+ * `accommodations.refreshMatch` and `accommodations.analyseAll`.
+ *
+ * A failure must never fail the caller's request, so everything is wrapped and
  * logged rather than thrown.
  */
 import { invokeLLM } from "../_core/llm.js";
@@ -148,14 +154,22 @@ Be honest and specific. Flag hard constraint failures (stairs, accessibility, di
   }
 }
 
-/** Re-analyse all accommodations for a trip (call after preferences change). */
-export async function runTripMatchAnalyses(tripId: number): Promise<void> {
+/**
+ * Analyse every accommodation in a trip, once, because an admin asked.
+ *
+ * Sequential on purpose. The version this replaces fired every accommodation at
+ * the model at the same moment, from a handler the member was waiting on; a trip
+ * with a dozen stays hit the rate limit and lost most of the answers.
+ */
+export async function runTripMatchAnalyses(tripId: number): Promise<number> {
   try {
     const accs = await db.getAccommodations(tripId);
     for (const acc of accs) {
-      runAccommodationMatchAnalysis(acc.id, tripId).catch(() => {});
+      await runAccommodationMatchAnalysis(acc.id, tripId);
     }
+    return accs.length;
   } catch (err) {
     log.error("trip match re-analysis failed", { tripId, err });
+    return 0;
   }
 }

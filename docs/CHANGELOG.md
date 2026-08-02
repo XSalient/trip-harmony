@@ -8,6 +8,43 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — AI runs only when someone asks
+
+### Changed
+
+- **Match analysis no longer runs itself.** Adding an accommodation fired an
+  analysis on the spot — usually before anyone had set the preferences it scores
+  against — and saving your preferences re-analysed **every** stay in the trip.
+  A group of six with ten stays spent about seventy model calls nobody asked
+  for, most superseded before they were read. Both triggers are gone. Saving
+  preferences now returns in milliseconds and starts no background work.
+- **Analysis is an admin action.** Re-run one stay, or "Analyse all" for a single
+  pass over the trip at a moment someone chose. Runs are sequential; the old
+  code fired every accommodation at the model simultaneously. A second click
+  while one is running is refused rather than paying twice.
+- **Stale results say so.** A stay analysed before the group last changed its
+  preferences is marked "May be out of date", and one that has never been
+  analysed says that instead of showing a spinner that promised a background job
+  which no longer exists. Nothing re-runs on its own — the label reports, an
+  admin decides.
+- **The AI Referee is admin-only and rate-limited.** Ten minutes between runs,
+  shown as a countdown on a disabled button; a call inside the window returns
+  the last read rather than an error. Each run costs a pass over every member's
+  preferences and every vote on every proposal.
+
+### Fixed
+
+- **`accommodations.refreshMatch` trusted a client-supplied `tripId`** that was
+  never checked against the accommodation, so the permission check could be
+  satisfied with a trip you administer while analysing a stay on one you don't.
+  The trip is now read from the accommodation itself.
+- **The five proposal and detail screens still decided permissions from
+  `trips.organizerId`**, left behind when roles landed. A second admin saw no
+  lock/unlock or itinerary controls, and a demoted creator saw controls the
+  server would refuse. All five now read the caller's role.
+
+---
+
 ## 2026-08-02 — Admin / Tripmate / Watcher, invite tracking, and a contact book
 
 ### Added

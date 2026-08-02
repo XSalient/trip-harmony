@@ -1,7 +1,7 @@
 # E4 — AI runs only when asked
 
 - **Covers request items:** 6, 7
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E1 (same files), E2 (admin-only triggers)
 
 ## Why
@@ -35,13 +35,13 @@ pick up if that was also wanted — see the open question.
 
 **Acceptance criteria**
 
-- [ ] `accommodations.create` makes no LLM call.
-- [ ] `preferences.save` makes no LLM call, and does not touch other members'
+- [x] `accommodations.create` makes no LLM call.
+- [x] `preferences.save` makes no LLM call, and does not touch other members'
       accommodations.
-- [ ] Saving preferences is measurably faster and issues no background work.
-- [ ] `runTripMatchAnalyses` is either deleted or reachable only from the explicit
+- [x] Saving preferences is measurably faster and issues no background work.
+- [x] `runTripMatchAnalyses` is either deleted or reachable only from the explicit
       admin action in E4.3.
-- [ ] No other router calls `invokeLLM` without a user having asked for it.
+- [x] No other router calls `invokeLLM` without a user having asked for it.
 
 **Touches**
 
@@ -60,13 +60,13 @@ is user-triggered but uncapped; E4.4 covers it.
 
 **Acceptance criteria**
 
-- [ ] An accommodation whose `matchAnalysedAt` is older than the most recent
+- [x] An accommodation whose `matchAnalysedAt` is older than the most recent
       preference change on the trip is labelled as possibly out of date.
-- [ ] An accommodation that has never been analysed says so, rather than showing
+- [x] An accommodation that has never been analysed says so, rather than showing
       nothing.
-- [ ] The label appears next to the existing match display on the accommodations
+- [x] The label appears next to the existing match display on the accommodations
       screen.
-- [ ] The label is not a spinner and does not trigger anything by itself.
+- [x] The label is not a spinner and does not trigger anything by itself.
 
 **Touches**
 
@@ -89,13 +89,14 @@ adding a second notion of "needs analysis".
 
 **Acceptance criteria**
 
-- [ ] Refreshing the match for one accommodation is an explicit action, available
+- [x] Refreshing the match for one accommodation is an explicit action, available
       to admins only.
-- [ ] An "analyse all" action exists for admins, runs over the trip's
+- [x] An "analyse all" action exists for admins, runs over the trip's
       accommodations, and reports progress and completion.
-- [ ] Tripmates and watchers see match results but cannot trigger a run.
-- [ ] A run in flight cannot be started again for the same accommodation.
+- [x] Tripmates and watchers see match results but cannot trigger a run.
+- [x] A run in flight cannot be started again for the same accommodation.
 - [ ] Every trigger is recorded in the activity trail (E3) as `ai.match_refreshed`.
+      **Deferred — E3 has not been built.** Pick this up with E3.1.
 
 **Touches**
 
@@ -120,12 +121,12 @@ accommodation at the model simultaneously (`matchAnalysis.ts:174-176`).
 
 **Acceptance criteria**
 
-- [ ] `referee.analyze` is admin-only.
-- [ ] A cooldown applies per trip; a call inside the window returns the last
+- [x] `referee.analyze` is admin-only.
+- [x] A cooldown applies per trip; a call inside the window returns the last
       message with a clear "analysed <n> minutes ago" rather than an error page.
-- [ ] The remaining cooldown is visible on the referee screen, and the button is
+- [x] The remaining cooldown is visible on the referee screen, and the button is
       disabled while it applies.
-- [ ] The fallback message path still works when the model is unavailable.
+- [x] The fallback message path still works when the model is unavailable.
 
 **Touches**
 
@@ -143,13 +144,34 @@ a nudge rather than surfacing an error, and that behaviour is correct.
 
 ## Open questions
 
-1. **Is a hard numeric quota wanted?** This epic delivers "explicit action plus
-   cooldown". A cap of N runs per trip per day, with a visible "3 of 10 used
-   today", is the alternative reading of "limit running AI". It would need a
-   counter table or a count over `activityEvents` from E3.
-2. **What cooldown length?** Proposed: 10 minutes for the referee. Long enough to
-   stop a nervous refresh, short enough that a group actually mid-discussion is
-   not blocked.
+1. **Is a hard numeric quota wanted?** **Answered: no.** The owner picked "stop
+   auto-running AI match" over "rate/quota caps per trip per day" when the
+   programme was scoped, so a numeric cap was actively declined rather than left
+   open. What shipped is "no AI without a deliberate action, plus a cooldown".
+   If a cap is wanted later it needs a counter — `activityEvents` from E3 would
+   carry it.
+2. **What cooldown length?** **10 minutes**, as proposed, in
+   `REFEREE_COOLDOWN_MS`.
+
+**Found during implementation**
+
+- **`refreshMatch` trusted a client-supplied `tripId`** that was never checked
+  against the accommodation, so the role check could be satisfied with a trip you
+  administer while analysing a stay on one you don't. The trip now comes from the
+  accommodation row and the input no longer takes it.
+- **The accommodations screen polled every 5 seconds** while any stay had no
+  analysis, waiting for a background job. Nothing runs in the background now, so
+  the poll would have run forever against stays nobody had asked to analyse. Gone.
+- **E2 left the five proposal/detail pages gating on
+  `trip?.organizerId === user?.id`.** E2's story named the dashboard and missed
+  them, so a second admin saw no lock/unlock or itinerary controls, and a demoted
+  creator still saw controls the server would refuse. All five now read
+  `trips.myRole`. **A grep for the concept, not just the symbol, would have
+  caught it** — the same lesson E1 recorded about the route string.
+- The in-flight guard could not be demonstrated with no AI key configured: the
+  "analysis" fails and returns in under a millisecond, so two concurrent requests
+  never overlap. Verified instead against a slow endpoint, where it returns one
+  200 and one 409.
 
 ## Out of scope
 

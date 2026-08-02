@@ -101,18 +101,23 @@ export default function TripAccommodations() {
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
 
+  // No polling: nothing analyses itself any more, so there is no background
+  // job to wait on. A result appears when an admin asks for one.
   const { data: accommodations, isLoading } = trpc.accommodations.list.useQuery(
     { tripId },
-    {
-      enabled: tripId > 0,
-      refetchInterval: (data: any) => {
-        if (!data) return false;
-        const anyPending = (Array.isArray(data) ? data : []).some(
-          (a: any) => !a.matchAnalysis
-        );
-        return anyPending ? 5000 : false;
-      },
-    }
+    { enabled: tripId > 0 }
+  );
+  // Role, not authorship: `organizerId` names whoever created the trip and
+  // cannot see a second admin, so gating on it hid these controls from admins
+  // who had them and showed them to a creator who had been demoted.
+  const { data: myRole } = trpc.trips.myRole.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const isAdmin = myRole?.role === "admin";
+  const { data: prefsLastUpdated } = trpc.preferences.lastUpdated.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
   );
   const { data: trip } = trpc.trips.get.useQuery(
     { id: tripId },
@@ -138,6 +143,7 @@ export default function TripAccommodations() {
   const parseAttributesMutation =
     trpc.accommodations.parseAttributes.useMutation();
   const refreshMatchMutation = trpc.accommodations.refreshMatch.useMutation();
+  const analyseAllMutation = trpc.accommodations.analyseAll.useMutation();
   const utils = trpc.useUtils();
 
   const [matchExpanded, setMatchExpanded] = useState<Record<number, boolean>>(
@@ -150,17 +156,49 @@ export default function TripAccommodations() {
   const handleRefreshMatch = async (accId: number) => {
     setRefreshingMatch(prev => ({ ...prev, [accId]: true }));
     try {
-      await refreshMatchMutation.mutateAsync({
-        accommodationId: accId,
-        tripId,
-      });
+      await refreshMatchMutation.mutateAsync({ accommodationId: accId });
       await utils.accommodations.list.invalidate({ tripId });
       toast.success("Analysis updated");
-    } catch {
-      toast.error("Refresh failed — try again");
+    } catch (e: any) {
+      toast.error(e?.message || "Analysis failed — try again");
     } finally {
       setRefreshingMatch(prev => ({ ...prev, [accId]: false }));
     }
+  };
+
+  const [analysingAll, setAnalysingAll] = useState(false);
+  const handleAnalyseAll = async () => {
+    setAnalysingAll(true);
+    try {
+      const { analysed } = await analyseAllMutation.mutateAsync({ tripId });
+      await utils.accommodations.list.invalidate({ tripId });
+      toast.success(
+        analysed === 0
+          ? "Nothing to analyse yet"
+          : `Analysed ${analysed} stay${analysed === 1 ? "" : "s"}`
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Analysis failed — try again");
+    } finally {
+      setAnalysingAll(false);
+    }
+  };
+
+  /**
+   * A result scored before the group last changed its preferences was scored
+   * against something it no longer wants. Says so; does not fix it — re-running
+   * costs a model call and is an admin's call to make.
+   */
+  const matchStaleness = (acc: any) => {
+    if (!acc.matchAnalysis) return "never" as const;
+    const prefsAt = prefsLastUpdated?.at
+      ? new Date(prefsLastUpdated.at).getTime()
+      : null;
+    const analysedAt = acc.matchAnalysedAt
+      ? new Date(acc.matchAnalysedAt).getTime()
+      : null;
+    if (prefsAt && analysedAt && analysedAt < prefsAt) return "stale" as const;
+    return "current" as const;
   };
 
   const [addOpen, setAddOpen] = useState(false);
@@ -184,7 +222,6 @@ export default function TripAccommodations() {
     pricePerNight: "",
   });
 
-  const isOrganizer = trip?.organizerId === user?.id;
   const selectedAccommodation = useMemo(
     () => accommodations?.find((a: any) => a.selected),
     [accommodations]
@@ -535,7 +572,25 @@ export default function TripAccommodations() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isOrganizer && selectedAccommodation && (
+            {/* One pass over every stay, at a moment someone chose. This is
+                what saving preferences used to do six times over by itself. */}
+            {isAdmin && (accommodations?.length ?? 0) > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg gap-1 text-xs h-8"
+                onClick={handleAnalyseAll}
+                disabled={analysingAll}
+              >
+                {analysingAll ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Brain className="h-3.5 w-3.5" />
+                )}
+                {analysingAll ? "Analysing…" : "Analyse all"}
+              </Button>
+            )}
+            {isAdmin && selectedAccommodation && (
               <Button
                 variant="outline"
                 size="sm"
@@ -908,7 +963,7 @@ export default function TripAccommodations() {
                     .filter(Boolean)
                 : [];
               const isOwner = acc.proposedBy === user?.id;
-              const canManage = isOwner || isOrganizer;
+              const canManage = isOwner || isAdmin;
               const commentCount =
                 (commentCounts as any)[`accommodation_${acc.id}`] || 0;
 
@@ -1161,6 +1216,11 @@ export default function TripAccommodations() {
                                       risk
                                     </span>
                                   )}
+                                  {matchStaleness(acc) === "stale" && (
+                                    <span className="text-[10px] text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5">
+                                      May be out of date
+                                    </span>
+                                  )}
                                 </div>
                                 {expanded ? (
                                   <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1227,31 +1287,53 @@ export default function TripAccommodations() {
                                       )}
                                     </div>
                                   )}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full text-xs h-7 text-muted-foreground"
-                                    onClick={() => handleRefreshMatch(acc.id)}
-                                    disabled={refreshing}
-                                  >
-                                    {refreshing ? (
-                                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                    ) : (
-                                      <RefreshCw className="h-3 w-3 mr-1" />
-                                    )}
-                                    {refreshing
-                                      ? "Refreshing..."
-                                      : "Refresh analysis"}
-                                  </Button>
+                                  {isAdmin ? (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full text-xs h-7 text-muted-foreground"
+                                      onClick={() => handleRefreshMatch(acc.id)}
+                                      disabled={refreshing}
+                                    >
+                                      {refreshing ? (
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                      ) : (
+                                        <RefreshCw className="h-3 w-3 mr-1" />
+                                      )}
+                                      {refreshing
+                                        ? "Analysing…"
+                                        : "Re-run analysis"}
+                                    </Button>
+                                  ) : (
+                                    <p className="text-[11px] text-muted-foreground text-center">
+                                      Only an admin can re-run this.
+                                    </p>
+                                  )}
                                 </div>
                               )}
                             </div>
                           ) : (
                             <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-center gap-2 text-xs text-muted-foreground">
-                              <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-primary" />
-                              <span>
-                                AI match analysis running in the background…
+                              <Brain className="h-3.5 w-3.5 shrink-0" />
+                              <span className="flex-1">
+                                Not analysed yet
+                                {isAdmin ? "" : " — an admin can run it"}
                               </span>
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs shrink-0"
+                                  onClick={() => handleRefreshMatch(acc.id)}
+                                  disabled={refreshing}
+                                >
+                                  {refreshing ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    "Analyse"
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1310,7 +1392,7 @@ export default function TripAccommodations() {
                       </div>
                     )}
 
-                    {isOrganizer && !acc.selected && (
+                    {isAdmin && !acc.selected && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1326,7 +1408,7 @@ export default function TripAccommodations() {
                       proposalType="accommodation"
                       proposalId={acc.id}
                       tripId={tripId}
-                      isOrganizer={isOrganizer}
+                      isOrganizer={isAdmin}
                       count={commentCount}
                     />
                   </CardContent>

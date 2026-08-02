@@ -11,13 +11,14 @@ finish a piece of work — the next person (or agent) starts here.
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
   The trip experience overhaul is in flight — see [product/](product/) for the
   eight epics and [product/progress.md](product/progress.md) for what has landed.
-- **Health:** typecheck ✅ · 169 tests ✅ · production build ✅ · dev server ✅
-  (2026-08-02, after E1 and E2: all four migrations applied to a real Postgres,
-  then admin creates a trip → invites a Watcher by email → Watcher accepts and
-  is correctly restricted, walked in a real browser, with the API payloads
-  inspected rather than only the rendering). The **passkey** enrol → sign-out →
-  passkey sign-in round trip was last verified on 2026-08-01 and has not been
-  repeated since.
+- **Health:** typecheck ✅ · 181 tests ✅ · production build ✅ · dev server ✅
+  (2026-08-02, after E1, E2 and E4: all four migrations applied to a real
+  Postgres, then admin creates a trip → invites a Watcher by email → Watcher
+  accepts and is correctly restricted, walked in a real browser with the API
+  payloads inspected rather than only the rendering; and the server log checked
+  to confirm no model call happens on an ordinary write). The **passkey** enrol →
+  sign-out → passkey sign-in round trip was last verified on 2026-08-01 and has
+  not been repeated since.
 - **Pending migrations:** `0002_drop_travel_dna.sql` and `0003_member_roles.sql`
   have been applied to throwaway databases only — **not** to any long-lived one.
   0002 is destructive (drops `travel_dna` and its rows); 0003 rewrites the
@@ -68,8 +69,10 @@ Verified by running the app against Postgres, not just by reading code:
   removed these are the only member signal the AI has, and they feed both match
   analysis and the referee.
 - **AI features** — referee mediation, natural-language date parsing,
-  accommodation URL import, accommodation↔member match scoring. These require an
-  AI key; without one the rest of the app is unaffected. The URL import reads
+  accommodation URL import, accommodation↔member match scoring. **Nothing runs
+  on its own:** every model call follows a deliberate action, match analysis and
+  the referee are admin-only, and the referee has a ten-minute cooldown. These
+  require an AI key; without one the rest of the app is unaffected. The URL import reads
   Open Graph and schema.org data when the site allows a server-side fetch, and
   degrades in steps when it does not (Booking.com never does — it refuses any
   datacenter request with a 403): it follows the redirect a share link hides the
@@ -97,15 +100,13 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 169 tests are server-side. Page components are
+1. **No frontend tests.** All 181 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
 3. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
 4. **AI prompts are inline** in router files and unversioned.
-5. **AI still runs itself.** Match analysis fires on every accommodation added
-   and re-runs for every stay whenever any member saves preferences. E4 fixes it.
 
 ## Verifying the current state yourself
 

@@ -69,7 +69,7 @@ rest check against.
 - [x] **E1** — Remove Travel DNA, including dropping the table
 - [x] **E2** — Members, roles (Admin / Tripmate / Watcher), invite tracking, contact book
 - [ ] **E3** — Activity trail, proposal attribution, who-voted-when
-- [ ] **E4** — AI runs only when asked; match analysis stops firing itself
+- [x] **E4** — AI runs only when asked; match analysis stops firing itself
 - [ ] **E5** — Trip page restructure: summary, collapsible sections, new order
 - [ ] **E6** — Finalising proposals: one locked date, many locked places and stays
 - [ ] **E7** — Edit trip name and description; preferences summary
@@ -117,7 +117,7 @@ is partly E4.4, and "Organizer controls: unlock finalised selections" is E6.2.
 ## Later
 
 - [ ] Move AI prompts into versioned files with fixtures
-- [ ] Rate-limit auth and AI endpoints
+- [ ] Rate-limit auth endpoints (AI endpoints done in E4)
 - [ ] Real-time updates (currently poll-on-focus)
 - [ ] Currency conversion using live rates
 - [ ] Organizer controls: unlock finalised selections, transfer ownership

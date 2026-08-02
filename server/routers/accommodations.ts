@@ -13,7 +13,10 @@ import {
   tripRoleOf,
   projectProposalsForRole,
 } from "./_shared.js";
-import { runAccommodationMatchAnalysis } from "./matchAnalysis.js";
+import {
+  runAccommodationMatchAnalysis,
+  runTripMatchAnalyses,
+} from "./matchAnalysis.js";
 import {
   cleanListingUrl,
   coerceExtractedAccommodation,
@@ -35,6 +38,22 @@ import {
 } from "../utils/placeLookup.js";
 
 const log = logger.child({ scope: "accommodations" });
+
+/**
+ * Analyses currently in flight, so a second click cannot spend a second model
+ * call on the same thing.
+ *
+ * In-process, and therefore per-instance: on a serverless platform two
+ * concurrent requests can land on different instances and both proceed. That is
+ * accepted — the guard is here to stop an impatient double-click, not to be a
+ * distributed lock. A real one would need a row and is not worth it for a
+ * duplicate analysis that overwrites itself with the same answer.
+ */
+const analysesRunning = new Set<string | number>();
+const tripKey = (tripId: number) => `trip:${tripId}`;
+const isAnalysisRunning = (key: string | number) => analysesRunning.has(key);
+const markAnalysisRunning = (key: string | number) => analysesRunning.add(key);
+const markAnalysisDone = (key: string | number) => analysesRunning.delete(key);
 
 /** Gemini honours `json_object` but still fences the odd reply; take the object either way. */
 function parseJsonObject(raw: string): unknown {
@@ -130,8 +149,9 @@ export const accommodationsRouter = router({
           });
         }
       }
-      // Fire AI match analysis in background (non-blocking)
-      runAccommodationMatchAnalysis(id, input.tripId).catch(() => {});
+      // No AI here. Analysis is an admin action — see `refreshMatch` and
+      // `analyseAll`. Adding a stay used to spend a model call on the spot,
+      // usually before anyone had set the preferences it scores against.
       return { id };
     }),
   vote: protectedProcedure
@@ -251,16 +271,54 @@ export const accommodationsRouter = router({
       return { success: true };
     }),
   refreshMatch: protectedProcedure
-    .input(
-      z.object({
-        accommodationId: z.number(),
-        tripId: z.number(),
-      })
-    )
+    .input(z.object({ accommodationId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
-      await runAccommodationMatchAnalysis(input.accommodationId, input.tripId);
+      const accommodation = await db.getAccommodation(input.accommodationId);
+      if (!accommodation)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Accommodation not found.",
+        });
+      // The trip comes from the row, not from the caller. It used to be a
+      // client-supplied `tripId` that was never checked against the
+      // accommodation, so the role check could be passed using a trip you
+      // administer while analysing a stay belonging to one you don't.
+      const { tripId } = accommodation;
+      await requireTripRole(tripId, ctx.user.id, "admin");
+
+      if (isAnalysisRunning(input.accommodationId))
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "That analysis is already running. Give it a moment.",
+        });
+      markAnalysisRunning(input.accommodationId);
+      try {
+        await runAccommodationMatchAnalysis(input.accommodationId, tripId);
+      } finally {
+        markAnalysisDone(input.accommodationId);
+      }
       return { success: true };
+    }),
+  /**
+   * The deliberate version of what saving preferences used to do by accident:
+   * one pass over the trip's accommodations, at a moment a person chose.
+   */
+  analyseAll: protectedProcedure
+    .input(z.object({ tripId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      if (isAnalysisRunning(tripKey(input.tripId)))
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "An analysis of this trip is already running.",
+        });
+      markAnalysisRunning(tripKey(input.tripId));
+      try {
+        const analysed = await runTripMatchAnalyses(input.tripId);
+        return { analysed };
+      } finally {
+        markAnalysisDone(tripKey(input.tripId));
+      }
     }),
 
   clone: protectedProcedure

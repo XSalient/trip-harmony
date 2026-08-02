@@ -99,7 +99,14 @@ export default function TripDestinations() {
   const [editEstimatedCost, setEditEstimatedCost] = useState("");
   const [editVibes, setEditVibes] = useState<string[]>([]);
 
-  const isOrganizer = trip?.organizerId === user?.id;
+  // Role, not authorship: `organizerId` names whoever created the trip and
+  // cannot see a second admin, so gating on it hid these controls from admins
+  // who had them and showed them to a creator who had been demoted.
+  const { data: myRole } = trpc.trips.myRole.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const isAdmin = myRole?.role === "admin";
 
   const toggleVibe = (vibe: string) =>
     setSelectedVibes(prev =>
@@ -293,7 +300,7 @@ export default function TripDestinations() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isOrganizer && selectedDestination && (
+            {isAdmin && selectedDestination && (
               <Button
                 variant="outline"
                 size="sm"
@@ -406,7 +413,7 @@ export default function TripDestinations() {
               const vibes = dest.vibes ? JSON.parse(dest.vibes) : [];
               const score = getScore(dest);
               const isOwner = dest.proposedBy === user?.id;
-              const canManage = isOwner || isOrganizer;
+              const canManage = isOwner || isAdmin;
               const commentCount =
                 (commentCounts as any)[`destination_${dest.id}`] || 0;
 
@@ -567,7 +574,7 @@ export default function TripDestinations() {
                       </div>
                     )}
 
-                    {isOrganizer && !dest.selected && (
+                    {isAdmin && !dest.selected && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -583,7 +590,7 @@ export default function TripDestinations() {
                       proposalType="destination"
                       proposalId={dest.id}
                       tripId={tripId}
-                      isOrganizer={isOrganizer}
+                      isOrganizer={isAdmin}
                       count={commentCount}
                     />
                   </CardContent>

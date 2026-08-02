@@ -28,7 +28,7 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E1  | [Remove Travel DNA](stories/E1-remove-travel-dna.md)                             | 1             | Done        |
 | E2  | [Members, roles and the contact book](stories/E2-members-and-roles.md)           | 2, 3          | Done        |
 | E3  | [Activity trail and attribution](stories/E3-activity-and-attribution.md)         | 4, 5          | Not started |
-| E4  | [AI runs only when asked](stories/E4-ai-runs-on-request-only.md)                 | 6, 7          | Not started |
+| E4  | [AI runs only when asked](stories/E4-ai-runs-on-request-only.md)                 | 6, 7          | Done        |
 | E5  | [Trip page restructure](stories/E5-trip-page-restructure.md)                     | 8, 10, 11, 14 | Not started |
 | E6  | [Finalising proposals](stories/E6-finalising-proposals.md)                       | 9, 16         | Not started |
 | E7  | [Editing and preferences summary](stories/E7-editing-and-preferences-summary.md) | 12, 13        | Not started |
@@ -51,10 +51,10 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E3.2 | Proposal shows who added it and when                    | Not started |           |            |
 | E3.3 | Who voted and when                                      | Not started |           |            |
 | E3.4 | `x/x voted` on places and accommodations detail screens | Not started |           |            |
-| E4.1 | Adding a stay or saving preferences triggers no AI      | Not started |           |            |
-| E4.2 | Stale match results are labelled                        | Not started |           |            |
-| E4.3 | Admin chooses when match analysis runs                  | Not started |           |            |
-| E4.4 | AI Referee cannot be spammed                            | Not started |           |            |
+| E4.1 | Adding a stay or saving preferences triggers no AI      | Done        | `…kzsuz3` | 2026-08-02 |
+| E4.2 | Stale match results are labelled                        | Done        | `…kzsuz3` | 2026-08-02 |
+| E4.3 | Admin chooses when match analysis runs                  | Done        | `…kzsuz3` | 2026-08-02 |
+| E4.4 | AI Referee cannot be spammed                            | Done        | `…kzsuz3` | 2026-08-02 |
 | E5.1 | Summary card at the top                                 | Not started |           |            |
 | E5.2 | Trip description, collapsed                             | Not started |           |            |
 | E5.3 | Every section collapses                                 | Not started |           |            |
@@ -77,11 +77,15 @@ Answer these as they come up; they block the story named beside each.
 | Q1  | Do watchers see the AI Referee feed?                              | E2.3   | No — hidden entirely                   |
 | Q2  | Do all existing trip members become tripmates on migration?       | E2.2   | Yes — organizer→admin, member→tripmate |
 | Q3  | What does a section header say when several proposals are locked? | E6.1   |                                        |
-| Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   |                                        |
+| Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   | No — declined at scoping               |
 | Q5  | Where does the activity trail surface in the UI?                  | E3.1   |                                        |
 | Q6  | Do sections default to collapsed or expanded on first visit?      | E5.3   |                                        |
 
 ## Notes for whoever picks this up
+
+- **E4.3 has one deferred criterion.** "Every trigger is recorded in the activity
+  trail as `ai.match_refreshed`" needs E3, which has not been built. Pick it up
+  with E3.1; everything else in E4 is done.
 
 - ~~Two live authorisation holes~~ — both closed by E2: `trips.update` now
   requires admin (it previously checked nothing at all), and

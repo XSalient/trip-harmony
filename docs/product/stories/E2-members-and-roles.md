@@ -251,6 +251,16 @@ Both answered by the trip owner before implementation:
 2. **Do all existing members become tripmates?** **Yes** — `organizer → admin`,
    `member → tripmate`, nobody demoted to watcher.
 
+**Found later, during E4**
+
+The story's Touches list named `TripDashboard.tsx` but not the five proposal and
+detail pages, all of which still gated their controls on
+`trip?.organizerId === user?.id`. The server was correct throughout — a second
+admin was simply shown no lock/unlock or itinerary controls, and a demoted
+creator was shown controls that would be refused. Fixed in the E4 commit;
+`TripDates`, `TripDestinations`, `TripAccommodations`, `TripItinerary` and
+`TripVibeBoard` now read `trips.myRole`.
+
 **Found during implementation**
 
 - `budget.summary` returned every member's `budgetMax` to anyone who asked. It

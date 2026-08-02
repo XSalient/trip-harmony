@@ -1573,6 +1573,27 @@ export async function getAllTripPreferences(tripId: number) {
     );
 }
 
+/**
+ * When anyone on the trip last changed their preferences.
+ *
+ * A match analysis older than this was scored against something the group no
+ * longer says it wants. Since analysis stopped re-running itself, this is what
+ * lets the screen say so instead of silently showing stale advice.
+ */
+export async function getLatestPreferenceUpdate(
+  tripId: number
+): Promise<Date | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select({ updatedAt: memberPreferences.updatedAt })
+    .from(memberPreferences)
+    .where(eq(memberPreferences.tripId, tripId))
+    .orderBy(desc(memberPreferences.updatedAt))
+    .limit(1);
+  return rows[0]?.updatedAt ?? null;
+}
+
 export async function countTripPreferences(tripId: number): Promise<number> {
   const db = await getDb();
   if (!db) return 0;

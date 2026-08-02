@@ -6,6 +6,10 @@ import { z } from "zod";
 import { invokeLLM } from "../_core/llm.js";
 import * as db from "../db.js";
 import { extractLLMText, requireTripRole } from "./_shared.js";
+import {
+  REFEREE_COOLDOWN_MS,
+  refereeCooldownRemainingMs,
+} from "../../shared/const.js";
 
 export const refereeRouter = router({
   messages: protectedProcedure
@@ -26,6 +30,23 @@ export const refereeRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
+
+      // Inside the cooldown, hand back what the referee already said rather
+      // than erroring. Nothing has changed enough in ten minutes to be worth
+      // another pass over every member's preferences and every vote, and a
+      // refused button reads as a broken one.
+      const recent = await db.getRefereeMessages(input.tripId, 1);
+      const last = recent[0];
+      const retryAfterMs = refereeCooldownRemainingMs(last?.createdAt);
+      if (last && retryAfterMs > 0) {
+        return {
+          id: last.id,
+          content: last.content,
+          fromCooldown: true,
+          retryAfterMs,
+        };
+      }
+
       const trip = await db.getTrip(input.tripId);
       const members = await db.getTripMembers(input.tripId);
       const allPrefs = await db.getAllTripPreferences(input.tripId);
@@ -141,7 +162,12 @@ Name the actual proposals and people involved — "Barcelona has two vetoes" or 
           context: contextSummary,
         });
 
-        return { id: msgId, content };
+        return {
+          id: msgId,
+          content,
+          fromCooldown: false,
+          retryAfterMs: REFEREE_COOLDOWN_MS,
+        };
       } catch (error) {
         const fallbackContent = `Hey team! I see you're in the ${input.phase} phase with ${memberCount} members. Keep the momentum going — every vote counts! 🎯`;
         const msgId = await db.createRefereeMessage({
@@ -150,7 +176,12 @@ Name the actual proposals and people involved — "Barcelona has two vetoes" or 
           messageType: "nudge",
           content: fallbackContent,
         });
-        return { id: msgId, content: fallbackContent };
+        return {
+          id: msgId,
+          content: fallbackContent,
+          fromCooldown: false,
+          retryAfterMs: REFEREE_COOLDOWN_MS,
+        };
       }
     }),
 });

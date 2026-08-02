@@ -4,7 +4,6 @@
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import * as db from "../db.js";
-import { runTripMatchAnalyses } from "./matchAnalysis.js";
 import { requireTripRole } from "./_shared.js";
 
 export const preferencesRouter = router({
@@ -34,9 +33,21 @@ export const preferencesRouter = router({
         avoids: input.avoids,
         openComments: input.openComments,
       });
-      // Re-run AI match analysis for all accommodations in this trip (non-blocking)
-      runTripMatchAnalyses(input.tripId).catch(() => {});
+      // Saving preferences used to re-analyse every accommodation in the trip,
+      // so a six-member group filling in a form spent six full passes over the
+      // same stays. The accommodations screen now marks results older than this
+      // save as possibly out of date, and an admin re-runs them once.
       return { success: true };
+    }),
+  /**
+   * When anyone last changed their preferences. The accommodations screen
+   * compares it against each `matchAnalysedAt` to mark stale results.
+   */
+  lastUpdated: protectedProcedure
+    .input(z.object({ tripId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "watcher");
+      return { at: await db.getLatestPreferenceUpdate(input.tripId) };
     }),
   countForTrip: protectedProcedure
     .input(z.object({ tripId: z.number() }))

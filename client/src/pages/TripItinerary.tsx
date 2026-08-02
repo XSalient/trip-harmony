@@ -68,7 +68,14 @@ export default function TripItinerary() {
   const addItemMutation = trpc.itinerary.addItem.useMutation();
   const deleteItemMutation = trpc.itinerary.deleteItem.useMutation();
 
-  const isOrganizer = trip?.organizerId === user?.id;
+  // Role, not authorship: `organizerId` names whoever created the trip and
+  // cannot see a second admin, so gating on it hid these controls from admins
+  // who had them and showed them to a creator who had been demoted.
+  const { data: myRole } = trpc.trips.myRole.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const isAdmin = myRole?.role === "admin";
 
   const [addDayOpen, setAddDayOpen] = useState(false);
   const [dayDate, setDayDate] = useState("");
@@ -189,7 +196,7 @@ export default function TripItinerary() {
               Plan your days together.
             </p>
           </div>
-          {isOrganizer && (
+          {isAdmin && (
             <Dialog open={addDayOpen} onOpenChange={setAddDayOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="rounded-xl gap-1.5">
@@ -302,7 +309,7 @@ export default function TripItinerary() {
                             <ChevronUp className="h-4 w-4" />
                           )}
                         </button>
-                        {isOrganizer && (
+                        {isAdmin && (
                           <button
                             onClick={() => handleDeleteDay(day.id)}
                             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-destructive"
@@ -370,7 +377,7 @@ export default function TripItinerary() {
                                   )}
                                 </div>
                               </div>
-                              {(item.addedBy === user?.id || isOrganizer) && (
+                              {(item.addedBy === user?.id || isAdmin) && (
                                 <button
                                   onClick={() => handleDeleteItem(item.id)}
                                   className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive shrink-0"
@@ -408,7 +415,7 @@ export default function TripItinerary() {
               <p className="text-sm font-medium text-muted-foreground">
                 No days planned yet
               </p>
-              {isOrganizer ? (
+              {isAdmin ? (
                 <p className="text-xs text-muted-foreground mt-1">
                   Add your first day to start building the itinerary.
                 </p>
