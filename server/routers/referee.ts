@@ -23,8 +23,9 @@ export const refereeRouter = router({
     .mutation(async ({ input }) => {
       const trip = await db.getTrip(input.tripId);
       const members = await db.getTripMembers(input.tripId);
-      const groupDna = await db.getGroupTravelDna(input.tripId);
+      const allPrefs = await db.getAllTripPreferences(input.tripId);
       const budgetItems = await db.getBudgetItems(input.tripId);
+      const dateProposals = await db.getDateProposals(input.tripId);
       const destinations = await db.getDestinations(input.tripId);
       const accommodations = await db.getAccommodations(input.tripId);
 
@@ -32,42 +33,74 @@ export const refereeRouter = router({
         (s, i) => s + parseFloat(i.amount as string),
         0
       );
-      const memberCount = members.filter(m => m.status === "accepted").length;
+      const accepted = members.filter(m => m.status === "accepted");
+      const memberCount = accepted.length;
 
-      // Compute DNA averages and spreads
-      const dnaFields = [
-        "budgetComfort",
-        "socialEnergy",
-        "adventureLevel",
-        "planningStyle",
-        "culturalCuriosity",
-        "comfortNeed",
-        "foodPriority",
-        "activityPace",
-      ] as const;
-      const dnaStats: Record<string, { avg: number; spread: number }> = {};
-      for (const field of dnaFields) {
-        const values = groupDna.map(d => d[field]);
-        if (values.length > 0) {
-          const avg = values.reduce((s, v) => s + v, 0) / values.length;
-          const spread = Math.max(...values) - Math.min(...values);
-          dnaStats[field] = { avg: Math.round(avg * 10) / 10, spread };
-        }
-      }
+      const nameOf = (userId: number) =>
+        accepted.find(m => m.userId === userId)?.user?.name ||
+        `Member #${userId}`;
+
+      // Each preference field accepts 2,000 characters, so a large group can
+      // outgrow a sensible prompt on its own. Trim per field rather than
+      // slicing the finished JSON, which would hand the model a broken object.
+      const trim = (s: string | undefined) =>
+        s ? (s.length > 400 ? `${s.slice(0, 400)}…` : s) : null;
+
+      // What each member said they need. This is the trip-specific signal the
+      // referee reasons about — generic personality scores never told it which
+      // proposal was the problem.
+      const preferences = accepted.map(m => {
+        const row = allPrefs.find(p => p.userId === m.userId);
+        let parsed: Record<string, string> | null = null;
+        try {
+          if (row) parsed = JSON.parse(row.rawText);
+        } catch {}
+        return {
+          name: m.user?.name || `Member #${m.userId}`,
+          mustHaves: trim(parsed?.mustHaves),
+          avoids: trim(parsed?.avoids),
+          comments: trim(parsed?.openComments),
+        };
+      });
+
+      /**
+       * A proposal's disagreement, in the shape the referee can act on: how the
+       * group split, and who still owes a vote. An option nobody has voted on
+       * is a different problem from one the group is split over, and the
+       * referee has to be able to tell them apart.
+       */
+      const summariseVotes = (
+        label: string,
+        votes: Array<{ userId: number; vote: string }> | undefined
+      ) => {
+        const cast = votes ?? [];
+        const tally: Record<string, number> = {};
+        for (const v of cast) tally[v.vote] = (tally[v.vote] ?? 0) + 1;
+        const votedIds = new Set(cast.map(v => v.userId));
+        return {
+          label,
+          votes: tally,
+          notVoted: accepted
+            .filter(m => !votedIds.has(m.userId))
+            .map(m => nameOf(m.userId)),
+        };
+      };
 
       const contextSummary = JSON.stringify({
         tripName: trip?.name,
         phase: input.phase,
         memberCount,
-        dnaStats,
+        preferences,
         totalBudget,
         perPerson: memberCount > 0 ? (totalBudget / memberCount).toFixed(2) : 0,
-        destinationCount: destinations.length,
-        accommodationCount: accommodations.length,
-        vetoCount: destinations.reduce(
-          (c, d) =>
-            c + (d as any).votes?.filter((v: any) => v.vote === "veto").length,
-          0
+        dates: dateProposals.map((p: any) =>
+          summariseVotes(p.label || "Untitled dates", p.votes)
+        ),
+        destinations: destinations.map((d: any) =>
+          summariseVotes(d.name, d.votes)
+        ),
+        accommodations: accommodations.map((a: any) =>
+          summariseVotes(a.name, a.votes)
         ),
       });
 
@@ -80,7 +113,15 @@ export const refereeRouter = router({
             },
             {
               role: "user",
-              content: `Analyze this group trip situation and provide mediation advice:\n\n${contextSummary}\n\nProvide: 1) A brief status assessment, 2) Any detected conflicts or tension points, 3) A specific compromise suggestion if needed, 4) An encouraging next step.`,
+              content: `Analyze this group trip situation and provide mediation advice.
+
+"preferences" is what each member said they need for this trip. Each entry under "dates", "destinations" and "accommodations" is one proposal: "votes" tallies how the group voted on it, and "notVoted" names the members who have not voted on it yet.
+
+${contextSummary}
+
+Provide: 1) A brief status assessment, 2) Any detected conflicts or tension points, 3) A specific compromise suggestion if needed, 4) An encouraging next step.
+
+Name the actual proposals and people involved — "Barcelona has two vetoes" or "the beach house clashes with Sam's no-stairs must-have", never "there is some disagreement". If the real blocker is that nobody has voted yet, say so and name who is holding it up.`,
             },
           ],
         });

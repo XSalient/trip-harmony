@@ -27,9 +27,9 @@ Express app  ──────────────────────�
    │                                                        ┘
    ▼
 appRouter (server/routers/index.ts)
-   └── 13 domain routers — auth, trips, dates, destinations,
+   └── 12 domain routers — auth, trips, dates, destinations,
        accommodations, budget, referee, notifications,
-       comments, preferences, vibeBoard, itinerary, travelDna
+       comments, preferences, vibeBoard, itinerary
    │
    ▼
 server/db.ts  →  Drizzle ORM  →  PostgreSQL

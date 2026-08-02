@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Home, Plus, Bell, User, Compass } from "lucide-react";
+import { Home, Plus, Bell, User } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 
@@ -18,7 +18,6 @@ export default function MobileNav() {
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/quiz", icon: Compass, label: "DNA" },
     { href: "/trips/new", icon: Plus, label: "New Trip" },
     { href: "/notifications", icon: Bell, label: "Alerts", badge: unreadCount },
     { href: "/profile", icon: User, label: "Profile" },

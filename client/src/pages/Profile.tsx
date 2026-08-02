@@ -1,14 +1,12 @@
 /**
- * The account screen: who you are, your saved Travel DNA, and how you sign in.
+ * The account screen: who you are and how you sign in.
  *
- * Until this existed there was nowhere to see an answered quiz or to set a
- * password on an account created by magic link.
+ * Until this existed there was nowhere to set a password on an account created
+ * by magic link.
  */
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { travelDnaTraits, summariseTravelDna } from "@/lib/travelDna";
 import AppShell from "@/components/AppShell";
 import { PasskeySection } from "@/components/PasskeySection";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
@@ -17,15 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Compass,
-  KeyRound,
-  LogOut,
-  Pencil,
-  Sparkles,
-  UtensilsCrossed,
-  Accessibility,
-} from "lucide-react";
+import { KeyRound, LogOut } from "lucide-react";
 
 function ProfileHeader() {
   const { user } = useAuth();
@@ -60,137 +50,6 @@ function ProfileHeader() {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function TravelDnaCard() {
-  const [, navigate] = useLocation();
-  const { data: dna, isLoading } = trpc.travelDna.get.useQuery();
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <Skeleton className="h-20 rounded-xl" />
-        <Skeleton className="h-40 rounded-xl" />
-      </div>
-    );
-  }
-
-  if (!dna) {
-    return (
-      <Card className="border-dashed border-primary/30 bg-primary/5">
-        <CardContent className="p-5 text-center space-y-3">
-          <Sparkles className="h-8 w-8 text-primary mx-auto" />
-          <div>
-            <p className="text-sm font-medium">No Travel DNA yet</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Answer eight quick questions so Back To Travelling can match you
-              with the right stays and settle group disagreements in your
-              favour.
-            </p>
-          </div>
-          <Button className="w-full gap-2" onClick={() => navigate("/quiz")}>
-            <Compass className="h-4 w-4" /> Take the quiz
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const summary = summariseTravelDna(dna as Record<string, unknown>);
-  const updated = dna.updatedAt ? new Date(dna.updatedAt) : null;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex-1">
-          Travel DNA
-        </h2>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 gap-1.5 text-primary"
-          onClick={() => navigate("/quiz")}
-        >
-          <Pencil className="h-3.5 w-3.5" /> Edit
-        </Button>
-      </div>
-
-      {summary && (
-        <Card className="border-border/50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-primary shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium">{summary}</p>
-              {updated && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Updated {updated.toLocaleDateString()}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card className="border-border/50">
-        <CardContent className="p-4 space-y-4">
-          {travelDnaTraits.map(trait => {
-            const value = (dna as Record<string, unknown>)[trait.key];
-            const score = typeof value === "number" ? value : 5;
-            return (
-              <div key={trait.key}>
-                <div className="flex items-center gap-3 mb-1.5">
-                  <trait.icon className={`h-4 w-4 ${trait.color}`} />
-                  <span className="text-sm font-medium">{trait.title}</span>
-                  <span className="ml-auto text-sm font-bold text-primary">
-                    {score}/10
-                  </span>
-                </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${(score / 10) * 100}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[11px] text-muted-foreground mt-1">
-                  <span>{trait.low}</span>
-                  <span>{trait.high}</span>
-                </div>
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      {(dna.dietaryNeeds || dna.accessibilityNeeds) && (
-        <Card className="border-border/50">
-          <CardContent className="p-4 space-y-3">
-            {dna.dietaryNeeds && (
-              <div className="flex items-start gap-3">
-                <UtensilsCrossed className="h-4 w-4 text-chart-4 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Dietary needs
-                  </p>
-                  <p className="text-sm mt-0.5">{dna.dietaryNeeds}</p>
-                </div>
-              </div>
-            )}
-            {dna.accessibilityNeeds && (
-              <div className="flex items-start gap-3">
-                <Accessibility className="h-4 w-4 text-chart-2 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Accessibility needs
-                  </p>
-                  <p className="text-sm mt-0.5">{dna.accessibilityNeeds}</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-    </div>
   );
 }
 
@@ -268,7 +127,6 @@ export default function Profile() {
     <AppShell title="Profile" showBack backHref="/">
       <div className="px-4 py-4 space-y-6">
         <ProfileHeader />
-        <TravelDnaCard />
         <SignInMethods />
 
         <Button

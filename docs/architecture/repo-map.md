@@ -59,7 +59,6 @@ open only its domain file.
 | `accommodations.ts` |   354 | Stays, votes, URL import, match refresh               |
 | `budget.ts`         |    74 | Expenses and summaries                                |
 | `referee.ts`        |    88 | AI mediation                                          |
-| `travelDna.ts`      |    29 | Personality profile                                   |
 | `preferences.ts`    |    36 | Per-trip member requirements                          |
 | `comments.ts`       |    41 | Comment threads                                       |
 | `notifications.ts`  |    23 | Notification feed                                     |
@@ -76,14 +75,13 @@ open only its domain file.
 | `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …) |
 | `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**      |
 | `src/lib/trpc.ts`                 | Typed tRPC React client                                                   |
-| `src/lib/travelDna.ts`            | The eight Travel DNA axes — shared by the quiz and the profile            |
 | `src/_core/hooks/useAuth.ts`      | Session hook                                                              |
 | `src/contexts/ThemeContext.tsx`   | Dark mode                                                                 |
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                    |
 
 Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub),
 `TripAccommodations.tsx` (810 lines — the most complex screen) and
-`Profile.tsx` (the account screen: Travel DNA, password, passkeys, sign out).
+`Profile.tsx` (the account screen: password, passkeys, sign out).
 
 `DashboardLayout.tsx` is scaffold from the project template — no route renders
 it. Don't add features there expecting anyone to see them.

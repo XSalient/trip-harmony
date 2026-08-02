@@ -103,29 +103,6 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
- * Travel DNA profiles — personality quiz results per user.
- */
-export const travelDna = pgTable("travel_dna", {
-  id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  budgetComfort: integer("budgetComfort").notNull().default(5),
-  socialEnergy: integer("socialEnergy").notNull().default(5),
-  adventureLevel: integer("adventureLevel").notNull().default(5),
-  planningStyle: integer("planningStyle").notNull().default(5),
-  culturalCuriosity: integer("culturalCuriosity").notNull().default(5),
-  comfortNeed: integer("comfortNeed").notNull().default(5),
-  foodPriority: integer("foodPriority").notNull().default(5),
-  activityPace: integer("activityPace").notNull().default(5),
-  dietaryNeeds: text("dietaryNeeds"),
-  accessibilityNeeds: text("accessibilityNeeds"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
-
-export type TravelDna = typeof travelDna.$inferSelect;
-export type InsertTravelDna = typeof travelDna.$inferInsert;
-
-/**
  * Trip groups — the core container for a trip.
  */
 export const trips = pgTable("trips", {

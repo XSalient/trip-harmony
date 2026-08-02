@@ -25,7 +25,7 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 
 | #   | Epic                                                                             | Items         | Status      |
 | --- | -------------------------------------------------------------------------------- | ------------- | ----------- |
-| E1  | [Remove Travel DNA](stories/E1-remove-travel-dna.md)                             | 1             | Not started |
+| E1  | [Remove Travel DNA](stories/E1-remove-travel-dna.md)                             | 1             | Done        |
 | E2  | [Members, roles and the contact book](stories/E2-members-and-roles.md)           | 2, 3          | Not started |
 | E3  | [Activity trail and attribution](stories/E3-activity-and-attribution.md)         | 4, 5          | Not started |
 | E4  | [AI runs only when asked](stories/E4-ai-runs-on-request-only.md)                 | 6, 7          | Not started |
@@ -36,37 +36,37 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 
 ## Stories
 
-| ID   | Story                                                   | Status      | Commit | Date |
-| ---- | ------------------------------------------------------- | ----------- | ------ | ---- |
-| E1.1 | No personality quiz in the app                          | Not started |        |      |
-| E1.2 | API and database carry no Travel DNA                    | Not started |        |      |
-| E1.3 | AI still useful once DNA is gone                        | Not started |        |      |
-| E2.1 | One helper decides what a member may do                 | Not started |        |      |
-| E2.2 | Roles are Admin / Tripmate / Watcher                    | Not started |        |      |
-| E2.3 | Watchers see no personal details                        | Not started |        |      |
-| E2.4 | Members page                                            | Not started |        |      |
-| E2.5 | Invite by email and track acceptance                    | Not started |        |      |
-| E2.6 | Contact book                                            | Not started |        |      |
-| E3.1 | Every trip action is recorded                           | Not started |        |      |
-| E3.2 | Proposal shows who added it and when                    | Not started |        |      |
-| E3.3 | Who voted and when                                      | Not started |        |      |
-| E3.4 | `x/x voted` on places and accommodations detail screens | Not started |        |      |
-| E4.1 | Adding a stay or saving preferences triggers no AI      | Not started |        |      |
-| E4.2 | Stale match results are labelled                        | Not started |        |      |
-| E4.3 | Admin chooses when match analysis runs                  | Not started |        |      |
-| E4.4 | AI Referee cannot be spammed                            | Not started |        |      |
-| E5.1 | Summary card at the top                                 | Not started |        |      |
-| E5.2 | Trip description, collapsed                             | Not started |        |      |
-| E5.3 | Every section collapses                                 | Not started |        |      |
-| E5.4 | Section names and order                                 | Not started |        |      |
-| E5.5 | Trip page split into components                         | Not started |        |      |
-| E6.1 | Multiple locked places and accommodations               | Not started |        |      |
-| E6.2 | Lock/unlock from the trip details page                  | Not started |        |      |
-| E6.3 | Who finalised something and when                        | Not started |        |      |
-| E7.1 | Preferences screen summary                              | Not started |        |      |
-| E7.2 | Rename a trip and edit its description                  | Not started |        |      |
-| E8.1 | Add navigates to the detail screen with the dialog open | Not started |        |      |
-| E8.2 | One add form per proposal type                          | Not started |        |      |
+| ID   | Story                                                   | Status      | Commit    | Date       |
+| ---- | ------------------------------------------------------- | ----------- | --------- | ---------- |
+| E1.1 | No personality quiz in the app                          | Done        | `…kzsuz3` | 2026-08-02 |
+| E1.2 | API and database carry no Travel DNA                    | Done        | `…kzsuz3` | 2026-08-02 |
+| E1.3 | AI still useful once DNA is gone                        | Done        | `…kzsuz3` | 2026-08-02 |
+| E2.1 | One helper decides what a member may do                 | Not started |           |            |
+| E2.2 | Roles are Admin / Tripmate / Watcher                    | Not started |           |            |
+| E2.3 | Watchers see no personal details                        | Not started |           |            |
+| E2.4 | Members page                                            | Not started |           |            |
+| E2.5 | Invite by email and track acceptance                    | Not started |           |            |
+| E2.6 | Contact book                                            | Not started |           |            |
+| E3.1 | Every trip action is recorded                           | Not started |           |            |
+| E3.2 | Proposal shows who added it and when                    | Not started |           |            |
+| E3.3 | Who voted and when                                      | Not started |           |            |
+| E3.4 | `x/x voted` on places and accommodations detail screens | Not started |           |            |
+| E4.1 | Adding a stay or saving preferences triggers no AI      | Not started |           |            |
+| E4.2 | Stale match results are labelled                        | Not started |           |            |
+| E4.3 | Admin chooses when match analysis runs                  | Not started |           |            |
+| E4.4 | AI Referee cannot be spammed                            | Not started |           |            |
+| E5.1 | Summary card at the top                                 | Not started |           |            |
+| E5.2 | Trip description, collapsed                             | Not started |           |            |
+| E5.3 | Every section collapses                                 | Not started |           |            |
+| E5.4 | Section names and order                                 | Not started |           |            |
+| E5.5 | Trip page split into components                         | Not started |           |            |
+| E6.1 | Multiple locked places and accommodations               | Not started |           |            |
+| E6.2 | Lock/unlock from the trip details page                  | Not started |           |            |
+| E6.3 | Who finalised something and when                        | Not started |           |            |
+| E7.1 | Preferences screen summary                              | Not started |           |            |
+| E7.2 | Rename a trip and edit its description                  | Not started |           |            |
+| E8.1 | Add navigates to the detail screen with the dialog open | Not started |           |            |
+| E8.2 | One add form per proposal type                          | Not started |           |            |
 
 ## Open questions
 

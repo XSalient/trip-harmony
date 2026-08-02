@@ -8,6 +8,42 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — Travel DNA removed; the referee reads the trip instead
+
+### Removed
+
+- **Travel DNA is gone**, quiz and all. It asked every member to rate themselves
+  1–10 on eight abstract axes — budget comfort, social energy, adventure level,
+  planning style, cultural curiosity, comfort need, food priority, activity pace
+  — before they could be scored against anything, and the answers were
+  self-reported personality rather than anything actionable about a particular
+  trip. Per-trip preferences already collect what the AI needs, in the member's
+  own words, about the trip in front of them.
+
+  The `/quiz` route, the quiz page, the profile section, the bottom-nav "DNA"
+  tab, `client/src/lib/travelDna.ts`, the `travelDna` router and the three
+  `db.ts` query functions are all deleted. `drizzle/0002_drop_travel_dna.sql`
+  drops the table; the data is not recoverable after it runs.
+
+### Changed
+
+- **The AI referee now reasons about the trip rather than about personalities.**
+  Removing the eight-axis averages would have left it commenting on counts, so
+  its context was rebuilt from data the app already had: each member's
+  must-haves, avoids and notes; a per-proposal vote tally for every date,
+  destination and accommodation; and — the blocker on most stalled trips — the
+  names of members who have not voted on each one. It is now asked to name the
+  proposal and the person, not to observe that there is "some disagreement".
+  Preference text is trimmed per field so a large group cannot outgrow the
+  prompt.
+- **Accommodation match analysis** scores against trip preferences alone, and is
+  asked for an entry per member so someone who has set no preferences gets a
+  neutral score instead of vanishing from the results.
+- **The landing page** advertises Trip Preferences where it advertised Travel
+  DNA; the dashboard's Quick Actions is a single New Trip button.
+
+---
+
 ## 2026-08-01 — Import a blocked listing from the page you can see
 
 ### Added

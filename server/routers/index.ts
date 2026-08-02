@@ -9,7 +9,6 @@ import { router } from "../_core/trpc.js";
 import { systemRouter } from "../_core/systemRouter.js";
 import { authRouter } from "./auth.js";
 import { passkeysRouter } from "./passkeys.js";
-import { travelDnaRouter } from "./travelDna.js";
 import { tripsRouter } from "./trips.js";
 import { datesRouter } from "./dates.js";
 import { destinationsRouter } from "./destinations.js";
@@ -26,7 +25,6 @@ export const appRouter = router({
   system: systemRouter,
   auth: authRouter,
   passkeys: passkeysRouter,
-  travelDna: travelDnaRouter,
   trips: tripsRouter,
   dates: datesRouter,
   destinations: destinationsRouter,

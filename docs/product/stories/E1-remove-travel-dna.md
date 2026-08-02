@@ -1,7 +1,7 @@
 # E1 — Remove Travel DNA
 
 - **Covers request items:** 1
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** nothing
 
 ## Why
@@ -25,11 +25,11 @@ surface every later epic has to work on.
 
 **Acceptance criteria**
 
-- [ ] `/quiz` no longer resolves; visiting it renders the 404 page.
-- [ ] No link, card or CTA anywhere in the app points at the quiz.
-- [ ] The profile page renders without a Travel DNA section and without a gap
+- [x] `/quiz` no longer resolves; visiting it renders the 404 page.
+- [x] No link, card or CTA anywhere in the app points at the quiz.
+- [x] The profile page renders without a Travel DNA section and without a gap
       where it was.
-- [ ] The home page renders for a user who never took the quiz and for one who
+- [x] The home page renders for a user who never took the quiz and for one who
       did, identically.
 
 **Touches**
@@ -40,6 +40,7 @@ surface every later epic has to work on.
   and the profile. Delete.
 - `client/src/pages/Profile.tsx` — remove the DNA section and its query.
 - `client/src/pages/Home.tsx` — remove the quiz CTA.
+- `client/src/components/MobileNav.tsx` — the bottom-nav "DNA" tab.
 
 **Notes**
 
@@ -47,19 +48,34 @@ surface every later epic has to work on.
 password, passkeys, sign out". Update that line in
 `docs/architecture/repo-map.md` when the section goes.
 
+**Found during implementation:** this list originally missed
+`MobileNav.tsx`, which had a permanent bottom-nav tab pointing at `/quiz` — a
+dead link on every authenticated screen, not a page anyone had to visit. The
+list was built by grepping for `travelDna`, and that tab referenced only the
+route string. **Later epics: grep for the route path as well as the symbol.**
+
+Two removals were replacements rather than deletions, because a hole would have
+read as a bug:
+
+- The landing page's four-card feature grid would have dropped to three in a
+  two-column layout. Travel DNA's card became **Trip Preferences**, which is the
+  feature that actually replaced it.
+- The dashboard's two-button Quick Actions row would have left "New Trip"
+  beside a gap; it is now a single full-width button.
+
 ### E1.2 — As a developer, the API and database carry no Travel DNA, so that nothing reads a table that no longer means anything
 
 **Acceptance criteria**
 
-- [ ] `server/routers/travelDna.ts` is deleted and its line removed from
+- [x] `server/routers/travelDna.ts` is deleted and its line removed from
       `server/routers/index.ts`.
-- [ ] `upsertTravelDna`, `getTravelDna` and `getGroupTravelDna` are gone from
+- [x] `upsertTravelDna`, `getTravelDna` and `getGroupTravelDna` are gone from
       `server/db.ts`, and no caller remains.
-- [ ] The `travelDna` table, its `TravelDna` / `InsertTravelDna` types and its
+- [x] The `travelDna` table, its `TravelDna` / `InsertTravelDna` types and its
       import are gone from `drizzle/schema.ts`.
-- [ ] `drizzle/0002_drop_travel_dna.sql` drops the table, and
+- [x] `drizzle/0002_drop_travel_dna.sql` drops the table, and
       `drizzle/meta/_journal.json` records it.
-- [ ] `pnpm check` and `pnpm test` pass.
+- [x] `pnpm check` and `pnpm test` pass.
 
 **Touches**
 
@@ -85,13 +101,13 @@ change if anyone gets cold feet. Follow the procedure in
 
 **Acceptance criteria**
 
-- [ ] `runAccommodationMatchAnalysis` builds member profiles from trip
+- [x] `runAccommodationMatchAnalysis` builds member profiles from trip
       preferences alone; no prompt text mentions Travel DNA or its axes.
-- [ ] A member with no saved preferences still gets a neutral score rather than
+- [x] A member with no saved preferences still gets a neutral score rather than
       being omitted from `memberMatches`.
-- [ ] `referee.analyze` sends a context object with no `dnaStats` key, and the
+- [x] `referee.analyze` sends a context object with no `dnaStats` key, and the
       referee's replies still name a concrete tension.
-- [ ] Running the referee on a trip with proposals and votes returns advice that
+- [x] Running the referee on a trip with proposals and votes returns advice that
       references something real about that trip.
 
 **Touches**

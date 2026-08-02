@@ -10,8 +10,7 @@ of several kinds; every proposal type has its own votes table and shares one
 comments table.
 
 ```
-users ──┬── travel_dna                 (1:1  personality profile)
-        ├── trips                      (as organizer)
+users ──┬── trips                      (as organizer)
         └── trip_members ── trips      (many-to-many, with role and status)
 
 trips ──┬── date_proposals      ── date_votes
@@ -40,7 +39,6 @@ webauthn_challenges                                  standalone, short-lived
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `users`                | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                |
 | `magic_link_tokens`    | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                            |
-| `travel_dna`           | Eight 1–10 personality axes plus dietary and accessibility needs. Feeds referee and match analysis.                                                                                                                                                                                             |
 | `webauthn_credentials` | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices. |
 | `webauthn_challenges`  | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                        |
 

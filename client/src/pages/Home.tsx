@@ -9,7 +9,7 @@ import AppShell from "@/components/AppShell";
 import { AuthDialog } from "@/components/AuthDialog";
 import { Link, useLocation } from "wouter";
 import {
-  Compass,
+  ClipboardList,
   MapPin,
   Plus,
   LogOut,
@@ -67,9 +67,9 @@ function LandingPage() {
         <div className="grid grid-cols-2 gap-3">
           {[
             {
-              icon: Compass,
-              title: "Travel DNA",
-              desc: "Personality quiz for smart matching",
+              icon: ClipboardList,
+              title: "Trip Preferences",
+              desc: "Your must-haves and dealbreakers, per trip",
               color: "text-primary bg-primary/10",
             },
             {
@@ -166,7 +166,6 @@ function TripCard({ trip }: { trip: any }) {
 function Dashboard() {
   const { user, logout } = useAuth();
   const { data: trips, isLoading } = trpc.trips.list.useQuery();
-  const { data: dna } = trpc.travelDna.get.useQuery();
   const [, navigate] = useLocation();
 
   return (
@@ -185,45 +184,14 @@ function Dashboard() {
     >
       <div className="px-4 py-4 space-y-5">
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="default"
-            className="h-auto py-4 flex-col gap-2 rounded-xl shadow-sm"
-            onClick={() => navigate("/trips/new")}
-          >
-            <Plus className="h-5 w-5" />
-            <span className="text-sm font-medium">New Trip</span>
-          </Button>
-          <Button
-            variant={dna ? "outline" : "secondary"}
-            className={`h-auto py-4 flex-col gap-2 rounded-xl ${!dna ? "border-primary/30 bg-primary/5" : ""}`}
-            onClick={() => navigate("/quiz")}
-          >
-            <Compass className="h-5 w-5" />
-            <span className="text-sm font-medium">
-              {dna ? "Edit DNA" : "Take Quiz"}
-            </span>
-          </Button>
-        </div>
-
-        {!dna && (
-          <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-accent/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Sparkles className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium">
-                    Complete your Travel DNA
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Take a quick quiz so Back To Travelling can match you with
-                    the right trips and resolve conflicts smarter.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <Button
+          variant="default"
+          className="h-auto w-full py-4 flex-col gap-2 rounded-xl shadow-sm"
+          onClick={() => navigate("/trips/new")}
+        >
+          <Plus className="h-5 w-5" />
+          <span className="text-sm font-medium">New Trip</span>
+        </Button>
 
         {/* Trips */}
         <div>

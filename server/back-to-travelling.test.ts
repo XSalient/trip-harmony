@@ -81,41 +81,41 @@ describe("auth.logout", () => {
   });
 });
 
-describe("travelDna.save input validation", () => {
-  it("rejects values outside 1-10 range", async () => {
+// These replace the equivalent bounds tests on `travelDna.save`, removed with
+// Travel DNA itself. Per-trip preferences are what now feeds match analysis and
+// the referee, so the bounded-input coverage moves here rather than being lost.
+describe("preferences.save input validation", () => {
+  const validPrefs = {
+    tripId: 1,
+    mustHaves: "Ground floor only",
+    strongPreferences: "Pool",
+    avoids: "Long transfers",
+    openComments: "",
+  };
+
+  it("rejects a field longer than 2,000 characters", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     await expect(
-      caller.travelDna.save({
-        budgetComfort: 0,
-        socialEnergy: 5,
-        adventureLevel: 5,
-        planningStyle: 5,
-        culturalCuriosity: 5,
-        comfortNeed: 5,
-        foodPriority: 5,
-        activityPace: 5,
-      })
+      caller.preferences.save({ ...validPrefs, mustHaves: "x".repeat(2001) })
     ).rejects.toThrow();
   });
 
-  it("rejects values above 10", async () => {
+  it("accepts a field at exactly 2,000 characters", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    await expect(
-      caller.travelDna.save({
-        budgetComfort: 11,
-        socialEnergy: 5,
-        adventureLevel: 5,
-        planningStyle: 5,
-        culturalCuriosity: 5,
-        comfortNeed: 5,
-        foodPriority: 5,
-        activityPace: 5,
-      })
-    ).rejects.toThrow();
+    // Input validation must pass; the call may still fail on the database,
+    // which is not configured in tests.
+    try {
+      await caller.preferences.save({
+        ...validPrefs,
+        mustHaves: "x".repeat(2000),
+      });
+    } catch (e: any) {
+      expect(e.message).not.toContain("too_big");
+    }
   });
 });
 

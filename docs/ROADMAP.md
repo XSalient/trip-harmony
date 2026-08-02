@@ -16,7 +16,7 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 - [x] Database schema — users, trips, membership, proposals, votes, budget, notifications
 - [x] tRPC API covering every feature
 - [x] Mobile-first theming and layout
-- [x] Travel DNA quiz, profile storage, group compatibility analysis
+- [x] ~~Travel DNA quiz, profile storage, group compatibility analysis~~ (removed 2026-08-02, E1)
 - [x] Trip creation, shareable invite links, membership status and roles
 - [x] Planning phases — dates, destinations, accommodations
 - [x] AI referee — conflict detection, compromise suggestions, nudges
@@ -66,7 +66,7 @@ Specified in [product/](product/); tracked story by story in
 E3 → E5 → E7 → E8, and the order matters — E2 builds the permission model the
 rest check against.
 
-- [ ] **E1** — Remove Travel DNA, including dropping the table
+- [x] **E1** — Remove Travel DNA, including dropping the table
 - [ ] **E2** — Members, roles (Admin / Tripmate / Watcher), invite tracking, contact book
 - [ ] **E3** — Activity trail, proposal attribution, who-voted-when
 - [ ] **E4** — AI runs only when asked; match analysis stops firing itself

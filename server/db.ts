@@ -4,8 +4,6 @@ import { Pool } from "pg";
 import {
   InsertUser,
   users,
-  travelDna,
-  InsertTravelDna,
   trips,
   InsertTrip,
   tripMembers,
@@ -375,63 +373,6 @@ export async function deleteWebauthnCredential(id: number, userId: number) {
     )
     .returning({ id: webauthnCredentials.id });
   return result.length > 0;
-}
-
-// ---- Travel DNA ----
-export async function upsertTravelDna(data: InsertTravelDna) {
-  const db = await getDb();
-  if (!db) throw new Error("DB not available");
-  const existing = await db
-    .select()
-    .from(travelDna)
-    .where(eq(travelDna.userId, data.userId))
-    .limit(1);
-  if (existing.length > 0) {
-    await db
-      .update(travelDna)
-      .set(data)
-      .where(eq(travelDna.userId, data.userId));
-    return { ...existing[0], ...data };
-  }
-  const [result] = await db
-    .insert(travelDna)
-    .values(data)
-    .returning({ id: travelDna.id });
-  return { id: result.id, ...data };
-}
-
-export async function getTravelDna(userId: number) {
-  const db = await getDb();
-  if (!db) return null;
-  const result = await db
-    .select()
-    .from(travelDna)
-    .where(eq(travelDna.userId, userId))
-    .limit(1);
-  return result[0] || null;
-}
-
-export async function getGroupTravelDna(tripId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  const members = await db
-    .select()
-    .from(tripMembers)
-    .where(
-      and(eq(tripMembers.tripId, tripId), eq(tripMembers.status, "accepted"))
-    );
-  const userIds = members.map(m => m.userId);
-  if (userIds.length === 0) return [];
-  const results = [];
-  for (const uid of userIds) {
-    const dna = await db
-      .select()
-      .from(travelDna)
-      .where(eq(travelDna.userId, uid))
-      .limit(1);
-    if (dna[0]) results.push(dna[0]);
-  }
-  return results;
 }
 
 // ---- Trips ----

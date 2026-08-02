@@ -5,7 +5,6 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
-import TravelDnaQuiz from "./pages/TravelDnaQuiz";
 import CreateTrip from "./pages/CreateTrip";
 import JoinTrip from "./pages/JoinTrip";
 import TripDashboard from "./pages/TripDashboard";
@@ -26,7 +25,6 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/auth/magic/:token" component={MagicLinkVerify} />
-      <Route path="/quiz" component={TravelDnaQuiz} />
       <Route path="/trips/new" component={CreateTrip} />
       <Route path="/join/:code" component={JoinTrip} />
       <Route path="/trips/:id" component={TripDashboard} />

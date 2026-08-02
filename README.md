@@ -15,7 +15,7 @@ Full instructions: **[docs/runbooks/local-setup.md](docs/runbooks/local-setup.md
 
 ## What's in the box
 
-- **Travel DNA** — an eight-axis personality profile per member, aggregated across the group
+- **Trip preferences** — each member's must-haves, dealbreakers and notes, per trip
 - **Phased planning** — dates → destination → accommodation → itinerary, each with proposals, voting and comments
 - **Budget guardian** — per-person tracking against each member's own comfort ceiling
 - **AI referee** — conflict detection, compromise suggestions, and accommodation↔member match scoring

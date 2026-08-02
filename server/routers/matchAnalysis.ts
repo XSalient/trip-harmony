@@ -1,6 +1,5 @@
 /**
- * AI scoring of an accommodation against every member's Travel DNA and
- * trip preferences.
+ * AI scoring of an accommodation against every member's trip preferences.
  *
  * Called fire-and-forget from the accommodation and preference routers: a
  * failure here must never fail the user's write, so everything is wrapped and
@@ -22,15 +21,13 @@ export async function runAccommodationMatchAnalysis(
     const accommodation = await db.getAccommodation(accommodationId);
     if (!accommodation) return;
 
-    const [members, allDna, allPrefs] = await Promise.all([
+    const [members, allPrefs] = await Promise.all([
       db.getTripMembers(tripId),
-      db.getGroupTravelDna(tripId),
       db.getAllTripPreferences(tripId),
     ]);
 
     const accepted = members.filter((m: any) => m.status === "accepted");
     const memberProfiles = accepted.map((m: any) => {
-      const dna = allDna.find((d: any) => d.userId === m.userId);
       const prefRow = allPrefs.find((p: any) => p.userId === m.userId);
       let tripPrefs: any = null;
       try {
@@ -38,15 +35,6 @@ export async function runAccommodationMatchAnalysis(
       } catch {}
       return {
         name: m.userName || m.userEmail || `Member #${m.userId}`,
-        dna: dna
-          ? {
-              budget: dna.budgetComfort,
-              adventure: dna.adventureLevel,
-              comfort: dna.comfortNeed,
-              dietary: dna.dietaryNeeds,
-              accessibility: dna.accessibilityNeeds,
-            }
-          : null,
         tripPrefs: tripPrefs
           ? {
               mustHaves: tripPrefs.mustHaves || "",
@@ -82,13 +70,6 @@ export async function runAccommodationMatchAnalysis(
     const profileText = memberProfiles
       .map(p => {
         const lines = [`Member: ${p.name}`];
-        if (p.dna) {
-          lines.push(
-            `  Travel DNA — Budget: ${p.dna.budget}/10, Adventure: ${p.dna.adventure}/10, Comfort: ${p.dna.comfort}/10${p.dna.dietary ? `, Dietary: ${p.dna.dietary}` : ""}${p.dna.accessibility ? `, Accessibility: ${p.dna.accessibility}` : ""}`
-          );
-        } else {
-          lines.push("  Travel DNA: not set");
-        }
         if (p.tripPrefs) {
           if (p.tripPrefs.mustHaves)
             lines.push(`  Must-haves: ${p.tripPrefs.mustHaves}`);
@@ -107,7 +88,7 @@ export async function runAccommodationMatchAnalysis(
       })
       .join("\n\n");
 
-    const prompt = `You are an expert group travel analyst. Analyze how well this accommodation matches each group member's preferences and Travel DNA.
+    const prompt = `You are an expert group travel analyst. Analyze how well this accommodation matches each group member's stated preferences for this trip.
 
 ACCOMMODATION:
 ${accSummary}
@@ -132,7 +113,7 @@ Return ONLY a valid JSON object with this exact structure:
   ]
 }
 
-Be honest and specific. Flag hard constraint failures (stairs, accessibility, dietary, etc.) clearly. If a member has no preferences set, give them a neutral score of 65.`;
+Be honest and specific. Flag hard constraint failures (stairs, accessibility, dietary, etc.) clearly. Include an entry in "memberMatches" for every member listed above, in the same order — a member who has set no preferences still gets an entry, with a neutral score of 65 and a reason saying their preferences are not set.`;
 
     const raw = await invokeLLM({
       messages: [

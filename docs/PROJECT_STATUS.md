@@ -3,15 +3,23 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-01
+- **Last updated:** 2026-08-02
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
-- **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed
+- **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
+  The trip experience overhaul is in flight — see [product/](product/) for the
+  eight epics and [product/progress.md](product/progress.md) for what has landed.
 - **Health:** typecheck ✅ · 156 tests ✅ · production build ✅ · dev server ✅
-  (verified end-to-end against a real Postgres on 2026-08-01, including a full
-  passkey enrol → sign-out → passkey sign-in round trip in a real browser)
+  (2026-08-02, after the Travel DNA removal: all three migrations applied to a
+  real Postgres, then register → sign in → dashboard → profile walked in a real
+  browser). The **passkey** enrol → sign-out → passkey sign-in round trip was
+  last verified on 2026-08-01 and has not been repeated since.
+- **Pending migration:** `drizzle/0002_drop_travel_dna.sql` has been applied to a
+  throwaway database only — **not** to any long-lived one. It is destructive:
+  it drops `travel_dna` and every row in it. See
+  [runbooks/database.md](runbooks/database.md) before running it anywhere real.
 
 ---
 
@@ -39,15 +47,17 @@ Verified by running the app against Postgres, not just by reading code:
   ID, Windows Hello or a hardware key. Sign-in is usernameless: the browser
   offers whichever discoverable passkey it holds, so nothing is typed. Only
   public keys are stored. See [ADR 0007](adr/0007-passkeys-for-sign-in.md).
-- **Profile** — `/profile` shows the account, the saved Travel DNA trait by
-  trait, and every sign-in method (password state, passkeys) in one place.
+- **Profile** — `/profile` shows the account and every sign-in method
+  (password state, passkeys) in one place.
 - **Trips** — create, list, update, invite by code or email, join, membership roles.
 - **Planning** — date proposals, destinations, accommodations, vibe board and
   itinerary, each with proposal/vote/comment/clone/edit/delete. Posting a
   proposal records its author's vote, so a new option never sits at zero.
 - **Budget** — expense logging, category breakdown, per-person split, per-member caps.
 - **Notifications** — in-app feed with unread counts.
-- **Preferences** — per-member, per-trip requirements feeding AI match analysis.
+- **Preferences** — per-member, per-trip requirements. Since Travel DNA was
+  removed these are the only member signal the AI has, and they feed both match
+  analysis and the referee.
 - **AI features** — referee mediation, natural-language date parsing,
   accommodation URL import, accommodation↔member match scoring. These require an
   AI key; without one the rest of the app is unaffected. The URL import reads
