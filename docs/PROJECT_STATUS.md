@@ -19,25 +19,30 @@ finish a piece of work — the next person (or agent) starts here.
   to confirm no model call happens on an ordinary write). The **passkey** enrol →
   sign-out → passkey sign-in round trip was last verified on 2026-08-01 and has
   not been repeated since.
-- **Pending migrations:** `0002`, `0003` and `0004` have been applied to
-  throwaway databases only — **not** to any long-lived one. 0002 is destructive
-  (drops `travel_dna` and its rows); 0003 rewrites the `member_role` enum in
-  place; 0004 is additive and nullable. See
-  [runbooks/database.md](runbooks/database.md) before running any of them
-  anywhere real.
+- **Migrations:** all five are applied to the live Supabase database
+  (`Trip Harmony`, `eqpqjivaubdbdmyrlczh`) as of 2026-08-02, and drizzle's
+  tracking table was baselined so `pnpm db:migrate` is correct against it. The
+  role mapping landed on the real members (creator → admin, the other →
+  tripmate) and `travel_dna` is gone.
+- **Database access is locked down.** RLS is on for all 23 tables with no
+  policies, and `anon` / `authenticated` hold no grants — see
+  [ADR 0009](adr/0009-rls-on-with-no-policies.md). Supabase's linter reports 23
+  INFO `rls_enabled_no_policy` notices; that is the intended state.
 
 ---
 
 ## Where it runs
 
-| Environment         | Status                 | Notes                                                                     |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------- |
-| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                          |
-| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md) |
-| Production (Vercel) | ⚠️ Not yet provisioned | Needs a Postgres URL, `JWT_SECRET`, and a Doppler project                 |
+| Environment         | Status                 | Notes                                                                      |
+| ------------------- | ---------------------- | -------------------------------------------------------------------------- |
+| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                           |
+| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All 5 migrations applied |
+| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)  |
+| Production (Vercel) | ⚠️ Not yet provisioned | Needs the Postgres URL, `JWT_SECRET`, and a Doppler project                |
 
-Nothing is deployed yet. The repository is ready to deploy; the remaining work is
-account setup, which requires credentials no one should commit.
+The database is live and migrated; the app itself is not deployed yet. The
+remaining work is Vercel and Doppler setup, which requires credentials no one
+should commit.
 
 ## What works
 

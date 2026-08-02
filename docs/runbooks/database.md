@@ -38,6 +38,27 @@ pnpm db:push            # local-only shortcut; no migration file
 pnpm db:studio          # browse data
 ```
 
+## The production database
+
+The Supabase project `Trip Harmony` (`eqpqjivaubdbdmyrlczh`, eu-west-1) is the
+live database. Two things about it are not derivable from `drizzle/schema.ts`:
+
+- **RLS is enabled on every table with no policies, and `anon` /
+  `authenticated` have no grants.** That is deliberate — see
+  [ADR 0009](../adr/0009-rls-on-with-no-policies.md). Do not "fix" the linter's
+  `rls_enabled_no_policy` notices by adding policies. A **new** environment does
+  not inherit this; repeat it there.
+- **It was originally built with `db:push`,** so drizzle had no record of
+  0000/0001. A baseline row was inserted into `drizzle.__drizzle_migrations`
+  (the hash of `0001_passkeys.sql` and its journal `when`) on 2026-08-02, and
+  0002–0004 were applied and recorded. `pnpm db:migrate` is now correct against
+  it and is a no-op until a new migration lands.
+
+If you ever face this again — a schema built by `push` that now needs
+migrations — the fix is one row. Drizzle's migrator compares only the **latest**
+`created_at` in that table against each journal entry's `when`, so marking the
+last already-applied migration is enough; it does not check the earlier ones.
+
 ## Deploying a schema change
 
 Order matters: the migration must land **before** the code that depends on it.

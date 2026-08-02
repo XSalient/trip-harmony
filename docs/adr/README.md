@@ -19,6 +19,7 @@ or operated. Skip it for routine feature work.
 | [0006](0006-validated-config-at-boot.md)                   | Validate configuration at boot, fail fast        | Accepted |
 | [0007](0007-passkeys-for-sign-in.md)                       | Passkeys as a first-class sign-in method         | Accepted |
 | [0008](0008-listing-import-degrades-instead-of-evading.md) | Listing import degrades instead of evading       | Accepted |
+| [0009](0009-rls-on-with-no-policies.md)                    | RLS on with no policies, and no grants for anon  | Accepted |
 
 ## Template
 

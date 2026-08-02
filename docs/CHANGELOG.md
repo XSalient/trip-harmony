@@ -8,6 +8,39 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — Closed the database to the public API key
+
+### Security
+
+- **Row Level Security was disabled on all 23 tables of the production
+  database, and `anon` / `authenticated` held full read and write privileges on
+  every one of them.** Those are the roles a Supabase project's **anon key**
+  authenticates as, and an anon key is meant to be shipped in client-side code —
+  it is not a secret. Anyone with it could have read or modified
+  `users.passwordHash`, every email address, `magic_link_tokens` and
+  `webauthn_credentials` through the REST or GraphQL endpoints.
+
+  RLS is now enabled on every table with **no policies**, and all table and
+  sequence grants are revoked from both roles, including the schema's default
+  privileges so a table added later cannot quietly reopen it. Verified by
+  assuming each role: both now get `permission denied`.
+
+  The application is unaffected and never was affected — it has no Supabase
+  client dependency and connects as the `postgres` role, which bypasses RLS.
+  See [ADR 0009](adr/0009-rls-on-with-no-policies.md), which also explains why
+  the linter's 23 `rls_enabled_no_policy` notices are the intended state.
+
+### Changed
+
+- **The live database is migrated and drizzle-tracked.** It had been built with
+  `db:push`, so drizzle held no record of the baseline and `pnpm db:migrate`
+  would have tried to re-create every table. A baseline row was inserted, then
+  0002, 0003 and 0004 applied: the two real members mapped creator → Admin and
+  the other → Tripmate, `travel_dna` is gone, and invites, contacts and the lock
+  attribution columns exist.
+
+---
+
 ## 2026-08-02 — A trip can finalise more than one place to go and stay
 
 ### Changed
