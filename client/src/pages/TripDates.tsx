@@ -12,8 +12,8 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
-import { useParams } from "wouter";
-import { useState, useMemo } from "react";
+import { useParams, useSearch, useLocation } from "wouter";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { format, differenceInDays } from "date-fns";
 import {
@@ -95,6 +95,22 @@ export default function TripDates() {
   const utils = trpc.useUtils();
 
   const [addOpen, setAddOpen] = useState(false);
+
+  /**
+   * `?add=1` opens this screen's add dialog straight away.
+   *
+   * The trip page used to carry its own thinner copy of each add form; now its
+   * Add buttons come here instead, so there is one form per proposal type. The
+   * parameter is cleared once consumed, or going back would reopen the dialog.
+   */
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(search).get("add") !== "1") return;
+    setAddOpen(true);
+    navigate(window.location.pathname, { replace: true });
+  }, [search, navigate]);
+
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [label, setLabel] = useState("");

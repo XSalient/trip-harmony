@@ -13,8 +13,8 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
-import { useParams, Link } from "wouter";
-import { useState, useMemo } from "react";
+import { useParams, Link, useSearch, useLocation } from "wouter";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Home,
@@ -183,7 +183,7 @@ export default function TripAccommodations() {
       toast.success(
         analysed === 0
           ? "Nothing to analyse yet"
-          : `Analysed ${analysed} stay${analysed === 1 ? "" : "s"}`
+          : `Analysed ${analysed} accommodation${analysed === 1 ? "" : "s"}`
       );
     } catch (e: any) {
       toast.error(e?.message || "Analysis failed — try again");
@@ -210,6 +210,22 @@ export default function TripAccommodations() {
   };
 
   const [addOpen, setAddOpen] = useState(false);
+
+  /**
+   * `?add=1` opens this screen's add dialog straight away.
+   *
+   * The trip page used to carry its own thinner copy of each add form; now its
+   * Add buttons come here instead, so there is one form per proposal type. The
+   * parameter is cleared once consumed, or going back would reopen the dialog.
+   */
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(search).get("add") !== "1") return;
+    setAddOpen(true);
+    navigate(window.location.pathname, { replace: true });
+  }, [search, navigate]);
+
   const [form, setForm] = useState<FormState>(emptyForm);
   const [urlInput, setUrlInput] = useState("");
   const [urlFetching, setUrlFetching] = useState(false);
@@ -584,7 +600,7 @@ export default function TripAccommodations() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">
-              Compare stays and vote on your favorites
+              Compare accommodations and vote on your favorites
             </p>
             {lockedAccommodations.length > 0 && (
               <p className="text-xs text-primary font-medium mt-0.5">
@@ -1447,7 +1463,7 @@ export default function TripAccommodations() {
                         ) : (
                           <>
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
-                            Finalise this stay
+                            Finalise this accommodation
                           </>
                         )}
                       </Button>

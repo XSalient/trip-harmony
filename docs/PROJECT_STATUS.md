@@ -9,16 +9,20 @@ finish a piece of work — the next person (or agent) starts here.
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
-  The trip experience overhaul is in flight — see [product/](product/) for the
-  eight epics and [product/progress.md](product/progress.md) for what has landed.
+  The trip experience overhaul is **complete** — all eight epics, covering the
+  sixteen requested changes. See [product/](product/) for the specifications and
+  [product/progress.md](product/progress.md) for the story-by-story record.
 - **Health:** typecheck ✅ · 208 tests ✅ · production build ✅ · dev server ✅
-  (2026-08-02, after E1, E2 and E4: all four migrations applied to a real
-  Postgres, then admin creates a trip → invites a Watcher by email → Watcher
-  accepts and is correctly restricted, walked in a real browser with the API
-  payloads inspected rather than only the rendering; and the server log checked
-  to confirm no model call happens on an ordinary write). The **passkey** enrol →
-  sign-out → passkey sign-in round trip was last verified on 2026-08-01 and has
-  not been repeated since.
+  (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
+  browser against a real Postgres — section order, summary figures, collapse
+  state surviving a reload, the empty-trip case, renaming a trip from the header,
+  the preference summary and its budget cap, and the consolidated edit/clone
+  dialogs. Earlier, after E1/E2/E4: admin creates a trip → invites a Watcher by
+  email → Watcher accepts and is correctly restricted, with the API payloads
+  inspected rather than only the rendering, and the server log checked to confirm
+  no model call happens on an ordinary write). The **passkey** enrol → sign-out →
+  passkey sign-in round trip was last verified on 2026-08-01 and has not been
+  repeated since.
 - **Migrations:** all five are applied to the live Supabase database
   (`Trip Harmony`, `eqpqjivaubdbdmyrlczh`) as of 2026-08-02, and drizzle's
   tracking table was baselined so `pnpm db:migrate` is correct against it. The

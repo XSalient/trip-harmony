@@ -1,7 +1,7 @@
 # E5 — Trip page restructure
 
 - **Covers request items:** 8, 10, 11, 14
-- **Status:** Not started
+- **Status:** Done — 2026-08-02
 - **Depends on:** E2 (members card removal, role-aware controls), E6 (finalised
   counts for the summary)
 
@@ -19,13 +19,13 @@ this trip?" is not on the screen that is supposed to give it.
 
 **Acceptance criteria**
 
-- [ ] A summary card is the first thing on the trip details page.
-- [ ] It shows the finalised dates, or "Not finalised" when there are none.
-- [ ] It shows the count of finalised places.
-- [ ] It shows the count of finalised accommodations.
-- [ ] It shows the count of planned itinerary days.
-- [ ] Each figure links to the section it summarises.
-- [ ] It renders correctly for a brand-new trip with nothing in it.
+- [x] A summary card is the first thing on the trip details page.
+- [x] It shows the finalised dates, or "Not finalised" when there are none.
+- [x] It shows the count of finalised places.
+- [x] It shows the count of finalised accommodations.
+- [x] It shows the count of planned itinerary days.
+- [x] Each figure links to the section it summarises.
+- [x] It renders correctly for a brand-new trip with nothing in it.
 
 **Touches**
 
@@ -46,11 +46,11 @@ shape so it does not need rewriting.
 
 **Acceptance criteria**
 
-- [ ] The description appears directly below the summary card.
-- [ ] It is collapsed by default and expands on activation.
-- [ ] A trip with no description shows a prompt to add one (admins) or nothing
+- [x] The description appears directly below the summary card.
+- [x] It is collapsed by default and expands on activation.
+- [x] A trip with no description shows a prompt to add one (admins) or nothing
       (everyone else).
-- [ ] Expanding it does not push the summary off screen.
+- [x] Expanding it does not push the summary off screen.
 
 **Touches**
 
@@ -65,14 +65,14 @@ creation (`CreateTrip.tsx`), but is displayed nowhere. Editing it is E7.
 
 **Acceptance criteria**
 
-- [ ] Dates, places, accommodations, budget, vibe board, itinerary and AI referee
+- [x] Dates, places, accommodations, budget, vibe board, itinerary and AI referee
       are each collapsible.
-- [ ] The collapsed header still shows the section name and its at-a-glance state
+- [x] The collapsed header still shows the section name and its at-a-glance state
       (count, pending-vote badge, finalised badge).
-- [ ] Open/closed state persists per section across a reload.
-- [ ] Collapsing does not lose the "View all details" link into the section's own
+- [x] Open/closed state persists per section across a reload.
+- [x] Collapsing does not lose the "View all details" link into the section's own
       screen.
-- [ ] Keyboard and screen-reader accessible: headers are buttons with correct
+- [x] Keyboard and screen-reader accessible: headers are buttons with correct
       expanded state.
 
 **Touches**
@@ -95,14 +95,14 @@ section at a time; independent collapsibles are what is wanted.
 
 **Acceptance criteria**
 
-- [ ] "Destinations" reads **Places** everywhere in the UI.
-- [ ] "Stays" reads **Accommodations** everywhere in the UI.
-- [ ] The order top to bottom is: Summary · Trip Description · My Trip Preferences
+- [x] "Destinations" reads **Places** everywhere in the UI.
+- [x] "Stays" reads **Accommodations** everywhere in the UI.
+- [x] The order top to bottom is: Summary · Trip Description · My Trip Preferences
       · Dates · Accommodations · Places · Budget · Vibe Board · Itinerary ·
       AI Referee.
-- [ ] Section headings, empty-state text, dialog titles and toasts all use the new
+- [x] Section headings, empty-state text, dialog titles and toasts all use the new
       words.
-- [ ] Routes, tRPC procedure names and table names are unchanged.
+- [x] Routes, tRPC procedure names and table names are unchanged.
 
 **Touches**
 
@@ -129,11 +129,11 @@ shorthand in a sentence that no longer parses.
 
 **Acceptance criteria**
 
-- [ ] `SectionCard` lives in `client/src/components/trip/SectionCard.tsx`.
-- [ ] The proposal row renderers (dates, places, accommodations) are extracted
+- [x] `SectionCard` lives in `client/src/components/trip/SectionCard.tsx`.
+- [x] The proposal row renderers (dates, places, accommodations) are extracted
       into their own components.
-- [ ] `TripDashboard.tsx` is under 800 lines.
-- [ ] No behaviour changes in this story — it is a move.
+- [x] `TripDashboard.tsx` is under 800 lines.
+- [x] No behaviour changes in this story — it is a move.
 
 **Touches**
 
@@ -152,9 +152,22 @@ and the row renderers only and leave the dialogs to be deleted rather than moved
 
 ## Open questions
 
-- Should sections default to collapsed or expanded on first visit? Proposed:
-  Summary and Trip Description expanded, everything else collapsed, so a first
-  view is one screen.
+- ~~Should sections default to collapsed or expanded on first visit?~~ Answered
+  by the owner: **summary expanded, description and everything else collapsed**
+  — one step tighter than the proposal here, which had the description open too.
+
+## What it cost
+
+E5.5 said "under 800 lines" and the page reached 1,146 with the six edit and
+clone dialogs still inline — three "Edit X" and three "Clone X", each with its
+own open flag, field state and save handler. They collapsed into one
+`useProposalDialogs` describing a form rather than rendering six, which is what
+took the page to 700.
+
+The `SectionCard` empty state is the one place a mechanical extraction changed
+behaviour: `{rows.length > 0 ? rows.map(...) : null}` became `{rows.map(...)}`,
+and an empty array is truthy, so "No places yet" stopped rendering. The card now
+counts its rendered children instead.
 
 ## Out of scope
 

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import PreferencesSummary from "@/components/trip/PreferencesSummary";
 import {
   CheckCircle2,
   ClipboardList,
@@ -122,6 +123,7 @@ export default function TripPreferences() {
 
   const acceptedCount =
     members?.filter((m: any) => m.status === "accepted").length || 0;
+  const myMembership = members?.find((m: any) => m.userId === user?.id);
   const submittedCount = countData?.count || 0;
 
   if (isLoading) {
@@ -147,41 +149,15 @@ export default function TripPreferences() {
       backHref={`/trips/${tripId}`}
     >
       <div className="mx-auto max-w-2xl space-y-5 p-4 pb-44 sm:p-5 sm:pb-44">
-        {/* Header info */}
-        <Card className="border-border/50">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <ClipboardList className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">
-                  {trip?.name || "Your Trip"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Tell the group what matters to you for this specific trip. The
-                  AI uses these to score every accommodation and destination
-                  proposal — showing exactly how well each option fits you.
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="text-xs gap-1">
-                    <Users className="h-3 w-3" />
-                    {submittedCount}/{acceptedCount} members submitted
-                  </Badge>
-                  {existing && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs text-green-600 border-green-300 gap-1"
-                    >
-                      <CheckCircle2 className="h-3 w-3" />
-                      Your preferences saved
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <PreferencesSummary
+          tripId={tripId}
+          tripName={trip?.name || "Your Trip"}
+          currency={trip?.currency || ""}
+          budgetMax={myMembership?.budgetMax ?? null}
+          savedAt={existing?.updatedAt ?? null}
+          submittedCount={submittedCount}
+          memberCount={acceptedCount}
+        />
 
         {/* AI tip */}
         <div className="flex gap-2 rounded-xl border border-border/50 bg-muted/40 p-3">

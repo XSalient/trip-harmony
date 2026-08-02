@@ -1,7 +1,7 @@
 # E8 — Add-proposal flow
 
 - **Covers request items:** 15
-- **Status:** Not started
+- **Status:** Done — 2026-08-02
 - **Depends on:** E5 (`SectionCard` restructure), E2 (watchers cannot propose)
 
 ## Why
@@ -24,14 +24,14 @@ Two forms for one job drift. One of them will always be behind.
 
 **Acceptance criteria**
 
-- [ ] The Add control in the dates section navigates to the dates screen with its
+- [x] The Add control in the dates section navigates to the dates screen with its
       add dialog already open.
-- [ ] Same for places and for accommodations.
-- [ ] Cancelling the dialog leaves me on the detail screen, not bounced back.
-- [ ] Saving adds the proposal and leaves me on the detail screen with it visible.
-- [ ] Going back reaches the trip details page with the new proposal shown.
-- [ ] Reloading a URL with the add parameter reopens the dialog.
-- [ ] Watchers see no Add control, on either page.
+- [x] Same for places and for accommodations.
+- [x] Cancelling the dialog leaves me on the detail screen, not bounced back.
+- [x] Saving adds the proposal and leaves me on the detail screen with it visible.
+- [x] Going back reaches the trip details page with the new proposal shown.
+- [x] Reloading a URL with the add parameter reopens the dialog.
+- [x] Watchers see no Add control, on either page.
 
 **Touches**
 
@@ -56,12 +56,12 @@ into that, it does not build a new one.
 
 **Acceptance criteria**
 
-- [ ] `QuickAddDates`, `QuickAddDestination` and `QuickAddStay` are deleted.
-- [ ] `TripDashboard.tsx` no longer imports `dates.parseNatural`,
+- [x] `QuickAddDates`, `QuickAddDestination` and `QuickAddStay` are deleted.
+- [x] `TripDashboard.tsx` no longer imports `dates.parseNatural`,
       `destinations.create` or `accommodations.create` for the add path.
-- [ ] Nothing the quick dialogs offered is lost — anything they had that the
+- [x] Nothing the quick dialogs offered is lost — anything they had that the
       detail screens lack is added there first.
-- [ ] `TripDashboard.tsx` shrinks by roughly 420 lines.
+- [x] `TripDashboard.tsx` shrinks by roughly 420 lines.
 
 **Touches**
 

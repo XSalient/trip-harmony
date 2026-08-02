@@ -115,8 +115,8 @@ function TripCard({ trip }: { trip: any }) {
   const phaseLabels: Record<string, string> = {
     setup: "Getting Started",
     dates: "Picking Dates",
-    destination: "Choosing Destination",
-    accommodation: "Finding Stays",
+    destination: "Choosing Places",
+    accommodation: "Finding Accommodations",
     activities: "Planning Activities",
     finalized: "All Set!",
   };

@@ -1789,12 +1789,15 @@ export async function getMyTripPreferences(tripId: number, userId: number) {
     .limit(1);
   if (!row) return null;
   try {
-    return JSON.parse(row.rawText) as {
+    const parsed = JSON.parse(row.rawText) as {
       mustHaves: string;
       strongPreferences: string;
       avoids: string;
       openComments: string;
     };
+    // The preferences screen tells you when you last saved, so the row's own
+    // timestamp has to survive the trip through `rawText`.
+    return { ...parsed, updatedAt: row.updatedAt };
   } catch {
     return null;
   }

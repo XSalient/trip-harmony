@@ -1,7 +1,7 @@
 # E7 — Editing and preferences summary
 
 - **Covers request items:** 12, 13
-- **Status:** Not started
+- **Status:** Done — 2026-08-02
 - **Depends on:** E2 (`requireTripRole` for the edit permission)
 
 ## Why
@@ -22,12 +22,12 @@ indication of what they already told the group.
 
 **Acceptance criteria**
 
-- [ ] A summary card sits above the four preference sections.
-- [ ] It shows my budget cap for this trip, or a prompt to set one.
-- [ ] I can set or change my budget cap from here.
-- [ ] It shows whether my preferences are saved and when they were last updated.
-- [ ] It shows how many members have submitted, out of how many.
-- [ ] It renders sensibly for a member who has set nothing.
+- [x] A summary card sits above the four preference sections.
+- [x] It shows my budget cap for this trip, or a prompt to set one.
+- [x] I can set or change my budget cap from here.
+- [x] It shows whether my preferences are saved and when they were last updated.
+- [x] It shows how many members have submitted, out of how many.
+- [x] It renders sensibly for a member who has set nothing.
 
 **Touches**
 
@@ -54,14 +54,14 @@ screen — surfacing it here is the point of the story, not a duplicate.
 
 **Acceptance criteria**
 
-- [ ] An edit action is reachable from the trip details page.
-- [ ] It edits the trip name and the description.
-- [ ] The new name appears immediately in the page header, the trips list and the
+- [x] An edit action is reachable from the trip details page.
+- [x] It edits the trip name and the description.
+- [x] The new name appears immediately in the page header, the trips list and the
       browser tab.
-- [ ] Only admins can edit; tripmates and watchers see no edit control and are
+- [x] Only admins can edit; tripmates and watchers see no edit control and are
       rejected by the API if they call it directly.
-- [ ] An empty name is rejected with a clear message.
-- [ ] The edit is recorded in the activity trail (E3).
+- [x] An empty name is rejected with a clear message.
+- [x] The edit is recorded in the activity trail (E3).
 
 **Touches**
 
@@ -95,3 +95,13 @@ None.
   same mutation but belong with the budget screen.
 - Cover images. `trips.coverImage` exists in the schema and is used nowhere.
 - Deleting or archiving a trip.
+
+## What it turned up
+
+`db.getMyTripPreferences` parsed the stored JSON out of `rawText` and returned
+only that, dropping the row around it — so `memberPreferences.updatedAt` existed,
+was written on every save, and never reached a screen. E7.1's "when did I last
+save this?" was unanswerable until the read returned it.
+
+The authorisation hole this story flagged on `trips.update` was already closed by
+E2.1; the edit dialog is the UI that was missing.

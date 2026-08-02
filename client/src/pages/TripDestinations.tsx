@@ -12,8 +12,8 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
-import { useParams } from "wouter";
-import { useState, useMemo } from "react";
+import { useParams, useSearch, useLocation } from "wouter";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import {
   MapPin,
@@ -93,6 +93,22 @@ export default function TripDestinations() {
   const utils = trpc.useUtils();
 
   const [addOpen, setAddOpen] = useState(false);
+
+  /**
+   * `?add=1` opens this screen's add dialog straight away.
+   *
+   * The trip page used to carry its own thinner copy of each add form; now its
+   * Add buttons come here instead, so there is one form per proposal type. The
+   * parameter is cleared once consumed, or going back would reopen the dialog.
+   */
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  useEffect(() => {
+    if (new URLSearchParams(search).get("add") !== "1") return;
+    setAddOpen(true);
+    navigate(window.location.pathname, { replace: true });
+  }, [search, navigate]);
+
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -139,7 +155,7 @@ export default function TripDestinations() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast.error("Destination name is required");
+      toast.error("Place name is required");
       return;
     }
     try {
@@ -159,9 +175,9 @@ export default function TripDestinations() {
       setImageUrl("");
       setEstimatedCost("");
       setSelectedVibes([]);
-      toast.success("Destination added!");
+      toast.success("Place added!");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to add destination");
+      toast.error(e?.message || "Failed to add place");
     }
   };
 
@@ -178,7 +194,7 @@ export default function TripDestinations() {
       });
       utils.destinations.list.invalidate({ tripId });
       setEditOpen(false);
-      toast.success("Destination updated");
+      toast.success("Place updated");
     } catch {
       toast.error("Failed to update");
     }
@@ -255,7 +271,7 @@ export default function TripDestinations() {
     try {
       await deleteMutation.mutateAsync({ id });
       utils.destinations.list.invalidate({ tripId });
-      toast.success("Destination removed");
+      toast.success("Place removed");
     } catch (e: any) {
       toast.error(
         e?.message?.includes("Not authorized")
@@ -308,12 +324,12 @@ export default function TripDestinations() {
   );
 
   return (
-    <AppShell title="Destinations" showBack backHref={`/trips/${tripId}`}>
+    <AppShell title="Places" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">
-              Suggest destinations and vote on vibes
+              Suggest places and vote on vibes
             </p>
             {lockedDestinations.length > 0 && (
               <p className="text-xs text-primary font-medium mt-0.5">
@@ -342,11 +358,11 @@ export default function TripDestinations() {
               </DialogTrigger>
               <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Suggest Destination</DialogTitle>
+                  <DialogTitle>Suggest a Place</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label>Destination Name</Label>
+                    <Label>Place Name</Label>
                     <Input
                       placeholder="e.g., Bali, Indonesia"
                       value={name}
@@ -407,7 +423,7 @@ export default function TripDestinations() {
                     className="w-full rounded-lg"
                     disabled={createMutation.isPending}
                   >
-                    {createMutation.isPending ? "Adding..." : "Add Destination"}
+                    {createMutation.isPending ? "Adding..." : "Add Place"}
                   </Button>
                 </div>
               </DialogContent>
@@ -655,7 +671,7 @@ export default function TripDestinations() {
             <CardContent className="p-8 text-center">
               <MapPin className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                No destinations yet. Suggest the first one!
+                No places yet. Suggest the first one!
               </p>
             </CardContent>
           </Card>
@@ -666,7 +682,7 @@ export default function TripDestinations() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Destination</DialogTitle>
+            <DialogTitle>Edit Place</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-1">
             <div>

@@ -8,6 +8,57 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — The trip page fits on a phone
+
+### Added
+
+- **A summary at the top of the trip page**, expanded, answering "where are we
+  with this?" in four lines: the finalised dates, how many places and
+  accommodations are settled out of how many proposed, and how many itinerary
+  days are planned. Each line links to the section it summarises.
+- **The trip description is on a screen at last.** It was collected at creation
+  and displayed nowhere. It sits below the summary, collapsed; an admin looking
+  at a trip without one is offered the chance to write it.
+- **Admins can rename a trip and edit its description.** `trips.update` has
+  always accepted both — nothing in the UI ever called it.
+- **A summary above the preference form**: your budget cap for this trip
+  (editable in place, rather than only from the budget screen), whether your
+  preferences are saved and when, and how many of the group have submitted
+  theirs. The page used to open on four blank-looking textareas whether or not
+  you had filled them in last week.
+
+### Changed
+
+- **Every section on the trip page collapses**, and only the summary starts
+  open. What is left open is remembered per trip, so a group deep in choosing
+  dates does not re-open that section on every visit. The collapsed header still
+  carries the finalised badge and the count of proposals awaiting your vote.
+- **The section header toggles; "View all details" navigates.** The whole card
+  used to navigate on click, which a header that expands cannot also do.
+- **New order**: Summary · Trip Description · My Trip Preferences · Dates ·
+  Accommodations · Places · Budget · Vibe Board · Itinerary · AI Referee.
+  Accommodations now come before places.
+- **"Destinations" reads Places and "Stays" reads Accommodations** throughout
+  the UI — headings, empty states, dialog titles and toasts. Routes, tRPC
+  procedures and tables keep their names; renaming those buys a migration and no
+  user benefit.
+- **The Add buttons open the real form.** They used to open a thinner copy on
+  the trip page — `QuickAddStay` asked for a name, a link and a price while the
+  accommodations screen asks for all that plus beds, parking, amenities, URL
+  import and a paste fallback. They now go to the detail screen with its add
+  dialog open, and the three duplicate dialogs are deleted.
+
+### Internal
+
+- `TripDashboard.tsx` is down from ~1,995 lines to under 800 of page. The
+  section card, the collapsible row, the lock toggle and the proposal rows are
+  components in `client/src/components/trip/`.
+- `getMyTripPreferences` returns the row's `updatedAt`; it parsed the stored
+  JSON and dropped everything around it, so the screen could not say when you
+  last saved.
+
+---
+
 ## 2026-08-02 — A trip remembers what happened
 
 ### Added
