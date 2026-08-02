@@ -11,7 +11,7 @@ finish a piece of work — the next person (or agent) starts here.
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
   The trip experience overhaul is in flight — see [product/](product/) for the
   eight epics and [product/progress.md](product/progress.md) for what has landed.
-- **Health:** typecheck ✅ · 181 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 193 tests ✅ · production build ✅ · dev server ✅
   (2026-08-02, after E1, E2 and E4: all four migrations applied to a real
   Postgres, then admin creates a trip → invites a Watcher by email → Watcher
   accepts and is correctly restricted, walked in a real browser with the API
@@ -19,11 +19,12 @@ finish a piece of work — the next person (or agent) starts here.
   to confirm no model call happens on an ordinary write). The **passkey** enrol →
   sign-out → passkey sign-in round trip was last verified on 2026-08-01 and has
   not been repeated since.
-- **Pending migrations:** `0002_drop_travel_dna.sql` and `0003_member_roles.sql`
-  have been applied to throwaway databases only — **not** to any long-lived one.
-  0002 is destructive (drops `travel_dna` and its rows); 0003 rewrites the
-  `member_role` enum in place. See
-  [runbooks/database.md](runbooks/database.md) before running either anywhere real.
+- **Pending migrations:** `0002`, `0003` and `0004` have been applied to
+  throwaway databases only — **not** to any long-lived one. 0002 is destructive
+  (drops `travel_dna` and its rows); 0003 rewrites the `member_role` enum in
+  place; 0004 is additive and nullable. See
+  [runbooks/database.md](runbooks/database.md) before running any of them
+  anywhere real.
 
 ---
 
@@ -63,6 +64,9 @@ Verified by running the app against Postgres, not just by reading code:
 - **Planning** — date proposals, destinations, accommodations, vibe board and
   itinerary, each with proposal/vote/comment/clone/edit/delete. Posting a
   proposal records its author's vote, so a new option never sits at zero.
+  Admins finalise proposals: **one** set of dates, but **any number** of places
+  and accommodations — a week in Spain is Barcelona _and_ Girona. Who finalised
+  what, and when, is recorded and shown.
 - **Budget** — expense logging, category breakdown, per-person split, per-member caps.
 - **Notifications** — in-app feed with unread counts.
 - **Preferences** — per-member, per-trip requirements. Since Travel DNA was
@@ -100,7 +104,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 181 tests are server-side. Page components are
+1. **No frontend tests.** All 193 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.

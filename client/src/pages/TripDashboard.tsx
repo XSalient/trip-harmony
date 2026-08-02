@@ -21,6 +21,7 @@ import {
   Copy,
   Plus,
   Lock,
+  Unlock,
   Check,
   HelpCircle,
   X,
@@ -474,11 +475,66 @@ function QuickAddStay({
   );
 }
 
+/**
+ * Finalise / un-finalise, beside a proposal's name.
+ *
+ * Admins get a button; everyone else sees the padlock as a static state. The
+ * page previously rendered only the padlock, so a decision was visible but
+ * could be neither made nor undone without opening the section's own screen.
+ */
+function LockToggle({
+  locked,
+  canLock,
+  busy,
+  onToggle,
+}: {
+  locked: boolean;
+  canLock: boolean;
+  busy?: boolean;
+  onToggle: () => void;
+}) {
+  if (!canLock) {
+    return locked ? (
+      <Lock className="h-3.5 w-3.5 text-green-600" aria-label="Finalised" />
+    ) : null;
+  }
+  return (
+    <button
+      onClick={e => {
+        // The row itself navigates into the section.
+        e.stopPropagation();
+        onToggle();
+      }}
+      disabled={busy}
+      aria-pressed={locked}
+      aria-label={locked ? "Un-finalise this option" : "Finalise this option"}
+      title={locked ? "Un-finalise" : "Finalise"}
+      className={`p-0.5 rounded transition-colors disabled:opacity-50 ${
+        locked
+          ? "text-green-600 hover:bg-green-100"
+          : "text-muted-foreground hover:text-foreground hover:bg-muted"
+      }`}
+    >
+      {locked ? (
+        <Lock className="h-3.5 w-3.5" />
+      ) : (
+        <Unlock className="h-3.5 w-3.5" />
+      )}
+    </button>
+  );
+}
+
 type SectionCardProps = {
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
-  locked?: boolean;
+  /**
+   * How many proposals in this section are finalised. Dates can only ever be
+   * 0 or 1 and read "Decided"; places and accommodations count up.
+   */
+  lockedCount?: number;
+  /** Dates are single-lock, so their badge says "Decided" rather than "1 finalised". */
+  singleLock?: boolean;
   pendingCount?: number;
   addSlot: React.ReactNode;
   children?: React.ReactNode;
@@ -489,7 +545,8 @@ function SectionCard({
   title,
   icon: Icon,
   href,
-  locked,
+  lockedCount = 0,
+  singleLock,
   pendingCount,
   addSlot,
   children,
@@ -497,6 +554,7 @@ function SectionCard({
   className,
   ...cardProps
 }: SectionCardProps) {
+  const locked = lockedCount > 0;
   return (
     <Card
       {...cardProps}
@@ -517,7 +575,7 @@ function SectionCard({
             <span className="text-sm font-medium">{title}</span>
             {locked && (
               <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 px-1.5">
-                Decided
+                {singleLock ? "Decided" : `${lockedCount} finalised`}
               </Badge>
             )}
             {!locked && pendingCount && pendingCount > 0 ? (
@@ -581,6 +639,10 @@ export default function TripDashboard() {
   const editDestMutation = trpc.destinations.edit.useMutation();
   const editAccMutation = trpc.accommodations.edit.useMutation();
   const proposeDateMutation = trpc.dates.propose.useMutation();
+  const lockDateMutation = trpc.dates.lock.useMutation();
+  const unlockDatesMutation = trpc.dates.unlock.useMutation();
+  const setDestLockMutation = trpc.destinations.setLock.useMutation();
+  const setAccLockMutation = trpc.accommodations.setLock.useMutation();
   const createDestMutation = trpc.destinations.create.useMutation();
   const createAccMutation = trpc.accommodations.create.useMutation();
   const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery(
@@ -605,6 +667,8 @@ export default function TripDashboard() {
   // Watchers view the trip and change nothing. The server rejects them anyway;
   // this keeps the page from offering controls that can only fail.
   const canContribute = role === "admin" || role === "tripmate";
+
+  const [lockBusy, setLockBusy] = useState<number | null>(null);
 
   const [cloneDateOpen, setCloneDateOpen] = useState(false);
   const [cloneDestOpen, setCloneDestOpen] = useState(false);
@@ -686,9 +750,62 @@ export default function TripDashboard() {
     pendingVotes.destinations +
     pendingVotes.accommodations;
 
+  /**
+   * Finalise or un-finalise from the dashboard.
+   *
+   * Dates replace whatever was locked before, so the whole list is rewritten
+   * optimistically; places and accommodations toggle one row and leave the
+   * rest. Follows the vote handlers' `setData` pattern rather than inventing a
+   * second approach to the same problem.
+   */
+  const handleToggleLock = async (kind: "date" | "dest" | "acc", row: any) => {
+    const next = !row.selected;
+    setLockBusy(row.id);
+    try {
+      if (kind === "date") {
+        utils.dates.list.setData({ tripId }, (old: any) =>
+          old?.map((p: any) => ({ ...p, selected: next && p.id === row.id }))
+        );
+        if (next)
+          await lockDateMutation.mutateAsync({ tripId, proposalId: row.id });
+        else await unlockDatesMutation.mutateAsync({ tripId });
+        await refetchDates();
+      } else if (kind === "dest") {
+        utils.destinations.list.setData({ tripId }, (old: any) =>
+          old?.map((d: any) => (d.id === row.id ? { ...d, selected: next } : d))
+        );
+        await setDestLockMutation.mutateAsync({
+          destinationId: row.id,
+          locked: next,
+        });
+        await refetchDest();
+      } else {
+        utils.accommodations.list.setData({ tripId }, (old: any) =>
+          old?.map((a: any) => (a.id === row.id ? { ...a, selected: next } : a))
+        );
+        await setAccLockMutation.mutateAsync({
+          accommodationId: row.id,
+          locked: next,
+        });
+        await refetchAcc();
+      }
+      toast.success(next ? "Finalised" : "Un-finalised");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change that");
+      refetchDates();
+      refetchDest();
+      refetchAcc();
+    } finally {
+      setLockBusy(null);
+    }
+  };
+
+  // Dates finalise to exactly one; places and accommodations to any number.
+  // These were all `find()` when every section was single-lock — treating the
+  // last two as "the chosen one" silently hid every finalised option but one.
   const lockedDate = dateProposals?.find((d: any) => d.selected);
-  const lockedDest = destinations?.find((d: any) => d.selected);
-  const lockedAcc = accommodations?.find((a: any) => a.selected);
+  const lockedDests = destinations?.filter((d: any) => d.selected) ?? [];
+  const lockedAccs = accommodations?.filter((a: any) => a.selected) ?? [];
 
   const handleDateVote = (
     proposalId: number,
@@ -1100,7 +1217,8 @@ export default function TripDashboard() {
           title="Dates"
           icon={Calendar}
           href={`/trips/${tripId}/dates`}
-          locked={!!lockedDate}
+          lockedCount={lockedDate ? 1 : 0}
+          singleLock
           pendingCount={pendingVotes.dates}
           addSlot={
             canContribute ? (
@@ -1158,9 +1276,12 @@ export default function TripDashboard() {
                         </Link>
                       </div>
                       <div className="flex items-center gap-1 shrink-0 ml-1">
-                        {p.selected && (
-                          <Lock className="h-3.5 w-3.5 text-green-600" />
-                        )}
+                        <LockToggle
+                          locked={p.selected}
+                          canLock={isAdmin}
+                          busy={lockBusy === p.id}
+                          onToggle={() => handleToggleLock("date", p)}
+                        />
                         {commentCount > 0 && (
                           <span className="flex items-center gap-0.5 text-muted-foreground">
                             <MessageCircle className="h-3 w-3" />
@@ -1257,7 +1378,7 @@ export default function TripDashboard() {
           title="Destinations"
           icon={MapPin}
           href={`/trips/${tripId}/destinations`}
-          locked={!!lockedDest}
+          lockedCount={lockedDests.length}
           pendingCount={pendingVotes.destinations}
           addSlot={
             canContribute ? (
@@ -1304,9 +1425,12 @@ export default function TripDashboard() {
                         </span>
                       </Link>
                       <div className="flex items-center gap-1 shrink-0 ml-1">
-                        {d.selected && (
-                          <Lock className="h-3.5 w-3.5 text-green-600" />
-                        )}
+                        <LockToggle
+                          locked={d.selected}
+                          canLock={isAdmin}
+                          busy={lockBusy === d.id}
+                          onToggle={() => handleToggleLock("dest", d)}
+                        />
                         {commentCount > 0 && (
                           <span className="flex items-center gap-0.5 text-muted-foreground">
                             <MessageCircle className="h-3 w-3" />
@@ -1399,7 +1523,7 @@ export default function TripDashboard() {
           title="Stays"
           icon={HomeIcon}
           href={`/trips/${tripId}/accommodations`}
-          locked={!!lockedAcc}
+          lockedCount={lockedAccs.length}
           pendingCount={pendingVotes.accommodations}
           addSlot={
             canContribute ? (
@@ -1448,9 +1572,12 @@ export default function TripDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0 ml-1">
-                        {a.selected && (
-                          <Lock className="h-3.5 w-3.5 text-green-600" />
-                        )}
+                        <LockToggle
+                          locked={a.selected}
+                          canLock={isAdmin}
+                          busy={lockBusy === a.id}
+                          onToggle={() => handleToggleLock("acc", a)}
+                        />
                         {commentCount > 0 && (
                           <span className="flex items-center gap-0.5 text-muted-foreground">
                             <MessageCircle className="h-3 w-3" />

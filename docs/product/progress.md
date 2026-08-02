@@ -30,7 +30,7 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E3  | [Activity trail and attribution](stories/E3-activity-and-attribution.md)         | 4, 5          | Not started |
 | E4  | [AI runs only when asked](stories/E4-ai-runs-on-request-only.md)                 | 6, 7          | Done        |
 | E5  | [Trip page restructure](stories/E5-trip-page-restructure.md)                     | 8, 10, 11, 14 | Not started |
-| E6  | [Finalising proposals](stories/E6-finalising-proposals.md)                       | 9, 16         | Not started |
+| E6  | [Finalising proposals](stories/E6-finalising-proposals.md)                       | 9, 16         | Done        |
 | E7  | [Editing and preferences summary](stories/E7-editing-and-preferences-summary.md) | 12, 13        | Not started |
 | E8  | [Add-proposal flow](stories/E8-add-proposal-flow.md)                             | 15            | Not started |
 
@@ -60,9 +60,9 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E5.3 | Every section collapses                                 | Not started |           |            |
 | E5.4 | Section names and order                                 | Not started |           |            |
 | E5.5 | Trip page split into components                         | Not started |           |            |
-| E6.1 | Multiple locked places and accommodations               | Not started |           |            |
-| E6.2 | Lock/unlock from the trip details page                  | Not started |           |            |
-| E6.3 | Who finalised something and when                        | Not started |           |            |
+| E6.1 | Multiple locked places and accommodations               | Done        | `…kzsuz3` | 2026-08-02 |
+| E6.2 | Lock/unlock from the trip details page                  | Done        | `…kzsuz3` | 2026-08-02 |
+| E6.3 | Who finalised something and when                        | Done        | `…kzsuz3` | 2026-08-02 |
 | E7.1 | Preferences screen summary                              | Not started |           |            |
 | E7.2 | Rename a trip and edit its description                  | Not started |           |            |
 | E8.1 | Add navigates to the detail screen with the dialog open | Not started |           |            |
@@ -76,13 +76,16 @@ Answer these as they come up; they block the story named beside each.
 | --- | ----------------------------------------------------------------- | ------ | -------------------------------------- |
 | Q1  | Do watchers see the AI Referee feed?                              | E2.3   | No — hidden entirely                   |
 | Q2  | Do all existing trip members become tripmates on migration?       | E2.2   | Yes — organizer→admin, member→tripmate |
-| Q3  | What does a section header say when several proposals are locked? | E6.1   |                                        |
+| Q3  | What does a section header say when several proposals are locked? | E6.1   | "2 finalised"; dates keep "Decided"    |
 | Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   | No — declined at scoping               |
 | Q5  | Where does the activity trail surface in the UI?                  | E3.1   |                                        |
 | Q6  | Do sections default to collapsed or expanded on first visit?      | E5.3   |                                        |
 
 ## Notes for whoever picks this up
 
+- **Two deferred criteria, both waiting on E3.** E4.3's "record each trigger in
+  the activity trail" and E6.3's "record locking and unlocking" need the
+  `activityEvents` table. Pick both up with E3.1.
 - **E4.3 has one deferred criterion.** "Every trigger is recorded in the activity
   trail as `ai.match_refreshed`" needs E3, which has not been built. Pick it up
   with E3.1; everything else in E4 is done.

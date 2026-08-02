@@ -8,6 +8,38 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — A trip can finalise more than one place to go and stay
+
+### Changed
+
+- **Places and accommodations can each have several finalised options.** A week
+  in Spain is Barcelona _and_ Girona, with two different apartments — and the app
+  could not say so. Finalising one destination silently un-finalised every other,
+  because the database cleared the whole trip before setting a single row.
+  Locking now touches only the option you picked. **Dates are unchanged and
+  deliberately so:** a trip goes away on exactly one set of dates, so finalising
+  one still replaces any other.
+- **Finalising is admin-only, and available from the trip page.** Each proposal
+  carries a padlock beside its name — a control for admins, a state for everyone
+  else. Previously the trip page rendered a padlock that told you a decision had
+  been made but offered no way to make or undo one without opening the section's
+  own screen.
+- **Section headers count.** "2 finalised" for places and accommodations, where a
+  boolean "Decided" no longer describes anything; dates keep "Decided", since one
+  is the only number they can have.
+- **Who finalised what, and when, is recorded and shown.** `lockedBy` and
+  `lockedAt` are captured on every lock and cleared on unlock, so a decision no
+  longer appears from nowhere. A watcher sees that something is finalised but not
+  by whom, consistent with the rest of what a watcher can see. Anything finalised
+  before this shows "Finalised" without a name rather than inventing one.
+- **`select` / `deselect` are now `lock` / `setLock` / `unlock` / `unlockAll`**
+  across the dates, destinations and accommodations routers. The rename was the
+  point: `find(proposal => proposal.selected)` reads perfectly well when it
+  returns an arbitrary one of three finalised places, so renaming the procedures
+  is what made the compiler show every screen that needed rethinking.
+
+---
+
 ## 2026-08-02 — AI runs only when someone asks
 
 ### Changed

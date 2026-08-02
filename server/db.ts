@@ -734,25 +734,34 @@ export async function getDateProposals(tripId: number) {
   return enriched;
 }
 
-export async function selectDateProposal(tripId: number, proposalId: number) {
+/**
+ * Finalise one date range. A trip goes away on **exactly one** set of dates, so
+ * this clears the trip's other selections first — unlike places and
+ * accommodations, where several can be locked at once.
+ */
+export async function lockDateProposal(
+  tripId: number,
+  proposalId: number,
+  lockedBy: number
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(dateProposals)
-    .set({ selected: false })
+    .set({ selected: false, lockedBy: null, lockedAt: null })
     .where(eq(dateProposals.tripId, tripId));
   await db
     .update(dateProposals)
-    .set({ selected: true })
+    .set({ selected: true, lockedBy, lockedAt: new Date() })
     .where(eq(dateProposals.id, proposalId));
 }
 
-export async function deselectDateProposals(tripId: number) {
+export async function unlockDateProposals(tripId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(dateProposals)
-    .set({ selected: false })
+    .set({ selected: false, lockedBy: null, lockedAt: null })
     .where(eq(dateProposals.tripId, tripId));
 }
 
@@ -882,25 +891,37 @@ export async function unvoteDestination(destinationId: number, userId: number) {
     );
 }
 
-export async function selectDestination(tripId: number, destinationId: number) {
+/**
+ * Finalise or un-finalise **one** place, leaving the others alone.
+ *
+ * A week in Spain is Barcelona *and* Girona. This used to clear every other
+ * destination in the trip before setting one, which made "finalised" mean "the
+ * only one" and quietly undid a previous decision.
+ */
+export async function setDestinationLock(
+  destinationId: number,
+  locked: boolean,
+  lockedBy: number
+) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(destinations)
-    .set({ selected: false })
-    .where(eq(destinations.tripId, tripId));
-  await db
-    .update(destinations)
-    .set({ selected: true })
+    .set(
+      locked
+        ? { selected: true, lockedBy, lockedAt: new Date() }
+        : { selected: false, lockedBy: null, lockedAt: null }
+    )
     .where(eq(destinations.id, destinationId));
 }
 
-export async function deselectDestinations(tripId: number) {
+/** Clear every finalised place on the trip. */
+export async function unlockDestinations(tripId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(destinations)
-    .set({ selected: false })
+    .set({ selected: false, lockedBy: null, lockedAt: null })
     .where(eq(destinations.tripId, tripId));
 }
 
@@ -1002,28 +1023,34 @@ export async function unvoteAccommodation(
     );
 }
 
-export async function selectAccommodation(
-  tripId: number,
-  accommodationId: number
+/**
+ * Finalise or un-finalise **one** accommodation, leaving the others alone. A
+ * two-stop trip books two places to sleep; see `setDestinationLock`.
+ */
+export async function setAccommodationLock(
+  accommodationId: number,
+  locked: boolean,
+  lockedBy: number
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(accommodations)
-    .set({ selected: false })
-    .where(eq(accommodations.tripId, tripId));
-  await db
-    .update(accommodations)
-    .set({ selected: true })
+    .set(
+      locked
+        ? { selected: true, lockedBy, lockedAt: new Date() }
+        : { selected: false, lockedBy: null, lockedAt: null }
+    )
     .where(eq(accommodations.id, accommodationId));
 }
 
-export async function deselectAccommodations(tripId: number) {
+/** Clear every finalised accommodation on the trip. */
+export async function unlockAccommodations(tripId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(accommodations)
-    .set({ selected: false })
+    .set({ selected: false, lockedBy: null, lockedAt: null })
     .where(eq(accommodations.tripId, tripId));
 }
 

@@ -77,6 +77,7 @@ open only its domain file.
 | `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**      |
 | `src/lib/trpc.ts`                 | Typed tRPC React client                                                   |
 | `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                       |
+| `src/components/trip/`            | Shared trip UI (`FinalisedBy`) used by the proposal screens               |
 | `src/_core/hooks/useAuth.ts`      | Session hook                                                              |
 | `src/contexts/ThemeContext.tsx`   | Dark mode                                                                 |
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                    |

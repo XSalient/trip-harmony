@@ -114,11 +114,16 @@ export function projectProposalForRole<
   T extends {
     proposedBy?: number;
     createdAt?: Date | string;
+    lockedBy?: number | null;
+    lockedAt?: Date | string | null;
     votes?: unknown[];
   },
 >(proposal: T, role: TripRole): T {
   if (canSeeMemberDetails(role)) return proposal;
-  const { proposedBy, createdAt, votes, ...rest } = proposal;
+  // `selected` stays: a watcher should see that a decision was made. Who made
+  // it, and when, is attribution and goes with the rest.
+  const { proposedBy, createdAt, lockedBy, lockedAt, votes, ...rest } =
+    proposal;
   return {
     ...rest,
     // Keep the shape the client expects — a list of the right length whose
@@ -131,6 +136,8 @@ export function projectProposalsForRole<
   T extends {
     proposedBy?: number;
     createdAt?: Date | string;
+    lockedBy?: number | null;
+    lockedAt?: Date | string | null;
     votes?: unknown[];
   },
 >(proposals: T[], role: TripRole): T[] {

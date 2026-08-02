@@ -115,7 +115,8 @@ export const datesRouter = router({
       await db.unvoteDateProposal(input.proposalId, ctx.user.id);
       return { success: true };
     }),
-  select: protectedProcedure
+  /** Finalise these dates. A trip has one set, so this replaces any other. */
+  lock: protectedProcedure
     .input(
       z.object({
         tripId: z.number(),
@@ -124,14 +125,14 @@ export const datesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
-      await db.selectDateProposal(input.tripId, input.proposalId);
+      await db.lockDateProposal(input.tripId, input.proposalId, ctx.user.id);
       return { success: true };
     }),
-  deselect: protectedProcedure
+  unlock: protectedProcedure
     .input(z.object({ tripId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
-      await db.deselectDateProposals(input.tripId);
+      await db.unlockDateProposals(input.tripId);
       return { success: true };
     }),
   delete: protectedProcedure

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
+import FinalisedBy from "@/components/trip/FinalisedBy";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -83,8 +84,8 @@ export default function TripDates() {
   const proposeMutation = trpc.dates.propose.useMutation();
   const voteMutation = trpc.dates.vote.useMutation();
   const unvoteMutation = trpc.dates.unvote.useMutation();
-  const selectMutation = trpc.dates.select.useMutation();
-  const deselectMutation = trpc.dates.deselect.useMutation();
+  const lockMutation = trpc.dates.lock.useMutation();
+  const unlockMutation = trpc.dates.unlock.useMutation();
   const deleteMutation = trpc.dates.delete.useMutation();
   const editMutation = trpc.dates.edit.useMutation();
   const cloneMutation = trpc.dates.clone.useMutation();
@@ -201,17 +202,17 @@ export default function TripDates() {
 
   const handleSelect = async (proposalId: number) => {
     try {
-      await selectMutation.mutateAsync({ tripId, proposalId });
+      await lockMutation.mutateAsync({ tripId, proposalId });
       utils.dates.list.invalidate({ tripId });
       toast.success("Date locked in!");
     } catch {
-      toast.error("Failed to select date");
+      toast.error("Couldn't finalise those dates");
     }
   };
 
   const handleDeselect = async () => {
     try {
-      await deselectMutation.mutateAsync({ tripId });
+      await unlockMutation.mutateAsync({ tripId });
       utils.dates.list.invalidate({ tripId });
       toast.success("Date unlocked");
     } catch {
@@ -349,7 +350,7 @@ export default function TripDates() {
                 size="sm"
                 className="rounded-lg gap-1 text-xs h-8"
                 onClick={handleDeselect}
-                disabled={deselectMutation.isPending}
+                disabled={unlockMutation.isPending}
               >
                 <Unlock className="h-3.5 w-3.5" /> Unlock
               </Button>
@@ -589,6 +590,17 @@ export default function TripDates() {
                             <Lock className="h-3 w-3" /> Locked
                           </Badge>
                         )}
+                        {p.selected && isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-muted-foreground"
+                            onClick={handleDeselect}
+                            disabled={unlockMutation.isPending}
+                          >
+                            Unlock
+                          </Button>
+                        )}
                         {canManage && !p.selected && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -709,6 +721,12 @@ export default function TripDates() {
                       </div>
                     )}
 
+                    <FinalisedBy
+                      proposal={p}
+                      members={members}
+                      currentUserId={user?.id}
+                    />
+
                     {isAdmin && !p.selected && (
                       <Button
                         variant="ghost"
@@ -716,8 +734,8 @@ export default function TripDates() {
                         className="w-full mt-2 text-primary text-xs"
                         onClick={() => handleSelect(p.id)}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock this
-                        date
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock these
+                        dates
                       </Button>
                     )}
 

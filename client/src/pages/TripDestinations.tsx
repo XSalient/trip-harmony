@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
+import FinalisedBy from "@/components/trip/FinalisedBy";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -70,6 +71,11 @@ export default function TripDestinations() {
     { id: tripId },
     { enabled: tripId > 0 }
   );
+  // Resolves `lockedBy` to a name for the "Finalised by …" line.
+  const { data: members } = trpc.trips.members.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
   const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery(
     { tripId },
     { enabled: tripId > 0 }
@@ -77,8 +83,8 @@ export default function TripDestinations() {
   const createMutation = trpc.destinations.create.useMutation();
   const voteMutation = trpc.destinations.vote.useMutation();
   const unvoteMutation = trpc.destinations.unvote.useMutation();
-  const selectMutation = trpc.destinations.select.useMutation();
-  const deselectMutation = trpc.destinations.deselect.useMutation();
+  const setLockMutation = trpc.destinations.setLock.useMutation();
+  const unlockAllMutation = trpc.destinations.unlockAll.useMutation();
   const deleteMutation = trpc.destinations.delete.useMutation();
   const editMutation = trpc.destinations.edit.useMutation();
   const cloneMutation = trpc.destinations.clone.useMutation();
@@ -219,19 +225,23 @@ export default function TripDestinations() {
     }
   };
 
-  const handleSelect = async (destinationId: number) => {
+  /**
+   * Finalise or un-finalise one place. Several places can be
+   * finalised at once, so this toggles a single row and leaves the rest.
+   */
+  const handleToggleLock = async (destinationId: number, locked: boolean) => {
     try {
-      await selectMutation.mutateAsync({ tripId, destinationId });
+      await setLockMutation.mutateAsync({ destinationId, locked });
       utils.destinations.list.invalidate({ tripId });
-      toast.success("Destination selected!");
-    } catch {
-      toast.error("Failed to select");
+      toast.success(locked ? "Finalised" : "Un-finalised");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change that");
     }
   };
 
   const handleDeselect = async () => {
     try {
-      await deselectMutation.mutateAsync({ tripId });
+      await unlockAllMutation.mutateAsync({ tripId });
       utils.destinations.list.invalidate({ tripId });
       toast.success("Selection unlocked");
     } catch {
@@ -280,8 +290,11 @@ export default function TripDestinations() {
     );
   }, [destinations]);
 
-  const selectedDestination = useMemo(
-    () => sortedDestinations.find((d: any) => d.selected),
+  // A trip can finalise several places — Barcelona *and* Girona. This was a
+  // `find()` back when the database cleared every other row before setting one,
+  // which made every finalised place but one invisible.
+  const lockedDestinations = useMemo(
+    () => sortedDestinations.filter((d: any) => d.selected),
     [sortedDestinations]
   );
 
@@ -293,22 +306,23 @@ export default function TripDestinations() {
             <p className="text-sm text-muted-foreground">
               Suggest destinations and vote on vibes
             </p>
-            {selectedDestination && (
+            {lockedDestinations.length > 0 && (
               <p className="text-xs text-primary font-medium mt-0.5">
-                {selectedDestination.name} selected
+                {lockedDestinations.length} finalised ·{" "}
+                {lockedDestinations.map((d: any) => d.name).join(", ")}
               </p>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {isAdmin && selectedDestination && (
+            {isAdmin && lockedDestinations.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 className="rounded-lg gap-1 text-xs h-8"
                 onClick={handleDeselect}
-                disabled={deselectMutation.isPending}
+                disabled={unlockAllMutation.isPending}
               >
-                <Unlock className="h-3.5 w-3.5" /> Unlock
+                <Unlock className="h-3.5 w-3.5" /> Unlock all
               </Button>
             )}
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
@@ -574,15 +588,32 @@ export default function TripDestinations() {
                       </div>
                     )}
 
-                    {isAdmin && !dest.selected && (
+                    <FinalisedBy
+                      proposal={dest}
+                      members={members}
+                      currentUserId={user?.id}
+                    />
+
+                    {isAdmin && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="w-full mt-2 text-primary text-xs"
-                        onClick={() => handleSelect(dest.id)}
+                        onClick={() =>
+                          handleToggleLock(dest.id, !dest.selected)
+                        }
+                        disabled={setLockMutation.isPending}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Select
-                        this destination
+                        {dest.selected ? (
+                          <>
+                            <Unlock className="h-3.5 w-3.5 mr-1" /> Un-finalise
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
+                            Finalise this place
+                          </>
+                        )}
                       </Button>
                     )}
 

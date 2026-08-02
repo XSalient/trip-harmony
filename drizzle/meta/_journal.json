@@ -29,6 +29,13 @@
       "when": 1785679190494,
       "tag": "0003_member_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785680658018,
+      "tag": "0004_lock_attribution",
+      "breakpoints": true
     }
   ]
 }

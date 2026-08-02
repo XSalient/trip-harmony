@@ -98,23 +98,31 @@ export const destinationsRouter = router({
       await db.unvoteDestination(input.destinationId, ctx.user.id);
       return { success: true };
     }),
-  select: protectedProcedure
-    .input(
-      z.object({
-        tripId: z.number(),
-        destinationId: z.number(),
-      })
-    )
+  /**
+   * Finalise or un-finalise one place. Several can be finalised at once — a
+   * week in Spain is Barcelona *and* Girona — so this touches only the row
+   * named, unlike `dates.lock`.
+   */
+  setLock: protectedProcedure
+    .input(z.object({ destinationId: z.number(), locked: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "admin");
-      await db.selectDestination(input.tripId, input.destinationId);
+      const destination = await db.getDestination(input.destinationId);
+      if (!destination)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
+      await requireTripRole(destination.tripId, ctx.user.id, "admin");
+      await db.setDestinationLock(
+        input.destinationId,
+        input.locked,
+        ctx.user.id
+      );
       return { success: true };
     }),
-  deselect: protectedProcedure
+  /** Clear every finalised place on the trip. */
+  unlockAll: protectedProcedure
     .input(z.object({ tripId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
-      await db.deselectDestinations(input.tripId);
+      await db.unlockDestinations(input.tripId);
       return { success: true };
     }),
   delete: protectedProcedure

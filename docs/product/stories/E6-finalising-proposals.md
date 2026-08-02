@@ -1,7 +1,7 @@
 # E6 — Finalising proposals
 
 - **Covers request items:** 9, 16
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E2 (only admins may finalise)
 
 ## Why
@@ -33,14 +33,14 @@ this uses **admin**, consistent with E2 and the rest of the product vocabulary.)
 
 **Acceptance criteria**
 
-- [ ] Locking a place leaves other locked places locked.
-- [ ] Locking an accommodation leaves other locked accommodations locked.
-- [ ] Unlocking one leaves the rest alone.
-- [ ] Locking a date proposal still clears any other locked date — exactly one.
-- [ ] Every screen that displays "the finalised place / accommodation" displays
+- [x] Locking a place leaves other locked places locked.
+- [x] Locking an accommodation leaves other locked accommodations locked.
+- [x] Unlocking one leaves the rest alone.
+- [x] Locking a date proposal still clears any other locked date — exactly one.
+- [x] Every screen that displays "the finalised place / accommodation" displays
       all of them.
-- [ ] A locked proposal cannot be edited or deleted while locked.
-- [ ] Tripmates and watchers cannot lock or unlock.
+- [x] A locked proposal cannot be edited or deleted while locked.
+- [x] Tripmates and watchers cannot lock or unlock.
 
 **Touches**
 
@@ -77,15 +77,15 @@ toggle.
 
 **Acceptance criteria**
 
-- [ ] Each proposal row on the trip details page has a lock/unlock control beside
+- [x] Each proposal row on the trip details page has a lock/unlock control beside
       its name.
-- [ ] The control shows current state at a glance: locked vs not.
-- [ ] Non-admins see the state but no control, and the state is not interactive
+- [x] The control shows current state at a glance: locked vs not.
+- [x] Non-admins see the state but no control, and the state is not interactive
       for them.
-- [ ] Activating it updates immediately and reconciles with the server.
-- [ ] It works in a collapsed section's preview rows and in the expanded section
+- [x] Activating it updates immediately and reconciles with the server.
+- [x] It works in a collapsed section's preview rows and in the expanded section
       (E5).
-- [ ] Locking from here has the same effect as locking from the detail screen.
+- [x] Locking from here has the same effect as locking from the detail screen.
 
 **Touches**
 
@@ -107,12 +107,13 @@ lock toggle rather than inventing a second approach.
 
 **Acceptance criteria**
 
-- [ ] `lockedBy` and `lockedAt` are recorded when a proposal is locked and cleared
+- [x] `lockedBy` and `lockedAt` are recorded when a proposal is locked and cleared
       when it is unlocked.
-- [ ] The proposal detail screens show "Finalised by <name> · <when>".
-- [ ] The summary card (E5.1) can attribute the finalised dates.
+- [x] The proposal detail screens show "Finalised by <name> · <when>".
+- [x] The summary card (E5.1) can attribute the finalised dates.
 - [ ] Locking and unlocking are recorded in the activity trail (E3).
-- [ ] Watchers see that something is finalised but not by whom.
+      **Deferred — E3 has not been built.** Pick this up with E3.1.
+- [x] Watchers see that something is finalised but not by whom.
 
 **Touches**
 
@@ -129,13 +130,28 @@ already indexed by every query and every reader.
 
 ## Open questions
 
-1. **What does a section header say when several are locked?** The current badge
-   is boolean — "Decided" (`TripDashboard.tsx:520-524`). Proposal: "3 finalised",
-   and keep "Decided" only for dates, where exactly one is possible.
-2. **Should a locked proposal still be votable?** Currently the vote buttons are
-   hidden when `selected` (`:1318`, `:1462`, `:1604`). With several locked
-   options, voting on the rest is still meaningful — but voting on a locked one
-   probably is not. Keep the current behaviour unless told otherwise.
+1. **What does a section header say when several are locked?** **Resolved as
+   proposed:** "2 finalised" for places and accommodations, and "Decided" kept
+   for dates, where exactly one is possible. `SectionCard` takes a
+   `lockedCount` and a `singleLock` flag rather than a boolean.
+2. **Should a locked proposal still be votable?** **Current behaviour kept** —
+   the vote buttons are hidden on a finalised proposal, and voting on the
+   remaining options is unaffected. Revisit if the group ever wants to register
+   dissent against something already decided.
+
+**Found during implementation**
+
+- The rename from `select`/`deselect` to `lock`/`setLock`/`unlock` was the
+  safety net that made this change survivable. The compiler pointed at all three
+  detail pages the moment the procedures changed name; had the names stayed the
+  same, `find(x => x.selected)` would have kept compiling and kept returning an
+  arbitrary one of several finalised rows. **Rename the thing whose meaning
+  changed.**
+- `TripDestinations` and `TripAccommodations` had no `trips.members` query, so
+  "Finalised by …" had no way to resolve a name. Added to both.
+- The attribution line is one shared component
+  (`client/src/components/trip/FinalisedBy.tsx`) rather than three copies, so
+  the three screens cannot describe the same fact differently.
 
 ## Out of scope
 

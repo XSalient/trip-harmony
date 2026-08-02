@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import AppShell from "@/components/AppShell";
 import ProposalComments from "@/components/ProposalComments";
+import FinalisedBy from "@/components/trip/FinalisedBy";
 import { useParams, Link } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -123,6 +124,11 @@ export default function TripAccommodations() {
     { id: tripId },
     { enabled: tripId > 0 }
   );
+  // Resolves `lockedBy` to a name for the "Finalised by …" line.
+  const { data: members } = trpc.trips.members.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
   const { data: commentCounts = {} } = trpc.comments.countsByTrip.useQuery(
     { tripId },
     { enabled: tripId > 0 }
@@ -134,8 +140,8 @@ export default function TripAccommodations() {
   const createMutation = trpc.accommodations.create.useMutation();
   const voteMutation = trpc.accommodations.vote.useMutation();
   const unvoteMutation = trpc.accommodations.unvote.useMutation();
-  const selectMutation = trpc.accommodations.select.useMutation();
-  const deselectMutation = trpc.accommodations.deselect.useMutation();
+  const setLockMutation = trpc.accommodations.setLock.useMutation();
+  const unlockAllMutation = trpc.accommodations.unlockAll.useMutation();
   const deleteMutation = trpc.accommodations.delete.useMutation();
   const editMutation = trpc.accommodations.edit.useMutation();
   const cloneMutation = trpc.accommodations.clone.useMutation();
@@ -222,8 +228,10 @@ export default function TripAccommodations() {
     pricePerNight: "",
   });
 
-  const selectedAccommodation = useMemo(
-    () => accommodations?.find((a: any) => a.selected),
+  // A two-stop trip books two places to sleep, so this is a list. It was a
+  // `find()` while the database cleared every other row before setting one.
+  const lockedAccommodations = useMemo(
+    () => accommodations?.filter((a: any) => a.selected) ?? [],
     [accommodations]
   );
 
@@ -486,19 +494,23 @@ export default function TripAccommodations() {
     }
   };
 
-  const handleSelect = async (accommodationId: number) => {
+  /**
+   * Finalise or un-finalise one accommodation. Several accommodations can be
+   * finalised at once, so this toggles a single row and leaves the rest.
+   */
+  const handleToggleLock = async (accommodationId: number, locked: boolean) => {
     try {
-      await selectMutation.mutateAsync({ tripId, accommodationId });
+      await setLockMutation.mutateAsync({ accommodationId, locked });
       utils.accommodations.list.invalidate({ tripId });
-      toast.success("Accommodation selected!");
-    } catch {
-      toast.error("Failed to select");
+      toast.success(locked ? "Finalised" : "Un-finalised");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change that");
     }
   };
 
   const handleDeselect = async () => {
     try {
-      await deselectMutation.mutateAsync({ tripId });
+      await unlockAllMutation.mutateAsync({ tripId });
       utils.accommodations.list.invalidate({ tripId });
       toast.success("Selection unlocked");
     } catch {
@@ -565,9 +577,10 @@ export default function TripAccommodations() {
             <p className="text-sm text-muted-foreground">
               Compare stays and vote on your favorites
             </p>
-            {selectedAccommodation && (
+            {lockedAccommodations.length > 0 && (
               <p className="text-xs text-primary font-medium mt-0.5">
-                {selectedAccommodation.name} selected
+                {lockedAccommodations.length} finalised ·{" "}
+                {lockedAccommodations.map((a: any) => a.name).join(", ")}
               </p>
             )}
           </div>
@@ -590,15 +603,15 @@ export default function TripAccommodations() {
                 {analysingAll ? "Analysing…" : "Analyse all"}
               </Button>
             )}
-            {isAdmin && selectedAccommodation && (
+            {isAdmin && lockedAccommodations.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 className="rounded-lg gap-1 text-xs h-8"
                 onClick={handleDeselect}
-                disabled={deselectMutation.isPending}
+                disabled={unlockAllMutation.isPending}
               >
-                <Unlock className="h-3.5 w-3.5" /> Unlock
+                <Unlock className="h-3.5 w-3.5" /> Unlock all
               </Button>
             )}
             <Dialog
@@ -1392,15 +1405,30 @@ export default function TripAccommodations() {
                       </div>
                     )}
 
-                    {isAdmin && !acc.selected && (
+                    <FinalisedBy
+                      proposal={acc}
+                      members={members}
+                      currentUserId={user?.id}
+                    />
+
+                    {isAdmin && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="w-full mt-2 text-primary text-xs"
-                        onClick={() => handleSelect(acc.id)}
+                        onClick={() => handleToggleLock(acc.id, !acc.selected)}
+                        disabled={setLockMutation.isPending}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Select
-                        this accommodation
+                        {acc.selected ? (
+                          <>
+                            <Unlock className="h-3.5 w-3.5 mr-1" /> Un-finalise
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
+                            Finalise this stay
+                          </>
+                        )}
                       </Button>
                     )}
 

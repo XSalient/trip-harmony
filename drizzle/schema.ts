@@ -225,7 +225,14 @@ export const dateProposals = pgTable("date_proposals", {
   startDate: timestamp("startDate").notNull(),
   endDate: timestamp("endDate").notNull(),
   label: varchar("label", { length: 255 }),
+  /**
+   * Finalised. Dates allow exactly one per trip; places and accommodations
+   * allow many — see `selectDateProposal` vs `setDestinationLock` in
+   * `server/db.ts`, which is where that difference is enforced.
+   */
   selected: boolean("selected").default(false).notNull(),
+  lockedBy: integer("lockedBy"),
+  lockedAt: timestamp("lockedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -258,7 +265,10 @@ export const destinations = pgTable("destinations", {
   vibes: text("vibes"),
   estimatedCost: decimal("estimatedCost", { precision: 12, scale: 2 }),
   proposedBy: integer("proposedBy").notNull(),
+  /** Finalised. A trip can finalise several places. */
   selected: boolean("selected").default(false).notNull(),
+  lockedBy: integer("lockedBy"),
+  lockedAt: timestamp("lockedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -307,7 +317,10 @@ export const accommodations = pgTable("accommodations", {
   matchAnalysis: text("matchAnalysis"),
   matchAnalysedAt: timestamp("matchAnalysedAt"),
   proposedBy: integer("proposedBy").notNull(),
+  /** Finalised. A trip can finalise several accommodations. */
   selected: boolean("selected").default(false).notNull(),
+  lockedBy: integer("lockedBy"),
+  lockedAt: timestamp("lockedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

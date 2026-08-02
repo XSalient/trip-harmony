@@ -71,7 +71,7 @@ rest check against.
 - [ ] **E3** — Activity trail, proposal attribution, who-voted-when
 - [x] **E4** — AI runs only when asked; match analysis stops firing itself
 - [ ] **E5** — Trip page restructure: summary, collapsible sections, new order
-- [ ] **E6** — Finalising proposals: one locked date, many locked places and stays
+- [x] **E6** — Finalising proposals: one locked date, many locked places and stays
 - [ ] **E7** — Edit trip name and description; preferences summary
 - [ ] **E8** — Add-proposal buttons route to the detail screen
 
@@ -120,4 +120,4 @@ is partly E4.4, and "Organizer controls: unlock finalised selections" is E6.2.
 - [ ] Rate-limit auth endpoints (AI endpoints done in E4)
 - [ ] Real-time updates (currently poll-on-focus)
 - [ ] Currency conversion using live rates
-- [ ] Organizer controls: unlock finalised selections, transfer ownership
+- [ ] Transfer trip ownership (unlocking finalised selections done in E6)

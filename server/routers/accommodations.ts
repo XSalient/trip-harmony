@@ -193,23 +193,33 @@ export const accommodationsRouter = router({
       await db.unvoteAccommodation(input.accommodationId, ctx.user.id);
       return { success: true };
     }),
-  select: protectedProcedure
-    .input(
-      z.object({
-        tripId: z.number(),
-        accommodationId: z.number(),
-      })
-    )
+  /**
+   * Finalise or un-finalise one accommodation. Several can be finalised at
+   * once — a two-stop trip books two places to sleep.
+   */
+  setLock: protectedProcedure
+    .input(z.object({ accommodationId: z.number(), locked: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "admin");
-      await db.selectAccommodation(input.tripId, input.accommodationId);
+      const accommodation = await db.getAccommodation(input.accommodationId);
+      if (!accommodation)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Accommodation not found.",
+        });
+      await requireTripRole(accommodation.tripId, ctx.user.id, "admin");
+      await db.setAccommodationLock(
+        input.accommodationId,
+        input.locked,
+        ctx.user.id
+      );
       return { success: true };
     }),
-  deselect: protectedProcedure
+  /** Clear every finalised accommodation on the trip. */
+  unlockAll: protectedProcedure
     .input(z.object({ tripId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
-      await db.deselectAccommodations(input.tripId);
+      await db.unlockAccommodations(input.tripId);
       return { success: true };
     }),
   delete: protectedProcedure
