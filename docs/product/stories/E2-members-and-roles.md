@@ -1,7 +1,7 @@
 # E2 — Members, roles and the contact book
 
 - **Covers request items:** 2, 3
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E1 (shares `drizzle/schema.ts` and `server/db.ts`; sequencing
   avoids a merge conflict, not a functional dependency)
 
@@ -38,16 +38,16 @@ role changes would otherwise leave a trip with none.
 
 **Acceptance criteria**
 
-- [ ] `requireTripRole(tripId, userId, minRole)` exists in
+- [x] `requireTripRole(tripId, userId, minRole)` exists in
       `server/routers/_shared.ts`, throws `TRPCError` with `FORBIDDEN` for an
       insufficient role and `FORBIDDEN` (not `NOT_FOUND`) for a non-member, and
       returns the member row on success.
-- [ ] Role ordering is defined in one place: `watcher < tripmate < admin`.
-- [ ] Every mutation that changes trip state calls it. No procedure that writes
+- [x] Role ordering is defined in one place: `watcher < tripmate < admin`.
+- [x] Every mutation that changes trip state calls it. No procedure that writes
       trip data relies on membership alone.
-- [ ] `db.isTripOrganizer` has no remaining callers, or is reimplemented in terms
+- [x] `db.isTripOrganizer` has no remaining callers, or is reimplemented in terms
       of the new roles.
-- [ ] Tests cover: watcher blocked from voting, tripmate blocked from finalising,
+- [x] Tests cover: watcher blocked from voting, tripmate blocked from finalising,
       non-member blocked from reading.
 
 **Touches**
@@ -75,15 +75,15 @@ e.g. `accommodations.ts:181,212` — which reaches the client as an
 
 **Acceptance criteria**
 
-- [ ] `memberRoleEnum` is `["admin", "tripmate", "watcher"]`.
-- [ ] A migration maps existing `organizer → admin` and `member → tripmate`.
+- [x] `memberRoleEnum` is `["admin", "tripmate", "watcher"]`.
+- [x] A migration maps existing `organizer → admin` and `member → tripmate`.
       Nobody becomes a watcher by migration.
-- [ ] Trip creation adds the creator as `admin`; joining by invite link adds
+- [x] Trip creation adds the creator as `admin`; joining by invite link adds
       `tripmate` unless the invite specified a role.
-- [ ] An admin can change any member's role from the members page.
-- [ ] The last admin on a trip cannot be demoted or removed; the attempt returns
+- [x] An admin can change any member's role from the members page.
+- [x] The last admin on a trip cannot be demoted or removed; the attempt returns
       a clear message.
-- [ ] A member cannot change their own role.
+- [x] A member cannot change their own role.
 
 **Touches**
 
@@ -107,17 +107,17 @@ admin". It is not the authorisation check — role is.
 
 **Acceptance criteria**
 
-- [ ] A watcher's `trips.members` response contains names only — no `email`, no
+- [x] A watcher's `trips.members` response contains names only — no `email`, no
       `budgetMax`, no invite addresses.
-- [ ] A watcher's proposal list responses (`dates.list`, `destinations.list`,
+- [x] A watcher's proposal list responses (`dates.list`, `destinations.list`,
       `accommodations.list`) contain no `proposedBy`, no `createdAt`, and vote
       entries carry no `userId` or `user` — a vote count only.
-- [ ] A watcher receives no rows from the activity trail (E3) and no trip
+- [x] A watcher receives no rows from the activity trail (E3) and no trip
       notifications.
-- [ ] Tests assert the **payload**, not the rendering: given a watcher's session,
+- [x] Tests assert the **payload**, not the rendering: given a watcher's session,
       the JSON returned by each of those procedures contains none of the
       forbidden keys.
-- [ ] Vote, propose, comment, edit and finalise mutations reject a watcher.
+- [x] Vote, propose, comment, edit and finalise mutations reject a watcher.
 
 **Touches**
 
@@ -145,17 +145,17 @@ role into a projection function, and apply it in the router before returning.
 
 **Acceptance criteria**
 
-- [ ] Route `/trips/:id/members` exists and renders for every role.
-- [ ] The trip details header icon is a **members** icon (`Users`), not
+- [x] Route `/trips/:id/members` exists and renders for every role.
+- [x] The trip details header icon is a **members** icon (`Users`), not
       `UserPlus`, and it navigates to the members page.
-- [ ] The members strip card at the top of the trip details page is gone
+- [x] The members strip card at the top of the trip details page is gone
       (request item 2).
-- [ ] The list shows, per person: name, role, status (accepted / pending /
+- [x] The list shows, per person: name, role, status (accepted / pending /
       declined), the email an invite was sent to (if any), how they joined
       (invite link or email invite), and when.
-- [ ] Admins see role controls and a remove action; tripmates see the list
+- [x] Admins see role controls and a remove action; tripmates see the list
       read-only; watchers see names and roles only.
-- [ ] Invite-by-link and invite-by-email both live on this page.
+- [x] Invite-by-link and invite-by-email both live on this page.
 
 **Touches**
 
@@ -171,15 +171,15 @@ role into a projection function, and apply it in the router before returning.
 
 **Acceptance criteria**
 
-- [ ] Sending an invite records it: trip, email, role offered, who invited, when.
-- [ ] A pending invite to an address with no account is listed on the members
+- [x] Sending an invite records it: trip, email, role offered, who invited, when.
+- [x] A pending invite to an address with no account is listed on the members
       page as pending.
-- [ ] Accepting via the emailed link marks the invite accepted, records
+- [x] Accepting via the emailed link marks the invite accepted, records
       `joinedVia: "email"`, and creates the membership with the offered role.
-- [ ] Joining via a bare invite link records `joinedVia: "link"`.
-- [ ] Declining is recorded and shown; it does not delete the invite.
-- [ ] Re-inviting the same address does not create a duplicate row.
-- [ ] Only admins can invite.
+- [x] Joining via a bare invite link records `joinedVia: "link"`.
+- [x] Declining is recorded and shown; it does not delete the invite.
+- [x] Re-inviting the same address does not create a duplicate row.
+- [x] Only admins can invite.
 
 **Touches**
 
@@ -210,14 +210,14 @@ a token on top of it, which is what makes "joined via email" distinguishable fro
 
 **Acceptance criteria**
 
-- [ ] I can save a person (name + email) to my own contact book.
-- [ ] Inviting to a trip offers a picker over my saved contacts.
-- [ ] Picking a contact sends the same invite email as typing the address; the
+- [x] I can save a person (name + email) to my own contact book.
+- [x] Inviting to a trip offers a picker over my saved contacts.
+- [x] Picking a contact sends the same invite email as typing the address; the
       contact does **not** silently become a member.
-- [ ] Someone I invite can be saved to my contacts in one action from the members
+- [x] Someone I invite can be saved to my contacts in one action from the members
       page.
-- [ ] My contact book is mine: no other user can read it.
-- [ ] Deleting a contact does not affect any trip membership.
+- [x] My contact book is mine: no other user can read it.
+- [x] Deleting a contact does not affect any trip membership.
 
 **Touches**
 
@@ -243,12 +243,25 @@ trips without their consent.
 
 ## Open questions
 
-1. **Do watchers see the AI Referee feed?** Referee messages summarise group
-   tension and can name members. Blocks the projection for `referee.messages` in
-   E2.3. Default if unanswered: **no** — it is commentary on other people.
-2. **Do all existing members become tripmates?** That is the proposed migration.
-   The alternative is promoting members who have authored proposals to admin. The
-   migration is one line either way, but it cannot be undone quietly.
+Both answered by the trip owner before implementation:
+
+1. **Do watchers see the AI Referee feed?** **No** — hidden entirely.
+   `referee.messages` requires tripmate, and the dashboard does not render the
+   card for a watcher. It is commentary on other people.
+2. **Do all existing members become tripmates?** **Yes** — `organizer → admin`,
+   `member → tripmate`, nobody demoted to watcher.
+
+**Found during implementation**
+
+- `budget.summary` returned every member's `budgetMax` to anyone who asked. It
+  is a personal figure and a watcher now gets an empty list for it. The story's
+  list of leaking endpoints named the three proposal queries and `getTripMembers`
+  but missed this one — **the payload, not the router file, is the thing to
+  audit.**
+- `requireTripRole`'s refusal message originally read "Watchers can view this
+  trip but not change it", which is wrong for the two things a watcher is denied
+  that are _reads_ (the referee feed and the invite list). It now says what the
+  role allows rather than assuming a write was attempted.
 
 ## Out of scope
 

@@ -67,7 +67,7 @@ E3 → E5 → E7 → E8, and the order matters — E2 builds the permission mode
 rest check against.
 
 - [x] **E1** — Remove Travel DNA, including dropping the table
-- [ ] **E2** — Members, roles (Admin / Tripmate / Watcher), invite tracking, contact book
+- [x] **E2** — Members, roles (Admin / Tripmate / Watcher), invite tracking, contact book
 - [ ] **E3** — Activity trail, proposal attribution, who-voted-when
 - [ ] **E4** — AI runs only when asked; match analysis stops firing itself
 - [ ] **E5** — Trip page restructure: summary, collapsible sections, new order
@@ -89,11 +89,11 @@ is partly E4.4, and "Organizer controls: unlock finalised selections" is E6.2.
 - [ ] Verify `/api/health` on a preview deployment
 - [ ] Record the URLs in [PROJECT_STATUS.md](PROJECT_STATUS.md)
 
-### 2. Close the authorisation gap
+### 2. Close the authorisation gap — done in E2
 
-- [ ] Add a `tripMemberProcedure` that asserts membership of `input.tripId`
-- [ ] Apply it to every trip-scoped mutation
-- [ ] Add tests covering a non-member attempting each mutation
+- [x] `requireTripRole` asserts membership and role for every trip-scoped procedure
+- [x] Applied to every trip-scoped mutation
+- [x] Tests cover the role ordering and the watcher payload projections
 
 ### 3. Frontend confidence
 

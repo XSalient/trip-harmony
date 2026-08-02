@@ -16,6 +16,7 @@ import TripReferee from "./pages/TripReferee";
 import TripVibeBoard from "./pages/TripVibeBoard";
 import TripItinerary from "./pages/TripItinerary";
 import TripPreferences from "./pages/TripPreferences";
+import TripMembers from "./pages/TripMembers";
 import Notifications from "./pages/Notifications";
 import MagicLinkVerify from "./pages/MagicLinkVerify";
 import Profile from "./pages/Profile";
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/trips/:id/vibe" component={TripVibeBoard} />
       <Route path="/trips/:id/itinerary" component={TripItinerary} />
       <Route path="/trips/:id/preferences" component={TripPreferences} />
+      <Route path="/trips/:id/members" component={TripMembers} />
       <Route path="/notifications" component={Notifications} />
       <Route path="/profile" component={Profile} />
       <Route path="/404" component={NotFound} />

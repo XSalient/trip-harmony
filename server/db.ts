@@ -41,7 +41,12 @@ import {
   webauthnCredentials,
   InsertWebauthnCredential,
   webauthnChallenges,
+  tripInvites,
+  InsertTripInvite,
+  contacts,
+  InsertContact,
 } from "../drizzle/schema.js";
+import type { TripRole } from "../shared/roles.js";
 import { config, ENV } from "./_core/env.js";
 import { logger } from "./_core/logger.js";
 
@@ -503,7 +508,16 @@ export async function getTripMembers(tripId: number) {
       .from(users)
       .where(eq(users.id, m.userId))
       .limit(1);
-    enriched.push({ ...m, user: user[0] || null });
+    let invitedByName: string | null = null;
+    if (m.invitedBy) {
+      const inviter = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, m.invitedBy))
+        .limit(1);
+      invitedByName = inviter[0]?.name ?? null;
+    }
+    enriched.push({ ...m, user: user[0] || null, invitedByName });
   }
   return enriched;
 }
@@ -519,6 +533,166 @@ export async function updateMemberBudget(
     .update(tripMembers)
     .set({ budgetMax })
     .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+}
+
+export async function updateMemberRole(
+  tripId: number,
+  userId: number,
+  role: TripRole
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(tripMembers)
+    .set({ role })
+    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+}
+
+export async function removeTripMember(tripId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(tripMembers)
+    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+}
+
+/**
+ * How many accepted admins a trip has. Guards the "a trip always has an admin"
+ * rule, which is the only thing standing between a mis-click and a trip nobody
+ * can administer.
+ */
+export async function countTripAdmins(tripId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const rows = await db
+    .select({ id: tripMembers.id })
+    .from(tripMembers)
+    .where(
+      and(
+        eq(tripMembers.tripId, tripId),
+        eq(tripMembers.role, "admin"),
+        eq(tripMembers.status, "accepted")
+      )
+    );
+  return rows.length;
+}
+
+// ---- Trip Invites ----
+
+/**
+ * Records an invite, or refreshes the one already sent to that address.
+ *
+ * Re-inviting is a normal thing to do when the first email went astray, so it
+ * updates the existing row and returns its token rather than accumulating a
+ * row per attempt.
+ */
+export async function upsertTripInvite(data: InsertTripInvite) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const email = data.email.trim().toLowerCase();
+  const existing = await db
+    .select()
+    .from(tripInvites)
+    .where(
+      and(eq(tripInvites.tripId, data.tripId), eq(tripInvites.email, email))
+    )
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(tripInvites)
+      .set({
+        role: data.role,
+        invitedBy: data.invitedBy,
+        status: "pending",
+        sentAt: new Date(),
+        respondedAt: null,
+      })
+      .where(eq(tripInvites.id, existing[0].id));
+    return { ...existing[0], token: existing[0].token };
+  }
+  const [row] = await db
+    .insert(tripInvites)
+    .values({ ...data, email })
+    .returning();
+  return row;
+}
+
+export async function getTripInvites(tripId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tripInvites)
+    .where(eq(tripInvites.tripId, tripId))
+    .orderBy(desc(tripInvites.sentAt));
+}
+
+export async function getTripInviteByToken(token: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(tripInvites)
+    .where(eq(tripInvites.token, token))
+    .limit(1);
+  return rows[0] || null;
+}
+
+export async function setInviteStatus(
+  id: number,
+  status: "pending" | "accepted" | "declined" | "revoked"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(tripInvites)
+    .set({ status, respondedAt: new Date() })
+    .where(eq(tripInvites.id, id));
+}
+
+// ---- Contacts ----
+export async function addContact(data: InsertContact) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const email = data.email.trim().toLowerCase();
+  const existing = await db
+    .select()
+    .from(contacts)
+    .where(
+      and(eq(contacts.ownerUserId, data.ownerUserId), eq(contacts.email, email))
+    )
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(contacts)
+      .set({ name: data.name, contactUserId: data.contactUserId ?? null })
+      .where(eq(contacts.id, existing[0].id));
+    return existing[0].id;
+  }
+  const [row] = await db
+    .insert(contacts)
+    .values({ ...data, email })
+    .returning({ id: contacts.id });
+  return row.id;
+}
+
+export async function getContacts(ownerUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(contacts)
+    .where(eq(contacts.ownerUserId, ownerUserId))
+    .orderBy(contacts.name);
+}
+
+/** Scoped by owner so one user can never delete another's contact by guessing an id. */
+export async function deleteContact(id: number, ownerUserId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(contacts)
+    .where(and(eq(contacts.id, id), eq(contacts.ownerUserId, ownerUserId)));
 }
 
 // ---- Date Proposals ----
@@ -894,6 +1068,17 @@ export async function getBudgetItems(tripId: number) {
     .orderBy(desc(budgetItems.createdAt));
 }
 
+export async function getBudgetItem(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(budgetItems)
+    .where(eq(budgetItems.id, id))
+    .limit(1);
+  return rows[0] || null;
+}
+
 export async function updateBudgetItem(
   id: number,
   data: Partial<InsertBudgetItem>
@@ -1012,18 +1197,19 @@ export async function updateAccommodation(
 }
 
 // ---- Check trip organizer ----
-export async function isTripOrganizer(
+/**
+ * Whether the user administers this trip.
+ *
+ * Replaces `isTripOrganizer`, which compared against `trips.organizerId` and so
+ * could not see a second admin. `organizerId` still records who created the
+ * trip; it is no longer what grants rights.
+ */
+export async function isTripAdmin(
   tripId: number,
   userId: number
 ): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return false;
-  const trip = await db
-    .select({ organizerId: trips.organizerId })
-    .from(trips)
-    .where(eq(trips.id, tripId))
-    .limit(1);
-  return trip[0]?.organizerId === userId;
+  const member = await getTripMember(tripId, userId);
+  return member?.role === "admin" && member.status === "accepted";
 }
 
 // ---- Proposal Comments ----

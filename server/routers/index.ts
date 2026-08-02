@@ -10,6 +10,7 @@ import { systemRouter } from "../_core/systemRouter.js";
 import { authRouter } from "./auth.js";
 import { passkeysRouter } from "./passkeys.js";
 import { tripsRouter } from "./trips.js";
+import { contactsRouter } from "./contacts.js";
 import { datesRouter } from "./dates.js";
 import { destinationsRouter } from "./destinations.js";
 import { accommodationsRouter } from "./accommodations.js";
@@ -26,6 +27,7 @@ export const appRouter = router({
   auth: authRouter,
   passkeys: passkeysRouter,
   trips: tripsRouter,
+  contacts: contactsRouter,
   dates: datesRouter,
   destinations: destinationsRouter,
   accommodations: accommodationsRouter,

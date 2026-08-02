@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import { useParams, Link, useLocation } from "wouter";
 import { toast } from "sonner";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Calendar,
   MapPin,
@@ -19,8 +19,6 @@ import {
   Circle,
   Bot,
   Copy,
-  UserPlus,
-  Send,
   Plus,
   Lock,
   Check,
@@ -598,9 +596,15 @@ export default function TripDashboard() {
     { enabled: tripId > 0 }
   );
 
-  const isOrganizer = trip?.organizerId === user?.id;
-
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const { data: myRole } = trpc.trips.myRole.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const role = myRole?.role ?? null;
+  const isAdmin = role === "admin";
+  // Watchers view the trip and change nothing. The server rejects them anyway;
+  // this keeps the page from offering controls that can only fail.
+  const canContribute = role === "admin" || role === "tripmate";
 
   const [cloneDateOpen, setCloneDateOpen] = useState(false);
   const [cloneDestOpen, setCloneDestOpen] = useState(false);
@@ -631,20 +635,8 @@ export default function TripDashboard() {
   const [cloneAccName, setCloneAccName] = useState("");
   const [cloneAccLink, setCloneAccLink] = useState("");
   const [cloneAccPrice, setCloneAccPrice] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const sendInviteEmail = trpc.trips.sendInviteEmail.useMutation();
 
   const utils = trpc.useUtils();
-
-  const inviteUrl = useMemo(() => {
-    if (!trip?.inviteCode) return "";
-    return `${window.location.origin}/join/${trip.inviteCode}`;
-  }, [trip?.inviteCode]);
-
-  const copyInvite = () => {
-    navigator.clipboard.writeText(inviteUrl);
-    toast.success("Invite link copied!");
-  };
 
   if (isLoading) {
     return (
@@ -1006,121 +998,19 @@ export default function TripDashboard() {
       showBack
       backHref="/"
       headerRight={
-        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <UserPlus className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-sm rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>Invite Members</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Share this link with your group:
-                </p>
-                <div className="flex gap-2">
-                  <code className="flex-1 text-xs bg-muted p-3 rounded-lg break-all">
-                    {inviteUrl}
-                  </code>
-                  <Button variant="outline" size="icon" onClick={copyInvite}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    or send via email
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="friend@example.com"
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  size="icon"
-                  disabled={!inviteEmail || sendInviteEmail.isPending}
-                  onClick={async () => {
-                    try {
-                      await sendInviteEmail.mutateAsync({
-                        tripId,
-                        email: inviteEmail,
-                      });
-                      toast.success(`Invite sent to ${inviteEmail}`);
-                      setInviteEmail("");
-                    } catch {
-                      toast.error("Failed to send invite");
-                    }
-                  }}
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <Link href={`/trips/${tripId}/members`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            aria-label="Trip members"
+          >
+            <Users className="h-4 w-4" />
+          </Button>
+        </Link>
       }
     >
       <div className="px-4 py-4 space-y-4">
-        {/* Members + decisions row */}
-        <Card className="border-border/50">
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="flex -space-x-2">
-              {acceptedMembers.slice(0, 6).map((m: any) => (
-                <div
-                  key={m.id}
-                  className="h-8 w-8 rounded-full bg-primary/10 border-2 border-card flex items-center justify-center text-xs font-semibold text-primary"
-                  title={m.user?.name || "Member"}
-                >
-                  {(m.user?.name || "?")[0].toUpperCase()}
-                </div>
-              ))}
-              {acceptedMembers.length > 6 && (
-                <div className="h-8 w-8 rounded-full bg-muted border-2 border-card flex items-center justify-center text-xs font-medium text-muted-foreground">
-                  +{acceptedMembers.length - 6}
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">
-                {acceptedMembers.length} member
-                {acceptedMembers.length !== 1 ? "s" : ""}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {[
-                  lockedDate && "dates",
-                  lockedDest && "destination",
-                  lockedAcc && "stay",
-                ]
-                  .filter(Boolean)
-                  .join(", ") || "Planning in progress"}
-                {[lockedDate, lockedDest, lockedAcc].filter(Boolean).length > 0
-                  ? " decided"
-                  : ""}
-              </p>
-            </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {[lockedDate, lockedDest, lockedAcc].map((locked, i) => (
-                <div
-                  key={i}
-                  className={`h-2 w-2 rounded-full ${locked ? "bg-green-500" : "bg-muted-foreground/30"}`}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Pending votes alert */}
         {totalPending > 0 && (
           <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/10">
@@ -1140,39 +1030,41 @@ export default function TripDashboard() {
         )}
 
         {/* Trip Preferences CTA */}
-        <Card
-          role="button"
-          tabIndex={0}
-          onClick={() => navigate(`/trips/${tripId}/preferences`)}
-          onKeyDown={e =>
-            (e.key === "Enter" || e.key === " ") &&
-            navigate(`/trips/${tripId}/preferences`)
-          }
-          className={`cursor-pointer transition-shadow hover:shadow-sm ${!myPrefs ? "border-primary/40 bg-primary/5" : "border-border/50"}`}
-        >
-          <CardContent className="p-3 flex items-center gap-3">
-            <div
-              className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${myPrefs ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-primary/10 text-primary"}`}
-            >
-              {myPrefs ? (
-                <CheckCircle2 className="h-5 w-5" />
-              ) : (
-                <ClipboardList className="h-5 w-5" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">
-                {myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {myPrefs
-                  ? `Your preferences saved · ${prefCount?.count || 0}/${memberCount} members submitted`
-                  : "Set must-haves & dealbreakers — AI uses these to score proposals for you"}
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          </CardContent>
-        </Card>
+        {canContribute && (
+          <Card
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/trips/${tripId}/preferences`)}
+            onKeyDown={e =>
+              (e.key === "Enter" || e.key === " ") &&
+              navigate(`/trips/${tripId}/preferences`)
+            }
+            className={`cursor-pointer transition-shadow hover:shadow-sm ${!myPrefs ? "border-primary/40 bg-primary/5" : "border-border/50"}`}
+          >
+            <CardContent className="p-3 flex items-center gap-3">
+              <div
+                className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${myPrefs ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-primary/10 text-primary"}`}
+              >
+                {myPrefs ? (
+                  <CheckCircle2 className="h-5 w-5" />
+                ) : (
+                  <ClipboardList className="h-5 w-5" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">
+                  {myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {myPrefs
+                    ? `Your preferences saved · ${prefCount?.count || 0}/${memberCount} members submitted`
+                    : "Set must-haves & dealbreakers — AI uses these to score proposals for you"}
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Budget snapshot */}
         {budgetSummary && budgetSummary.total > 0 && (
@@ -1211,7 +1103,9 @@ export default function TripDashboard() {
           locked={!!lockedDate}
           pendingCount={pendingVotes.dates}
           addSlot={
-            <QuickAddDates tripId={tripId} onAdded={() => refetchDates()} />
+            canContribute ? (
+              <QuickAddDates tripId={tripId} onAdded={() => refetchDates()} />
+            ) : null
           }
           emptyText="No dates proposed yet — add the first one above!"
           onClick={() => navigate(`/trips/${tripId}/dates`)}
@@ -1240,7 +1134,7 @@ export default function TripDashboard() {
                 );
                 const commentCount =
                   (commentCounts as any)[`date_${p.id}`] || 0;
-                const canManage = p.proposedBy === user?.id || isOrganizer;
+                const canManage = p.proposedBy === user?.id || isAdmin;
                 return (
                   <div
                     key={p.id}
@@ -1315,7 +1209,7 @@ export default function TripDashboard() {
                         {p.votes?.length || 0}/{memberCount} voted
                       </span>
                     </div>
-                    {!p.selected && (
+                    {canContribute && !p.selected && (
                       <div className="flex gap-1.5">
                         {(
                           [
@@ -1366,10 +1260,12 @@ export default function TripDashboard() {
           locked={!!lockedDest}
           pendingCount={pendingVotes.destinations}
           addSlot={
-            <QuickAddDestination
-              tripId={tripId}
-              onAdded={() => refetchDest()}
-            />
+            canContribute ? (
+              <QuickAddDestination
+                tripId={tripId}
+                onAdded={() => refetchDest()}
+              />
+            ) : null
           }
           emptyText="No destinations yet — suggest the first one!"
           onClick={() => navigate(`/trips/${tripId}/destinations`)}
@@ -1392,7 +1288,7 @@ export default function TripDashboard() {
                   d.votes?.filter((v: any) => v.vote === "veto").length || 0;
                 const commentCount =
                   (commentCounts as any)[`destination_${d.id}`] || 0;
-                const canManage = d.proposedBy === user?.id || isOrganizer;
+                const canManage = d.proposedBy === user?.id || isAdmin;
                 return (
                   <div
                     key={d.id}
@@ -1459,7 +1355,7 @@ export default function TripDashboard() {
                         {d.votes?.length || 0}/{memberCount} voted
                       </span>
                     </div>
-                    {!d.selected && (
+                    {canContribute && !d.selected && (
                       <div className="flex gap-1.5">
                         {(
                           [
@@ -1506,7 +1402,9 @@ export default function TripDashboard() {
           locked={!!lockedAcc}
           pendingCount={pendingVotes.accommodations}
           addSlot={
-            <QuickAddStay tripId={tripId} onAdded={() => refetchAcc()} />
+            canContribute ? (
+              <QuickAddStay tripId={tripId} onAdded={() => refetchAcc()} />
+            ) : null
           }
           emptyText="No stays suggested yet — add an option!"
           onClick={() => navigate(`/trips/${tripId}/accommodations`)}
@@ -1529,7 +1427,7 @@ export default function TripDashboard() {
                   a.votes?.filter((v: any) => v.vote === "veto").length || 0;
                 const commentCount =
                   (commentCounts as any)[`accommodation_${a.id}`] || 0;
-                const canManage = a.proposedBy === user?.id || isOrganizer;
+                const canManage = a.proposedBy === user?.id || isAdmin;
                 return (
                   <div
                     key={a.id}
@@ -1601,7 +1499,7 @@ export default function TripDashboard() {
                         {a.votes?.length || 0}/{memberCount} voted
                       </span>
                     </div>
-                    {!a.selected && (
+                    {canContribute && !a.selected && (
                       <div className="flex gap-1.5">
                         {(
                           [
@@ -1719,30 +1617,32 @@ export default function TripDashboard() {
           </CardContent>
         </Card>
 
-        {/* ── AI Referee ── */}
-        <Card
-          role="button"
-          tabIndex={0}
-          onClick={() => navigate(`/trips/${tripId}/referee`)}
-          onKeyDown={e =>
-            (e.key === "Enter" || e.key === " ") &&
-            navigate(`/trips/${tripId}/referee`)
-          }
-          className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
-        >
-          <CardContent className="p-3 flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-              <Bot className="h-5 w-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">AI Referee</p>
-              <p className="text-xs text-muted-foreground">
-                Get mediation &amp; suggestions
-              </p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          </CardContent>
-        </Card>
+        {/* ── AI Referee — not for watchers: it summarises the group's argument ── */}
+        {canContribute && (
+          <Card
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(`/trips/${tripId}/referee`)}
+            onKeyDown={e =>
+              (e.key === "Enter" || e.key === " ") &&
+              navigate(`/trips/${tripId}/referee`)
+            }
+            className="border-border/50 cursor-pointer hover:shadow-sm transition-shadow"
+          >
+            <CardContent className="p-3 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">AI Referee</p>
+                <p className="text-xs text-muted-foreground">
+                  Get mediation &amp; suggestions
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* ── Edit Dialogs ── */}

@@ -3,12 +3,15 @@
  */
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import * as db from "../db.js";
+import { requireTripRole } from "./_shared.js";
 
 export const itineraryRouter = router({
   getDays: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "watcher");
       return db.getItineraryDays(input.tripId);
     }),
   addDay: protectedProcedure
@@ -20,7 +23,8 @@ export const itineraryRouter = router({
         notes: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const id = await db.createItineraryDay({
         tripId: input.tripId,
         date: input.date,
@@ -40,9 +44,9 @@ export const itineraryRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const day = await db.getItineraryDay(input.id);
-      if (!day) throw new Error("Day not found");
-      const isOrganizer = await db.isTripOrganizer(day.tripId, ctx.user.id);
-      if (!isOrganizer) throw new Error("Not authorized");
+      if (!day)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Day not found." });
+      await requireTripRole(day.tripId, ctx.user.id, "admin");
       const { id, ...data } = input;
       await db.updateItineraryDay(id, data);
       return { success: true };
@@ -51,9 +55,9 @@ export const itineraryRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const day = await db.getItineraryDay(input.id);
-      if (!day) throw new Error("Day not found");
-      const isOrganizer = await db.isTripOrganizer(day.tripId, ctx.user.id);
-      if (!isOrganizer) throw new Error("Not authorized");
+      if (!day)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Day not found." });
+      await requireTripRole(day.tripId, ctx.user.id, "admin");
       await db.deleteItineraryDay(input.id);
       return { success: true };
     }),
@@ -81,6 +85,7 @@ export const itineraryRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const id = await db.addItineraryItem({
         dayId: input.dayId,
         tripId: input.tripId,
@@ -100,10 +105,16 @@ export const itineraryRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const item = await db.getItineraryItem(input.id);
-      if (!item) throw new Error("Item not found");
-      const isOrganizer = await db.isTripOrganizer(item.tripId, ctx.user.id);
-      if (item.addedBy !== ctx.user.id && !isOrganizer)
-        throw new Error("Not authorized");
+      if (!item)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      await requireTripRole(item.tripId, ctx.user.id, "tripmate");
+      const isAdmin = await db.isTripAdmin(item.tripId, ctx.user.id);
+      if (item.addedBy !== ctx.user.id && !isAdmin)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only the person who added this, or an admin, can remove it.",
+        });
       await db.deleteItineraryItem(input.id);
       return { success: true };
     }),

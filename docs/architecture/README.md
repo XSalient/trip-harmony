@@ -27,7 +27,7 @@ Express app  ──────────────────────�
    │                                                        ┘
    ▼
 appRouter (server/routers/index.ts)
-   └── 12 domain routers — auth, trips, dates, destinations,
+   └── 13 domain routers — auth, trips, contacts, dates, destinations,
        accommodations, budget, referee, notifications,
        comments, preferences, vibeBoard, itinerary
    │

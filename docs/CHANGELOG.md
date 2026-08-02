@@ -8,6 +8,48 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — Admin / Tripmate / Watcher, invite tracking, and a contact book
+
+### Added
+
+- **Three roles instead of two.** **Admin** does everything the trip creator
+  could. **Tripmate** votes, proposes and comments. **Watcher** follows the trip
+  and changes nothing — and sees other members' names and nothing else: no email
+  addresses, no who-proposed-what, no who-voted-how, no budget ceilings, no
+  referee feed, no notifications. `0003_member_roles.sql` maps existing
+  `organizer → admin` and `member → tripmate`; nobody becomes a watcher by
+  migration, so every current member keeps the rights they had.
+- **A members page** at `/trips/:id/members`, reached from the members icon in
+  the trip header. It lists everyone with their role and status, who is still
+  pending, which address an invite went to, and how each person arrived — shared
+  link, email invite, or creating the trip. Admins change roles and remove
+  people from here; the last admin cannot be demoted or removed, and nobody can
+  change their own role.
+- **Invites are recorded, not just sent.** `trip_invites` holds an invitation to
+  an email address, which `trip_members` could not: its `userId` is NOT NULL and
+  most invitees have no account yet. An emailed invite carries a token that sets
+  the role and marks the join as "by email" rather than "followed a link", and
+  it can be declined or revoked. Re-inviting the same address updates the
+  existing invite instead of stacking up rows.
+- **A contact book.** Save someone once and invite them from a picker thereafter.
+  Saving grants nothing — an invite is still sent and still has to be accepted.
+
+### Fixed
+
+- **`trips.update` had no authorisation check at all.** Any signed-in user could
+  rename any trip and change its phase, status, currency and budget. It now
+  requires admin, as do finalising a proposal, inviting, changing roles and
+  running the referee.
+- **Authorisation was ad-hoc everywhere else.** Inline `isTripOrganizer()` calls
+  compared against `trips.organizerId`, so they could not see a second admin;
+  most other procedures checked only that the caller was signed in, not that
+  they belonged to the trip they were mutating. Every trip-scoped procedure now
+  goes through one `requireTripRole` helper, and the several
+  `throw new Error("Not authorized")` calls — which reached the client as
+  `INTERNAL_SERVER_ERROR` — are `TRPCError`s with real codes.
+
+---
+
 ## 2026-08-02 — Travel DNA removed; the referee reads the trip instead
 
 ### Removed

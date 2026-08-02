@@ -10,8 +10,11 @@ of several kinds; every proposal type has its own votes table and shares one
 comments table.
 
 ```
-users ──┬── trips                      (as organizer)
+users ──┬── trips                      (as creator; `organizerId`)
+        ├── contacts                   (private address book)
         └── trip_members ── trips      (many-to-many, with role and status)
+
+trips ──── trip_invites                (email invites awaiting an answer)
 
 trips ──┬── date_proposals      ── date_votes
         ├── destinations        ── destination_votes
@@ -39,6 +42,8 @@ webauthn_challenges                                  standalone, short-lived
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `users`                | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                |
 | `magic_link_tokens`    | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                            |
+| `trip_invites`         | An invitation to an email address. Separate from `trip_members` because that table's `userId` is NOT NULL and most invitees have no account yet. One live invite per address per trip, case-insensitively.                                                                                      |
+| `contacts`             | A user's own address book, so a friend's email is typed once. Grants nothing: an invite is still sent and still has to be accepted.                                                                                                                                                             |
 | `webauthn_credentials` | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices. |
 | `webauthn_challenges`  | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                        |
 

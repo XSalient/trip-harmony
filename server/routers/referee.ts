@@ -5,12 +5,16 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { invokeLLM } from "../_core/llm.js";
 import * as db from "../db.js";
-import { extractLLMText } from "./_shared.js";
+import { extractLLMText, requireTripRole } from "./_shared.js";
 
 export const refereeRouter = router({
   messages: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      // Referee messages summarise the group's disagreements and name members
+      // and their preferences. A watcher who cannot see who voted has no
+      // business reading a summary of the argument.
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       return db.getRefereeMessages(input.tripId);
     }),
   analyze: protectedProcedure
@@ -20,7 +24,8 @@ export const refereeRouter = router({
         phase: z.string(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
       const trip = await db.getTrip(input.tripId);
       const members = await db.getTripMembers(input.tripId);
       const allPrefs = await db.getAllTripPreferences(input.tripId);

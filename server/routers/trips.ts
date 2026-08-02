@@ -1,5 +1,5 @@
 /**
- * Trip records, membership, invite codes and invite emails.
+ * Trip records, membership, roles, invite codes and invite emails.
  */
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
@@ -8,6 +8,14 @@ import { nanoid } from "nanoid";
 import * as db from "../db.js";
 import { config } from "../_core/env.js";
 import { sendTripInviteEmail } from "../utils/mailer.js";
+import {
+  requireTripRole,
+  tripRoleOf,
+  projectMembersForRole,
+} from "./_shared.js";
+import { TRIP_ROLES } from "../../shared/roles.js";
+
+const roleInput = z.enum(TRIP_ROLES);
 
 export const tripsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -15,8 +23,17 @@ export const tripsRouter = router({
   }),
   get: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await requireTripRole(input.id, ctx.user.id, "watcher");
       return db.getTrip(input.id);
+    }),
+  /** The caller's own role, so the UI knows which controls to render. */
+  myRole: protectedProcedure
+    .input(z.object({ tripId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const member = await db.getTripMember(input.tripId, ctx.user.id);
+      if (!member || member.status !== "accepted") return { role: null };
+      return { role: member.role };
     }),
   getByInviteCode: publicProcedure
     .input(z.object({ code: z.string() }))
@@ -28,21 +45,30 @@ export const tripsRouter = router({
       z.object({
         tripId: z.number(),
         email: z.string().email(),
+        role: roleInput.default("tripmate"),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
       const trip = await db.getTrip(input.tripId);
       if (!trip)
         throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
-      const member = await db.getTripMember(input.tripId, ctx.user.id);
-      if (!member)
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You are not a member of this trip.",
-        });
+
+      // Record the invite before sending, so a send that fails still leaves the
+      // members page able to say who was invited and to what address.
+      const invite = await db.upsertTripInvite({
+        tripId: input.tripId,
+        email: input.email,
+        role: input.role,
+        invitedBy: ctx.user.id,
+        token: nanoid(32),
+      });
+
       const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
       const origin = `${proto}://${ctx.req.get("host")}`;
-      const inviteUrl = `${origin}/join/${trip.inviteCode}`;
+      // Carries the invite token, not just the trip's shared code — that is what
+      // makes "joined by email invite" distinguishable from "followed the link".
+      const inviteUrl = `${origin}/join/${trip.inviteCode}?invite=${invite.token}`;
       const delivery = await sendTripInviteEmail(
         input.email,
         ctx.user.name || "Someone",
@@ -60,6 +86,27 @@ export const tripsRouter = router({
               : "We couldn't send the invite email to that address. Copy the invite link and share it directly instead.",
         });
       }
+      return { success: true };
+    }),
+  invites: protectedProcedure
+    .input(z.object({ tripId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      // Invite addresses are personal detail; watchers never see them.
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
+      return db.getTripInvites(input.tripId);
+    }),
+  revokeInvite: protectedProcedure
+    .input(z.object({ tripId: z.number(), inviteId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      const invites = await db.getTripInvites(input.tripId);
+      const invite = invites.find(i => i.id === input.inviteId);
+      if (!invite)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invite not found.",
+        });
+      await db.setInviteStatus(invite.id, "revoked");
       return { success: true };
     }),
   create: protectedProcedure
@@ -80,8 +127,10 @@ export const tripsRouter = router({
       await db.addTripMember({
         tripId,
         userId: ctx.user.id,
-        role: "organizer",
+        role: "admin",
         status: "accepted",
+        joinedVia: "creator",
+        respondedAt: new Date(),
       });
       return { id: tripId, inviteCode };
     }),
@@ -89,7 +138,7 @@ export const tripsRouter = router({
     .input(
       z.object({
         id: z.number(),
-        name: z.string().optional(),
+        name: z.string().min(1).max(255).optional(),
         description: z.string().optional(),
         phase: z
           .enum([
@@ -108,7 +157,10 @@ export const tripsRouter = router({
         totalBudget: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // Until this check existed any signed-in user could rename any trip, and
+      // change its phase, status, currency and budget.
+      await requireTripRole(input.id, ctx.user.id, "admin");
       const { id, ...data } = input;
       await db.updateTrip(id, data);
       return { success: true };
@@ -117,31 +169,136 @@ export const tripsRouter = router({
     .input(
       z.object({
         inviteCode: z.string(),
+        /** Present when they followed an emailed invite rather than a shared link. */
+        inviteToken: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const trip = await db.getTripByInviteCode(input.inviteCode);
-      if (!trip) throw new Error("Trip not found");
+      if (!trip)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
+
+      // An emailed invite decides the role and records how they arrived; a bare
+      // link makes them a tripmate.
+      let role: "watcher" | "tripmate" | "admin" = "tripmate";
+      let joinedVia: "link" | "email" = "link";
+      let invitedBy: number | null = null;
+
+      if (input.inviteToken) {
+        const invite = await db.getTripInviteByToken(input.inviteToken);
+        if (
+          invite &&
+          invite.tripId === trip.id &&
+          invite.status !== "revoked"
+        ) {
+          role = invite.role;
+          joinedVia = "email";
+          invitedBy = invite.invitedBy;
+          await db.setInviteStatus(invite.id, "accepted");
+        }
+      }
+
       await db.addTripMember({
         tripId: trip.id,
         userId: ctx.user.id,
-        role: "member",
+        role,
         status: "accepted",
+        joinedVia,
+        invitedBy,
+        respondedAt: new Date(),
       });
-      // Notify organizer
-      await db.createNotification({
-        userId: trip.organizerId,
-        tripId: trip.id,
-        type: "general",
-        title: "New member joined!",
-        message: `${ctx.user.name || "Someone"} joined your trip "${trip.name}"`,
-      });
+
+      // Tell the admins, not the whole trip — and never a watcher.
+      const members = await db.getTripMembers(trip.id);
+      for (const m of members) {
+        if (m.userId !== ctx.user.id && m.role === "admin") {
+          await db.createNotification({
+            userId: m.userId,
+            tripId: trip.id,
+            type: "general",
+            title: "New member joined!",
+            message: `${ctx.user.name || "Someone"} joined your trip "${trip.name}"`,
+          });
+        }
+      }
       return { tripId: trip.id };
+    }),
+  /** Turning down an emailed invite, without joining. */
+  declineInvite: protectedProcedure
+    .input(z.object({ inviteToken: z.string() }))
+    .mutation(async ({ input }) => {
+      const invite = await db.getTripInviteByToken(input.inviteToken);
+      if (!invite)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invite not found.",
+        });
+      await db.setInviteStatus(invite.id, "declined");
+      return { success: true };
     }),
   members: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
-      return db.getTripMembers(input.tripId);
+    .query(async ({ ctx, input }) => {
+      const role = await tripRoleOf(input.tripId, ctx.user.id);
+      const members = await db.getTripMembers(input.tripId);
+      return projectMembersForRole(members, role);
+    }),
+  updateMemberRole: protectedProcedure
+    .input(
+      z.object({
+        tripId: z.number(),
+        userId: z.number(),
+        role: roleInput,
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      if (input.userId === ctx.user.id)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "You can't change your own role. Ask another admin to do it.",
+        });
+      const target = await db.getTripMember(input.tripId, input.userId);
+      if (!target)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Member not found.",
+        });
+      // Demoting the last admin would leave a trip nobody can administer.
+      if (target.role === "admin" && input.role !== "admin") {
+        const admins = await db.countTripAdmins(input.tripId);
+        if (admins <= 1)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This is the trip's only admin. Make someone else an admin first.",
+          });
+      }
+      await db.updateMemberRole(input.tripId, input.userId, input.role);
+      return { success: true };
+    }),
+  removeMember: protectedProcedure
+    .input(z.object({ tripId: z.number(), userId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      const target = await db.getTripMember(input.tripId, input.userId);
+      if (!target)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Member not found.",
+        });
+      if (target.role === "admin") {
+        const admins = await db.countTripAdmins(input.tripId);
+        if (admins <= 1)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This is the trip's only admin. Make someone else an admin first.",
+          });
+      }
+      await db.removeTripMember(input.tripId, input.userId);
+      return { success: true };
     }),
   updateMemberBudget: protectedProcedure
     .input(
@@ -151,6 +308,7 @@ export const tripsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       await db.updateMemberBudget(input.tripId, ctx.user.id, input.budgetMax);
       return { success: true };
     }),

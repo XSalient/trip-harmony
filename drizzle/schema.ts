@@ -30,11 +30,30 @@ export const tripStatusEnum = pgEnum("trip_status", [
   "completed",
   "cancelled",
 ]);
-export const memberRoleEnum = pgEnum("member_role", ["organizer", "member"]);
+/**
+ * What a member may do on a trip. Ordered least to most capable; the ordering
+ * itself lives in `shared/roles.ts`, which both sides import.
+ *
+ * Replaced the original `organizer` / `member` pair — see
+ * `drizzle/0003_member_roles.sql` for the mapping applied to existing rows.
+ */
+export const memberRoleEnum = pgEnum("member_role", [
+  "watcher",
+  "tripmate",
+  "admin",
+]);
 export const memberStatusEnum = pgEnum("member_status", [
   "pending",
   "accepted",
   "declined",
+]);
+/** How someone came to be on the trip — a shared link, an emailed invite, or creating it. */
+export const joinedViaEnum = pgEnum("joined_via", ["creator", "link", "email"]);
+export const inviteStatusEnum = pgEnum("invite_status", [
+  "pending",
+  "accepted",
+  "declined",
+  "revoked",
 ]);
 export const dateVoteEnum = pgEnum("date_vote", [
   "available",
@@ -132,14 +151,69 @@ export const tripMembers = pgTable("trip_members", {
   id: serial("id").primaryKey(),
   tripId: integer("tripId").notNull(),
   userId: integer("userId").notNull(),
-  role: memberRoleEnum("role").default("member").notNull(),
+  role: memberRoleEnum("role").default("tripmate").notNull(),
   status: memberStatusEnum("status").default("pending").notNull(),
   budgetMax: decimal("budgetMax", { precision: 12, scale: 2 }),
+  /** Who invited them, when it is known. Null for the creator and for pre-invite rows. */
+  invitedBy: integer("invitedBy"),
+  joinedVia: joinedViaEnum("joinedVia"),
+  /** When they accepted or declined — distinct from `joinedAt`, which is when the row appeared. */
+  respondedAt: timestamp("respondedAt"),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
 });
 
 export type TripMember = typeof tripMembers.$inferSelect;
 export type InsertTripMember = typeof tripMembers.$inferInsert;
+
+/**
+ * Invitations sent to an email address.
+ *
+ * These cannot live in `trip_members`, whose `userId` is NOT NULL: most invites
+ * go to someone with no account yet, and inventing a placeholder user to hold
+ * the row would put a person on the trip who never agreed to be there.
+ *
+ * A case-insensitive unique index on `(tripId, lower(email))` is created in
+ * `0003_member_roles.sql`. Drizzle cannot express a functional index here, so it
+ * lives in the migration only — do not assume this file is the whole story.
+ */
+export const tripInvites = pgTable("trip_invites", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  /** The role they get on acceptance. */
+  role: memberRoleEnum("role").default("tripmate").notNull(),
+  invitedBy: integer("invitedBy").notNull(),
+  /** Distinguishes "joined by email invite" from "followed the shared link". */
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  status: inviteStatusEnum("status").default("pending").notNull(),
+  sentAt: timestamp("sentAt").defaultNow().notNull(),
+  respondedAt: timestamp("respondedAt"),
+});
+
+export type TripInvite = typeof tripInvites.$inferSelect;
+export type InsertTripInvite = typeof tripInvites.$inferInsert;
+
+/**
+ * A user's private address book, so a friend's email is typed once ever.
+ *
+ * Saving someone here grants them nothing: an invite is still sent and still
+ * has to be accepted.
+ *
+ * Unique per owner on `lower(email)`, created in `0003_member_roles.sql` for the
+ * same reason as `trip_invites`.
+ */
+export const contacts = pgTable("contacts", {
+  id: serial("id").primaryKey(),
+  ownerUserId: integer("ownerUserId").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull(),
+  /** Set when the address matches a real account, so the picker can say so. */
+  contactUserId: integer("contactUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = typeof contacts.$inferInsert;
 
 /**
  * Date proposals — suggested date ranges for a trip.

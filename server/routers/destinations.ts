@@ -5,12 +5,19 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import * as db from "../db.js";
+import {
+  requireTripRole,
+  tripRoleOf,
+  projectProposalsForRole,
+} from "./_shared.js";
 
 export const destinationsRouter = router({
   list: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
-      return db.getDestinations(input.tripId);
+    .query(async ({ ctx, input }) => {
+      const role = await tripRoleOf(input.tripId, ctx.user.id);
+      const destinations = await db.getDestinations(input.tripId);
+      return projectProposalsForRole(destinations, role);
     }),
   create: protectedProcedure
     .input(
@@ -24,6 +31,7 @@ export const destinationsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const existing = await db.getDestinations(input.tripId);
       const duplicate = existing.find(
         d => d.name.trim().toLowerCase() === input.name.trim().toLowerCase()
@@ -45,7 +53,7 @@ export const destinationsRouter = router({
       });
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
-        if (m.userId !== ctx.user.id) {
+        if (m.userId !== ctx.user.id && m.role !== "watcher") {
           await db.createNotification({
             userId: m.userId,
             tripId: input.tripId,
@@ -65,6 +73,10 @@ export const destinationsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const destination = await db.getDestination(input.destinationId);
+      if (!destination)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
+      await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
       await db.voteDestination({
         destinationId: input.destinationId,
         userId: ctx.user.id,
@@ -79,6 +91,10 @@ export const destinationsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const destination = await db.getDestination(input.destinationId);
+      if (!destination)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
+      await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
       await db.unvoteDestination(input.destinationId, ctx.user.id);
       return { success: true };
     }),
@@ -89,13 +105,15 @@ export const destinationsRouter = router({
         destinationId: z.number(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.selectDestination(input.tripId, input.destinationId);
       return { success: true };
     }),
   deselect: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.deselectDestinations(input.tripId);
       return { success: true };
     }),
@@ -103,13 +121,16 @@ export const destinationsRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const destination = await db.getDestination(input.id);
-      if (!destination) throw new Error("Destination not found");
-      const isOrganizer = await db.isTripOrganizer(
-        destination.tripId,
-        ctx.user.id
-      );
-      if (destination.proposedBy !== ctx.user.id && !isOrganizer)
-        throw new Error("Not authorized");
+      if (!destination)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
+      await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
+      const isAdmin = await db.isTripAdmin(destination.tripId, ctx.user.id);
+      if (destination.proposedBy !== ctx.user.id && !isAdmin)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only the person who proposed this, or an admin, can remove it.",
+        });
       await db.deleteDestination(input.id);
       return { success: true };
     }),
@@ -126,13 +147,16 @@ export const destinationsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const destination = await db.getDestination(input.id);
-      if (!destination) throw new Error("Destination not found");
-      const isOrganizer = await db.isTripOrganizer(
-        destination.tripId,
-        ctx.user.id
-      );
-      if (destination.proposedBy !== ctx.user.id && !isOrganizer)
-        throw new Error("Not authorized");
+      if (!destination)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
+      await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
+      const isAdmin = await db.isTripAdmin(destination.tripId, ctx.user.id);
+      if (destination.proposedBy !== ctx.user.id && !isAdmin)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only the person who proposed this, or an admin, can edit it.",
+        });
       const { id, ...data } = input;
       await db.updateDestination(id, data);
       return { success: true };
@@ -141,7 +165,9 @@ export const destinationsRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const destination = await db.getDestination(input.id);
-      if (!destination) throw new Error("Destination not found");
+      if (!destination)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
+      await requireTripRole(destination.tripId, ctx.user.id, "tripmate");
       const newId = await db.createDestination({
         tripId: destination.tripId,
         proposedBy: ctx.user.id,

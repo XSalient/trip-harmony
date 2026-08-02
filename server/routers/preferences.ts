@@ -5,11 +5,13 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import * as db from "../db.js";
 import { runTripMatchAnalyses } from "./matchAnalysis.js";
+import { requireTripRole } from "./_shared.js";
 
 export const preferencesRouter = router({
   getMy: protectedProcedure
     .input(z.object({ tripId: z.number() }))
     .query(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "watcher");
       return db.getMyTripPreferences(input.tripId, ctx.user.id);
     }),
   save: protectedProcedure
@@ -23,6 +25,7 @@ export const preferencesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       await db.saveTripPreferences({
         tripId: input.tripId,
         userId: ctx.user.id,
@@ -37,7 +40,8 @@ export const preferencesRouter = router({
     }),
   countForTrip: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "watcher");
       const count = await db.countTripPreferences(input.tripId);
       return { count };
     }),

@@ -11,15 +11,18 @@ finish a piece of work — the next person (or agent) starts here.
 - **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
   The trip experience overhaul is in flight — see [product/](product/) for the
   eight epics and [product/progress.md](product/progress.md) for what has landed.
-- **Health:** typecheck ✅ · 156 tests ✅ · production build ✅ · dev server ✅
-  (2026-08-02, after the Travel DNA removal: all three migrations applied to a
-  real Postgres, then register → sign in → dashboard → profile walked in a real
-  browser). The **passkey** enrol → sign-out → passkey sign-in round trip was
-  last verified on 2026-08-01 and has not been repeated since.
-- **Pending migration:** `drizzle/0002_drop_travel_dna.sql` has been applied to a
-  throwaway database only — **not** to any long-lived one. It is destructive:
-  it drops `travel_dna` and every row in it. See
-  [runbooks/database.md](runbooks/database.md) before running it anywhere real.
+- **Health:** typecheck ✅ · 169 tests ✅ · production build ✅ · dev server ✅
+  (2026-08-02, after E1 and E2: all four migrations applied to a real Postgres,
+  then admin creates a trip → invites a Watcher by email → Watcher accepts and
+  is correctly restricted, walked in a real browser, with the API payloads
+  inspected rather than only the rendering). The **passkey** enrol → sign-out →
+  passkey sign-in round trip was last verified on 2026-08-01 and has not been
+  repeated since.
+- **Pending migrations:** `0002_drop_travel_dna.sql` and `0003_member_roles.sql`
+  have been applied to throwaway databases only — **not** to any long-lived one.
+  0002 is destructive (drops `travel_dna` and its rows); 0003 rewrites the
+  `member_role` enum in place. See
+  [runbooks/database.md](runbooks/database.md) before running either anywhere real.
 
 ---
 
@@ -49,7 +52,13 @@ Verified by running the app against Postgres, not just by reading code:
   public keys are stored. See [ADR 0007](adr/0007-passkeys-for-sign-in.md).
 - **Profile** — `/profile` shows the account and every sign-in method
   (password state, passkeys) in one place.
-- **Trips** — create, list, update, invite by code or email, join, membership roles.
+- **Trips** — create, list, update, join. Membership is Admin / Tripmate /
+  Watcher, enforced server-side by `requireTripRole`; a watcher sees the trip's
+  plans but no member's contact details, no who-proposed-what and no votes.
+  Invites go by shared link or by email, and the members page shows who accepted,
+  who is still pending, and how each person arrived.
+- **Contacts** — a private per-user address book, so an email is typed once.
+  Saving a contact grants nothing: an invite is still sent and still accepted.
 - **Planning** — date proposals, destinations, accommodations, vibe board and
   itinerary, each with proposal/vote/comment/clone/edit/delete. Posting a
   proposal records its author's vote, so a new option never sits at zero.
@@ -88,15 +97,15 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 156 tests are server-side. Page components are
+1. **No frontend tests.** All 169 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
-3. **Authorisation is thin.** Most `protectedProcedure`s check that a caller is
-   signed in, not that they belong to the trip they're mutating.
-4. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
+3. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
-5. **AI prompts are inline** in router files and unversioned.
+4. **AI prompts are inline** in router files and unversioned.
+5. **AI still runs itself.** Match analysis fires on every accommodation added
+   and re-runs for every stay whenever any member saves preferences. E4 fixes it.
 
 ## Verifying the current state yourself
 

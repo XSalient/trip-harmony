@@ -3,13 +3,21 @@
  */
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import * as db from "../db.js";
+import {
+  requireTripRole,
+  tripRoleOf,
+  projectProposalsForRole,
+} from "./_shared.js";
 
 export const vibeBoardRouter = router({
   list: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
-      return db.getVibeItems(input.tripId);
+    .query(async ({ ctx, input }) => {
+      const role = await tripRoleOf(input.tripId, ctx.user.id);
+      const items = await db.getVibeItems(input.tripId);
+      return projectProposalsForRole(items, role);
     }),
   add: protectedProcedure
     .input(
@@ -23,6 +31,7 @@ export const vibeBoardRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const id = await db.createVibeItem({
         tripId: input.tripId,
         proposedBy: ctx.user.id,
@@ -44,10 +53,16 @@ export const vibeBoardRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const item = await db.getVibeItem(input.id);
-      if (!item) throw new Error("Item not found");
-      const isOrganizer = await db.isTripOrganizer(item.tripId, ctx.user.id);
-      if (item.proposedBy !== ctx.user.id && !isOrganizer)
-        throw new Error("Not authorized");
+      if (!item)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      await requireTripRole(item.tripId, ctx.user.id, "tripmate");
+      const isAdmin = await db.isTripAdmin(item.tripId, ctx.user.id);
+      if (item.proposedBy !== ctx.user.id && !isAdmin)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only the person who added this, or an admin, can remove it.",
+        });
       await db.deleteVibeItem(input.id);
       return { success: true };
     }),
@@ -59,6 +74,10 @@ export const vibeBoardRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const item = await db.getVibeItem(input.vibeItemId);
+      if (!item)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      await requireTripRole(item.tripId, ctx.user.id, "tripmate");
       await db.voteVibeItem({
         vibeItemId: input.vibeItemId,
         userId: ctx.user.id,
@@ -69,6 +88,10 @@ export const vibeBoardRouter = router({
   unvote: protectedProcedure
     .input(z.object({ vibeItemId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const item = await db.getVibeItem(input.vibeItemId);
+      if (!item)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Item not found." });
+      await requireTripRole(item.tripId, ctx.user.id, "tripmate");
       await db.unvoteVibeItem(input.vibeItemId, ctx.user.id);
       return { success: true };
     }),

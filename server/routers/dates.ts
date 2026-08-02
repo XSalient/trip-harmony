@@ -7,15 +7,22 @@ import { logger } from "../_core/logger.js";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm.js";
 import * as db from "../db.js";
-import { extractLLMText } from "./_shared.js";
+import {
+  extractLLMText,
+  requireTripRole,
+  tripRoleOf,
+  projectProposalsForRole,
+} from "./_shared.js";
 
 const log = logger.child({ scope: "dates" });
 
 export const datesRouter = router({
   list: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .query(async ({ input }) => {
-      return db.getDateProposals(input.tripId);
+    .query(async ({ ctx, input }) => {
+      const role = await tripRoleOf(input.tripId, ctx.user.id);
+      const proposals = await db.getDateProposals(input.tripId);
+      return projectProposalsForRole(proposals, role);
     }),
   propose: protectedProcedure
     .input(
@@ -27,6 +34,7 @@ export const datesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const normalizeDate = (d: string | Date) =>
         new Date(d).toISOString().split("T")[0];
       const existing = await db.getDateProposals(input.tripId);
@@ -53,10 +61,10 @@ export const datesRouter = router({
         userId: ctx.user.id,
         vote: "available",
       });
-      // Notify members
+      // Notify members. Watchers opted out of trip updates by being watchers.
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
-        if (m.userId !== ctx.user.id) {
+        if (m.userId !== ctx.user.id && m.role !== "watcher") {
           await db.createNotification({
             userId: m.userId,
             tripId: input.tripId,
@@ -76,6 +84,13 @@ export const datesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const proposal = await db.getDateProposal(input.proposalId);
+      if (!proposal)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Proposal not found.",
+        });
+      await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
       await db.voteDateProposal({
         proposalId: input.proposalId,
         userId: ctx.user.id,
@@ -90,6 +105,13 @@ export const datesRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const proposal = await db.getDateProposal(input.proposalId);
+      if (!proposal)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Proposal not found.",
+        });
+      await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
       await db.unvoteDateProposal(input.proposalId, ctx.user.id);
       return { success: true };
     }),
@@ -100,13 +122,15 @@ export const datesRouter = router({
         proposalId: z.number(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.selectDateProposal(input.tripId, input.proposalId);
       return { success: true };
     }),
   deselect: protectedProcedure
     .input(z.object({ tripId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
       await db.deselectDateProposals(input.tripId);
       return { success: true };
     }),
@@ -114,13 +138,19 @@ export const datesRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const proposal = await db.getDateProposal(input.id);
-      if (!proposal) throw new Error("Proposal not found");
-      const isOrganizer = await db.isTripOrganizer(
-        proposal.tripId,
-        ctx.user.id
-      );
-      if (proposal.proposedBy !== ctx.user.id && !isOrganizer)
-        throw new Error("Not authorized");
+      if (!proposal)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Proposal not found.",
+        });
+      await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
+      const isAdmin = await db.isTripAdmin(proposal.tripId, ctx.user.id);
+      if (proposal.proposedBy !== ctx.user.id && !isAdmin)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only the person who proposed this, or an admin, can remove it.",
+        });
       await db.deleteDateProposal(input.id);
       return { success: true };
     }),
@@ -135,13 +165,19 @@ export const datesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const proposal = await db.getDateProposal(input.id);
-      if (!proposal) throw new Error("Proposal not found");
-      const isOrganizer = await db.isTripOrganizer(
-        proposal.tripId,
-        ctx.user.id
-      );
-      if (proposal.proposedBy !== ctx.user.id && !isOrganizer)
-        throw new Error("Not authorized");
+      if (!proposal)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Proposal not found.",
+        });
+      await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
+      const isAdmin = await db.isTripAdmin(proposal.tripId, ctx.user.id);
+      if (proposal.proposedBy !== ctx.user.id && !isAdmin)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only the person who proposed this, or an admin, can edit it.",
+        });
       await db.updateDateProposal(input.id, {
         ...(input.label !== undefined ? { label: input.label } : {}),
         ...(input.startDate ? { startDate: new Date(input.startDate) } : {}),
@@ -153,7 +189,12 @@ export const datesRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const proposal = await db.getDateProposal(input.id);
-      if (!proposal) throw new Error("Proposal not found");
+      if (!proposal)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Proposal not found.",
+        });
+      await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
       const id = await db.createDateProposal({
         tripId: proposal.tripId,
         proposedBy: ctx.user.id,

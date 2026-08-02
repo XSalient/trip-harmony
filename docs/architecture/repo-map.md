@@ -46,24 +46,25 @@ scripts/setup.sh   One-command bootstrap.
 Each file exports one router; `index.ts` composes them. To change an endpoint,
 open only its domain file.
 
-| File                | Lines | Covers                                                |
-| ------------------- | ----: | ----------------------------------------------------- |
-| `index.ts`          |    43 | Table of contents — the whole API in one screen       |
-| `_shared.ts`        |    70 | `toPublicUser`, password hashing, LLM text extraction |
-| `matchAnalysis.ts`  |   142 | AI accommodation↔member scoring (fire-and-forget)    |
-| `auth.ts`           |    86 | Register, login, magic link, logout, `me`             |
-| `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in   |
-| `trips.ts`          |    98 | Trips, membership, invites                            |
-| `dates.ts`          |   223 | Date proposals, votes, natural-language parsing       |
-| `destinations.ts`   |   161 | Destination suggestions and votes                     |
-| `accommodations.ts` |   354 | Stays, votes, URL import, match refresh               |
-| `budget.ts`         |    74 | Expenses and summaries                                |
-| `referee.ts`        |    88 | AI mediation                                          |
-| `preferences.ts`    |    36 | Per-trip member requirements                          |
-| `comments.ts`       |    41 | Comment threads                                       |
-| `notifications.ts`  |    23 | Notification feed                                     |
-| `vibeBoard.ts`      |    75 | Inspiration board                                     |
-| `itinerary.ts`      |    76 | Day-by-day plan                                       |
+| File                | Lines | Covers                                                                |
+| ------------------- | ----: | --------------------------------------------------------------------- |
+| `index.ts`          |    43 | Table of contents — the whole API in one screen                       |
+| `_shared.ts`        |   180 | `requireTripRole`, role projections, `toPublicUser`, password hashing |
+| `matchAnalysis.ts`  |   142 | AI accommodation↔member scoring (fire-and-forget)                    |
+| `auth.ts`           |    86 | Register, login, magic link, logout, `me`                             |
+| `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in                   |
+| `trips.ts`          |   281 | Trips, membership, roles, invites                                     |
+| `contacts.ts`       |    45 | A user's private address book                                         |
+| `dates.ts`          |   223 | Date proposals, votes, natural-language parsing                       |
+| `destinations.ts`   |   161 | Destination suggestions and votes                                     |
+| `accommodations.ts` |   354 | Stays, votes, URL import, match refresh                               |
+| `budget.ts`         |    74 | Expenses and summaries                                                |
+| `referee.ts`        |    88 | AI mediation                                                          |
+| `preferences.ts`    |    36 | Per-trip member requirements                                          |
+| `comments.ts`       |    41 | Comment threads                                                       |
+| `notifications.ts`  |    23 | Notification feed                                                     |
+| `vibeBoard.ts`      |    75 | Inspiration board                                                     |
+| `itinerary.ts`      |    76 | Day-by-day plan                                                       |
 
 ## `client/` — SPA
 
@@ -75,6 +76,7 @@ open only its domain file.
 | `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …) |
 | `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**      |
 | `src/lib/trpc.ts`                 | Typed tRPC React client                                                   |
+| `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                       |
 | `src/_core/hooks/useAuth.ts`      | Session hook                                                              |
 | `src/contexts/ThemeContext.tsx`   | Dark mode                                                                 |
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                    |
@@ -88,12 +90,13 @@ it. Don't add features there expecting anyone to see them.
 
 ## `shared/`, `drizzle/`
 
-| File                     | What it is                                         |
-| ------------------------ | -------------------------------------------------- |
-| `shared/const.ts`        | Cookie name, TTLs, shared error messages           |
-| `shared/types.ts`        | Types used by both client and server               |
-| `shared/_core/errors.ts` | `HttpError` and constructors                       |
-| `drizzle/schema.ts`      | All 23 tables and enums — the canonical data model |
+| File                     | What it is                                             |
+| ------------------------ | ------------------------------------------------------ |
+| `shared/const.ts`        | Cookie name, TTLs, shared error messages               |
+| `shared/roles.ts`        | Trip roles and their ordering — imported by both sides |
+| `shared/types.ts`        | Types used by both client and server                   |
+| `shared/_core/errors.ts` | `HttpError` and constructors                           |
+| `drizzle/schema.ts`      | All 24 tables and enums — the canonical data model     |
 
 ## Deliberately noisy — never read
 
