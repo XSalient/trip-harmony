@@ -26,6 +26,7 @@ import {
   deployDecision,
   findPendingMigrations,
   resolveDatabaseUrl,
+  withRelaxedSsl,
 } from "./lib/migrations.mjs";
 
 // Any 64-bit constant works; it only has to be the same in every build.
@@ -39,7 +40,7 @@ function parseMode(argv) {
 }
 
 async function withClient(url, fn) {
-  const client = new Client({ connectionString: url });
+  const client = new Client({ connectionString: withRelaxedSsl(url) });
   await client.connect();
   try {
     return await fn(client);

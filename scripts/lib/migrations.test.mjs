@@ -4,7 +4,43 @@ import {
   pendingSince,
   readJournal,
   resolveDatabaseUrl,
+  withRelaxedSsl,
 } from "./migrations.mjs";
+
+describe("withRelaxedSsl", () => {
+  // The production deploy failed on SELF_SIGNED_CERT_IN_CHAIN because the
+  // migrate script connected without this and server/db.ts connects with it.
+  it("adds sslmode=no-verify to a managed URL that has no sslmode", () => {
+    expect(withRelaxedSsl("postgres://u:p@db.supabase.co:5432/postgres")).toBe(
+      "postgres://u:p@db.supabase.co:5432/postgres?sslmode=no-verify"
+    );
+  });
+
+  it("appends with & when the URL already has a query", () => {
+    expect(withRelaxedSsl("postgres://u:p@h:6543/db?pgbouncer=true")).toBe(
+      "postgres://u:p@h:6543/db?pgbouncer=true&sslmode=no-verify"
+    );
+  });
+
+  it("rewrites an existing sslmode rather than duplicating it", () => {
+    expect(withRelaxedSsl("postgres://u:p@h:5432/db?sslmode=require")).toBe(
+      "postgres://u:p@h:5432/db?sslmode=no-verify"
+    );
+  });
+
+  it("leaves sslmode=disable and local URLs alone", () => {
+    const disabled = "postgres://u:p@h:5432/db?sslmode=disable";
+    expect(withRelaxedSsl(disabled)).toBe(disabled);
+    const local = "postgres://postgres@127.0.0.1:55432/harmony";
+    expect(withRelaxedSsl(local)).toBe(local);
+  });
+
+  it("does not re-encode credentials containing URL-significant characters", () => {
+    // The production password has # & @ in it; a URL round-trip would mangle it.
+    const url = "postgres://postgres:a#b&c@v@db.supabase.co:5432/postgres";
+    expect(withRelaxedSsl(url)).toBe(`${url}?sslmode=no-verify`);
+  });
+});
 
 describe("resolveDatabaseUrl", () => {
   it("prefers DATABASE_URL, then the pooled Vercel/Supabase variable", () => {

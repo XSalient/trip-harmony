@@ -42,6 +42,35 @@ export function resolveDatabaseUrl(env = process.env) {
   return { url: "", source: "" };
 }
 
+function isLocalUrl(url) {
+  return /@(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(url);
+}
+
+/**
+ * The same treatment `withRelaxedSsl()` in server/db.ts gives the runtime
+ * connection, for the same reason: Supabase presents a chain that is not in
+ * Node's default trust store, and recent pg-connection-string promotes
+ * `sslmode=require` to `verify-full`, so the connection dies with
+ * SELF_SIGNED_CERT_IN_CHAIN.
+ *
+ * It has to be done in the connection string, not the `ssl` client option — pg
+ * builds its config as Object.assign({}, config, parse(connectionString)), so
+ * anything parsed out of the string overwrites the explicit option. The
+ * parameter is edited textually to avoid re-encoding credentials through the
+ * URL parser.
+ *
+ * Kept in step with server/db.ts: a migration that cannot connect the way the
+ * app connects is worse than useless, because it fails the deploy.
+ */
+export function withRelaxedSsl(url) {
+  if (isLocalUrl(url)) return url;
+  if (/[?&]sslmode=disable\b/i.test(url)) return url;
+  if (/[?&]sslmode=/i.test(url)) {
+    return url.replace(/([?&]sslmode=)[^&]*/i, "$1no-verify");
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}sslmode=no-verify`;
+}
+
 /**
  * Whether a deploy build should migrate.
  *
