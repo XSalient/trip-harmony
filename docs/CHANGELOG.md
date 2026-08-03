@@ -17,8 +17,12 @@ is built, run or deployed.
   tables and was never applied to production, while the code that reads the
   column shipped. Every load of the dates, places or accommodations list — and
   every attempt to propose a date — failed on the missing column: 61 errors in
-  the seven minutes before it was found. The column now arrives with the code
-  that needs it.
+  the seven minutes before it was found. Migration 0005 has been applied to the
+  live database, and the column now arrives with the code that needs it.
+  Historical votes were backfilled from `createdAt` rather than stamped with the
+  migration time, so none of them claims to have changed when the fix landed.
+  `activity_events`, created by the same migration, was closed with RLS and no
+  grants per [ADR 0009](adr/0009-rls-on-with-no-policies.md).
 
 ### Changed
 
