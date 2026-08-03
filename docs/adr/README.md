@@ -20,6 +20,8 @@ or operated. Skip it for routine feature work.
 | [0007](0007-passkeys-for-sign-in.md)                       | Passkeys as a first-class sign-in method         | Accepted |
 | [0008](0008-listing-import-degrades-instead-of-evading.md) | Listing import degrades instead of evading       | Accepted |
 | [0009](0009-rls-on-with-no-policies.md)                    | RLS on with no policies, and no grants for anon  | Accepted |
+| [0010](0010-migrations-apply-on-deploy.md)                 | Migrations apply during the deploy               | Accepted |
+| [0011](0011-affected-tests-from-the-import-graph.md)       | Test selection comes from the import graph       | Accepted |
 
 ## Template
 

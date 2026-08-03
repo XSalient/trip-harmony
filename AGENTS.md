@@ -49,11 +49,14 @@ pnpm dev       # http://localhost:5000 — API + SPA together, hot reload
 pnpm verify    # typecheck + tests + build. Run before you claim to be done.
 pnpm check     # typecheck only (fast)
 pnpm test      # vitest, server-side
+pnpm test:affected  # only the tests your change can reach (what CI runs)
 pnpm format    # prettier; CI enforces it
 pnpm db:push   # apply drizzle/schema.ts to the database
+pnpm db:status # is this database behind on migrations?
 ```
 
-`pnpm verify` is the definition of "it works". CI runs exactly this.
+`pnpm verify` is the definition of "it works" — run it before you claim to be
+done. CI narrows to `pnpm test:affected` for speed; the full suite runs nightly.
 
 ## 4. Rules
 
@@ -77,6 +80,10 @@ pnpm db:push   # apply drizzle/schema.ts to the database
    existing one; keep it under a page.
 8. **Don't add a dependency** to solve something the stack already does
    (validation → Zod, dates → date-fns, state → TanStack Query, styles → Tailwind).
+9. **Changing `drizzle/schema.ts` means running `pnpm db:generate` and
+   committing the migration in the same commit.** The deploy applies it; CI
+   fails if the schema and the migrations disagree. A column that ships without
+   its migration takes production down — it already did once.
 
 ## 5. Conventions
 

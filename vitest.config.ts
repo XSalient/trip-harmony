@@ -14,6 +14,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["server/**/*.test.ts", "server/**/*.spec.ts"],
+    include: [
+      "server/**/*.test.ts",
+      "server/**/*.spec.ts",
+      // The test selector decides what CI runs, so it is tested like anything else.
+      "scripts/**/*.test.mjs",
+    ],
   },
 });

@@ -34,6 +34,9 @@ changed — and destructive edits get applied without a reviewed step.
 pnpm db:generate        # schema.ts -> a new migration file
 pnpm db:migrate         # apply pending migrations to DATABASE_URL
 pnpm db:migrate:doppler # same, against the production config
+pnpm db:status          # what is DATABASE_URL missing? (exit 1 if behind)
+pnpm db:status:doppler  # same question, asked of production
+pnpm db:deploy          # apply via the same script the Vercel build runs
 pnpm db:push            # local-only shortcut; no migration file
 pnpm db:studio          # browse data
 ```
@@ -61,18 +64,41 @@ last already-applied migration is enough; it does not check the earlier ones.
 
 ## Deploying a schema change
 
-Order matters: the migration must land **before** the code that depends on it.
+**The deploy applies migrations for you.** `vercel.json` runs
+`node scripts/db-migrate.mjs --deploy` after the build, so a production
+deployment brings the database up to date before it is promoted — see
+[ADR 0010](../adr/0010-migrations-apply-on-deploy.md). This used to be a manual
+step and, on 2026-08-02, a missed one: migration 0005 sat unapplied while the
+code that needed `updatedAt` served traffic, and every vote read returned 500.
+
+What that does and does not cover:
+
+- **Production migrates automatically.** Preview does not, because a preview
+  usually points at the production database; set `RUN_MIGRATIONS=1` on a preview
+  that has its own.
+- **A deploy that cannot reach its database fails.** If the build errors with
+  "No Postgres URL in the build environment", the connection string is not
+  exposed to the **Build** step in Vercel — fix that rather than working around
+  it. `SKIP_DEPLOY_MIGRATIONS=1` exists but makes the old failure possible again.
+- **Additive changes only.** Migrations run before the new code is promoted, so
+  the schema is briefly ahead of the code. Adding a column is safe. Dropping or
+  renaming one the current code still reads is not, and automation will not save
+  you: expand and contract across two deploys instead.
+
+So for anything destructive, or anything you want to watch:
 
 1. Apply to the preview database first and exercise the app.
 2. Back up production (your provider's snapshot or PITR).
-3. Run `pnpm db:migrate` against production, then deploy the code.
-4. Prefer additive steps: add a nullable column, backfill, and only make it
+3. Prefer additive steps: add a nullable column, backfill, and only make it
    required in a later migration. Never combine a destructive change with a
    feature deploy.
+4. `pnpm db:status:doppler` answers "is production behind?" at any time.
 
-CI applies every migration to a throwaway Postgres on each PR, so a migration
-that cannot run at all is caught before merge. That is a syntax and ordering
-check, not a safety check — it says nothing about data loss.
+CI applies every migration to a throwaway Postgres on each PR using the same
+script the deploy runs, then checks that `drizzle/schema.ts` and the committed
+migrations still agree — a column added to the schema with no migration to
+create it fails the build. That is a syntax, ordering and drift check, not a
+safety check: it says nothing about data loss.
 
 ## Connections
 

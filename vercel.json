@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm vite build",
+  "buildCommand": "pnpm vite build && node scripts/db-migrate.mjs --deploy",
   "outputDirectory": "dist/public",
   "functions": {
     "api/server.ts": {

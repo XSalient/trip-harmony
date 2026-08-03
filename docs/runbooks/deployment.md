@@ -11,6 +11,11 @@ Target: **Vercel** — static SPA plus one serverless function — with secrets 
 `vercel.json` defines the whole deployment:
 
 - `pnpm install --frozen-lockfile` then `pnpm vite build` → `dist/public`
+- then `node scripts/db-migrate.mjs --deploy`, which applies any pending
+  migrations to the production database before the deployment is promoted
+  ([ADR 0010](../adr/0010-migrations-apply-on-deploy.md)). It requires the
+  database URL to be visible to the **Build** step, not just the runtime, and
+  fails the deploy if it is not.
 - `/api/*` rewrites to `api/server.ts`, a single Node function (1024 MB, 60 s)
 - everything else rewrites to `index.html` for client-side routing
 - hashed assets get immutable caching; baseline security headers on all responses
@@ -82,20 +87,28 @@ Record the URLs in [../PROJECT_STATUS.md](../PROJECT_STATUS.md).
 ## Ongoing
 
 - Push to `master` → production. Every PR → a preview deployment with `stg` secrets.
-- CI (`.github/workflows/ci.yml`) runs typecheck, tests, format check, build and a
-  schema push against a scratch Postgres. Keep it green before merging.
-- Schema changes must be applied **before** the code that depends on them —
-  see [database.md](database.md).
+- CI (`.github/workflows/ci.yml`) runs typecheck, format check, build, and the
+  migrations against a scratch Postgres. Keep it green before merging.
+- **Tests are narrowed to the change.** `pnpm test:affected` runs only the tests
+  that import something the change touched, which is why a small PR no longer
+  waits on the whole suite ([ADR 0011](../adr/0011-affected-tests-from-the-import-graph.md)).
+  Anything the import graph cannot reason about — a lockfile bump, a change under
+  `scripts/` or `.github/` — still runs everything, and the full suite runs
+  nightly at 03:00 UTC and on `workflow_dispatch`. Use `pnpm test:affected:list`
+  to see what a change would select without running it.
+- Schema changes are applied by the deploy itself — see [database.md](database.md).
 
 ## Rolling back
 
 Vercel keeps every deployment. Promote the previous one from the dashboard
 (Deployments → ⋯ → Promote to Production); it is immediate and needs no rebuild.
 
-**A rollback does not revert the database.** If the bad deploy changed the
-schema, roll the schema back first — which today means editing
-`drizzle/schema.ts` and pushing again. This is the strongest argument for
-switching to versioned migrations, tracked in [../ROADMAP.md](../ROADMAP.md).
+**A rollback does not revert the database.** Promoting an older deployment
+restores the old code against the _current_ schema; nothing un-applies a
+migration. This is why the deploy only runs additive migrations safely: a rolled
+-back code version can tolerate a column it does not know about, but not a
+missing one it still reads. Reverting a schema change means writing a new
+migration that undoes it and deploying that.
 
 ## Notes and limits
 

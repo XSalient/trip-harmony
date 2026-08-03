@@ -8,11 +8,11 @@ finish a piece of work — the next person (or agent) starts here.
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
-- **Stage:** feature-complete MVP; infrastructure hardened, not yet deployed.
+- **Stage:** feature-complete MVP, deployed to production on Vercel.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 208 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 237 tests ✅ · production build ✅ · dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
   state surviving a reload, the empty-trip case, renaming a trip from the header,
@@ -23,11 +23,16 @@ finish a piece of work — the next person (or agent) starts here.
   no model call happens on an ordinary write). The **passkey** enrol → sign-out →
   passkey sign-in round trip was last verified on 2026-08-01 and has not been
   repeated since.
-- **Migrations:** all five are applied to the live Supabase database
-  (`Trip Harmony`, `eqpqjivaubdbdmyrlczh`) as of 2026-08-02, and drizzle's
-  tracking table was baselined so `pnpm db:migrate` is correct against it. The
-  role mapping landed on the real members (creator → admin, the other →
-  tripmate) and `travel_dna` is gone.
+- **Migrations:** there are six. 0000–0004 are applied to the live Supabase
+  database (`Trip Harmony`, `eqpqjivaubdbdmyrlczh`), with drizzle's tracking
+  table baselined so `pnpm db:migrate` is correct against it. The role mapping
+  landed on the real members (creator → admin, the other → tripmate) and
+  `travel_dna` is gone.
+  **0005 is pending against production at the time of writing** — that gap is
+  what broke voting on 2026-08-02. It is applied by the next production deploy,
+  which now migrates before promoting
+  ([ADR 0010](adr/0010-migrations-apply-on-deploy.md)); confirm with
+  `pnpm db:status:doppler`, which should report "up to date" afterwards.
 - **Database access is locked down.** RLS is on for all 23 tables with no
   policies, and `anon` / `authenticated` hold no grants — see
   [ADR 0009](adr/0009-rls-on-with-no-policies.md). Supabase's linter reports 23
@@ -37,16 +42,16 @@ finish a piece of work — the next person (or agent) starts here.
 
 ## Where it runs
 
-| Environment         | Status                 | Notes                                                                      |
-| ------------------- | ---------------------- | -------------------------------------------------------------------------- |
-| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                           |
-| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All 5 migrations applied |
-| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)  |
-| Production (Vercel) | ⚠️ Not yet provisioned | Needs the Postgres URL, `JWT_SECRET`, and a Doppler project                |
+| Environment         | Status                 | Notes                                                                                 |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
+| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                                      |
+| Database (Supabase) | ⚠️ One behind          | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. 0000–0004 applied; **0005 pending** |
+| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)             |
+| Production (Vercel) | ✅ Live                | Vercel project `trip-harmony`, team `saurabhs-projects-4d5cc478`                      |
 
-The database is live and migrated; the app itself is not deployed yet. The
-remaining work is Vercel and Doppler setup, which requires credentials no one
-should commit.
+Production is deployed and serving traffic. Its database is one migration behind
+the deployed code, which is what caused the 2026-08-02 vote-read failures; the
+next production deploy applies it. Preview is still unprovisioned.
 
 ## What works
 
@@ -113,7 +118,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 208 tests are server-side. Page components are
+1. **No frontend tests.** All 237 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.

@@ -8,6 +8,43 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-02 — The deploy applies its own migrations
+
+### Fixed
+
+- **Voting, dates, places and accommodations stopped returning errors.**
+  Migration `0005_activity_and_vote_times` added `updatedAt` to the three vote
+  tables and was never applied to production, while the code that reads the
+  column shipped. Every load of the dates, places or accommodations list — and
+  every attempt to propose a date — failed on the missing column: 61 errors in
+  the seven minutes before it was found. The column now arrives with the code
+  that needs it.
+
+### Changed
+
+- **Deploys apply pending migrations themselves**, after the build and before
+  the new version is promoted, so the schema and the code can no longer ship
+  apart ([ADR 0010](adr/0010-migrations-apply-on-deploy.md)). Production
+  migrates automatically; a preview only when asked, since a preview usually
+  points at the production database. A deploy that cannot reach its database
+  fails rather than shipping quietly.
+- **CI runs only the tests the change can reach**, chosen from the real import
+  graph rather than a hand-written map
+  ([ADR 0011](adr/0011-affected-tests-from-the-import-graph.md)). A change to one
+  leaf module runs a handful of files instead of seventeen. Lockfile, config and
+  tooling changes still run everything, and the full suite runs nightly.
+
+### Added
+
+- `pnpm db:status` — what is this database missing? The question nobody could
+  answer quickly during the incident. `pnpm db:status:doppler` asks it of
+  production.
+- **CI fails when `drizzle/schema.ts` and the committed migrations disagree**,
+  catching the sibling mistake: a column added to the schema with no migration
+  to create it.
+
+---
+
 ## 2026-08-02 — The trip page fits on a phone
 
 ### Added

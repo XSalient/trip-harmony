@@ -4,6 +4,11 @@ on:
   push:
     branches: [master, main]
   pull_request:
+  # Narrowing to the affected tests trades a little coverage for a much shorter
+  # pipeline. The nightly full run is the other half of that trade.
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
 
 # A newer push to the same branch makes the in-flight run redundant.
 concurrency:
@@ -17,7 +22,11 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      # The affected-test selection needs the base branch to diff against, and
+      # the merge base to find; a shallow clone has neither.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -32,7 +41,17 @@ jobs:
       - name: Typecheck
         run: pnpm check
 
-      - name: Test
+      # Only the tests the change can reach. A change to the lockfile, the
+      # runner, or anything else the import graph cannot see still takes the
+      # whole suite — see scripts/lib/affected.mjs.
+      - name: Test (affected)
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        run: pnpm test:affected
+        env:
+          AFFECTED_BASE: origin/${{ github.event.pull_request.base.ref || 'master' }}
+
+      - name: Test (full suite)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: pnpm test
 
       - name: Check formatting
@@ -72,7 +91,30 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Deliberately the same script the Vercel build runs, so the deploy path
+      # itself is exercised here rather than only in production.
       - name: Apply migrations to a scratch database
-        run: pnpm db:migrate
+        run: pnpm db:deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/back_to_travelling_ci
+
+      - name: A migrated database reports no pending migrations
+        run: pnpm db:status
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/back_to_travelling_ci
+
+      # The sibling of the outage this job guards: a column added to
+      # drizzle/schema.ts with no migration to create it. If generate produces
+      # anything, the schema and the migrations disagree.
+      - name: Schema and migrations agree
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/back_to_travelling_ci
+        run: |
+          pnpm db:generate
+          if ! git diff --quiet -- drizzle || \
+             [ -n "$(git ls-files --others --exclude-standard -- drizzle)" ]; then
+            echo "::error::drizzle/schema.ts has changes with no committed migration."
+            echo "Run 'pnpm db:generate' and commit the generated SQL."
+            git status --porcelain -- drizzle
+            exit 1
+          fi
