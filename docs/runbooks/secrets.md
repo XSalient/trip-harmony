@@ -16,6 +16,18 @@ message, or in a file that outlives a session. See
 
 ## Day-to-day
 
+First time on a machine, or standing up a config that does not exist yet:
+
+```bash
+doppler login
+bash scripts/doppler-bootstrap.sh dev   # then stg, then prd
+```
+
+That script creates the project and config if missing and prompts for each
+variable `server/_core/env.ts` declares, reading values without echoing them and
+skipping anything already set, so it is safe to re-run. It never writes a secret
+to disk and never passes one as a shell argument.
+
 ```bash
 doppler login
 doppler setup                        # reads doppler.yaml
@@ -89,6 +101,26 @@ contract. Adding a variable means updating **both**, plus this table.
 
 Rotating `JWT_SECRET` invalidates every session — users must sign in again. Do it
 deliberately, and immediately if it may have leaked.
+
+### Rotating the database password
+
+The order matters, because the password is embedded in a URL that three places
+may hold: Doppler, Vercel, and the Supabase dashboard.
+
+1. Supabase → Settings → Database → **Reset database password**.
+2. Rebuild the connection string with the new password
+   **percent-encoded** — `#` `&` `@` `:` `/` `?` are URI-significant, and a raw
+   one silently mis-parses. `#mH…&…@v` becomes `%23mH…%26…%40v`. A password that
+   is not encoded fails as `ENOTFOUND <fragment-of-your-password>`, which looks
+   nothing like an authentication error.
+3. Prefer the **pooled** string (port 6543, `pgbouncer=true`). Serverless
+   functions open many short-lived connections and exhaust a direct pool, and
+   the non-pooling host resolves over IPv6 only.
+4. `doppler secrets set DATABASE_URL --config prd` and let the Vercel
+   integration push it. If Vercel holds the value directly rather than through
+   Doppler, update it there too — otherwise the next deploy fails at the
+   migration step, which now needs the database at build time.
+5. Redeploy, then confirm with `pnpm db:status:doppler`.
 
 ## If a secret leaks
 

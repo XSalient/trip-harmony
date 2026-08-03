@@ -24,13 +24,14 @@ scripts/           Bootstrap, deploy-time migrations, test selection.
 Plain `.mjs`, not TypeScript: these run during the Vercel build, before anything
 is compiled and with no tsx on the path.
 
-| File                 | What it is                                                                             |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `setup.sh`           | One-command bootstrap.                                                                 |
-| `db-migrate.mjs`     | Applies pending migrations, or reports them. `--deploy` is what `vercel.json` runs.    |
-| `lib/migrations.mjs` | Reads the journal, resolves the database URL, decides whether a deploy should migrate. |
-| `affected-tests.mjs` | Runs only the tests the current change can reach.                                      |
-| `lib/affected.mjs`   | The import-graph walk and selection rules. Pure; unit-tested beside it.                |
+| File                   | What it is                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `setup.sh`             | One-command bootstrap.                                                                 |
+| `doppler-bootstrap.sh` | Creates the Doppler project/configs and prompts for each secret. Run by a human.       |
+| `db-migrate.mjs`       | Applies pending migrations, or reports them. `--deploy` is what `vercel.json` runs.    |
+| `lib/migrations.mjs`   | Reads the journal, resolves the database URL, decides whether a deploy should migrate. |
+| `affected-tests.mjs`   | Runs only the tests the current change can reach.                                      |
+| `lib/affected.mjs`     | The import-graph walk and selection rules. Pure; unit-tested beside it.                |
 
 ## `server/` — API
 

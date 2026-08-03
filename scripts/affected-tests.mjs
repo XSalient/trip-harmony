@@ -38,9 +38,17 @@ function argValue(flag, fallback) {
 function changedFiles(base) {
   try {
     const mergeBase = git(["merge-base", base, "HEAD"]);
-    const committed = git(["diff", "--name-only", mergeBase, "HEAD"]);
-    const uncommitted = git(["diff", "--name-only", "HEAD"]);
-    return [...new Set([...committed.split("\n"), ...uncommitted.split("\n")])]
+    return [
+      ...new Set([
+        ...git(["diff", "--name-only", mergeBase, "HEAD"]).split("\n"),
+        ...git(["diff", "--name-only", "HEAD"]).split("\n"),
+        // Untracked files are changes too. Without this a brand-new file is
+        // invisible until it is staged, and the run silently narrows to fewer
+        // tests than the change deserves — the one direction this tool must
+        // never err in.
+        ...git(["ls-files", "--others", "--exclude-standard"]).split("\n"),
+      ]),
+    ]
       .map(file => file.trim())
       .filter(Boolean);
   } catch {
