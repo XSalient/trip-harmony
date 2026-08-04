@@ -28,6 +28,24 @@ variable `server/_core/env.ts` declares, reading values without echoing them and
 skipping anything already set, so it is safe to re-run. It never writes a secret
 to disk and never passes one as a shell argument.
 
+**On Windows, check which `bash` actually runs it.** A `.sh` file needs a
+POSIX shell, and typing `bash scripts/doppler-bootstrap.sh` from a native
+terminal (PowerShell, or Cursor/VS Code's default integrated terminal) doesn't
+guarantee Git Bash. Windows ships a legacy stub at
+`C:\Windows\System32\bash.exe` that launches your default WSL distro instead,
+and if that resolves first, the script runs inside a separate Linux
+environment that has never seen the Doppler CLI you logged in with on Windows
+— it fails with "Doppler CLI not found" even though `doppler login` just
+worked. Check with `Get-Command bash` (PowerShell) before assuming the script
+is broken; if it points under `System32`, either run the script from an
+explicit Git Bash terminal, or skip the script entirely and use the **web
+dashboard** below.
+
+If a CLI session is inconvenient — Windows shell mismatches, or you'd simply
+rather not touch a terminal for this — **dashboard.doppler.com** does
+everything the script does, project, configs and secret values, with no CLI
+involved and no chat message ever carrying a value.
+
 ```bash
 doppler login
 doppler setup                        # reads doppler.yaml
