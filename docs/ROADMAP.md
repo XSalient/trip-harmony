@@ -81,13 +81,25 @@ is partly E4.4, and "Organizer controls: unlock finalised selections" is E6.2.
 
 ## Next — highest value first
 
-### 1. Deploy
+### 1. Deploy — production is live; preview is the remainder
 
-- [ ] Create the Doppler project with `dev` / `stg` / `prd` configs
-- [ ] Provision Postgres (Supabase or Vercel Postgres) for preview and production
-- [ ] Connect the repo to Vercel; sync secrets via the Doppler↔Vercel integration
+Production runs at `www.backtotravelling.com` and `/api/health` reports `ok`.
+What is left is preview, and tidying how production's secrets are managed.
+
+- [x] Provision Postgres for **production** (Supabase `Trip Harmony`, eu-west-1)
+- [x] Connect the repo to Vercel; `master` → production
+- [x] Verify `/api/health` on **production**
+- [x] Record the URLs in [PROJECT_STATUS.md](PROJECT_STATUS.md)
+- [ ] Provision Postgres for **preview**, and map the `dev` branch to a Vercel
+      preview environment — neither exists yet
 - [ ] Verify `/api/health` on a preview deployment
-- [ ] Record the URLs in [PROJECT_STATUS.md](PROJECT_STATUS.md)
+- [ ] Move production's `DATABASE_URL` behind the Doppler↔Vercel integration.
+      It is currently set directly on the Vercel project (no `configurationId`),
+      so Doppler is not the source of truth for it that
+      [ADR 0003](adr/0003-doppler-for-secrets.md) intends. The `POSTGRES_*` and
+      `SUPABASE_*` variables do come from the Supabase integration.
+- [ ] Confirm the Doppler project's `dev` / `stg` / `prd` configs are populated
+      (`scripts/doppler-bootstrap.sh` does this; not verified from here)
 
 ### 2. Close the authorisation gap — done in E2
 

@@ -74,6 +74,16 @@ Doppler then pushes changes automatically; Vercel environment variables are neve
 edited by hand. Redeploy for a change to take effect — Vercel injects env vars at
 build/boot, not per request.
 
+**Production does not fully match that today.** `DATABASE_URL` is set directly
+on the Vercel project — it carries no `configurationId`, so no integration owns
+it — and it was last changed there by hand, on 2026-08-08, to bring production
+back up ([ADR 0012](../adr/0012-session-pooler-for-the-database-url.md)). The
+`POSTGRES_*` and `SUPABASE_*` variables do come from an integration, Supabase's
+rather than Doppler's. Until that is reconciled (tracked in
+[ROADMAP.md](../ROADMAP.md)), changing the production database URL in Doppler
+alone will not reach Vercel, and the next deploy will keep using the value held
+there. Change it in both, or finish the migration to Doppler.
+
 ## Variables
 
 `server/_core/env.ts` is the authority; `.env.example` is the documented
@@ -81,10 +91,10 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Required in preview and production
 
-| Variable       | Purpose               | Notes                                                                                                                                   |
-| -------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL` | Postgres connection   | Or `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` from the Supabase integration. Boot fails if none is a usable Postgres URL when deployed |
-| `JWT_SECRET`   | Signs session cookies | ≥ 32 chars. Rotating it signs everyone out                                                                                              |
+| Variable       | Purpose               | Notes                                                                                                                                                                                                                                     |
+| -------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | Postgres connection   | Must be set on Vercel — the `POSTGRES_*` fallbacks point at the IPv6-only direct host here and cannot connect ([ADR 0012](../adr/0012-session-pooler-for-the-database-url.md)). Boot fails if none is a usable Postgres URL when deployed |
+| `JWT_SECRET`   | Signs session cookies | ≥ 32 chars. Rotating it signs everyone out                                                                                                                                                                                                |
 
 ### Runtime
 
@@ -99,14 +109,14 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Optional — the app runs without them
 
-| Variable                                                            | Missing behaviour                                                                                                                                  |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_INTEGRATIONS_GEMINI_API_KEY`, `AI_INTEGRATIONS_GEMINI_BASE_URL` | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected                                  |
-| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`                  | Legacy aliases; take precedence over the Gemini pair when set                                                                                      |
-| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                      | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`     | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour     |
-| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                          | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration                                                                |
-| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                         | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                    |
+| Variable                                                            | Missing behaviour                                                                                                                                                                     |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_INTEGRATIONS_GEMINI_API_KEY`, `AI_INTEGRATIONS_GEMINI_BASE_URL` | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected                                                                     |
+| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`                  | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                         |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                      | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                    |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`     | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                        |
+| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                          | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel |
+| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                         | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                                                       |
 
 `GET /api/health` reports which of these are configured, without revealing values.
 

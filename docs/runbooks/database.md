@@ -105,11 +105,14 @@ safety check: it says nothing about data loss.
 `getDb()` in `server/db.ts` lazily creates one pooled client per process and
 reuses it. Three behaviours worth knowing:
 
-- **Where the URL comes from.** `DATABASE_URL` first, then `POSTGRES_URL`
-  (pooled) and `POSTGRES_URL_NON_POOLING`, which the Supabase/Vercel
-  integration sets. A variable that isn't a Postgres URL is ignored rather than
-  handed to the driver, which would otherwise fail as an opaque SSL error.
-  `/api/health` reports which variable won, and which were ignored.
+- **Where the URL comes from.** `DATABASE_URL` first, then `POSTGRES_URL` and
+  `POSTGRES_URL_NON_POOLING`, which the Supabase/Vercel integration sets. Treat
+  those two as fallbacks in name only: this project's integration is an older
+  version that points both at the direct, IPv6-only host, so neither can connect
+  from Vercel. `DATABASE_URL` must stay set. A variable that isn't a Postgres
+  URL is ignored rather than handed to the driver, which would otherwise fail as
+  an opaque SSL error. `/api/health` reports which variable won, and which were
+  ignored.
 - **TLS.** Managed providers present a chain that isn't in Node's default trust
   store, and `sslmode=require` is now promoted to `verify-full`, so the
   connection string is rewritten to `sslmode=no-verify` for non-local hosts.

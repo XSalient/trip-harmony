@@ -156,8 +156,12 @@ function isPostgresUrl(url: string) {
 
 /**
  * `DATABASE_URL` first, then the variables the Supabase/Vercel integration
- * manages. `POSTGRES_URL` is the pooled connection, which is what serverless
- * wants; the non-pooling host is a last resort since it resolves over IPv6 only.
+ * manages, which are fallbacks and not necessarily good ones. Older versions of
+ * that integration point every one of them — `POSTGRES_URL` included — at
+ * Supabase's direct host, which publishes no A record; on a host without IPv6
+ * egress (Vercel) they cannot connect at all. This deployment is one of those,
+ * so `DATABASE_URL` is the only variable that actually works here and it must
+ * stay set. See docs/adr/0012-session-pooler-for-the-database-url.md.
  *
  * A variable holding a non-Postgres URL is skipped rather than used, and the
  * reason is reported through `describeConfig()`.
