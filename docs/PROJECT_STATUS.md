@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-02
+- **Last updated:** 2026-08-08
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -49,10 +49,28 @@ finish a piece of work — the next person (or agent) starts here.
 | Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                             |
 | Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied |
 | Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)    |
-| Production (Vercel) | ✅ Live                | Vercel project `trip-harmony`, team `saurabhs-projects-4d5cc478`             |
+| Production (Vercel) | ❌ Last deploy ERRORED | Vercel project `trip-harmony`, team `saurabhs-projects-4d5cc478`             |
 
-Production is deployed and serving traffic, and its database now matches the
-deployed code. Preview is still unprovisioned.
+**Production's latest deployment failed and `backtotravelling.com` is not
+attached to the Vercel project** (its only domains are the two `.vercel.app`
+ones). The build dies at the migration step:
+
+```
+[migrate] database from DATABASE_URL
+[migrate] failed: connect ENETUNREACH 2a05:…:5432
+```
+
+`DATABASE_URL` holds Supabase's **direct** host on port 5432, which resolves
+over IPv6 only, and Vercel's build containers have no IPv6 egress — so the
+migration cannot open a connection and fails the deploy. The fix is the one
+[runbooks/database.md](runbooks/database.md) already prescribes: the **transaction
+pooler** string (`…pooler.supabase.com`, port 6543, `pgbouncer=true`), which is
+reachable over IPv4. This is a connectivity problem, not a schema one.
+
+The database itself is healthy and current — all six migrations are accounted
+for, `activity_events` exists, 25 tables, `ACTIVE_HEALTHY`. Preview is still
+unprovisioned; the `dev` branch exists on GitHub but is not mapped to a Vercel
+environment.
 
 ## What works
 
