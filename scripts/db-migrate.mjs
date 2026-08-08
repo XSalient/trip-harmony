@@ -100,6 +100,15 @@ async function main() {
     }
 
     // Two builds of the same merge can start together; only one may migrate.
+    //
+    // This lock is session-scoped and is held across three round trips (lock,
+    // migrate, unlock), so DATABASE_URL must reach a connection that keeps one
+    // backend for the whole session: a direct host or Supabase's *session*
+    // pooler on 5432. Behind a transaction pooler (6543) each statement can
+    // land on a different backend, so the lock would exclude nothing and the
+    // unlock would miss, stranding it until that backend closes — and a later
+    // deploy would then block on it. If you ever need 6543 for the app, give
+    // this script its own session-mode URL rather than moving both.
     await client.query("select pg_advisory_lock($1)", [ADVISORY_LOCK_KEY]);
     try {
       const pending = await findPendingMigrations(client, MIGRATIONS_FOLDER);

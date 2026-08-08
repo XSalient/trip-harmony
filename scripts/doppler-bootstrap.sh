@@ -99,11 +99,13 @@ echo "  + APP_ENV=$APP_ENV_VALUE"
 
 echo "==> Required"
 
-# Use the POOLED connection string (port 6543) for anything serverless: Vercel
-# functions open many short-lived connections and exhaust a direct pool. The
-# non-pooling host resolves over IPv6 only. Percent-encode the password —
+# Use a POOLER host for anything serverless — Vercel functions open many
+# short-lived connections and exhaust a direct pool, and the direct Supabase
+# host is AAAA-only, which Vercel cannot reach at all. Port 5432 (session
+# pooler), not 6543: the deploy migration's advisory lock needs session
+# semantics. See docs/runbooks/database.md. Percent-encode the password —
 # # & @ : / ? are all URI-significant and will silently mis-parse otherwise.
-set_secret DATABASE_URL "pooled Postgres URL, password percent-encoded"
+set_secret DATABASE_URL "session-pooler Postgres URL (:5432), password percent-encoded"
 
 if [ "$CONFIG" = "dev" ]; then
   echo "  = JWT_SECRET optional locally; generate one anyway with:"

@@ -22,6 +22,7 @@ or operated. Skip it for routine feature work.
 | [0009](0009-rls-on-with-no-policies.md)                    | RLS on with no policies, and no grants for anon  | Accepted |
 | [0010](0010-migrations-apply-on-deploy.md)                 | Migrations apply during the deploy               | Accepted |
 | [0011](0011-affected-tests-from-the-import-graph.md)       | Test selection comes from the import graph       | Accepted |
+| [0012](0012-session-pooler-for-the-database-url.md)        | `DATABASE_URL` points at the session pooler      | Accepted |
 
 ## Template
 

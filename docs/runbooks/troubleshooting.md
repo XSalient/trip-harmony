@@ -61,7 +61,15 @@ The schema was never applied: `pnpm db:migrate` (or `pnpm db:push` locally).
 ### Connection limit exhausted on a serverless deploy
 
 Each function instance holds a pool. Use your provider's **pooled** connection
-string (Supabase: port 6543 with `pgbouncer=true`). See [database.md](database.md).
+string (Supabase: the session pooler on port 5432 — not 6543, which breaks the
+deploy-time migration's advisory lock). See [database.md](database.md).
+
+### `ENETUNREACH` against an IPv6 address on a Vercel build or function
+
+`DATABASE_URL` is pointing at Supabase's direct host, `db.<ref>.supabase.co`.
+That name is AAAA-only and Vercel has no IPv6 egress, so nothing can connect.
+Switch to a pooler host (`…pooler.supabase.com`, user `postgres.<project-ref>`).
+`getent ahostsv4 db.<ref>.supabase.co` returning nothing confirms the diagnosis.
 
 ---
 

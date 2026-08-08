@@ -114,8 +114,23 @@ reuses it. Three behaviours worth knowing:
   store, and `sslmode=require` is now promoted to `verify-full`, so the
   connection string is rewritten to `sslmode=no-verify` for non-local hosts.
 - **Serverless pooling.** Each function instance holds its own pool, so instance
-  count multiplies connections. Use the pooled endpoint — Supabase: port 6543
-  with `pgbouncer=true`, not the direct 5432 URL.
+  count multiplies connections. Use a **pooler** host
+  (`…pooler.supabase.com`), never the direct `db.<ref>.supabase.co` host: the
+  direct name is AAAA-only, and Vercel has no IPv6 egress, so it fails with
+  `ENETUNREACH` in both builds and functions.
+
+  Which pooler port matters. We use the **session pooler on 5432**, not the
+  transaction pooler on 6543, because `scripts/db-migrate.mjs` takes a
+  session-scoped `pg_advisory_lock`, runs `migrate()`, then unlocks — three
+  round trips. Transaction pooling can hand each one a different backend, so
+  the lock would exclude nothing, and the unlock would miss and strand the lock
+  on a backend where a later deploy blocks on it. 6543 is the better fit for
+  raw serverless connection count, so if instance growth ever makes 5432 the
+  bottleneck, give the migration its own session-mode URL before moving the
+  app's `DATABASE_URL` to 6543 — don't move them together.
+
+  The pooler also changes the username: `postgres.<project-ref>`, not
+  `postgres`.
 
 With no connection string configured, `getDb()` returns `null` and queries
 no-op instead of throwing, so the app still boots for frontend work. Callers

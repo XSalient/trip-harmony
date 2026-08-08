@@ -131,9 +131,11 @@ may hold: Doppler, Vercel, and the Supabase dashboard.
    one silently mis-parses. `#mH…&…@v` becomes `%23mH…%26…%40v`. A password that
    is not encoded fails as `ENOTFOUND <fragment-of-your-password>`, which looks
    nothing like an authentication error.
-3. Prefer the **pooled** string (port 6543, `pgbouncer=true`). Serverless
+3. Use a **pooler** string — `…pooler.supabase.com`, user
+   `postgres.<project-ref>`, **port 5432** (session pooler). Serverless
    functions open many short-lived connections and exhaust a direct pool, and
-   the non-pooling host resolves over IPv6 only.
+   the direct host is AAAA-only, which Vercel cannot reach at all. Not 6543:
+   see [database.md](database.md) for why the migration needs session mode.
 4. `doppler secrets set DATABASE_URL --config prd` and let the Vercel
    integration push it. If Vercel holds the value directly rather than through
    Doppler, update it there too — otherwise the next deploy fails at the

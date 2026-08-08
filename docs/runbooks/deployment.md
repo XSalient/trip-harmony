@@ -30,9 +30,16 @@ runtimes cannot drift. It does not serve static files — Vercel does.
 Provision Postgres (Supabase, Neon, or Vercel Postgres) — one instance for
 production, ideally a second for preview. Note each connection string.
 
-Supabase: use the **pooled** connection string (port 6543, `pgbouncer=true`).
-Serverless functions open many short-lived connections and will exhaust a direct
+Supabase: use a **pooler** connection string (`…pooler.supabase.com`, user
+`postgres.<project-ref>`) — specifically the **session pooler on port 5432**.
+Never the direct `db.<ref>.supabase.co` host: it is AAAA-only and Vercel has no
+IPv6 egress, so builds and functions both fail with `ENETUNREACH`. Serverless
+functions also open many short-lived connections and will exhaust a direct
 connection limit.
+
+The transaction pooler (6543) is deliberately _not_ used here — the deploy-time
+migration needs session semantics for its advisory lock. The reasoning is in
+[database.md](database.md); read it before changing the port.
 
 Apply the schema:
 

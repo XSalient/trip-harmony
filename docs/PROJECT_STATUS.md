@@ -12,7 +12,8 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 237 tests ✅ · production build ✅ · dev server ✅
+- **Health:** typecheck ✅ · 242 tests ✅ · production build ✅ (2026-08-08) ·
+  dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
   state surviving a reload, the empty-trip case, renaming a trip from the header,
@@ -44,31 +45,40 @@ finish a piece of work — the next person (or agent) starts here.
 
 ## Where it runs
 
-| Environment         | Status                 | Notes                                                                        |
-| ------------------- | ---------------------- | ---------------------------------------------------------------------------- |
-| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                             |
-| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied |
-| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)    |
-| Production (Vercel) | ❌ Last deploy ERRORED | Vercel project `trip-harmony`, team `saurabhs-projects-4d5cc478`             |
+| Environment         | Status                 | Notes                                                                                 |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
+| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                                      |
+| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied          |
+| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)             |
+| Production (Vercel) | ✅ Live                | `www.backtotravelling.com`, project `trip-harmony`, team `saurabhs-projects-4d5cc478` |
 
-**Production's latest deployment failed and `backtotravelling.com` is not
-attached to the Vercel project** (its only domains are the two `.vercel.app`
-ones). The build dies at the migration step:
+Production serves from `www.backtotravelling.com` (the apex 308-redirects to
+`www`). `/api/health` returns `"status":"ok"` with
+`"databaseSource":"DATABASE_URL"`.
+
+It was down for a while, and the cause is worth keeping. The build died at the
+migration step:
 
 ```
 [migrate] database from DATABASE_URL
 [migrate] failed: connect ENETUNREACH 2a05:…:5432
 ```
 
-`DATABASE_URL` holds Supabase's **direct** host on port 5432, which resolves
-over IPv6 only, and Vercel's build containers have no IPv6 egress — so the
-migration cannot open a connection and fails the deploy. The fix is the one
-[runbooks/database.md](runbooks/database.md) already prescribes: the **transaction
-pooler** string (`…pooler.supabase.com`, port 6543, `pgbouncer=true`), which is
-reachable over IPv4. This is a connectivity problem, not a schema one.
+`DATABASE_URL` held Supabase's **direct** host, `db.<ref>.supabase.co`. That
+name publishes no A record at all — it is AAAA-only — and Vercel's build
+containers have no IPv6 egress, so the migration could not open a connection.
+It was a connectivity problem, not a schema one.
 
-The database itself is healthy and current — all six migrations are accounted
-for, `activity_events` exists, 25 tables, `ACTIVE_HEALTHY`. Preview is still
+The fix is a **pooler** host, which is IPv4. Note the port: `DATABASE_URL` now
+uses the **session** pooler on **5432**, not the transaction pooler on 6543
+that the runbooks used to prescribe, because `scripts/db-migrate.mjs` takes a
+session-scoped `pg_advisory_lock` and holds it across `migrate()` — three
+separate round trips. A transaction pooler can route those to different
+backends, so the lock would guard nothing and could leak onto a backend where
+it later blocks a deploy. See [runbooks/database.md](runbooks/database.md).
+
+The database itself was healthy throughout — all six migrations accounted for,
+`activity_events` present, 25 tables, `ACTIVE_HEALTHY`. Preview is still
 unprovisioned; the `dev` branch exists on GitHub but is not mapped to a Vercel
 environment.
 

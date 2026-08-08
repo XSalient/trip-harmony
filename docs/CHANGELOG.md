@@ -8,6 +8,33 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-08 — Production is back up
+
+### Fixed
+
+- **The site is serving again at `www.backtotravelling.com`.** Every deploy
+  since 2026-08-02 had failed, so production was stuck on an older build and
+  then stopped being promoted at all. `DATABASE_URL` pointed at Supabase's
+  direct host, `db.<ref>.supabase.co`, which publishes no IPv4 address; Vercel
+  has no IPv6 egress, so the deploy-time migration could not open a connection
+  and failed the build with `ENETUNREACH`. It now points at Supabase's session
+  pooler, which is reachable. The database was healthy the whole time — all six
+  migrations applied, nothing to repair.
+
+### Changed
+
+- **`DATABASE_URL` uses the session pooler (port 5432), not the transaction
+  pooler (6543)** that the runbooks previously prescribed
+  ([ADR 0012](adr/0012-session-pooler-for-the-database-url.md)). The deploy
+  migration holds a session-scoped advisory lock across three round trips, and
+  transaction pooling would spread those over different backends — leaving the
+  lock guarding nothing and able to strand itself where a later deploy hangs on
+  it. `.env.example`, the deployment, database, secrets and troubleshooting
+  runbooks, and `scripts/doppler-bootstrap.sh` were all corrected; several of
+  them still recommended 6543.
+
+---
+
 ## 2026-08-02 — The deploy applies its own migrations
 
 ### Fixed
