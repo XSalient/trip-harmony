@@ -86,7 +86,7 @@ const BROWSER_HEADERS: Record<string, string> = {
   "Upgrade-Insecure-Requests": "1",
 };
 
-const MAX_HTML_CHARS = 1_500_000;
+export const MAX_HTML_CHARS = 1_500_000;
 
 /** Hosts that would make this endpoint a probe into the deployment's own network. */
 const PRIVATE_HOST =
@@ -142,6 +142,58 @@ export async function fetchListingPage(
     html: html.slice(0, MAX_HTML_CHARS),
     ...(finalUrl ? { finalUrl } : {}),
   };
+}
+
+/**
+ * Where a link ends up, without needing to be allowed to read it.
+ *
+ * A share link (`/Share-xTk9pQ`) encodes nothing; the page it redirects to
+ * encodes the property, the country and the dates. Booking.com answers the
+ * share link with a `302` and only puts up the robot check at the destination,
+ * so the redirect is readable when the page is not — and knowing the
+ * destination is what turns "no idea" into a name plus a map lookup.
+ *
+ * Returns undefined when nothing moved, so a caller can tell "no redirect" from
+ * "redirected to itself".
+ */
+export async function resolveListingRedirects(
+  url: string,
+  {
+    maxHops = 5,
+    timeoutMs = 8_000,
+  }: { maxHops?: number; timeoutMs?: number } = {}
+): Promise<string | undefined> {
+  let current = url;
+  for (let hop = 0; hop < maxHops; hop++) {
+    if (!isFetchableListingUrl(current)) break;
+    let res: Response;
+    try {
+      res = await fetch(current, {
+        headers: BROWSER_HEADERS,
+        redirect: "manual",
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch {
+      break;
+    }
+    if (res.status < 300 || res.status >= 400) break;
+    const location = res.headers.get("location");
+    if (!location) break;
+    let next: string;
+    try {
+      next = new URL(location, current).toString();
+    } catch {
+      break;
+    }
+    // A destination that redirects to itself is a loop, not another hop.
+    if (next === current) break;
+    // A `Location` pointing at the metadata service or at localhost is not a
+    // hop we follow, and not one we hand back either — it would end up in the
+    // prompt and in the saved link.
+    if (!isFetchableListingUrl(next)) break;
+    current = next;
+  }
+  return current === url ? undefined : current;
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
@@ -445,6 +497,18 @@ function firstParam(
 const GENERIC_SEGMENTS =
   /^(en|en-gb|en-us|de|fr|es|it|nl|www|hotel|hotels|property|properties|apartment|apartments|rooms?|suites?|accommodation|accommodations|lodging|stay|stays|booking|bookings|reserve|reservation|reservations|search|listing|listings|detail|details|index|home|page|hotel-information|rates|availability|share|shared|link)$/i;
 
+/**
+ * A token that is an identifier wearing letters. `ZPdrnKD` has no vowel and
+ * `sTk9Pq` changes case mid-word; neither is a word in any language a property
+ * is named in, and `Share-ZPdrnKD` becoming the stay's name is worse than the
+ * stay having no name at all.
+ */
+function isOpaqueToken(word: string): boolean {
+  if (word.length < 4) return false;
+  if (!/[aeiouy]/i.test(word)) return true;
+  return /[a-z][A-Z]/.test(word);
+}
+
 function humaniseSlug(segment: string): string | undefined {
   // "ti-club.en-gb.html" → "ti-club": the locale and extension are not a name.
   const base = segment.split(/[?#]/)[0].split(".")[0];
@@ -454,7 +518,8 @@ function humaniseSlug(segment: string): string | undefined {
     .filter(Boolean)
     // A token mixing letters and digits is an id, not a word: `Share-xTk9pQ` is
     // a share link, and naming the stay after it is worse than naming nothing.
-    .filter(word => !(/\d/.test(word) && /[a-z]/i.test(word)));
+    .filter(word => !(/\d/.test(word) && /[a-z]/i.test(word)))
+    .filter(word => !isOpaqueToken(word));
   // Opaque ids ("1234567", "1a") say nothing; only word-ish slugs are a name.
   if (!words.length || !/[a-z]{3}/i.test(words.join(""))) return undefined;
   // What survived can be furniture on its own: "share" alone names nothing.

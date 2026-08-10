@@ -59,6 +59,7 @@ export const SECRET_ENV_KEYS = [
   "SMTP_PASS",
   "SMTP_USER",
   "DOPPLER_TOKEN",
+  "SCRAPER_API_KEY",
 ] as const;
 
 function resolveAppEnv(): AppEnv {
@@ -143,6 +144,33 @@ const schema = z.object({
   SMTP_USER: z.string().trim().default(""),
   SMTP_PASS: z.string().trim().default(""),
   SMTP_FROM: z.string().trim().default(""),
+
+  // --- Listing scraper fallback (optional) ---------------------------------
+  // Reads a listing page through a third-party unblocking service when the
+  // site refuses us directly. Unset means off, and the import degrades through
+  // URL hints, a map lookup and the traveller's paste exactly as before.
+  // The provider is described by these variables rather than in code, so
+  // switching service never needs a deploy of ours — see
+  // server/utils/scraper/providers.ts and docs/runbooks/secrets.md.
+  SCRAPER_PROVIDER: z.string().trim().default(""),
+  SCRAPER_API_KEY: z.string().trim().default(""),
+  SCRAPER_ENDPOINT: optionalUrl,
+  SCRAPER_METHOD: z.enum(["GET", "POST"]).optional(),
+  SCRAPER_URL_PARAM: z.string().trim().default(""),
+  SCRAPER_API_KEY_PARAM: z.string().trim().default(""),
+  SCRAPER_API_KEY_IN: z.enum(["query", "header", "body"]).optional(),
+  /** `a=b&c=d`, or a JSON object when a value contains characters a query mangles. */
+  SCRAPER_PARAMS: z.string().trim().default(""),
+  SCRAPER_HTML_PATH: z.string().trim().default(""),
+  SCRAPER_RENDER_JS: z.string().trim().default(""),
+  SCRAPER_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(120_000)
+    .default(30_000),
+  /** Comma-separated hosts to spend the quota on. Empty means every host. */
+  SCRAPER_HOSTS: z.string().trim().default(""),
 });
 
 /**
@@ -274,6 +302,62 @@ export const config = {
   },
 
   /**
+   * Scraper settings are read live, for the same reason the mail ones are: an
+   * optional capability whose absence only degrades behaviour, and one whose
+   * whole point is being re-pointed at another vendor without a code change.
+   * Shapes are still validated at boot by the schema above.
+   */
+  scraper: {
+    get provider() {
+      return process.env.SCRAPER_PROVIDER?.trim() ?? "";
+    },
+    get apiKey() {
+      return process.env.SCRAPER_API_KEY?.trim() ?? "";
+    },
+    get endpoint() {
+      return process.env.SCRAPER_ENDPOINT?.trim() ?? "";
+    },
+    get method() {
+      return process.env.SCRAPER_METHOD?.trim() ?? "";
+    },
+    get urlParam() {
+      return process.env.SCRAPER_URL_PARAM?.trim() ?? "";
+    },
+    get apiKeyParam() {
+      return process.env.SCRAPER_API_KEY_PARAM?.trim() ?? "";
+    },
+    get apiKeyIn() {
+      return process.env.SCRAPER_API_KEY_IN?.trim() ?? "";
+    },
+    get params() {
+      return process.env.SCRAPER_PARAMS?.trim() ?? "";
+    },
+    get htmlPath() {
+      return process.env.SCRAPER_HTML_PATH?.trim() ?? "";
+    },
+    /** Rendering costs more and takes longer, but Airbnb is a JavaScript shell. */
+    get renderJs() {
+      const value = process.env.SCRAPER_RENDER_JS?.trim().toLowerCase();
+      return value ? !/^(0|false|no|off)$/.test(value) : true;
+    },
+    get timeoutMs() {
+      const value = Number.parseInt(process.env.SCRAPER_TIMEOUT_MS || "", 10);
+      return Number.isFinite(value) && value > 0 ? value : 30_000;
+    },
+    get hosts() {
+      return (process.env.SCRAPER_HOSTS ?? "")
+        .split(",")
+        .map(host =>
+          host
+            .trim()
+            .toLowerCase()
+            .replace(/^www\./, "")
+        )
+        .filter(Boolean);
+    },
+  },
+
+  /**
    * Mail settings are read live rather than frozen at boot.
    *
    * Unlike the database URL or session secret — which must be right before the
@@ -382,6 +466,12 @@ export function describeConfig() {
         ? "configured"
         : "owner-only",
     oauth: config.auth.oAuthServerUrl ? "configured" : "disabled",
+    // The service's name, never its key — which vendor is in the path is
+    // exactly what you want to see when an import starts behaving differently.
+    scraper:
+      config.scraper.provider && config.scraper.apiKey
+        ? config.scraper.provider
+        : "disabled",
     sessionSecret: config.auth.cookieSecret ? "configured" : "missing",
   };
 }
