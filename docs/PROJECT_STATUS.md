@@ -36,6 +36,20 @@ finish a piece of work — the next person (or agent) starts here.
   `activity_events` was created with RLS enabled and no grants for `anon` /
   `authenticated`, per ADR 0009 — Postgres has no default-on RLS, so every new
   table has to be closed explicitly.
+- **⚠️ Production has no AI provider configured.** `/api/health` reports
+  `"ai":"missing"`, so the referee, natural-language date parsing, match
+  analysis and **all listing-URL extraction** fail. Extraction is a model call:
+  reading the page is only half of it, and neither the scraper fallback nor the
+  paste box can work without a model. Set `AI_INTEGRATIONS_GEMINI_API_KEY` and
+  `AI_INTEGRATIONS_GEMINI_BASE_URL` on Vercel (or in Doppler `prd`, if that
+  integration is reconciled) and redeploy. Verified live on 2026-08-10 against
+  commit `4fba987`.
+- **Booking.com serves an AWS WAF challenge, not a 403.** HTTP `202` with an
+  empty `<title>` and a `challenge.js`; `looksLikeBotCheck` catches it, which is
+  why the ladder degrades rather than importing a captcha as a hotel. Airbnb, by
+  contrast, answers a plain server-side fetch with full Open Graph and two
+  JSON-LD blocks — measured 2026-08-10, so the scraper rung is for Booking and
+  its peers, not for Airbnb, unless Vercel's egress IPs are treated differently.
 - **Listing import has an optional scraper rung, and it is off.**
   `SCRAPER_PROVIDER` / `SCRAPER_API_KEY` are unset in every environment, so
   imports degrade through URL hints, Google Places and the traveller's paste

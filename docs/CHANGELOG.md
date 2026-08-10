@@ -12,6 +12,15 @@ is built, run or deployed.
 
 ### Fixed
 
+- **"That site blocked our request" no longer hides a missing AI provider.**
+  Extraction is a model call, so with `AI_INTEGRATIONS_GEMINI_API_KEY` unset
+  every listing URL failed — including pages we had read perfectly — and the
+  message sent people to the paste box, which needs the same model. The
+  endpoint now returns `error: "ai-unavailable"` before spending the request,
+  and `"extraction-failed"` when the model call itself fails; the UI says which.
+  Production is in exactly this state today: `/api/health` reports
+  `"ai":"missing"`.
+
 - **An Airbnb room link no longer imports as "Could not extract details".**
   `airbnb.com/rooms/36276450` encodes a number and nothing else, so when the
   site refused a server-side fetch there was no property name for the URL-hint

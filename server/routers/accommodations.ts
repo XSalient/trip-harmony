@@ -4,6 +4,7 @@
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { config } from "../_core/env.js";
 import { invokeLLM } from "../_core/llm.js";
 import { logger } from "../_core/logger.js";
 import * as db from "../db.js";
@@ -456,7 +457,23 @@ export const accommodationsRouter = router({
         ...(input.pageText ? { pageText: input.pageText } : {}),
       });
 
-      if (!usable) return { success: false, data: {}, source, blocked };
+      if (!usable)
+        return { success: false, data: {}, source, blocked, error: null };
+
+      // Reading the page is only half of it — the extractor is a model call, so
+      // with no AI provider every import fails no matter which rung answered.
+      // Worth saying out loud: this used to surface as "that site blocked our
+      // request", which sent people to the paste box that also cannot work.
+      if (!config.ai.isConfigured) {
+        log.error("URL extraction is unavailable: no AI provider configured");
+        return {
+          success: false,
+          data: {},
+          source,
+          blocked,
+          error: "ai-unavailable" as const,
+        };
+      }
 
       try {
         const context = JSON.stringify({
@@ -506,10 +523,18 @@ Return ONLY JSON with these fields, null for anything unknown: name, description
           data,
           source,
           blocked,
+          error: null,
         };
       } catch (err) {
         log.warn("accommodation URL extraction failed", { err });
-        return { success: false, data: {}, source: "none" as const, blocked };
+        return {
+          success: false,
+          data: {},
+          source: "none" as const,
+          blocked,
+          // The page may have been read perfectly; it is the model that failed.
+          error: "extraction-failed" as const,
+        };
       }
     }),
   parseAttributes: protectedProcedure

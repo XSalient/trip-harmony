@@ -102,3 +102,54 @@ describe("no AI runs as a side effect of an ordinary write", () => {
     );
   });
 });
+
+/**
+ * Production ran for a day reporting "that site blocked our request" on every
+ * listing URL, including ones we had read perfectly, because `AI_INTEGRATIONS_*`
+ * was unset and the model call is what turns a page into form fields. The
+ * message sent people to the paste box, which needs the same model.
+ */
+describe("a missing AI provider is not reported as a blocked site", () => {
+  const src = read("accommodations.ts");
+  const fetchFromUrl = src.slice(
+    src.indexOf("fetchFromUrl: protectedProcedure"),
+    src.indexOf("parseAttributes: protectedProcedure")
+  );
+
+  it("checks for a provider before spending the request on a model call", () => {
+    const beforeTry = fetchFromUrl.slice(0, fetchFromUrl.indexOf("try {"));
+    expect(beforeTry).toContain("config.ai.isConfigured");
+    expect(beforeTry).toContain('"ai-unavailable"');
+  });
+
+  it("tells the client which failure it was", () => {
+    expect(fetchFromUrl).toContain('"extraction-failed"');
+    // Every exit carries the field, so the client can switch on it safely.
+    const returns = fetchFromUrl.match(/success: (false|Object\.keys)/g) ?? [];
+    const errors = fetchFromUrl.match(/error: /g) ?? [];
+    expect(errors.length).toBeGreaterThanOrEqual(returns.length);
+  });
+
+  it("the UI keeps the three failures apart", () => {
+    const ui = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "client",
+        "src",
+        "pages",
+        "TripAccommodations.tsx"
+      ),
+      "utf8"
+    );
+    const start = ui.indexOf("const runUrlExtraction");
+    const body = ui.slice(start, ui.indexOf("const handleFetchFromUrl"));
+    // The AI branch must come first: when there is no model, "try pasting the
+    // page" is advice that cannot work.
+    expect(body.indexOf('"ai-unavailable"')).toBeGreaterThan(-1);
+    expect(body.indexOf('"ai-unavailable"')).toBeLessThan(
+      body.indexOf("result.blocked")
+    );
+  });
+});

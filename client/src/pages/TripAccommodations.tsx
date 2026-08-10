@@ -384,6 +384,16 @@ export default function TripAccommodations() {
         // gets filled without typing the whole form.
         if (result.source === "url" || result.source === "place")
           setPasteOpen(true);
+      } else if (result.error === "ai-unavailable") {
+        // Not the site's doing, and the paste box cannot help either: reading a
+        // page — pasted or fetched — is a model call, and there is no model.
+        toast.error(
+          "Automatic extraction is switched off on the server. Please fill the details in manually."
+        );
+      } else if (result.error === "extraction-failed") {
+        toast.error(
+          "Could not read the details just now — try again, or fill them in manually."
+        );
       } else if (result.blocked) {
         toast.info("That site blocked our request — try pasting the page");
         setPasteOpen(true);
