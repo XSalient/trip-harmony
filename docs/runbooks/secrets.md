@@ -168,6 +168,7 @@ contract. Adding a variable means updating **both**, plus this table.
 | `AI_INTEGRATIONS_GEMINI_BASE_URL`                               | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                                     |
 | `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`              | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                                  |
 | `AI_ENABLED`, `SCRAPER_ENABLED`                                 | Kill switches, independent of the keys. Empty or unset means **on**; only `0`/`false`/`no`/`off`/`disabled` turns one off — see below                                                          |
+| `AI_MODEL`                                                      | Which model to call. Empty uses `DEFAULT_AI_MODEL` in `env.ts`. See [When every AI call fails at once](#when-every-ai-call-fails-at-once)                                                      |
 | `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                  | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                             |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                                 |
 | `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                      | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel          |
@@ -197,6 +198,36 @@ listing-URL import was refused before it was attempted. If you see `ai: missing`
 now, the key is genuinely absent from that environment — check
 `doppler secrets --only-names --config prd`, and check that the value has
 actually reached Vercel.
+
+### When every AI call fails at once
+
+Check the model before the key. `/api/health` reports `aiModel`, and a key that
+authenticates fine can still be refused a model that has been retired — Google
+returns `404 NOT_FOUND: "This model … is no longer available to new users"`,
+which is a model problem wearing a not-found error.
+
+That is not hypothetical: `gemini-2.5-flash` was hardcoded in `llm.ts` and
+stopped accepting new callers, so every referee run, date parse, listing import
+and match analysis failed while `/api/health` cheerfully said
+`ai: configured`. Hence `AI_MODEL` — moving to the next model is an
+environment edit.
+
+Ask the key what it can actually use, rather than trusting the model list page:
+
+```bash
+doppler run --config dev -- sh -c \
+  'curl -s -H "x-goog-api-key: $AI_INTEGRATIONS_GEMINI_API_KEY" \
+   https://generativelanguage.googleapis.com/v1beta/models' |
+  python3 -c 'import json,sys; print("\n".join(m["name"] for m in json.load(sys.stdin)["models"]))'
+```
+
+Note that listing a model is not the same as being allowed to call it —
+`gemini-2.5-flash` still appears in that list. Confirm with a real
+`:generateContent` request before setting `AI_MODEL`.
+
+The default is **pinned**, not an alias like `gemini-flash-latest`. An alias
+changes which model answers your production traffic with no deploy and no
+notice, which is the same surprise this variable exists to absorb.
 
 ## Turning a feature off without losing its key
 

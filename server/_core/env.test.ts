@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { config, describeConfig } from "./env.js";
 
@@ -94,6 +95,38 @@ describe("AI is configured by its key", () => {
   it("is missing with no key at all", async () => {
     const { config } = await configWith({});
     expect(config.ai.isConfigured).toBe(false);
+  });
+});
+
+/**
+ * `gemini-2.5-flash` was hardcoded in `llm.ts` and stopped accepting new
+ * callers, so every AI request 404'd while `/api/health` still said
+ * `ai: configured` — the key was fine, the model was gone. Models are retired
+ * on the vendor's schedule, so which one to call is configuration.
+ */
+describe("AI_MODEL", () => {
+  it("defaults to a model verified against a real key", async () => {
+    const { config, describeConfig } = await configWith({
+      AI_INTEGRATIONS_GEMINI_API_KEY: "k",
+    });
+    expect(config.ai.model).toBe("gemini-3.6-flash");
+    expect(describeConfig().aiModel).toBe("gemini-3.6-flash");
+  });
+
+  it("takes whichever model the environment names", async () => {
+    const { config } = await configWith({
+      AI_INTEGRATIONS_GEMINI_API_KEY: "k",
+      AI_MODEL: "gemini-3.1-flash-lite",
+    });
+    expect(config.ai.model).toBe("gemini-3.1-flash-lite");
+  });
+
+  it("is what llm.ts actually calls, rather than a constant beside it", () => {
+    const src = readFileSync(new URL("./llm.ts", import.meta.url), "utf8");
+    // `appConfig`, not `config`: the local request object in `invokeLLM` is
+    // also called `config`, and shadowing it once cost a build.
+    expect(src).toMatch(/const model = appConfig\.ai\.model;/);
+    expect(src).not.toMatch(/model:\s*"gemini/);
   });
 });
 

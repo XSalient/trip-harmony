@@ -12,6 +12,18 @@ is built, run or deployed.
 
 ### Fixed
 
+- **Every AI call would have 404'd, with `/api/health` reporting
+  `ai: configured`.** `llm.ts` hardcoded `gemini-2.5-flash`, and Google now
+  answers that model with
+  `404 NOT_FOUND: "no longer available to new users"` — a retirement wearing a
+  not-found error. Caught by calling the API with the project's own key rather
+  than trusting the health check, which only ever knew whether a key was
+  present. The model is now `AI_MODEL`, defaulting to `gemini-3.6-flash`
+  (verified end-to-end against that key), and `/api/health` reports `aiModel`
+  so the next retirement is visible instead of silent. Pinned rather than
+  `gemini-flash-latest`: an alias changes which model answers production
+  traffic with no deploy and no notice, which is the same surprise.
+
 - **AI works.** `AI_INTEGRATIONS_GEMINI_API_KEY` had never been set in any
   environment — not on Vercel under any name, not in Doppler. It is now in
   both, so the referee, natural-language date parsing, listing-URL import and

@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { ENV } from "./env.js";
+import { config as appConfig, ENV } from "./env.js";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -168,8 +168,12 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     config.responseMimeType = "application/json";
   }
 
+  // Read per call rather than captured at import: the model is configuration
+  // (`AI_MODEL`), and a vendor retiring one is not a reason to redeploy.
+  const model = appConfig.ai.model;
+
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model,
     contents,
     config,
   });
@@ -179,7 +183,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   return {
     id: `gemini-${Date.now()}`,
     created: Math.floor(Date.now() / 1000),
-    model: "gemini-2.5-flash",
+    model,
     choices: [
       {
         index: 0,

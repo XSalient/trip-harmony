@@ -168,6 +168,7 @@ set_secret OAUTH_SERVER_URL "legacy Manus OAuth portal; blank unless you use it"
 echo "==> AI provider — blank leaves AI features returning an error"
 set_secret AI_INTEGRATIONS_GEMINI_API_KEY "Gemini API key"
 set_secret AI_ENABLED "blank or true to enable; false pauses AI without losing the key" no
+set_secret AI_MODEL "model id, blank uses the pinned default (see .env.example)" no
 set_secret AI_INTEGRATIONS_GEMINI_BASE_URL "Gemini base URL, if not the default" no
 set_secret BUILT_IN_FORGE_API_KEY "Forge API key, if used"
 set_secret BUILT_IN_FORGE_API_URL "Forge base URL, if used" no

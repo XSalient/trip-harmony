@@ -139,6 +139,14 @@ const schema = z.object({
    * and makes the pause hard to undo in a hurry. Unset means on.
    */
   AI_ENABLED: z.string().trim().default(""),
+  /**
+   * Which model to call. A variable rather than a constant because models are
+   * retired on the vendor's schedule, not ours: `gemini-2.5-flash` was
+   * hardcoded here and quietly stopped accepting new callers, so every AI
+   * request 404'd while `/api/health` still said `ai: configured`. Moving to
+   * the next model is now an environment edit.
+   */
+  AI_MODEL: z.string().trim().default(""),
   BUILT_IN_FORGE_API_URL: optionalUrl,
   BUILT_IN_FORGE_API_KEY: z.string().trim().default(""),
   AI_INTEGRATIONS_GEMINI_BASE_URL: optionalUrl,
@@ -275,6 +283,17 @@ const defaultLogLevel: LogLevel =
 export const DEFAULT_SCRAPER_PROVIDER = "scrapingowl";
 
 /**
+ * The model used when `AI_MODEL` is unset.
+ *
+ * Pinned rather than an alias like `gemini-flash-latest`: an alias moves under
+ * a deployed app without a deploy, and silently changing which model answers is
+ * the same class of surprise that retired `gemini-2.5-flash` out from under
+ * this code. Pinning makes the move deliberate; `AI_MODEL` makes it cheap.
+ * Verified against the project's own key on 2026-08-10.
+ */
+export const DEFAULT_AI_MODEL = "gemini-3.6-flash";
+
+/**
  * An operator's "off", in the spellings operators use.
  *
  * Deliberately opt-out rather than opt-in: an unset or empty flag means on, so
@@ -353,13 +372,24 @@ export const config = {
     get enabled() {
       return !isDisabled(process.env.AI_ENABLED);
     },
+    get model() {
+      return process.env.AI_MODEL?.trim() || DEFAULT_AI_MODEL;
+    },
     get hasKey() {
       return Boolean(
         parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY
       );
     },
+    // Spelled out rather than `this.enabled && this.hasKey`: a getter that
+    // reads `this` makes the whole `config` object's type circular, and every
+    // consumer of `config.ai` degrades to `unknown`.
     get isConfigured() {
-      return this.enabled && this.hasKey;
+      return (
+        !isDisabled(process.env.AI_ENABLED) &&
+        Boolean(
+          parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY
+        )
+      );
     },
   },
 
@@ -584,6 +614,9 @@ export function describeConfig() {
         : "missing",
     /** Which variable supplied the AI key — a name, never the value. */
     aiKeySource: config.ai.keySource || null,
+    /** Which model requests go to. Not a secret, and the first thing to check
+        when every AI call starts failing at once. */
+    aiModel: config.ai.model,
     // Three states, because "can send" and "can send to anyone" differ: Resend's
     // sandbox sender only reaches the account owner.
     email: !isEmailConfigured()
