@@ -84,6 +84,15 @@ done. CI narrows to `pnpm test:affected` for speed; the full suite runs nightly.
    committing the migration in the same commit.** The deploy applies it; CI
    fails if the schema and the migrations disagree. A column that ships without
    its migration takes production down — it already did once.
+10. **This repository has exactly two branches: `master` and `dev`.** Work goes
+    to `master`; `dev` tracks it. Do not leave per-task or per-agent branches
+    behind — merge the work and delete the branch in the same breath. A branch
+    that outlives its task is one more place for the truth to live, and the
+    repository already had four of them accumulate unnoticed, one of which was
+    holding unmerged work nobody remembered.
+    Deleting a branch is not the same as discarding it: check
+    `git merge-base --is-ancestor <branch> origin/master` first, and rescue
+    anything unmerged onto `master` before the branch goes.
 
 ## 5. Conventions
 

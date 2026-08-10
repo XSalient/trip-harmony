@@ -94,6 +94,10 @@ Record the URLs in [../PROJECT_STATUS.md](../PROJECT_STATUS.md).
 ## Ongoing
 
 - Push to `master` → production. Every PR → a preview deployment with `stg` secrets.
+- **Two branches, `master` and `dev`, and no others** (AGENTS.md rule 10). Merge
+  a task branch and delete it in the same breath; check
+  `git merge-base --is-ancestor <branch> origin/master` before deleting, and
+  rescue anything unmerged onto `master` first.
 - CI (`.github/workflows/ci.yml`) runs typecheck, format check, build, and the
   migrations against a scratch Postgres. Keep it green before merging.
 - **Tests are narrowed to the change.** `pnpm test:affected` runs only the tests
