@@ -8,6 +8,26 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-10 — The vote score says what it is, and "not analysed" says what it isn't
+
+### Changed
+
+- **The green number on an accommodation or destination card explains itself.**
+  It is a weighted vote total — Yes +2, Maybe +1, No −3 — so a stay with a
+  single Yes read "+2" with nothing on the screen saying what was being counted.
+  Tapping it now opens the arithmetic: the tally per vote, what each is worth,
+  and the total. The weights and the sort comparator moved into
+  `client/src/components/trip/VoteScore.tsx`, replacing the copy of the formula
+  each page kept, so the badge and the card order cannot disagree.
+- **"Not analysed yet" now distinguishes itself from the listing import.**
+  Importing a Booking.com URL fills the form in with a model call, and AI match
+  analysis is a second, admin-triggered model call that scores the stay against
+  every member's preferences — so a stay whose every field arrived from the
+  listing still, correctly, had no analysis. The old copy read as though the
+  import had failed. It now names what has not run and what it would do.
+
+---
+
 ## 2026-08-10 — Doppler and Vercel finally agree, and AI is configured
 
 ### Fixed

@@ -201,7 +201,12 @@ Verified by running the app against Postgres, not just by reading code:
   proposal records its author's vote, so a new option never sits at zero.
   Admins finalise proposals: **one** set of dates, but **any number** of places
   and accommodations — a week in Spain is Barcelona _and_ Girona. Who finalised
-  what, and when, is recorded and shown.
+  what, and when, is recorded and shown. The green/red number on a card is a
+  weighted vote total (Yes +2, Maybe +1, No −3) and is tappable for the
+  arithmetic; the weights live once, in
+  `client/src/components/trip/VoteScore.tsx`, which is also what the cards sort
+  by. The vibe board scores its own way (No −2) and is deliberately left alone —
+  changing it would reorder existing boards.
 - **Budget** — expense logging, category breakdown, per-person split, per-member caps.
 - **Notifications** — in-app feed with unread counts.
 - **Preferences** — per-member, per-trip requirements. Since Travel DNA was
@@ -210,7 +215,10 @@ Verified by running the app against Postgres, not just by reading code:
 - **AI features** — referee mediation, natural-language date parsing,
   accommodation URL import, accommodation↔member match scoring. **Nothing runs
   on its own:** every model call follows a deliberate action, match analysis and
-  the referee are admin-only, and the referee has a ten-minute cooldown. These
+  the referee are admin-only, and the referee has a ten-minute cooldown.
+  Import and match analysis are separate calls, and a stay imported from a
+  listing is correctly un-analysed until an admin asks — the card's empty state
+  says so, having previously read like a failed import. These
   require an AI key; without one the rest of the app is unaffected. The URL import reads
   Open Graph and schema.org data when the site allows a server-side fetch, and
   degrades in steps when it does not (Booking.com never does — it refuses any

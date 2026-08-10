@@ -13,6 +13,7 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
+import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
 import { useParams, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -293,19 +294,10 @@ export default function TripDestinations() {
     setAddOpen(true);
   };
 
-  const getScore = (dest: any) => {
-    const votes = dest.votes || [];
-    return votes.reduce(
-      (s: number, v: any) =>
-        s + (v.vote === "love" ? 2 : v.vote === "fine" ? 1 : -3),
-      0
-    );
-  };
-
   const sortedDestinations = useMemo(() => {
     if (!destinations) return [];
     return [...destinations].sort(
-      (a: any, b: any) => getScore(b) - getScore(a)
+      (a: any, b: any) => scoreVotes(b.votes) - scoreVotes(a.votes)
     );
   }, [destinations]);
 
@@ -450,7 +442,6 @@ export default function TripDestinations() {
               const vetos =
                 dest.votes?.filter((v: any) => v.vote === "veto").length || 0;
               const vibes = dest.vibes ? JSON.parse(dest.vibes) : [];
-              const score = getScore(dest);
               const isOwner = dest.proposedBy === user?.id;
               const canManage = isOwner || isAdmin;
               const commentCount =
@@ -490,12 +481,7 @@ export default function TripDestinations() {
                             {commentCount}
                           </span>
                         )}
-                        <span
-                          className={`text-lg font-bold ${score > 0 ? "text-green-600" : score < 0 ? "text-red-500" : "text-muted-foreground"}`}
-                        >
-                          {score > 0 ? "+" : ""}
-                          {score}
-                        </span>
+                        <VoteScore votes={dest.votes} />
                         {dest.selected && (
                           <CheckCircle2 className="h-5 w-5 text-primary" />
                         )}

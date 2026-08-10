@@ -14,6 +14,7 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
+import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
 import { useParams, Link, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -574,19 +575,10 @@ export default function TripAccommodations() {
     }
   };
 
-  const getScore = (acc: any) => {
-    const votes = acc.votes || [];
-    return votes.reduce(
-      (s: number, v: any) =>
-        s + (v.vote === "love" ? 2 : v.vote === "fine" ? 1 : -3),
-      0
-    );
-  };
-
   const sorted = useMemo(() => {
     if (!accommodations) return [];
     return [...accommodations].sort(
-      (a: any, b: any) => getScore(b) - getScore(a)
+      (a: any, b: any) => scoreVotes(b.votes) - scoreVotes(a.votes)
     );
   }, [accommodations]);
 
@@ -1015,7 +1007,6 @@ export default function TripAccommodations() {
                 acc.votes?.filter((v: any) => v.vote === "fine").length || 0;
               const vetos =
                 acc.votes?.filter((v: any) => v.vote === "veto").length || 0;
-              const score = getScore(acc);
               const amenities = acc.amenities
                 ? acc.amenities
                     .split(",")
@@ -1061,12 +1052,7 @@ export default function TripAccommodations() {
                             {commentCount}
                           </span>
                         )}
-                        <span
-                          className={`text-lg font-bold ${score > 0 ? "text-green-600" : score < 0 ? "text-red-500" : "text-muted-foreground"}`}
-                        >
-                          {score > 0 ? "+" : ""}
-                          {score}
-                        </span>
+                        <VoteScore votes={acc.votes} />
                         {acc.selected && (
                           <CheckCircle2 className="h-5 w-5 text-primary" />
                         )}
@@ -1373,11 +1359,21 @@ export default function TripAccommodations() {
                               )}
                             </div>
                           ) : (
-                            <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-center gap-2 text-xs text-muted-foreground">
-                              <Brain className="h-3.5 w-3.5 shrink-0" />
+                            <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-start gap-2 text-xs text-muted-foreground">
+                              <Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              {/*
+                                Says what has not happened, because importing a
+                                listing looks like analysis and is not: the
+                                import fills in these details, this scores them
+                                against what the group asked for. A stay whose
+                                every field arrived from Booking.com still reads
+                                "not analysed", and that read as a failed import.
+                              */}
                               <span className="flex-1">
-                                Not analysed yet
-                                {isAdmin ? "" : " — an admin can run it"}
+                                No AI match yet — it scores this stay against
+                                every member's preferences. Imported listing
+                                details don't include it
+                                {isAdmin ? "" : "; an admin can run it"}.
                               </span>
                               {isAdmin && (
                                 <Button
