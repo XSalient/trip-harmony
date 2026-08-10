@@ -46,11 +46,12 @@ finish a piece of work — the next person (or agent) starts here.
   that Gemini does not need, so a correct key still read as missing. Fixed on
   2026-08-10; the health summary now also names the variable the key came from
   (`aiKeySource`).
-  **Only `AI_INTEGRATIONS_GEMINI_API_KEY` is required.** It is absent from the
-  Doppler `dev` config entirely, and `prd` could not be inspected from this
-  session. Set it in Doppler `prd` (and `dev`), confirm it reaches Vercel, and
-  re-check `/api/health` after a deploy — if it still says `missing`, the key is
-  genuinely not in the environment.
+  **Only `AI_INTEGRATIONS_GEMINI_API_KEY` is required, and it is not in the
+  production environment.** Confirmed after the fix deployed: `0e55c5c` and
+  `5e0661c` both report `"ai":"missing"`, and `5e0661c` adds
+  `"aiKeySource":null` — so neither the Gemini key nor the Forge key reached
+  the running function. It is also absent from Doppler `dev`. See the Vercel
+  note below for the likely reason.
 - **Booking.com serves an AWS WAF challenge, not a 403.** HTTP `202` with an
   empty `<title>` and a `challenge.js`; `looksLikeBotCheck` catches it, which is
   why the ladder degrades rather than importing a captcha as a hotel. Airbnb, by
@@ -73,12 +74,26 @@ finish a piece of work — the next person (or agent) starts here.
   imports degrade through URL hints, Google Places and the traveller's paste
   when it is off, exactly as
   [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md) describes.
-- **⚠️ Production has no scraper key.** `/api/health` on `0e55c5c` reported
-  `"scraper":"disabled"`, which now means one thing only: `SCRAPER_API_KEY` is
-  not set in that environment. Copy the `dev` values into Doppler `prd` (key and
-  provider) and confirm they reach Vercel. `stg` and `prd` could not be
-  inspected from this session — the agent token is `dev`-scoped
-  (`This token does not have access to requested config`).
+- **⚠️ Production has no scraper key, and probably no Doppler at all.**
+  `/api/health` on `5e0661c` reports `"scraper":"disabled"` — which since that
+  commit means exactly one thing, because a key that is set but unusable now
+  reports `"misconfigured"` instead. So `SCRAPER_API_KEY` is not in the
+  production environment.
+  That is the second variable to go missing in production while being present
+  (or believed present) in Doppler, alongside the AI key above, and it points at
+  the delivery path rather than at either value: **`GET /v3/integrations`
+  returns an empty list**, and `secrets.md` already records that production's
+  `DATABASE_URL` was set by hand on the Vercel project with no
+  `configurationId`, and that the `POSTGRES_*` / `SUPABASE_*` variables come
+  from Supabase's integration rather than Doppler's. The likely state is that
+  **no Doppler → Vercel integration exists**, so nothing written to `prd` has
+  ever reached a deploy.
+  Next step is a human's: either connect Doppler → Integrations → Vercel
+  (`prd` → Production, `stg` → Preview) and redeploy, or set
+  `AI_INTEGRATIONS_GEMINI_API_KEY`, `SCRAPER_API_KEY` and `SCRAPER_PROVIDER`
+  directly on the Vercel project. `/api/health` confirms either way.
+  `stg` and `prd` could not be inspected from this session — the agent token is
+  `dev`-scoped (`This token does not have access to requested config`).
 - **⚠️ The agent Doppler token is read/write, and should not be.** The service
   token issued for agent sessions ("Claude Dev", `dev`-scoped) accepts writes —
   a `POST /v3/configs/config/secrets` succeeds. Nothing an agent does in a
