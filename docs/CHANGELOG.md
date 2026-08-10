@@ -8,6 +8,51 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-10 — The scraper rung was configured, and off
+
+### Fixed
+
+- **The dev scraper key was named `SCRAPER_API_LET`.** `server/_core/env.ts`
+  declares `SCRAPER_API_KEY`, so the typo meant no key, and no key means the
+  whole rung is off — imports from sites that refuse us degraded silently, as
+  though the fallback had never been set up. The Doppler `dev` config now holds
+  the value under the right name.
+- **`SCRAPER_PROVIDER` was `scrapeowl.com`, which is not a preset.** Provider
+  names are lowercased and stripped to letters before lookup, so the `.com`
+  made it an unknown service; the preset is `scrapingowl` (and `scrapeowl`
+  is an accepted alias). Corrected in `dev`. These two mistakes compound in one
+  direction only: the missing key is checked first, so it hid the bad provider
+  name entirely rather than letting it fail loudly.
+- **`scripts/doppler-bootstrap.sh` said it was derived from `env.ts` and
+  wasn't.** It prompted for 8 of the 36 declared variables and omitted every
+  `SCRAPER_*` — including the secret `SCRAPER_API_KEY`, the one variable that
+  turns the rung on — and every `SMTP_*`. It now covers all 36: 30 prompted
+  (SMTP and the scraper's per-field overrides behind a prompt, since they are
+  only needed for a fallback or a `custom` vendor) and 6 named in a `SKIPPED`
+  list with the reason each needs no answer. A check at the end of every run
+  compares both lists against `env.ts` and reports anything new, so the header's
+  claim now enforces itself.
+- **The bootstrap script no longer half-configures an environment.** With stdin
+  redirected, the first `read` hit EOF and `set -e` abandoned the run after
+  `APP_ENV` had already been written. It now refuses to start without a
+  terminal, and a `Ctrl-D` at one prompt skips that variable instead of the
+  rest of the run.
+
+### Changed
+
+- **Secrets are listed by name, not by value.** `docs/runbooks/secrets.md` now
+  points at `doppler secrets --only-names` and spells out that bare
+  `doppler secrets`, `secrets get` and `secrets delete` all print values, and
+  that masking does not survive a pipe, a log or a transcript. The bootstrap
+  script's "is this already set?" check reads names only, where it used to read
+  the value back and discard it.
+- **A new "Agent sessions" section** in the same runbook: an agent's terminal
+  output is a durable transcript, so listing by name, testing presence with
+  `[ -n "$VAR" ]`, and holding a **read-only** `dev`-scoped token are rules
+  rather than preferences.
+
+---
+
 ## 2026-08-10 — Listing imports that used to fill nothing
 
 ### Fixed

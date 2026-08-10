@@ -24,9 +24,20 @@ bash scripts/doppler-bootstrap.sh dev   # then stg, then prd
 ```
 
 That script creates the project and config if missing and prompts for each
-variable `server/_core/env.ts` declares, reading values without echoing them and
-skipping anything already set, so it is safe to re-run. It never writes a secret
-to disk and never passes one as a shell argument.
+variable `server/_core/env.ts` declares **that needs a human decision** —
+reading values without echoing them and skipping anything already set, so it is
+safe to re-run. It never writes a secret to disk and never passes one as a
+shell argument, and it checks presence by name rather than by reading a value
+back.
+
+The variables it does not ask about are the ones nothing can usefully answer
+for: `NODE_ENV` (derived from `APP_ENV`), `PORT`, `LOG_LEVEL` and `VITE_APP_ID`
+(defaulted in `env.ts`), and `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` (set by
+the Supabase/Vercel integration). The script names each one and its reason in a
+`SKIPPED` list, and compares that list plus its prompts against `env.ts` on
+every run — if you add a variable to `env.ts` and nowhere else, the next run
+tells you. Adding a variable still means updating `env.ts`, `.env.example`, this
+file and the script.
 
 **On Windows, check which `bash` actually runs it.** A `.sh` file needs a
 POSIX shell, and typing `bash scripts/doppler-bootstrap.sh` from a native
@@ -51,15 +62,43 @@ doppler login
 doppler setup                        # reads doppler.yaml
 pnpm dev:doppler                     # run the app with dev secrets injected
 
-doppler secrets                      # list (values masked in shared terminals)
+doppler secrets --only-names         # which variables exist
 doppler secrets set JWT_SECRET=…     # set one
-doppler secrets --config prd         # inspect another environment
+doppler secrets --only-names --config prd  # inspect another environment
 doppler run --config stg -- pnpm dev # run locally against preview secrets
 ```
+
+**Prefer `--only-names`.** Bare `doppler secrets`, `doppler secrets get` and
+`doppler secrets delete` all print values, and the masking is a terminal
+courtesy rather than a guarantee: it does not survive a pipe, a redirect, a CI
+log or an agent transcript. Reach for a value only when you actually need one,
+and never in a session whose output is recorded — see
+[Agent sessions](#agent-sessions).
 
 Never `doppler secrets download` to a file unless you are offline, and delete it
 when you're done — a downloaded `.env` is exactly the artifact Doppler exists to
 avoid.
+
+### Agent sessions
+
+An AI agent's terminal output is transcript, and a transcript is a durable copy
+of anything printed into it. The rules above are therefore hard rules for an
+agent, not preferences:
+
+- List with `doppler secrets --only-names`. Never run bare `doppler secrets`,
+  `doppler secrets get` or `doppler secrets delete` — all three echo values.
+- Test whether a variable is set with `[ -n "$VAR" ]`. Never
+  `${VAR:-fallback}`, and never `echo "$VAR"`.
+- Moving a value between names (a rename) does not require reading it into the
+  transcript: capture it into a shell variable in the same command that writes
+  it back, and print nothing but the outcome.
+- Give an agent a **read-only** service token scoped to `dev`. A token that can
+  write can also destroy a config, and nothing an agent legitimately does in a
+  session needs write access. Configuration changes belong to a human at
+  dashboard.doppler.com, or to `scripts/doppler-bootstrap.sh`.
+
+If a value does reach a transcript, treat it as leaked and follow
+[If a secret leaks](#if-a-secret-leaks) — revoke first.
 
 ## Feeding Vercel
 
@@ -168,6 +207,20 @@ control. If a vendor renames a parameter or your plan uses a different
 endpoint, override the field rather than waiting for a code change. A provider
 name with no preset fails loudly at the first import rather than posting your
 key at a guessed endpoint.
+
+**`SCRAPER_PROVIDER` is a preset name, not a vendor domain.** `scrapingowl` and
+its alias `scrapeowl` both resolve; `scrapeowl.com` does not, and neither does
+any other hostname — the name is lowercased and stripped to letters before the
+lookup, so the `.com` makes it a different, unknown service.
+
+Note the order these two variables fail in: no `SCRAPER_API_KEY` means the rung
+is **off**, and being off is checked first. So a misspelt key name — the dev
+config held `SCRAPER_API_LET` until 2026-08-10 — hides a bad `SCRAPER_PROVIDER`
+completely: imports quietly degrade as if the fallback had never been
+configured, and the provider name is never reached to be rejected. `--only-names`
+against each config catches the first mistake and `--check-scraper` catches the
+second; run both after any change here rather than trusting that a value was
+typed correctly.
 
 To see what any given link does, with or without the fallback configured:
 

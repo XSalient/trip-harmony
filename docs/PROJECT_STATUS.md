@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 295 tests ✅ · production build ✅ (2026-08-10) ·
+- **Health:** typecheck ✅ · 305 tests ✅ · production build ✅ (2026-08-10) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -50,15 +50,32 @@ finish a piece of work — the next person (or agent) starts here.
   contrast, answers a plain server-side fetch with full Open Graph and two
   JSON-LD blocks — measured 2026-08-10, so the scraper rung is for Booking and
   its peers, not for Airbnb, unless Vercel's egress IPs are treated differently.
-- **Listing import has an optional scraper rung, and it is off.**
-  `SCRAPER_PROVIDER` / `SCRAPER_API_KEY` are unset in every environment, so
-  imports degrade through URL hints, Google Places and the traveller's paste
-  exactly as [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md)
-  describes. Setting them adds one rung after a site refuses us
-  ([ADR 0013](adr/0013-optional-scraper-fallback-for-blocked-listings.md)); it
-  is a per-request bill, so it is a deliberate choice, not a default.
-  `pnpm diagnose:url <link>` shows what any given link does today, and
+- **Listing import has an optional scraper rung. It is configured in `dev`, and
+  the vendor account is dead.** The `dev` Doppler config named the key
+  `SCRAPER_API_LET` (the schema says `SCRAPER_API_KEY`) and the provider
+  `scrapeowl.com` (not a preset — it is `scrapingowl`); both were corrected on
+  2026-08-10. `pnpm diagnose:url --check-scraper` now resolves
+  `{"enabled":true,"provider":"scrapingowl"}` and builds the right request, but
+  ScrapeOwl answers `HTTP 403 {"message":"Your trial expired on 04-07-2025"}`.
+  **The wiring is right and the key is worthless** — the rung needs a paid plan
+  or a different vendor before it does anything, and until then imports degrade
+  through URL hints, Google Places and the traveller's paste exactly as
+  [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md) describes.
+  It is a per-request bill, so switching it on is a deliberate choice
+  ([ADR 0013](adr/0013-optional-scraper-fallback-for-blocked-listings.md)).
   `/api/health` reports which vendor — if any — is in the path.
+- **`stg` and `prd` scraper variables are unaudited.** The same two typos may
+  be in either; the `dev`-scoped token used to fix `dev` cannot see them
+  (`This token does not have access to requested config`). Check both with
+  `doppler secrets --only-names --config stg` from an account that can, looking
+  for `SCRAPER_API_LET` and for a `SCRAPER_PROVIDER` that is a domain rather
+  than a preset name.
+- **⚠️ The agent Doppler token is read/write, and should not be.** The service
+  token issued for agent sessions ("Claude Dev", `dev`-scoped) accepts writes —
+  a `POST /v3/configs/config/secrets` succeeds. Nothing an agent does in a
+  session needs write access, and a token that can write can also destroy a
+  config. Reissue it read-only at dashboard.doppler.com → Access → Service
+  Tokens. See [runbooks/secrets.md](runbooks/secrets.md#agent-sessions).
 - **Database access is locked down.** RLS is on for all 23 tables with no
   policies, and `anon` / `authenticated` hold no grants — see
   [ADR 0009](adr/0009-rls-on-with-no-policies.md). Supabase's linter reports 23
