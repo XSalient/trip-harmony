@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-08
+- **Last updated:** 2026-08-10
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 242 tests ✅ · production build ✅ (2026-08-08) ·
+- **Health:** typecheck ✅ · 295 tests ✅ · production build ✅ (2026-08-10) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -36,6 +36,15 @@ finish a piece of work — the next person (or agent) starts here.
   `activity_events` was created with RLS enabled and no grants for `anon` /
   `authenticated`, per ADR 0009 — Postgres has no default-on RLS, so every new
   table has to be closed explicitly.
+- **Listing import has an optional scraper rung, and it is off.**
+  `SCRAPER_PROVIDER` / `SCRAPER_API_KEY` are unset in every environment, so
+  imports degrade through URL hints, Google Places and the traveller's paste
+  exactly as [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md)
+  describes. Setting them adds one rung after a site refuses us
+  ([ADR 0013](adr/0013-optional-scraper-fallback-for-blocked-listings.md)); it
+  is a per-request bill, so it is a deliberate choice, not a default.
+  `pnpm diagnose:url <link>` shows what any given link does today, and
+  `/api/health` reports which vendor — if any — is in the path.
 - **Database access is locked down.** RLS is on for all 23 tables with no
   policies, and `anon` / `authenticated` hold no grants — see
   [ADR 0009](adr/0009-rls-on-with-no-policies.md). Supabase's linter reports 23

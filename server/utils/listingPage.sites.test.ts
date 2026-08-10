@@ -15,6 +15,7 @@ import {
   looksLikeBotCheck,
   mergeListingHints,
   parseListingHtml,
+  resolveListingRedirects,
 } from "./listingPage.js";
 
 describe("Booking.com — og tags, reversed attributes, ld+json", () => {
@@ -195,6 +196,103 @@ describe("URL hints across the sites people paste", () => {
     ],
   ])("reads %s", (url, expected) => {
     expect(hintsFromListingUrl(url)).toMatchObject(expected);
+  });
+});
+
+describe("URLs that name nothing must not be made to name something", () => {
+  it.each([
+    // Share codes, in the shapes Booking.com hands out. Neither has a vowel
+    // outside the word "Share", and neither is anybody's hotel.
+    "https://www.booking.com/Share-ZPdrnKD",
+    "https://www.booking.com/Share-xTk9pQ",
+    "https://www.booking.com/Share-BhkQrTz",
+    // Airbnb rooms are a number and nothing else.
+    "https://www.airbnb.com/rooms/36276450?check_in=2027-03-05&check_out=2027-03-07",
+  ])("finds no property name in %s", url => {
+    expect(hintsFromListingUrl(url).slug).toBeUndefined();
+  });
+
+  it("still reads the dates a nameless URL does carry", () => {
+    expect(
+      hintsFromListingUrl(
+        "https://www.airbnb.com/rooms/36276450?check_out=2027-03-07&check_in=2027-03-05&adults=1"
+      )
+    ).toMatchObject({ host: "airbnb.com", nights: 2, adults: 1 });
+  });
+
+  it("keeps naming the properties whose URLs really do name them", () => {
+    // The vowel-and-case rule that rejects a share code must not reject a hotel.
+    for (const [url, slug] of [
+      [
+        "https://www.booking.com/hotel/nl/grand-amrath-amsterdam.html",
+        "Grand Amrath Amsterdam",
+      ],
+      ["https://www.booking.com/hotel/si/ti-club.en-gb.html", "Ti Club"],
+      [
+        "https://www.vrbo.com/1234567/villa-flor-mallorca",
+        "Villa Flor Mallorca",
+      ],
+    ] as const) {
+      expect(hintsFromListingUrl(url).slug).toBe(slug);
+    }
+  });
+});
+
+describe("resolveListingRedirects — where a share link points", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const redirectTo = (location: string, status = 302) =>
+    new Response("", { status, headers: { location } });
+
+  it("follows a relative Location to an absolute URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) =>
+        input.includes("/Share-")
+          ? redirectTo(
+              "/hotel/nl/grand-amrath-amsterdam.html?checkin=2026-08-14"
+            )
+          : new Response("", { status: 403 })
+      )
+    );
+    expect(
+      await resolveListingRedirects("https://www.booking.com/Share-ZPdrnKD")
+    ).toBe(
+      "https://www.booking.com/hotel/nl/grand-amrath-amsterdam.html?checkin=2026-08-14"
+    );
+  });
+
+  it("says nothing when the link does not redirect", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("", { status: 403 }))
+    );
+    expect(
+      await resolveListingRedirects("https://www.booking.com/hotel/x.html")
+    ).toBeUndefined();
+  });
+
+  it("gives up on a redirect loop instead of hanging", async () => {
+    const spy = vi.fn(async () => redirectTo("https://a.example/b"));
+    vi.stubGlobal("fetch", spy);
+    expect(await resolveListingRedirects("https://a.example/a")).toBe(
+      "https://a.example/b"
+    );
+    // One hop to learn the destination, one to find it points at itself.
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("will not be redirected into the deployment's own network", async () => {
+    const spy = vi.fn(async () =>
+      redirectTo("http://169.254.169.254/latest/meta-data/")
+    );
+    vi.stubGlobal("fetch", spy);
+    // Not followed, and not returned either: it would otherwise reach the
+    // prompt and be saved as the stay's link.
+    expect(
+      await resolveListingRedirects("https://a.example/a")
+    ).toBeUndefined();
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
 

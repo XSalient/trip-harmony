@@ -24,36 +24,39 @@ scripts/           Bootstrap, deploy-time migrations, test selection.
 Plain `.mjs`, not TypeScript: these run during the Vercel build, before anything
 is compiled and with no tsx on the path.
 
-| File                   | What it is                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------- |
-| `setup.sh`             | One-command bootstrap.                                                                 |
-| `doppler-bootstrap.sh` | Creates the Doppler project/configs and prompts for each secret. Run by a human.       |
-| `db-migrate.mjs`       | Applies pending migrations, or reports them. `--deploy` is what `vercel.json` runs.    |
-| `lib/migrations.mjs`   | Reads the journal, resolves the database URL, decides whether a deploy should migrate. |
-| `affected-tests.mjs`   | Runs only the tests the current change can reach.                                      |
-| `lib/affected.mjs`     | The import-graph walk and selection rules. Pure; unit-tested beside it.                |
+| File                      | What it is                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `setup.sh`                | One-command bootstrap.                                                                 |
+| `doppler-bootstrap.sh`    | Creates the Doppler project/configs and prompts for each secret. Run by a human.       |
+| `db-migrate.mjs`          | Applies pending migrations, or reports them. `--deploy` is what `vercel.json` runs.    |
+| `lib/migrations.mjs`      | Reads the journal, resolves the database URL, decides whether a deploy should migrate. |
+| `affected-tests.mjs`      | Runs only the tests the current change can reach.                                      |
+| `lib/affected.mjs`        | The import-graph walk and selection rules. Pure; unit-tested beside it.                |
+| `diagnose-listing-url.ts` | `pnpm diagnose:url <link>` — why an import filled nothing. Dev only, so TypeScript.    |
 
 ## `server/` — API
 
-| File                    | Lines | What it is                                                                           |
-| ----------------------- | ----: | ------------------------------------------------------------------------------------ |
-| `_core/app.ts`          |    78 | Builds the Express app. The only place middleware is registered.                     |
-| `_core/index.ts`        |    25 | Long-running server entrypoint (local, containers).                                  |
-| `_core/env.ts`          |   210 | **All** server configuration, Zod-validated. Start here for anything config-related. |
-| `_core/logger.ts`       |   170 | Structured logger, levels, secret redaction.                                         |
-| `_core/httpLogging.ts`  |    75 | Request-id middleware, error handler, crash handlers.                                |
-| `_core/trpc.ts`         |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.       |
-| `_core/context.ts`      |    38 | Per-request context: user, request id, bound logger.                                 |
-| `_core/sdk.ts`          |   300 | Session JWTs, cookie auth, OAuth client.                                             |
-| `_core/cookies.ts`      |    51 | Cookie options (secure/sameSite per environment).                                    |
-| `_core/vite.ts`         |    67 | Vite dev middleware and static file serving.                                         |
-| `_core/llm.ts`          |   184 | LLM invocation wrapper.                                                              |
-| `_core/systemRouter.ts` |    29 | Built-in system procedures.                                                          |
-| `db.ts`                 |  1462 | Every database query. Large but flat — jump to the function you need.                |
-| `routers/`              |     — | The API surface, one file per domain (below).                                        |
-| `utils/mailer.ts`       |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
-| `utils/listingPage.ts`  |   660 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
-| `replit_integrations/`  |     — | **Legacy, unused.** Don't read or extend.                                            |
+| File                     | Lines | What it is                                                                           |
+| ------------------------ | ----: | ------------------------------------------------------------------------------------ |
+| `_core/app.ts`           |    78 | Builds the Express app. The only place middleware is registered.                     |
+| `_core/index.ts`         |    25 | Long-running server entrypoint (local, containers).                                  |
+| `_core/env.ts`           |   210 | **All** server configuration, Zod-validated. Start here for anything config-related. |
+| `_core/logger.ts`        |   170 | Structured logger, levels, secret redaction.                                         |
+| `_core/httpLogging.ts`   |    75 | Request-id middleware, error handler, crash handlers.                                |
+| `_core/trpc.ts`          |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.       |
+| `_core/context.ts`       |    38 | Per-request context: user, request id, bound logger.                                 |
+| `_core/sdk.ts`           |   300 | Session JWTs, cookie auth, OAuth client.                                             |
+| `_core/cookies.ts`       |    51 | Cookie options (secure/sameSite per environment).                                    |
+| `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                         |
+| `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                              |
+| `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                          |
+| `db.ts`                  |  1462 | Every database query. Large but flat — jump to the function you need.                |
+| `routers/`               |     — | The API surface, one file per domain (below).                                        |
+| `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
+| `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
+| `utils/listingSource.ts` |   180 | The import ladder in order: paste → page → scraper → place → url. Start here.        |
+| `utils/scraper/`         |     — | The optional unblocking-service rung. `providers.ts` is the vendor-as-config table.  |
+| `replit_integrations/`   |     — | **Legacy, unused.** Don't read or extend.                                            |
 
 ### `server/routers/`
 

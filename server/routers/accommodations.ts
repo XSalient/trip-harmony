@@ -20,22 +20,8 @@ import {
 import {
   cleanListingUrl,
   coerceExtractedAccommodation,
-  condenseListingText,
-  fetchListingPage,
-  hasUsableSignal,
-  hintsFromListingUrl,
-  looksLikeBotCheck,
-  mergeListingHints,
-  MIN_PASTED_CHARS,
-  parseListingHtml,
-  type FetchedListingPage,
-  type ListingPageFacts,
 } from "../utils/listingPage.js";
-import {
-  lookupPlace,
-  placeQuery,
-  type PlaceFacts,
-} from "../utils/placeLookup.js";
+import { resolveListingSource } from "../utils/listingSource.js";
 
 const log = logger.child({ scope: "accommodations" });
 
@@ -453,61 +439,30 @@ export const accommodationsRouter = router({
     )
     .mutation(async ({ input }) => {
       const url = input.url.trim();
-      let facts: ListingPageFacts | null = null;
-      let blocked = false;
 
-      const pastedText = input.pageText
-        ? condenseListingText(input.pageText)
-        : "";
-      const pasted = pastedText.length >= MIN_PASTED_CHARS;
+      // Every way of getting at the page, in order, behind one call —
+      // see server/utils/listingSource.ts and ADR-0008/ADR-0013.
+      const {
+        resolvedUrl,
+        facts,
+        pastedText,
+        hints,
+        place,
+        blocked,
+        usable,
+        source,
+      } = await resolveListingSource({
+        url,
+        ...(input.pageText ? { pageText: input.pageText } : {}),
+      });
 
-      // Nothing to gain from asking a site that already refused us, and the
-      // paste knows more than the page we would have got anyway.
-      const page: FetchedListingPage = pasted
-        ? { ok: false, reason: "blocked" }
-        : await fetchListingPage(url);
-      // A share link says nothing; the page it redirects to says everything.
-      const resolvedUrl = page.finalUrl ?? url;
-      if (page.ok) {
-        const parsed = parseListingHtml(page.html, resolvedUrl);
-        // Booking sites answer a server-side fetch with a robot check often
-        // enough that a 200 is not evidence the details are there.
-        if (looksLikeBotCheck(parsed)) blocked = true;
-        else facts = parsed;
-      } else {
-        blocked = !pasted && page.reason === "blocked";
-      }
-
-      const hints = mergeListingHints(
-        facts?.canonicalUrl
-          ? hintsFromListingUrl(facts.canonicalUrl)
-          : undefined,
-        page.finalUrl ? hintsFromListingUrl(page.finalUrl) : undefined,
-        hintsFromListingUrl(url)
-      );
-      if (!facts && !pasted)
-        log.info("listing page unreadable, falling back to URL hints", {
-          host: hints.host,
-          blocked,
-          redirected: Boolean(page.finalUrl),
-          status: page.ok ? 200 : page.status,
-        });
-
-      // With no page metadata, no paste and no readable URL there is nothing
-      // to extract.
-      if (!pasted && !hasUsableSignal(facts, hints))
-        return { success: false, data: {}, source: "none" as const, blocked };
-
-      // Only when neither the site nor the member gave us the page: a lookup by
-      // name costs Places quota, and a page already knows more than a map does.
-      const query = facts || pasted ? undefined : placeQuery(hints);
-      const place: PlaceFacts | null = query ? await lookupPlace(query) : null;
+      if (!usable) return { success: false, data: {}, source, blocked };
 
       try {
         const context = JSON.stringify({
           url: cleanListingUrl(resolvedUrl),
           page: facts ?? null,
-          pageText: pasted ? pastedText : null,
+          pageText: pastedText || null,
           urlHints: hints,
           place,
         }).slice(0, 24_000);
@@ -549,13 +504,7 @@ Return ONLY JSON with these fields, null for anything unknown: name, description
         return {
           success: Object.keys(data).length > 0,
           data,
-          source: pasted
-            ? ("paste" as const)
-            : facts
-              ? ("page" as const)
-              : place
-                ? ("place" as const)
-                : ("url" as const),
+          source,
           blocked,
         };
       } catch (err) {

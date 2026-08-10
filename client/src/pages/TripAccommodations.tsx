@@ -373,7 +373,13 @@ export default function TripAccommodations() {
           toast.success("Read the page you pasted — please check the details.");
           setPasteOpen(false);
           setPasteText("");
-        } else toast.success("Details fetched from URL!");
+        } else if (result.source === "scraper")
+          // The site refused us and the fallback got through. Still worth a
+          // glance: a page read on the second attempt can be a stale render.
+          toast.success(
+            "That site blocked us, so we read the page another way. Please check the details."
+          );
+        else toast.success("Details fetched from URL!");
         // A blocked site never gives up the price; the paste box is how that
         // gets filled without typing the whole form.
         if (result.source === "url" || result.source === "place")

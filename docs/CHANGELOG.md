@@ -8,6 +8,56 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-10 — Listing imports that used to fill nothing
+
+### Fixed
+
+- **An Airbnb room link no longer imports as "Could not extract details".**
+  `airbnb.com/rooms/36276450` encodes a number and nothing else, so when the
+  site refused a server-side fetch there was no property name for the URL-hint
+  or Google Places rungs to work from, and the endpoint returned
+  `success: false, source: "none"` with an empty form. It now has a page to
+  read whenever the scraper fallback below is configured, and the diagnosis is
+  visible either way (`pnpm diagnose:url`).
+- **A Booking.com share link no longer names the stay after the share code.**
+  `booking.com/Share-ZPdrnKD` was turned into a property called
+  "Share ZPdrnKD", which was then used as a Google Places search. Path tokens
+  that are identifiers wearing letters — no vowel, or a case change mid-word —
+  are no longer treated as words.
+- **Share links now resolve to the page they point at.** Booking.com answers
+  `/Share-…` with a `302` and only puts the robot check at the destination, so
+  the redirect is readable even when the page is not. Following it turns a
+  share link back into a property name, a country and the stay dates. Hops into
+  private address space are neither followed nor returned.
+
+### Added
+
+- **An optional scraper fallback for sites that refuse us**, off by default and
+  turned on with `SCRAPER_PROVIDER` + `SCRAPER_API_KEY`
+  ([ADR 0013](adr/0013-optional-scraper-fallback-for-blocked-listings.md),
+  amending [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md)).
+  It runs only after a direct fetch has failed or come back as a robot check,
+  and never when the traveller pasted the page, so a working import never
+  touches it. With the variables unset nothing changes and no third party is
+  contacted. `source` gains a `scraper` value and the client says so.
+- **The vendor is configuration, not code.** Presets ship for ScrapingOwl,
+  ScrapingBee, ScraperAPI, ZenRows and Scrapfly, and every field of every preset
+  — endpoint, method, parameter names, where the key goes, where the HTML is —
+  is an environment variable. A service with no preset is
+  `SCRAPER_PROVIDER=custom` plus `SCRAPER_ENDPOINT`. `SCRAPER_HOSTS` narrows
+  the spend; `SCRAPER_RENDER_JS` and `SCRAPER_TIMEOUT_MS` tune it.
+- **`pnpm diagnose:url <link>`** prints every rung of the import ladder for a
+  given URL and which one answered — what the fetch returned, where redirects
+  led, what the scraper said, what the URL alone encodes.
+
+### Changed
+
+- **The import ladder moved into `server/utils/listingSource.ts`**, one module
+  holding all five sources in order and testable without a network. The
+  accommodations router now only turns its result into a prompt.
+
+---
+
 ## 2026-08-08 — Production is back up
 
 ### Fixed

@@ -117,8 +117,53 @@ contract. Adding a variable means updating **both**, plus this table.
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`     | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                        |
 | `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                          | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel |
 | `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                         | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                                                       |
+| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`                  | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                  |
 
 `GET /api/health` reports which of these are configured, without revealing values.
+
+## The listing scraper fallback
+
+Off unless **both** `SCRAPER_PROVIDER` and `SCRAPER_API_KEY` are set. It runs
+only after a listing site has refused a direct fetch, and never when the
+traveller pasted the page — so a working import never touches it, and a bill
+only arrives for links that would otherwise have half-filled the form.
+[ADR-0013](../adr/0013-optional-scraper-fallback-for-blocked-listings.md)
+explains what it costs and why it is opt-in.
+
+`SCRAPER_API_KEY` is a secret: Doppler and Vercel only, and it is on the
+redaction list, so it never appears in a log line.
+
+The vendor is described by configuration rather than by code, because these
+services all make the same call under different names:
+
+| Variable                | Purpose                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `SCRAPER_PROVIDER`      | `scrapingowl` \| `scrapingbee` \| `scraperapi` \| `zenrows` \| `scrapfly` \| `custom` |
+| `SCRAPER_API_KEY`       | The vendor's key                                                                      |
+| `SCRAPER_ENDPOINT`      | Overrides the preset's URL; **required** for `custom`                                 |
+| `SCRAPER_METHOD`        | `GET` or `POST`                                                                       |
+| `SCRAPER_URL_PARAM`     | What the vendor calls the parameter holding the listing URL                           |
+| `SCRAPER_API_KEY_PARAM` | What it calls the key, and `SCRAPER_API_KEY_IN` where it goes                         |
+| `SCRAPER_PARAMS`        | Anything else, as `a=b&c=d` or a JSON object                                          |
+| `SCRAPER_HTML_PATH`     | Dotted path to the HTML in a JSON reply; `none` when the body is the page             |
+| `SCRAPER_RENDER_JS`     | Default `true`. Airbnb renders to nothing without it, and it costs more               |
+| `SCRAPER_TIMEOUT_MS`    | Default `30000`                                                                       |
+| `SCRAPER_HOSTS`         | Narrow the spend to these hosts; empty means any host that blocks us                  |
+
+**Switching vendor is these variables and nothing else** — the presets in
+`server/utils/scraper/providers.ts` are a convenience, not a contract we
+control. If a vendor renames a parameter or your plan uses a different
+endpoint, override the field rather than waiting for a code change. A provider
+name with no preset fails loudly at the first import rather than posting your
+key at a guessed endpoint.
+
+To see what any given link does, with or without the fallback configured:
+
+```bash
+pnpm diagnose:url "https://www.booking.com/Share-xTk9pQ"
+```
+
+It prints every rung of the ladder and which one answered.
 
 ## Rotation
 
