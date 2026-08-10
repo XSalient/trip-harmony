@@ -252,6 +252,9 @@ if (IS_DEPLOYED && !database.url) {
 const defaultLogLevel: LogLevel =
   APP_ENV === "test" ? "silent" : APP_ENV === "development" ? "debug" : "info";
 
+/** Which unblocking service `SCRAPER_API_KEY` is assumed to belong to. */
+export const DEFAULT_SCRAPER_PROVIDER = "scrapingowl";
+
 /** Resend's shared sender needs no domain verification but only delivers to the account owner. */
 export const RESEND_SANDBOX_FROM = "onboarding@resend.dev";
 
@@ -308,8 +311,18 @@ export const config = {
    * Shapes are still validated at boot by the schema above.
    */
   scraper: {
+    /**
+     * A key with no vendor named means the vendor this project is wired for.
+     * Requiring both variables made the common setup — paste the key in and
+     * expect it to work — fail silently as "that site blocked us", which is
+     * the one failure mode this whole rung exists to remove.
+     */
     get provider() {
-      return process.env.SCRAPER_PROVIDER?.trim() ?? "";
+      const explicit = process.env.SCRAPER_PROVIDER?.trim();
+      if (explicit) return explicit;
+      return process.env.SCRAPER_API_KEY?.trim()
+        ? DEFAULT_SCRAPER_PROVIDER
+        : "";
     },
     get apiKey() {
       return process.env.SCRAPER_API_KEY?.trim() ?? "";

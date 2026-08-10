@@ -38,10 +38,16 @@ type ScraperPreset = {
  * for a patch — see `resolveScraperProvider`.
  */
 const PRESETS: Record<string, ScraperPreset> = {
+  /**
+   * The GET form, which is the one confirmed against a real key:
+   *   curl "https://api.scrapeowl.com/v1/scrape?api_key=…&url=…"
+   * ScrapeOwl also accepts a JSON POST body; if you prefer it, that is
+   * `SCRAPER_METHOD=POST` and `SCRAPER_API_KEY_IN=body` and no code change.
+   */
   scrapingowl: {
     endpoint: "https://api.scrapeowl.com/v1/scrape",
-    method: "POST",
-    auth: { placement: "body", param: "api_key" },
+    method: "GET",
+    auth: { placement: "query", param: "api_key" },
     urlParam: "url",
     renderParam: "render_js",
     htmlPath: "html",
@@ -271,6 +277,18 @@ function atPath(node: unknown, path: string): unknown {
   return current;
 }
 
+/**
+ * A body that opens with a doctype or an `html`/`head` tag and has some bulk to
+ * it is a listing page. The length matters: a gateway's `<h1>502</h1>` is also
+ * HTML, and accepting it would name somebody's stay "502 Bad Gateway".
+ */
+const MIN_BARE_HTML_CHARS = 500;
+
+function looksLikeHtml(body: string): boolean {
+  if (body.length < MIN_BARE_HTML_CHARS) return false;
+  return /^\s*(<!doctype\s+html|<html[\s>]|<head[\s>])/i.test(body);
+}
+
 export type ScrapedPayload = {
   html?: string;
   finalUrl?: string;
@@ -296,6 +314,11 @@ export function readScrapedPage(
   try {
     parsed = JSON.parse(body);
   } catch {
+    // Several services answer with an envelope on one endpoint and the bare
+    // page on another, or switch when a plan changes. A body that is plainly a
+    // web page is the page, whatever the preset expected — better than telling
+    // the traveller we were blocked while holding the listing in our hand.
+    if (looksLikeHtml(body)) return { html: body };
     return {
       error: `expected JSON from ${provider.name} but got ${contentType || "an unlabelled body"}`,
     };

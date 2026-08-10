@@ -59,21 +59,43 @@ describe("scrapingowl", () => {
     apiKey: "owl-key",
   })!;
 
-  it("posts the key and the target URL as JSON", () => {
+  // The shape confirmed against a real key:
+  //   curl "https://api.scrapeowl.com/v1/scrape?api_key=…&url=…"
+  it("gets the endpoint with the key and the target URL in the query", () => {
     const request = buildScrapeRequest(provider, TARGET, { renderJs: true });
+    expect(request.method).toBe("GET");
+    expect(request.body).toBeUndefined();
+    const url = new URL(request.url);
+    expect(url.origin + url.pathname).toBe(
+      "https://api.scrapeowl.com/v1/scrape"
+    );
+    expect(url.searchParams.get("api_key")).toBe("owl-key");
+    // The target keeps its own query string; `searchParams` encodes it for us.
+    expect(url.searchParams.get("url")).toBe(TARGET);
+    expect(url.searchParams.get("render_js")).toBe("true");
+  });
+
+  it("says so explicitly when rendering is turned off", () => {
+    const request = buildScrapeRequest(provider, TARGET, { renderJs: false });
+    expect(new URL(request.url).searchParams.get("render_js")).toBe("false");
+  });
+
+  it("moves the key into a JSON body when the operator prefers POST", () => {
+    // ScrapeOwl takes both; switching is two env vars, not a code change.
+    const posting = resolveScraperProvider({
+      provider: "scrapingowl",
+      apiKey: "owl-key",
+      method: "POST",
+      apiKeyIn: "body",
+    })!;
+    const request = buildScrapeRequest(posting, TARGET, { renderJs: true });
     expect(request.method).toBe("POST");
-    expect(request.url).toBe("https://api.scrapeowl.com/v1/scrape");
     expect(request.headers["Content-Type"]).toBe("application/json");
     expect(JSON.parse(request.body!)).toMatchObject({
       api_key: "owl-key",
       url: TARGET,
       render_js: true,
     });
-  });
-
-  it("omits the render flag when rendering is turned off", () => {
-    const request = buildScrapeRequest(provider, TARGET, { renderJs: false });
-    expect(JSON.parse(request.body!).render_js).toBe(false);
   });
 
   it("reads the HTML out of the JSON envelope", () => {
@@ -93,6 +115,31 @@ describe("scrapingowl", () => {
     );
     expect(page.html).toBeUndefined();
     expect(page.error).toMatch(/blocked by target/);
+  });
+
+  it("takes a bare page as the page, even though it expected an envelope", () => {
+    // Endpoints and plans differ on whether the reply is wrapped. Refusing a
+    // page we are plainly holding would be the worst possible answer.
+    const bare = `<!doctype html><html><head><title>Grand</title>${"<meta name=x content=y>".repeat(30)}</head></html>`;
+    expect(readScrapedPage(provider, "text/html", bare).html).toContain(
+      "<title>Grand</title>"
+    );
+  });
+
+  it("refuses a body that is neither an envelope nor a page", () => {
+    const page = readScrapedPage(provider, "text/plain", "Gateway timeout");
+    expect(page.html).toBeUndefined();
+    expect(page.error).toMatch(/expected JSON/);
+  });
+
+  it("refuses a scrap of HTML that is an error page, not a listing", () => {
+    // Otherwise a stay ends up named "502 Bad Gateway".
+    const page = readScrapedPage(
+      provider,
+      "text/html",
+      "<!doctype html><h1>502 Bad Gateway</h1>"
+    );
+    expect(page.html).toBeUndefined();
   });
 });
 
@@ -192,17 +239,41 @@ describe("switching service without touching the code", () => {
     ).toThrow(/SCRAPER_ENDPOINT/);
   });
 
-  it("takes extra parameters as JSON too, for values a query string would mangle", () => {
+  it("carries extra parameters into the query of a GET service", () => {
     const provider = resolveScraperProvider({
       provider: "scrapingowl",
       apiKey: "k",
-      params:
-        '{"country":"nl","wait_for":".hprt-table","premium_proxies":true}',
+      params: "country=nl&premium_proxies=true",
     })!;
-    const body = JSON.parse(
-      buildScrapeRequest(provider, TARGET, { renderJs: true }).body!
+    const url = new URL(
+      buildScrapeRequest(provider, TARGET, { renderJs: true }).url
     );
-    expect(body).toMatchObject({
+    expect(url.searchParams.get("country")).toBe("nl");
+    expect(url.searchParams.get("premium_proxies")).toBe("true");
+  });
+
+  /** The same extras, for a service configured to take a JSON body instead. */
+  const posting = (params: string) =>
+    JSON.parse(
+      buildScrapeRequest(
+        resolveScraperProvider({
+          provider: "scrapingowl",
+          apiKey: "k",
+          method: "POST",
+          apiKeyIn: "body",
+          params,
+        })!,
+        TARGET,
+        { renderJs: true }
+      ).body!
+    );
+
+  it("takes extra parameters as JSON too, for values a query string would mangle", () => {
+    expect(
+      posting(
+        '{"country":"nl","wait_for":".hprt-table","premium_proxies":true}'
+      )
+    ).toMatchObject({
       country: "nl",
       wait_for: ".hprt-table",
       premium_proxies: true,
@@ -210,14 +281,7 @@ describe("switching service without touching the code", () => {
   });
 
   it("coerces query-string extras to JSON types for a JSON-bodied service", () => {
-    const provider = resolveScraperProvider({
-      provider: "scrapingowl",
-      apiKey: "k",
-      params: "premium_proxies=true&wait=3000&country=nl",
-    })!;
-    const body = JSON.parse(
-      buildScrapeRequest(provider, TARGET, { renderJs: true }).body!
-    );
+    const body = posting("premium_proxies=true&wait=3000&country=nl");
     expect(body.premium_proxies).toBe(true);
     expect(body.wait).toBe(3000);
     expect(body.country).toBe("nl");

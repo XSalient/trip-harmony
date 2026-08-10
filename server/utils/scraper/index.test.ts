@@ -36,12 +36,23 @@ afterEach(() => {
 });
 
 describe("configuration", () => {
-  it("is off unless a provider and a key are both set", () => {
+  it("is off unless a key is set", () => {
     expect(isScraperConfigured()).toBe(false);
     vi.stubEnv("SCRAPER_PROVIDER", "scrapingowl");
     expect(isScraperConfigured()).toBe(false);
     vi.stubEnv("SCRAPER_API_KEY", "owl-key");
     expect(isScraperConfigured()).toBe(true);
+  });
+
+  it("assumes the default vendor when only the key is configured", () => {
+    // Pasting the key into Doppler and expecting imports to work is the whole
+    // setup most people will do; it must not fail silently as "site blocked us".
+    vi.stubEnv("SCRAPER_API_KEY", "owl-key");
+    expect(isScraperConfigured()).toBe(true);
+    expect(describeScraper()).toMatchObject({
+      enabled: true,
+      provider: "scrapingowl",
+    });
   });
 
   it("summarises itself without ever naming the key", () => {
@@ -88,10 +99,12 @@ describe("a scrape that works", () => {
     expect(result.ok && result.html).toContain("Grand Hotel Amrath");
 
     const [url, init] = spy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://api.scrapeowl.com/v1/scrape");
-    expect(JSON.parse(init.body as string).url).toContain(
-      "grand-amrath-amsterdam"
+    const called = new URL(url);
+    expect(called.origin + called.pathname).toBe(
+      "https://api.scrapeowl.com/v1/scrape"
     );
+    expect(init.method).toBe("GET");
+    expect(called.searchParams.get("url")).toContain("grand-amrath-amsterdam");
   });
 
   it("passes the target URL through untouched, query string and all", async () => {
@@ -102,8 +115,18 @@ describe("a scrape that works", () => {
       JSON.stringify({ status: 200, html: "<html></html>" })
     );
     await scrapeListingPage(target);
-    const init = spy.mock.calls[0][1] as RequestInit;
-    expect(JSON.parse(init.body as string).url).toBe(target);
+    const called = new URL(spy.mock.calls[0][0] as string);
+    expect(called.searchParams.get("url")).toBe(target);
+  });
+
+  it("takes the page even when the service skips its JSON envelope", async () => {
+    useScrapingowl();
+    answerWith(
+      `<!doctype html><html><head><meta property="og:title" content="Grand">${"<meta name=x content=y>".repeat(30)}</head></html>`,
+      { contentType: "text/html" }
+    );
+    const result = await scrapeListingPage("https://www.booking.com/x");
+    expect(result.ok && result.html).toContain("og:title");
   });
 });
 

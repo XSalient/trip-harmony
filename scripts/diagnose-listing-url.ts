@@ -28,6 +28,12 @@ import {
   describeScraper,
   scrapeListingPage,
 } from "../server/utils/scraper/index.js";
+import {
+  buildScrapeRequest,
+  readScrapedPage,
+  resolveScraperProvider,
+} from "../server/utils/scraper/providers.js";
+import { config } from "../server/_core/env.js";
 
 const DIM = "\x1b[2m";
 const BOLD = "\x1b[1m";
@@ -185,18 +191,115 @@ async function diagnose(url: string, offline: boolean) {
   );
 }
 
+/**
+ * Is the scraper wired up at all? Answers the question the listing diagnosis
+ * cannot: whether the key, the endpoint and the parameter names are right,
+ * separately from whether any given site lets the service in.
+ *
+ * Deliberately the vendor's own smoke-test target, so this is the same request
+ * as the `curl` in their docs, made the way the app makes it.
+ */
+async function checkScraper(target: string) {
+  console.log(`${BOLD}Scraper check${RESET} ${DIM}→ ${target}${RESET}`);
+  const summary = describeScraper();
+  console.log(`${DIM}config: ${JSON.stringify(summary)}${RESET}`);
+  if (!summary.enabled) {
+    console.log(
+      `  ${RED}Not enabled.${RESET} Set SCRAPER_API_KEY (and SCRAPER_PROVIDER if it is not ${DIM}scrapingowl${RESET}).` +
+        (summary.error ? `\n  ${RED}${summary.error}${RESET}` : "")
+    );
+    return;
+  }
+
+  const provider = resolveScraperProvider({
+    provider: config.scraper.provider,
+    apiKey: config.scraper.apiKey,
+    endpoint: config.scraper.endpoint,
+    method: config.scraper.method,
+    urlParam: config.scraper.urlParam,
+    apiKeyParam: config.scraper.apiKeyParam,
+    apiKeyIn: config.scraper.apiKeyIn,
+    params: config.scraper.params,
+    htmlPath: config.scraper.htmlPath,
+  })!;
+  const request = buildScrapeRequest(provider, target, {
+    renderJs: config.scraper.renderJs,
+  });
+  // The key is in the request; it must not be in the terminal or a scrollback.
+  const redact = (text: string) =>
+    text.split(provider.apiKey).join("<SCRAPER_API_KEY>");
+  step("request", `${request.method} ${redact(request.url)}`);
+  if (request.body) detail(redact(request.body));
+
+  const started = Date.now();
+  let res: Response;
+  try {
+    res = await fetch(request.url, {
+      method: request.method,
+      headers: request.headers,
+      ...(request.body ? { body: request.body } : {}),
+      signal: AbortSignal.timeout(config.scraper.timeoutMs),
+    });
+  } catch (err) {
+    step("response", `could not reach the service: ${String(err)}`, RED);
+    return;
+  }
+  const body = await res.text();
+  step(
+    "response",
+    `HTTP ${res.status} ${res.headers.get("content-type") ?? ""} · ${body.length} chars · ${Date.now() - started} ms`,
+    res.ok ? GREEN : RED
+  );
+  detail(redact(body.slice(0, 400)));
+
+  const payload = readScrapedPage(
+    provider,
+    res.headers.get("content-type") ?? "",
+    body
+  );
+  step(
+    "page extracted",
+    payload.html
+      ? `yes, ${payload.html.length} chars`
+      : `no — ${payload.error ?? "unknown"}`,
+    payload.html ? GREEN : RED
+  );
+  if (payload.html || !res.ok) return;
+  if (payload.targetStatus !== undefined && payload.targetStatus >= 400) {
+    // Wiring is fine; the site refused the service too. Nothing to configure.
+    console.log(
+      `  ${YELLOW}Wiring is correct — the service reached the target and the target ` +
+        `answered ${payload.targetStatus}. Try SCRAPER_PARAMS=premium_proxies=true, or a ` +
+        `different target to confirm the key.${RESET}`
+    );
+    return;
+  }
+  console.log(
+    `  ${YELLOW}The service answered but the page is not where the preset looked ` +
+      `(SCRAPER_HTML_PATH=${provider.htmlPath || "<body itself>"}). ` +
+      `Compare the body above with the docs and set SCRAPER_HTML_PATH.${RESET}`
+  );
+}
+
 const args = process.argv.slice(2);
 const offline = args.includes("--offline");
+const check = args.includes("--check-scraper");
 const urls = args.filter(a => !a.startsWith("--"));
 
-if (!urls.length) {
+if (!urls.length && !check) {
   console.error(
-    "usage: pnpm diagnose:url [--offline] <listing url> [<listing url> …]"
+    "usage: pnpm diagnose:url [--offline] <listing url> [<listing url> …]\n" +
+      "       pnpm diagnose:url --check-scraper [<url to fetch through it>]"
   );
   process.exit(1);
 }
 
-console.log(`${BOLD}Listing import diagnosis${RESET}`);
-console.log(`${DIM}scraper: ${JSON.stringify(describeScraper())}${RESET}`);
-for (const url of urls) await diagnose(url, offline);
+if (check) {
+  // httpbin is the vendor's own example target and costs one credit.
+  await checkScraper(urls[0] ?? "https://httpbin.org/ip");
+} else {
+  console.log(`${BOLD}Listing import diagnosis${RESET}`);
+  console.log(`${DIM}scraper: ${JSON.stringify(describeScraper())}${RESET}`);
+  for (const url of urls) await diagnose(url, offline);
+}
 console.log("");

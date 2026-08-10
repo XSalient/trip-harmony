@@ -33,11 +33,17 @@ project owner has asked for the rung ADR-0008 declined.
 
 **Add the rung, off by default, behind configuration the operator owns.**
 
-`SCRAPER_PROVIDER` + `SCRAPER_API_KEY` turn on one extra step, tried only after
-a direct fetch has failed or come back as a robot check, and never when the
-member has pasted the page. With the variables unset — the default, and what
-CI and every current deployment run — not a single byte of behaviour changes
-and no third party is contacted.
+`SCRAPER_API_KEY` turns on one extra step, tried only after a direct fetch has
+failed or come back as a robot check, and never when the member has pasted the
+page. With it unset — the default, and what CI runs — not a single byte of
+behaviour changes and no third party is contacted.
+
+`SCRAPER_PROVIDER` defaults to `scrapingowl` rather than being required
+alongside the key. Demanding both made the obvious setup, pasting the key into
+Doppler, silently leave the rung switched off, and the resulting "that site
+blocked us" is indistinguishable from the failure this rung exists to remove. A
+key is an explicit opt-in on its own; naming the vendor is only needed to pick a
+different one.
 
 The reasoning in ADR-0008 is not withdrawn; it is priced. What changes is who
 decides:

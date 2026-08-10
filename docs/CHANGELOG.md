@@ -55,6 +55,20 @@ is built, run or deployed.
 - **The import ladder moved into `server/utils/listingSource.ts`**, one module
   holding all five sources in order and testable without a network. The
   accommodations router now only turns its result into a prompt.
+- **The ScrapeOwl preset is the GET form**, `GET /v1/scrape?api_key=…&url=…`,
+  which is the call confirmed against a real key. The JSON POST body it also
+  accepts is still available as `SCRAPER_METHOD=POST` plus
+  `SCRAPER_API_KEY_IN=body`.
+- **`SCRAPER_API_KEY` alone is enough to switch the fallback on.**
+  `SCRAPER_PROVIDER` now defaults to `scrapingowl`. Requiring both variables
+  meant the obvious setup — paste the key into Doppler — left the fallback off,
+  and the failure looked identical to the site blocking us.
+- **A page arriving without its JSON envelope is still a page.** Some endpoints
+  and plans return the HTML bare; taking it (when it is a real page and not a
+  gateway's `<h1>502</h1>`) beats reporting a block while holding the listing.
+- **`pnpm diagnose:url --check-scraper`** makes the vendor's smoke-test request
+  the way the app makes it and prints the reply with the key redacted — the
+  fastest way to tell a wrong key from a site that refuses the service too.
 
 ---
 
