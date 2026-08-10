@@ -85,9 +85,15 @@ finish a piece of work — the next person (or agent) starts here.
   token is a config-scoped service token and cannot enumerate workplace
   integrations, so the empty list meant nothing.)
   The integration is installed and authorised; what is missing is the **sync**,
-  which is created per Doppler config in the Doppler dashboard. Until one
-  exists, Doppler is not the source of truth in practice — Vercel is, and
-  everything on it is hand-set.
+  which is created per Doppler config. Until one exists, Doppler is not the
+  source of truth in practice — Vercel is, and everything on it is hand-set.
+  **An agent cannot create it.** `POST /v3/configs/config/syncs` with the
+  integration's UUID (`1dced344-4462-4e01-aab7-7a928ea04c8f`) answers
+  `403 "You do not have access to use this integration."` — a Doppler service
+  token is scoped to one config by design and cannot attach integrations,
+  whatever the UUID. It needs a human at dashboard.doppler.com, or a token with
+  workplace-level integration access. Everything else the sync depends on is
+  ready: `dev` holds real values, `APP_ENV` is gone, and the two sides match.
 - **Doppler `dev` is now safe to sync, and the two sides match.** It held
   placeholders until 2026-08-10 — `JWT_SECRET` was **1 character**, against a
   ≥ 32 requirement that would have failed boot outright, and `DATABASE_URL` was

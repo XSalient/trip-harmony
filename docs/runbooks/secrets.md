@@ -122,6 +122,13 @@ is made per Doppler config, in the Doppler dashboard. Until one exists, every
 Vercel variable is hand-set and Doppler is the source of truth by intention
 only.
 
+Creating it is a human's job. A Doppler **service token** — including the one
+agent sessions hold — is scoped to a single config and cannot attach an
+integration: `POST /v3/configs/config/syncs` answers
+`403 "You do not have access to use this integration."` even with the correct
+integration UUID. Use dashboard.doppler.com → the config → **Sync** → Vercel,
+or a token with workplace-level integration access.
+
 Two things to know before creating one:
 
 - **Doppler pushes the whole config.** Anything in it lands on Vercel, including
