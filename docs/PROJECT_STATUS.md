@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 339 tests ✅ · production build ✅ (2026-08-10) ·
+- **Health:** typecheck ✅ · 342 tests ✅ · production build ✅ (2026-08-10) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -36,29 +36,27 @@ finish a piece of work — the next person (or agent) starts here.
   `activity_events` was created with RLS enabled and no grants for `anon` /
   `authenticated`, per ADR 0009 — Postgres has no default-on RLS, so every new
   table has to be closed explicitly.
-- **⚠️ Production reports no AI provider, and one cause has been removed.**
-  `/api/health` reported `"ai":"missing"` on commit `0e55c5c`, so the referee,
-  natural-language date parsing, match analysis and **all listing-URL
-  extraction** fail. Extraction is a model call: reading the page is only half
-  of it, and neither the scraper fallback nor the paste box can work without a
-  model.
-  Part of this was a bug of ours — `config.ai.isConfigured` demanded a base URL
-  that Gemini does not need, so a correct key still read as missing. Fixed on
-  2026-08-10; the health summary now also names the variable the key came from
-  (`aiKeySource`).
-  **Resolved on 2026-08-10.** The root cause was that nobody had ever set
-  `AI_INTEGRATIONS_GEMINI_API_KEY` — an audit of the Vercel project found no AI
-  variable under any name, and Doppler `dev` had none either. The key is now in
-  Doppler `dev` and on Vercel (all three targets). Only the key is required;
-  `AI_INTEGRATIONS_GEMINI_BASE_URL` stays empty unless you are pointing the SDK
-  at a proxy.
+- **✅ AI is configured and working in production.** It reported
+  `"ai":"missing"` for a day, and there were three separate causes, all now
+  fixed. `config.ai.isConfigured` demanded a base URL that Gemini does not
+  need, so a correct key would still have read as missing — and
+  `accommodations.fetchFromUrl` reads that same flag, so it refused every
+  listing-URL import before attempting one. Nobody had ever set
+  `AI_INTEGRATIONS_GEMINI_API_KEY` in any environment. And `llm.ts` hardcoded
+  `gemini-2.5-flash`, which Google now refuses with
+  `404 "no longer available to new users"` — so every AI call would have failed
+  even once the key arrived, with `/api/health` still reporting green.
+  Only the key is required; `AI_INTEGRATIONS_GEMINI_BASE_URL` stays empty unless
+  you are pointing the SDK at a proxy. The model is `AI_MODEL`, defaulting to
+  `gemini-3.6-flash`, and `/api/health` reports `aiModel` so the next
+  retirement is visible rather than silent.
 - **Booking.com serves an AWS WAF challenge, not a 403.** HTTP `202` with an
   empty `<title>` and a `challenge.js`; `looksLikeBotCheck` catches it, which is
   why the ladder degrades rather than importing a captcha as a hotel. Airbnb, by
   contrast, answers a plain server-side fetch with full Open Graph and two
   JSON-LD blocks — measured 2026-08-10, so the scraper rung is for Booking and
   its peers, not for Airbnb, unless Vercel's egress IPs are treated differently.
-- **The listing scraper rung works in `dev`, on ScraperAPI.** The `dev` Doppler
+- **The listing scraper runs on ScraperAPI, in `dev` and in production.** The `dev` Doppler
   config holds `SCRAPER_PROVIDER=scraperapi.com` and a live key; verified
   end-to-end on 2026-08-10 —
   `{"enabled":true,"provider":"scraperapi","endpoint":"https://api.scraperapi.com/"}`,
@@ -74,80 +72,56 @@ finish a piece of work — the next person (or agent) starts here.
   imports degrade through URL hints, Google Places and the traveller's paste
   when it is off, exactly as
   [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md) describes.
-- **⚠️ The Doppler → Vercel integration is installed but has never synced.**
-  Audited directly against the Vercel API on 2026-08-10. The Doppler
-  integration is present on the team — `icfg_aMeJc62QWO3IQhXzNK4GeaH5`, slug
-  `doppler`, `projectSelection: "all"`, holding `read-write:project-env-vars` —
-  and its `updatedAt` equals its `createdAt`, so it has never run. **Not one
-  environment variable on `trip-harmony` carries its `configurationId`.**
-  (An earlier note here claimed no integration existed, inferred from
-  `GET /v3/integrations` returning `[]`. That was wrong: the agent's Doppler
-  token is a config-scoped service token and cannot enumerate workplace
-  integrations, so the empty list meant nothing.)
-  The integration is installed and authorised; what is missing is the **sync**,
-  which is created per Doppler config. Until one exists, Doppler is not the
-  source of truth in practice — Vercel is, and everything on it is hand-set.
-  **An agent cannot create it.** `POST /v3/configs/config/syncs` with the
-  integration's UUID (`1dced344-4462-4e01-aab7-7a928ea04c8f`) answers
-  `403 "You do not have access to use this integration."` — a Doppler service
-  token is scoped to one config by design and cannot attach integrations,
-  whatever the UUID. It needs a human at dashboard.doppler.com, or a token with
-  workplace-level integration access. Everything else the sync depends on is
-  ready: `dev` holds real values, `APP_ENV` is gone, and the two sides match.
-- **Doppler `dev` is now safe to sync, and the two sides match.** It held
-  placeholders until 2026-08-10 — `JWT_SECRET` was **1 character**, against a
-  ≥ 32 requirement that would have failed boot outright, and `DATABASE_URL` was
-  20 — so a sync created then would have overwritten production with junk. The
-  real `DATABASE_URL`, `JWT_SECRET` and `RESEND_API_KEY` were copied in by hand
-  (Vercel returns ciphertext for `encrypted` variables, so no tool could do it);
-  `MAIL_FROM` was copied across from Vercel, where it is `plain` and therefore
-  readable.
-  `APP_ENV` was **deleted from Doppler**, deliberately: it said `development`,
-  and syncing that into Production would have told the server it was a
-  development environment. `resolveAppEnv()` already derives it from
-  `VERCEL_ENV`, and gets local and deployed right on its own — so the variable
-  was not just wrong here, it was unnecessary everywhere.
-  One thing to know before enabling a sync: Doppler pushes the **whole** config,
-  so `VERCEL_TOKEN` (an operational credential for agent sessions, not app
-  config) would land on Vercel too. Harmless, but remove it from Doppler once
-  the sync exists if you would rather it did not.
-- **Vercel environment variables were audited and cleaned on 2026-08-10:
-  23 → 12, no duplicates.** Sixteen variables managed by _Supabase's_
-  integration (`icfg_8QNFBNoYm0WGKwlK508VdYy7`) were deleted: eleven that no
-  code reads (`SUPABASE_*`, `POSTGRES_HOST/USER/PASSWORD/DATABASE/PRISMA_URL`),
-  three `NEXT_PUBLIC_SUPABASE_*` — Next.js naming in a **Vite** app, and
-  duplicates of the `SUPABASE_*` trio besides — and `POSTGRES_URL` /
-  `POSTGRES_URL_NON_POOLING`, which _are_ read as `DATABASE_URL` fallbacks by
-  both `env.ts` and `scripts/lib/migrations.mjs` and point at the IPv6-only
-  direct host Vercel cannot reach ([ADR 0012](adr/0012-session-pooler-for-the-database-url.md)) —
-  a live footgun the moment `DATABASE_URL` is ever unset. Deleting them also
-  removed two unused high-privilege credentials (`SUPABASE_SERVICE_ROLE_KEY`,
-  `SUPABASE_SECRET_KEY`) from a project that never used Supabase's client.
-  Names, targets and ids were backed up before deletion. **The Supabase
-  integration is still installed with `projectSelection: "all"`, so it may
-  re-create them** — if they reappear, restrict or uninstall it for this
-  project.
-  `stg` and `prd` in Doppler still could not be inspected — the agent token is
-  `dev`-scoped (`This token does not have access to requested config`).
-- **Vercel and Doppler `dev` now hold the same 11 variables**, hand-set on both
-  sides, with no duplicates on either. The Manus OAuth pair was deleted:
-  `getLoginUrl()` in `client/src/const.ts` is exported and **never called**, so
-  nothing in the UI ever reaches the portal, and `OAUTH_SERVER_URL` only fed a
-  `/api/oauth/callback` route nothing links to. `/api/health` now reports
-  `oauth: disabled`, which is the truth rather than a regression.
-  **The dead code is still there** — `oauth.ts`, `OAuthService` in `sdk.ts`, and
-  `getLoginUrl` — and is a good follow-up, but it was left out of this change on
-  purpose: `sdk.ts` also carries the live session path, and `getUserInfoWithJwt`
-  sits on it. That path is only reached when a session verifies but the user is
-  absent from the database (a Manus-era fallback), which email/password,
-  magic-link and passkey sign-in never hit, so removing the variables is safe
-  while removing the code deserves its own review.
-- **The scraper is configured in production as of 2026-08-10.**
-  `SCRAPER_API_KEY`, `SCRAPER_PROVIDER`, `SCRAPER_ENABLED` and
-  `PUBLIC_BASE_URL` were set on the Vercel project (all three targets) from the
-  Doppler `dev` values, so production has the working ScraperAPI setup rather
-  than nothing. These are hand-set on Vercel and will be superseded the moment
-  a real Doppler sync exists — that is the intended end state, not this one.
+- **✅ Doppler → Vercel syncs, as of 2026-08-10.** The sync was created by hand
+  in the Doppler dashboard and has run. **Doppler `dev` is now the source of
+  truth for this project's configuration** — edit there, then redeploy, because
+  Vercel injects environment variables at build/boot rather than per request.
+  Getting here took two corrections worth remembering. The integration
+  (`icfg_aMeJc62QWO3IQhXzNK4GeaH5`, slug `doppler`, all projects) had been
+  installed since April and had never run: installing an integration is not the
+  same as creating a sync, and nothing on the project carried its
+  `configurationId`. And an agent cannot create the sync — `POST
+/v3/configs/config/syncs` answers `403 "You do not have access to use this
+integration."` even with the right integration UUID, because a Doppler
+  service token is scoped to one config by design. That step is a human's.
+- **The agent no longer has Vercel API access.** `VERCEL_TOKEN` was added to
+  Doppler `dev` to do the audit and cleanup, then removed once the sync existed
+  — correctly, since a Doppler config syncs wholesale and an agent's operational
+  credential has no business becoming an application environment variable. A
+  future session that needs to audit Vercel needs a fresh token put there
+  temporarily and taken out again.
+- **Unverified: which Vercel environments the sync targets.** The variables it
+  replaced were set for `production`, `preview` and `development`; a Doppler
+  sync targets the environments chosen when it was created. If preview
+  deployments start failing on missing configuration, that is the first thing
+  to check.
+- **How Doppler `dev` got fit to be the source of truth.** It held placeholders
+  until 2026-08-10 — `JWT_SECRET` was **1 character**, against a ≥ 32
+  requirement that would have failed boot outright, and `DATABASE_URL` was 20 —
+  so a sync created before that would have overwritten production with junk.
+  The real `DATABASE_URL`, `JWT_SECRET` and `RESEND_API_KEY` were copied in by
+  hand, because Vercel returns ciphertext for `encrypted` variables and no tool
+  can read them out; `MAIL_FROM` was copied across from Vercel, where it is
+  `plain` and therefore readable.
+- **Vercel and Doppler `dev` hold the same 11 variables**, and the sync keeps
+  them that way. Vercel went 23 → 11: sixteen Supabase-integration variables
+  were deleted (eleven read by no code, including two unused high-privilege
+  credentials; three `NEXT_PUBLIC_SUPABASE_*`, which are Next.js naming in a
+  **Vite** app and duplicates of the `SUPABASE_*` trio besides; and
+  `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING`, which _are_ read as
+  `DATABASE_URL` fallbacks and point at the IPv6-only direct host Vercel cannot
+  reach — a live footgun the moment `DATABASE_URL` is unset
+  ([ADR 0012](adr/0012-session-pooler-for-the-database-url.md))). The Manus
+  OAuth pair went too: `getLoginUrl()` is exported and never called, so no UI
+  path has ever reached the portal.
+  **The Supabase integration is still installed with `projectSelection: "all"`,
+  so it may re-create its sixteen.** If they reappear, restrict or uninstall it
+  for this project.
+  **The dead OAuth code is still present** — `oauth.ts`, `OAuthService` in
+  `sdk.ts`, `getLoginUrl` — and is a good follow-up. It was left out on purpose:
+  `sdk.ts` also carries the live session path, and `getUserInfoWithJwt` sits on
+  it, so removing the variables is safe while removing the code deserves its own
+  review.
 - **⚠️ The agent Doppler token is read/write, and should not be.** The service
   token issued for agent sessions ("Claude Dev", `dev`-scoped) accepts writes —
   a `POST /v3/configs/config/secrets` succeeds. Nothing an agent does in a

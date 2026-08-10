@@ -113,35 +113,36 @@ Doppler then pushes changes automatically; Vercel environment variables are neve
 edited by hand. Redeploy for a change to take effect — Vercel injects env vars at
 build/boot, not per request.
 
-**Production does not match that yet.** The Doppler integration _is_ installed
-on the Vercel team (`icfg_aMeJc62QWO3IQhXzNK4GeaH5`, all projects, holding
-`read-write:project-env-vars`) — but its `updatedAt` equals its `createdAt` and
-no variable on `trip-harmony` carries its `configurationId`, so it has never
-run. Installing the integration is not the same as creating a **sync**; the sync
-is made per Doppler config, in the Doppler dashboard. Until one exists, every
-Vercel variable is hand-set and Doppler is the source of truth by intention
-only.
+**This is live as of 2026-08-10.** The sync from Doppler `dev` runs, so Doppler
+is the source of truth for this project in practice and not just by intention.
+Edit there, then redeploy — Vercel injects environment variables at build/boot,
+not per request.
 
-Creating it is a human's job. A Doppler **service token** — including the one
-agent sessions hold — is scoped to a single config and cannot attach an
-integration: `POST /v3/configs/config/syncs` answers
-`403 "You do not have access to use this integration."` even with the correct
-integration UUID. Use dashboard.doppler.com → the config → **Sync** → Vercel,
-or a token with workplace-level integration access.
+It took a while to get here, and the reasons are worth keeping:
 
-Two things to know before creating one:
-
+- **Installing the integration is not creating a sync.** The Doppler
+  integration (`icfg_aMeJc62QWO3IQhXzNK4GeaH5`, all projects) had been
+  installed since April and had never run. Its `updatedAt` still equalled its
+  `createdAt`, and no variable on the project carried its `configurationId`.
+  The sync is a separate, per-config step.
+- **An agent cannot create one.** A Doppler **service token** — including the
+  one agent sessions hold — is scoped to a single config and cannot attach an
+  integration: `POST /v3/configs/config/syncs` answers
+  `403 "You do not have access to use this integration."` even with the correct
+  integration UUID. Use dashboard.doppler.com → the config → **Sync** → Vercel.
 - **Doppler pushes the whole config.** Anything in it lands on Vercel, including
-  variables the app never reads — `VERCEL_TOKEN`, for instance, which exists for
-  agent sessions rather than for the app.
-- **`APP_ENV` must not be in the config.** It was deleted for exactly this
-  reason: a value of `development` synced into Production would tell the server
+  variables the app never reads. `VERCEL_TOKEN` was in `dev` while an agent
+  audited the Vercel project, and was removed once the sync existed — an
+  operational credential should not become an application environment variable
+  just because it shared a config.
+- **`APP_ENV` must not be in a synced config.** It was deleted for exactly this
+  reason: a value of `development` pushed into Production would tell the server
   it is a development environment. `resolveAppEnv()` reads `VERCEL_ENV` and gets
   both right without it.
 
-Do not enable a sync from a config holding placeholder values. Doppler `dev`
+Never enable a sync from a config holding placeholder values. Doppler `dev`
 held a 1-character `JWT_SECRET` until 2026-08-10; syncing that to Production
-would have failed boot outright, since a deployed environment requires ≥ 32
+would have failed boot outright, since a deployed environment requires >= 32
 characters. Compare lengths before you connect anything.
 
 ## Variables
