@@ -113,15 +113,29 @@ Doppler then pushes changes automatically; Vercel environment variables are neve
 edited by hand. Redeploy for a change to take effect — Vercel injects env vars at
 build/boot, not per request.
 
-**Production does not fully match that today.** `DATABASE_URL` is set directly
-on the Vercel project — it carries no `configurationId`, so no integration owns
-it — and it was last changed there by hand, on 2026-08-08, to bring production
-back up ([ADR 0012](../adr/0012-session-pooler-for-the-database-url.md)). The
-`POSTGRES_*` and `SUPABASE_*` variables do come from an integration, Supabase's
-rather than Doppler's. Until that is reconciled (tracked in
-[ROADMAP.md](../ROADMAP.md)), changing the production database URL in Doppler
-alone will not reach Vercel, and the next deploy will keep using the value held
-there. Change it in both, or finish the migration to Doppler.
+**Production does not match that yet.** The Doppler integration _is_ installed
+on the Vercel team (`icfg_aMeJc62QWO3IQhXzNK4GeaH5`, all projects, holding
+`read-write:project-env-vars`) — but its `updatedAt` equals its `createdAt` and
+no variable on `trip-harmony` carries its `configurationId`, so it has never
+run. Installing the integration is not the same as creating a **sync**; the sync
+is made per Doppler config, in the Doppler dashboard. Until one exists, every
+Vercel variable is hand-set and Doppler is the source of truth by intention
+only.
+
+Two things to know before creating one:
+
+- **Doppler pushes the whole config.** Anything in it lands on Vercel, including
+  variables the app never reads — `VERCEL_TOKEN`, for instance, which exists for
+  agent sessions rather than for the app.
+- **`APP_ENV` must not be in the config.** It was deleted for exactly this
+  reason: a value of `development` synced into Production would tell the server
+  it is a development environment. `resolveAppEnv()` reads `VERCEL_ENV` and gets
+  both right without it.
+
+Do not enable a sync from a config holding placeholder values. Doppler `dev`
+held a 1-character `JWT_SECRET` until 2026-08-10; syncing that to Production
+would have failed boot outright, since a deployed environment requires ≥ 32
+characters. Compare lengths before you connect anything.
 
 ## Variables
 
@@ -148,17 +162,17 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Optional — the app runs without them
 
-| Variable                                                        | Missing behaviour                                                                                                                                                                     |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_INTEGRATIONS_GEMINI_API_KEY`                                | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected. **The key alone turns AI on** — see below                          |
-| `AI_INTEGRATIONS_GEMINI_BASE_URL`                               | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                            |
-| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`              | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                         |
-| `AI_ENABLED`, `SCRAPER_ENABLED`                                 | Kill switches, independent of the keys. Empty or unset means **on**; only `0`/`false`/`no`/`off`/`disabled` turns one off — see below                                                 |
-| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                  | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                    |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                        |
-| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                      | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel |
-| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                     | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                                                       |
-| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`              | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                  |
+| Variable                                                        | Missing behaviour                                                                                                                                                                              |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_INTEGRATIONS_GEMINI_API_KEY`                                | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected. **The key alone turns AI on** — see below                                   |
+| `AI_INTEGRATIONS_GEMINI_BASE_URL`                               | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                                     |
+| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`              | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                                  |
+| `AI_ENABLED`, `SCRAPER_ENABLED`                                 | Kill switches, independent of the keys. Empty or unset means **on**; only `0`/`false`/`no`/`off`/`disabled` turns one off — see below                                                          |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                  | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                             |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                                 |
+| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                      | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel          |
+| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                     | **Unset everywhere since 2026-08-10, and should stay that way.** `getLoginUrl()` is never called, so no UI path reaches the Manus portal; email, magic-link and passkey sign-in are unaffected |
+| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`              | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                           |
 
 `GET /api/health` reports which of these are configured, without revealing
 values. It names the variable each one came from rather than echoing anything:

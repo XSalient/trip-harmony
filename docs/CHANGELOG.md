@@ -8,6 +8,41 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-10 — Doppler and Vercel finally agree, and AI is configured
+
+### Fixed
+
+- **AI works.** `AI_INTEGRATIONS_GEMINI_API_KEY` had never been set in any
+  environment — not on Vercel under any name, not in Doppler. It is now in
+  both, so the referee, natural-language date parsing, listing-URL import and
+  match analysis have a provider for the first time.
+- **`MAIL_FROM` in Doppler was a single control character.** Copied across from
+  Vercel, where it is a `plain` variable and therefore readable — unlike the
+  `encrypted` ones, which the API only ever returns as ciphertext.
+
+### Removed
+
+- **`APP_ENV` is gone from Doppler.** It said `development`, and Doppler pushes
+  a whole config, so a `dev` → Production sync would have told the production
+  server it was a development environment — relaxed validation, debug logging,
+  development cookie settings. `resolveAppEnv()` already derives it from
+  `VERCEL_ENV` and gets local and deployed right unaided, so the variable was
+  not merely wrong in one place, it was unnecessary in all of them.
+- **The Manus OAuth pair, `OAUTH_SERVER_URL` and `VITE_OAUTH_PORTAL_URL`.**
+  `getLoginUrl()` is exported from `client/src/const.ts` and never called, so no
+  UI path has ever reached the portal, and `OAUTH_SERVER_URL` only fed a
+  `/api/oauth/callback` route nothing links to. `/api/health` now says
+  `oauth: disabled`, which is accurate rather than a regression. The code is
+  still present and is a good follow-up; it was left alone here because
+  `sdk.ts` also carries the live session path.
+
+### Changed
+
+- **Vercel and Doppler `dev` now hold the same 11 variables**, with no
+  duplicates on either side. Vercel went 23 → 11 across the two passes.
+
+---
+
 ## 2026-08-10 — Kill switches, and a Vercel environment with 16 variables nobody read
 
 ### Added
