@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import AppShell from "@/components/AppShell";
+import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
@@ -613,383 +614,388 @@ export default function TripAccommodations() {
           </Link>
         )}
 
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Compare accommodations and vote on your favorites
-            </p>
-            {lockedAccommodations.length > 0 && (
-              <p className="text-xs text-primary font-medium mt-0.5">
-                {lockedAccommodations.length} finalised ·{" "}
-                {lockedAccommodations.map((a: any) => a.name).join(", ")}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {/* One pass over every stay, at a moment someone chose. This is
-                what saving preferences used to do six times over by itself. */}
-            {isAdmin && (accommodations?.length ?? 0) > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-lg gap-1 text-xs h-8"
-                onClick={handleAnalyseAll}
-                disabled={analysingAll}
-              >
-                {analysingAll ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Brain className="h-3.5 w-3.5" />
-                )}
-                {analysingAll ? "Analysing…" : "Analyse all"}
-              </Button>
-            )}
-            {isAdmin && lockedAccommodations.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-lg gap-1 text-xs h-8"
-                onClick={handleDeselect}
-                disabled={unlockAllMutation.isPending}
-              >
-                <Unlock className="h-3.5 w-3.5" /> Unlock all
-              </Button>
-            )}
-            <Dialog
-              open={addOpen}
-              onOpenChange={open => {
-                setAddOpen(open);
-                if (!open) resetForm();
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button size="sm" className="rounded-lg gap-1">
-                  <Plus className="h-4 w-4" /> Add
+        <ScreenHeader
+          subtitle="Compare accommodations and vote on your favorites"
+          highlight={
+            lockedAccommodations.length > 0
+              ? `${lockedAccommodations.length} finalised · ${lockedAccommodations
+                  .map((a: any) => a.name)
+                  .join(", ")}`
+              : undefined
+          }
+          actions={
+            <>
+              {/* One pass over every stay, at a moment someone chose. This is
+                  what saving preferences used to do six times over by itself. */}
+              {isAdmin && (accommodations?.length ?? 0) > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg gap-1 text-xs h-8"
+                  onClick={handleAnalyseAll}
+                  disabled={analysingAll}
+                >
+                  {analysingAll ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Brain className="h-3.5 w-3.5" />
+                  )}
+                  {analysingAll ? "Analysing…" : "Analyse all"}
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-sm rounded-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add Accommodation</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  {/* URL auto-fill */}
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-1.5">
-                      <Link2 className="h-3.5 w-3.5" /> Listing URL (optional)
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="https://airbnb.com/rooms/..."
-                        value={urlInput}
-                        onChange={e => setUrlInput(e.target.value)}
-                        className="rounded-lg flex-1 text-sm"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg shrink-0"
-                        onClick={handleFetchFromUrl}
-                        disabled={!urlInput.trim() || urlFetching}
-                      >
-                        {urlFetching ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Paste a booking URL and we'll try to fill in the details
-                      automatically
-                    </p>
-
-                    {/* Booking.com and friends refuse our server but not your
-                        browser: copying the page you can already see is the
-                        only way the price ever reaches this form. */}
-                    {pasteOpen && (
-                      <div className="rounded-lg border border-dashed p-2.5 space-y-2">
-                        <div className="flex items-start gap-1.5">
-                          <ClipboardList className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <p className="text-[11px] text-muted-foreground leading-relaxed">
-                            This site won't let our server read the page.{" "}
-                            <a
-                              href={urlInput.trim()}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="underline underline-offset-2"
-                            >
-                              Open the listing
-                            </a>
-                            , select all (Ctrl/⌘ + A), copy, and paste it below
-                            — your browser isn't blocked, so this gets the
-                            price, beds and amenities too.
-                          </p>
-                        </div>
-                        <Textarea
-                          placeholder="Paste the copied listing page here…"
-                          value={pasteText}
-                          onChange={e => setPasteText(e.target.value)}
-                          rows={3}
-                          className="rounded-lg resize-none text-xs"
+              )}
+              {isAdmin && lockedAccommodations.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg gap-1 text-xs h-8"
+                  onClick={handleDeselect}
+                  disabled={unlockAllMutation.isPending}
+                >
+                  <Unlock className="h-3.5 w-3.5" /> Unlock all
+                </Button>
+              )}
+              <Dialog
+                open={addOpen}
+                onOpenChange={open => {
+                  setAddOpen(open);
+                  if (!open) resetForm();
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button size="sm" className="rounded-lg gap-1">
+                    <Plus className="h-4 w-4" /> Add
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-sm rounded-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add Accommodation</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    {/* URL auto-fill */}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5">
+                        <Link2 className="h-3.5 w-3.5" /> Listing URL (optional)
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="https://airbnb.com/rooms/..."
+                          value={urlInput}
+                          onChange={e => setUrlInput(e.target.value)}
+                          className="rounded-lg flex-1 text-sm"
                         />
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-lg w-full gap-1.5"
-                          onClick={handleReadPastedPage}
-                          disabled={!pasteText.trim() || urlFetching}
+                          className="rounded-lg shrink-0"
+                          onClick={handleFetchFromUrl}
+                          disabled={!urlInput.trim() || urlFetching}
                         >
                           {urlFetching ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Paste a booking URL and we'll try to fill in the details
+                        automatically
+                      </p>
+
+                      {/* Booking.com and friends refuse our server but not your
+                        browser: copying the page you can already see is the
+                        only way the price ever reaches this form. */}
+                      {pasteOpen && (
+                        <div className="rounded-lg border border-dashed p-2.5 space-y-2">
+                          <div className="flex items-start gap-1.5">
+                            <ClipboardList className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              This site won't let our server read the page.{" "}
+                              <a
+                                href={urlInput.trim()}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="underline underline-offset-2"
+                              >
+                                Open the listing
+                              </a>
+                              , select all (Ctrl/⌘ + A), copy, and paste it
+                              below — your browser isn't blocked, so this gets
+                              the price, beds and amenities too.
+                            </p>
+                          </div>
+                          <Textarea
+                            placeholder="Paste the copied listing page here…"
+                            value={pasteText}
+                            onChange={e => setPasteText(e.target.value)}
+                            rows={3}
+                            className="rounded-lg resize-none text-xs"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg w-full gap-1.5"
+                            onClick={handleReadPastedPage}
+                            disabled={!pasteText.trim() || urlFetching}
+                          >
+                            {urlFetching ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3.5 w-3.5" />
+                            )}
+                            Read pasted page
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t pt-3 space-y-3">
+                      <div className="space-y-1.5">
+                        <Label>Name</Label>
+                        <Input
+                          placeholder="e.g., Beachfront Villa"
+                          value={form.name}
+                          onChange={e => updateForm("name", e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Description</Label>
+                        <Textarea
+                          placeholder="What makes this special?"
+                          value={form.description}
+                          onChange={e =>
+                            updateForm("description", e.target.value)
+                          }
+                          rows={2}
+                          className="rounded-lg resize-none"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Image URL</Label>
+                        <Input
+                          placeholder="https://..."
+                          value={form.imageUrl}
+                          onChange={e => updateForm("imageUrl", e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+
+                      {/* Pricing */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>Price/Night ({currency})</Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={form.pricePerNight}
+                            onChange={e =>
+                              updateForm("pricePerNight", e.target.value)
+                            }
+                            className="rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Total Price ({currency})</Label>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={form.totalPrice}
+                            onChange={e =>
+                              updateForm("totalPrice", e.target.value)
+                            }
+                            className="rounded-lg"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Rooms */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Rooms</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Single/Twin Beds</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.singleBeds}
+                              onChange={e =>
+                                updateForm("singleBeds", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Double/Queen Beds</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.doubleBeds}
+                              onChange={e =>
+                                updateForm("doubleBeds", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Bedrooms total</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.bedrooms}
+                              onChange={e =>
+                                updateForm("bedrooms", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Full Bathrooms</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.bathrooms}
+                              onChange={e =>
+                                updateForm("bathrooms", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">
+                              Standalone Toilets
+                            </Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.toilets}
+                              onChange={e =>
+                                updateForm("toilets", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Ensuites</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.ensuites}
+                              onChange={e =>
+                                updateForm("ensuites", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Parking */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Parking</p>
+                        <div className="flex items-center justify-between py-1">
+                          <Label className="text-sm font-normal flex items-center gap-2">
+                            <Car className="h-4 w-4" /> Free Parking
+                          </Label>
+                          <Switch
+                            checked={form.freeParking}
+                            onCheckedChange={v => updateForm("freeParking", v)}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between py-1">
+                          <Label className="text-sm font-normal flex items-center gap-2">
+                            <Car className="h-4 w-4" /> Camper/RV Parking
+                          </Label>
+                          <Switch
+                            checked={form.camperParking}
+                            onCheckedChange={v =>
+                              updateForm("camperParking", v)
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      {/* Location & Link */}
+                      <div className="space-y-1.5">
+                        <Label>Location</Label>
+                        <Input
+                          placeholder="Address or area"
+                          value={form.location}
+                          onChange={e => updateForm("location", e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Booking Link</Label>
+                        <Input
+                          placeholder="https://..."
+                          value={form.link}
+                          onChange={e => updateForm("link", e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+
+                      {/* Amenities */}
+                      <div className="space-y-1.5">
+                        <Label>Amenities (comma separated)</Label>
+                        <Input
+                          placeholder="WiFi, Pool, Kitchen..."
+                          value={form.amenities}
+                          onChange={e =>
+                            updateForm("amenities", e.target.value)
+                          }
+                          className="rounded-lg"
+                        />
+                      </div>
+
+                      {/* Natural language preferences */}
+                      <div className="space-y-2 border-t pt-3">
+                        <Label className="flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />{" "}
+                          Describe preferences in plain language
+                        </Label>
+                        <Textarea
+                          placeholder="e.g., 2 single beds and 1 double bed, 2 separate toilets, ensuite master bedroom, microwave, free parking"
+                          value={nlPrefsText}
+                          onChange={e => setNlPrefsText(e.target.value)}
+                          rows={3}
+                          className="rounded-lg resize-none text-sm"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full rounded-lg gap-2"
+                          onClick={handleParseNlPrefs}
+                          disabled={!nlPrefsText.trim() || nlParsing}
+                        >
+                          {nlParsing ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Sparkles className="h-3.5 w-3.5" />
                           )}
-                          Read pasted page
+                          {nlParsing ? "Parsing..." : "Apply Preferences"}
                         </Button>
+                        <p className="text-[11px] text-muted-foreground">
+                          AI will map your description to the form fields above
+                        </p>
                       </div>
-                    )}
+                    </div>
+
+                    <Button
+                      onClick={handleCreate}
+                      className="w-full rounded-lg"
+                      disabled={createMutation.isPending}
+                    >
+                      {createMutation.isPending
+                        ? "Adding..."
+                        : "Add Accommodation"}
+                    </Button>
                   </div>
-
-                  <div className="border-t pt-3 space-y-3">
-                    <div className="space-y-1.5">
-                      <Label>Name</Label>
-                      <Input
-                        placeholder="e.g., Beachfront Villa"
-                        value={form.name}
-                        onChange={e => updateForm("name", e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Description</Label>
-                      <Textarea
-                        placeholder="What makes this special?"
-                        value={form.description}
-                        onChange={e =>
-                          updateForm("description", e.target.value)
-                        }
-                        rows={2}
-                        className="rounded-lg resize-none"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Image URL</Label>
-                      <Input
-                        placeholder="https://..."
-                        value={form.imageUrl}
-                        onChange={e => updateForm("imageUrl", e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-
-                    {/* Pricing */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label>Price/Night ({currency})</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={form.pricePerNight}
-                          onChange={e =>
-                            updateForm("pricePerNight", e.target.value)
-                          }
-                          className="rounded-lg"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Total Price ({currency})</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          value={form.totalPrice}
-                          onChange={e =>
-                            updateForm("totalPrice", e.target.value)
-                          }
-                          className="rounded-lg"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Rooms */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Rooms</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Single/Twin Beds</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.singleBeds}
-                            onChange={e =>
-                              updateForm("singleBeds", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Double/Queen Beds</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.doubleBeds}
-                            onChange={e =>
-                              updateForm("doubleBeds", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Bedrooms total</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.bedrooms}
-                            onChange={e =>
-                              updateForm("bedrooms", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Full Bathrooms</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.bathrooms}
-                            onChange={e =>
-                              updateForm("bathrooms", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Standalone Toilets</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.toilets}
-                            onChange={e =>
-                              updateForm("toilets", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Ensuites</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.ensuites}
-                            onChange={e =>
-                              updateForm("ensuites", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Parking */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Parking</p>
-                      <div className="flex items-center justify-between py-1">
-                        <Label className="text-sm font-normal flex items-center gap-2">
-                          <Car className="h-4 w-4" /> Free Parking
-                        </Label>
-                        <Switch
-                          checked={form.freeParking}
-                          onCheckedChange={v => updateForm("freeParking", v)}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between py-1">
-                        <Label className="text-sm font-normal flex items-center gap-2">
-                          <Car className="h-4 w-4" /> Camper/RV Parking
-                        </Label>
-                        <Switch
-                          checked={form.camperParking}
-                          onCheckedChange={v => updateForm("camperParking", v)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Location & Link */}
-                    <div className="space-y-1.5">
-                      <Label>Location</Label>
-                      <Input
-                        placeholder="Address or area"
-                        value={form.location}
-                        onChange={e => updateForm("location", e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>Booking Link</Label>
-                      <Input
-                        placeholder="https://..."
-                        value={form.link}
-                        onChange={e => updateForm("link", e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-
-                    {/* Amenities */}
-                    <div className="space-y-1.5">
-                      <Label>Amenities (comma separated)</Label>
-                      <Input
-                        placeholder="WiFi, Pool, Kitchen..."
-                        value={form.amenities}
-                        onChange={e => updateForm("amenities", e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-
-                    {/* Natural language preferences */}
-                    <div className="space-y-2 border-t pt-3">
-                      <Label className="flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-primary" />{" "}
-                        Describe preferences in plain language
-                      </Label>
-                      <Textarea
-                        placeholder="e.g., 2 single beds and 1 double bed, 2 separate toilets, ensuite master bedroom, microwave, free parking"
-                        value={nlPrefsText}
-                        onChange={e => setNlPrefsText(e.target.value)}
-                        rows={3}
-                        className="rounded-lg resize-none text-sm"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full rounded-lg gap-2"
-                        onClick={handleParseNlPrefs}
-                        disabled={!nlPrefsText.trim() || nlParsing}
-                      >
-                        {nlParsing ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Sparkles className="h-3.5 w-3.5" />
-                        )}
-                        {nlParsing ? "Parsing..." : "Apply Preferences"}
-                      </Button>
-                      <p className="text-[11px] text-muted-foreground">
-                        AI will map your description to the form fields above
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleCreate}
-                    className="w-full rounded-lg"
-                    disabled={createMutation.isPending}
-                  >
-                    {createMutation.isPending
-                      ? "Adding..."
-                      : "Add Accommodation"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+                </DialogContent>
+              </Dialog>
+            </>
+          }
+        />
 
         {isLoading ? (
           <div className="space-y-3">

@@ -12,7 +12,20 @@
  * Everything here is pure. Nothing in this file makes a request.
  */
 
-export type ScraperAuthPlacement = "query" | "header" | "body";
+/**
+ * Where the key goes. `basic` is HTTP Basic with the key as the username and an
+ * empty password, which is how Zyte and several enterprise unblockers
+ * authenticate — without it those vendors would need a code change, which is
+ * the one thing this file exists to prevent.
+ */
+export type ScraperAuthPlacement = "query" | "header" | "body" | "basic";
+
+const AUTH_PLACEMENTS: readonly ScraperAuthPlacement[] = [
+  "query",
+  "header",
+  "body",
+  "basic",
+];
 
 /** The five blanks, filled. */
 type ScraperPreset = {
@@ -84,6 +97,42 @@ const PRESETS: Record<string, ScraperPreset> = {
     htmlPath: "result.content",
     finalUrlPath: "result.url",
   },
+  scrapingant: {
+    endpoint: "https://api.scrapingant.com/v2/general",
+    method: "GET",
+    auth: { placement: "query", param: "x-api-key" },
+    urlParam: "url",
+    renderParam: "browser",
+  },
+  scrapingdog: {
+    endpoint: "https://api.scrapingdog.com/scrape",
+    method: "GET",
+    auth: { placement: "query", param: "api_key" },
+    urlParam: "url",
+    renderParam: "dynamic",
+  },
+  crawlbase: {
+    endpoint: "https://api.crawlbase.com/",
+    method: "GET",
+    auth: { placement: "query", param: "token" },
+    urlParam: "url",
+  },
+  /**
+   * Basic auth with the key as the username, a JSON body, and the page under
+   * `browserHtml`. Note that `browserHtml` is both the request flag and the
+   * reply field: with `SCRAPER_RENDER_JS=false` Zyte returns no HTML at all,
+   * so leave rendering on for this vendor or set `SCRAPER_HTML_PATH` and
+   * `SCRAPER_RENDER_PARAM` to whichever of its other outputs you want.
+   */
+  zyte: {
+    endpoint: "https://api.zyte.com/v1/extract",
+    method: "POST",
+    auth: { placement: "basic", param: "" },
+    urlParam: "url",
+    renderParam: "browserHtml",
+    htmlPath: "browserHtml",
+    statusPath: "statusCode",
+  },
   /** Nothing assumed: every field comes from the environment. */
   custom: {
     endpoint: "",
@@ -93,13 +142,44 @@ const PRESETS: Record<string, ScraperPreset> = {
   },
 };
 
-/** The same service, spelled the way whoever set the variable spells it. */
+/**
+ * The same service, spelled the way whoever set the variable spells it.
+ * Keys are already canonicalised — see `canonicalise`.
+ */
 const ALIASES: Record<string, string> = {
   scrapeowl: "scrapingowl",
+  scrapebee: "scrapingbee",
+  scrapingapi: "scraperapi",
+  scrapedog: "scrapingdog",
+  scrapeant: "scrapingant",
+  proxycrawl: "crawlbase",
 };
 
-const canonicalise = (name: string) =>
-  name.toLowerCase().replace(/[^a-z]/g, "");
+/** Suffixes that are part of a hostname rather than part of the vendor's name. */
+const HOST_SUFFIXES =
+  /\.(com|net|org|io|co|ai|dev|app|cloud|tech|sh|xyz)(\.[a-z]{2})?$/;
+
+/**
+ * A provider name, reduced to the vendor.
+ *
+ * Whoever fills this variable in has the vendor's dashboard open, so what they
+ * type is whatever the vendor calls itself there: `ScraperAPI`, `scraperapi`,
+ * `scraperapi.com`, or the endpoint they were just given. Every one of those
+ * names the same service, and rejecting all but one spelling turned a working
+ * key into "that site blocked us" with nothing in the logs to say why.
+ *
+ * So: a URL is reduced to its host, a host loses `api.`/`www.`/`app.` and its
+ * public suffix, and what remains is stripped to letters.
+ */
+export function canonicalise(name: string): string {
+  let text = name.trim().toLowerCase();
+  // A URL, or something with a path: keep the authority.
+  text = text.replace(/^[a-z][a-z0-9+.-]*:\/\//, "").split(/[/?#]/)[0];
+  text = text.replace(/:\d+$/, "");
+  text = text.replace(/^(api|www|app|proxy)\./, "");
+  text = text.replace(HOST_SUFFIXES, "");
+  return text.replace(/[^a-z]/g, "");
+}
 
 export function listScraperPresets(): string[] {
   return Object.keys(PRESETS);
@@ -114,6 +194,8 @@ export type ScraperSettings = {
   urlParam?: string;
   apiKeyParam?: string;
   apiKeyIn?: string;
+  /** What this vendor calls "run the page's JavaScript"; `none` if it has none. */
+  renderParam?: string;
   /** `a=b&c=d`, or a JSON object when a value needs characters a query mangles. */
   params?: string;
   htmlPath?: string;
@@ -158,26 +240,35 @@ function parseParams(raw: string | undefined): Record<string, unknown> {
 
 /**
  * The configured provider, or null when the fallback is simply switched off.
- * Throws only for a configuration that cannot be honoured — a name with no
- * preset, or a custom service with nowhere to send the request. Better to fail
- * loudly at the first import than to post an API key at a guessed endpoint.
+ *
+ * Throws only for a configuration that cannot be honoured: a name nobody has a
+ * preset for **and** no `SCRAPER_ENDPOINT` to send the request to. A name we
+ * don't recognise but an endpoint we were given is not an error — it is a
+ * vendor that launched after this file was last edited, and it works without a
+ * deploy of ours. What is never guessed is the endpoint: posting a live API key
+ * at an address nobody supplied is the one failure worth stopping for.
  */
 export function resolveScraperProvider(
   settings: ScraperSettings
 ): ScraperProvider | null {
   const requested = settings.provider?.trim();
-  if (!requested || canonicalise(requested) === "none") return null;
+  const explicitEndpoint = settings.endpoint?.trim() ?? "";
+
+  // No provider named, but an endpoint given, is a complete description of a
+  // service — take it rather than insisting on a label for it.
+  if (!requested && !explicitEndpoint) return null;
+  if (requested && canonicalise(requested) === "none") return null;
   if (!settings.apiKey?.trim()) return null;
 
-  const key = canonicalise(requested);
+  const key = requested ? canonicalise(requested) : "custom";
   const name = ALIASES[key] ?? key;
-  const preset = PRESETS[name];
+  const preset = PRESETS[name] ?? (explicitEndpoint ? PRESETS.custom : null);
   if (!preset)
     throw new Error(
-      `SCRAPER_PROVIDER="${requested}" is not a known service. Use one of ${listScraperPresets().join(", ")} — "custom" plus SCRAPER_ENDPOINT describes any other.`
+      `SCRAPER_PROVIDER="${requested}" is not a known service. Use one of ${listScraperPresets().join(", ")}, or set SCRAPER_ENDPOINT to describe any other service directly.`
     );
 
-  const endpoint = settings.endpoint?.trim() || preset.endpoint;
+  const endpoint = explicitEndpoint || preset.endpoint;
   if (!endpoint)
     throw new Error(
       `SCRAPER_PROVIDER="${requested}" has no built-in endpoint; set SCRAPER_ENDPOINT.`
@@ -191,8 +282,10 @@ export function resolveScraperProvider(
 
   const placement = (settings.apiKeyIn?.trim().toLowerCase() ||
     preset.auth.placement) as ScraperAuthPlacement;
-  if (!["query", "header", "body"].includes(placement))
-    throw new Error("SCRAPER_API_KEY_IN must be query, header or body");
+  if (!AUTH_PLACEMENTS.includes(placement))
+    throw new Error(
+      `SCRAPER_API_KEY_IN must be one of ${AUTH_PLACEMENTS.join(", ")}`
+    );
 
   return {
     name,
@@ -204,7 +297,11 @@ export function resolveScraperProvider(
     },
     apiKey: settings.apiKey.trim(),
     urlParam: settings.urlParam?.trim() || preset.urlParam,
-    renderParam: preset.renderParam,
+    // `none` switches rendering off at the wire rather than sending `false` to
+    // a vendor that has no such flag and would reject the unknown parameter.
+    renderParam: /^(none|-)$/i.test(settings.renderParam?.trim() ?? "")
+      ? undefined
+      : settings.renderParam?.trim() || preset.renderParam,
     params: { ...(preset.params ?? {}), ...parseParams(settings.params) },
     // `none` is how an operator says "the body is already the page" on a
     // preset that expects an envelope; an unset variable keeps the preset's.
@@ -243,9 +340,17 @@ export function buildScrapeRequest(
   if (provider.renderParam) fields[provider.renderParam] = renderJs;
 
   const headers: Record<string, string> = {};
-  if (provider.auth.placement === "header")
+  if (provider.auth.placement === "basic") {
+    // The key is the username and the password is empty — Zyte's scheme, and
+    // the usual one for vendors that authenticate at the transport rather than
+    // in a parameter.
+    const encoded = Buffer.from(`${provider.apiKey}:`).toString("base64");
+    headers.Authorization = `Basic ${encoded}`;
+  } else if (provider.auth.placement === "header") {
     headers[provider.auth.param] = provider.apiKey;
-  else fields[provider.auth.param] = provider.apiKey;
+  } else {
+    fields[provider.auth.param] = provider.apiKey;
+  }
 
   if (provider.method === "POST" && provider.auth.placement !== "query") {
     headers["Content-Type"] = "application/json";

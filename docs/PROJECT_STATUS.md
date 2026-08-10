@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 305 tests ✅ · production build ✅ (2026-08-10) ·
+- **Health:** typecheck ✅ · 334 tests ✅ · production build ✅ (2026-08-10) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -36,40 +36,49 @@ finish a piece of work — the next person (or agent) starts here.
   `activity_events` was created with RLS enabled and no grants for `anon` /
   `authenticated`, per ADR 0009 — Postgres has no default-on RLS, so every new
   table has to be closed explicitly.
-- **⚠️ Production has no AI provider configured.** `/api/health` reports
-  `"ai":"missing"`, so the referee, natural-language date parsing, match
-  analysis and **all listing-URL extraction** fail. Extraction is a model call:
-  reading the page is only half of it, and neither the scraper fallback nor the
-  paste box can work without a model. Set `AI_INTEGRATIONS_GEMINI_API_KEY` and
-  `AI_INTEGRATIONS_GEMINI_BASE_URL` on Vercel (or in Doppler `prd`, if that
-  integration is reconciled) and redeploy. Verified live on 2026-08-10 against
-  commit `4fba987`.
+- **⚠️ Production reports no AI provider, and one cause has been removed.**
+  `/api/health` reported `"ai":"missing"` on commit `0e55c5c`, so the referee,
+  natural-language date parsing, match analysis and **all listing-URL
+  extraction** fail. Extraction is a model call: reading the page is only half
+  of it, and neither the scraper fallback nor the paste box can work without a
+  model.
+  Part of this was a bug of ours — `config.ai.isConfigured` demanded a base URL
+  that Gemini does not need, so a correct key still read as missing. Fixed on
+  2026-08-10; the health summary now also names the variable the key came from
+  (`aiKeySource`).
+  **Only `AI_INTEGRATIONS_GEMINI_API_KEY` is required.** It is absent from the
+  Doppler `dev` config entirely, and `prd` could not be inspected from this
+  session. Set it in Doppler `prd` (and `dev`), confirm it reaches Vercel, and
+  re-check `/api/health` after a deploy — if it still says `missing`, the key is
+  genuinely not in the environment.
 - **Booking.com serves an AWS WAF challenge, not a 403.** HTTP `202` with an
   empty `<title>` and a `challenge.js`; `looksLikeBotCheck` catches it, which is
   why the ladder degrades rather than importing a captcha as a hotel. Airbnb, by
   contrast, answers a plain server-side fetch with full Open Graph and two
   JSON-LD blocks — measured 2026-08-10, so the scraper rung is for Booking and
   its peers, not for Airbnb, unless Vercel's egress IPs are treated differently.
-- **Listing import has an optional scraper rung. It is configured in `dev`, and
-  the vendor account is dead.** The `dev` Doppler config named the key
-  `SCRAPER_API_LET` (the schema says `SCRAPER_API_KEY`) and the provider
-  `scrapeowl.com` (not a preset — it is `scrapingowl`); both were corrected on
-  2026-08-10. `pnpm diagnose:url --check-scraper` now resolves
-  `{"enabled":true,"provider":"scrapingowl"}` and builds the right request, but
-  ScrapeOwl answers `HTTP 403 {"message":"Your trial expired on 04-07-2025"}`.
-  **The wiring is right and the key is worthless** — the rung needs a paid plan
-  or a different vendor before it does anything, and until then imports degrade
-  through URL hints, Google Places and the traveller's paste exactly as
-  [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md) describes.
-  It is a per-request bill, so switching it on is a deliberate choice
+- **The listing scraper rung works in `dev`, on ScraperAPI.** The `dev` Doppler
+  config holds `SCRAPER_PROVIDER=scraperapi.com` and a live key; verified
+  end-to-end on 2026-08-10 —
+  `{"enabled":true,"provider":"scraperapi","endpoint":"https://api.scraperapi.com/"}`,
+  `HTTP 200`, page extracted. (The earlier ScrapeOwl trial key was dead; that
+  vendor is no longer in the path.)
+  A domain like `scraperapi.com` used to be rejected as an unknown service;
+  since 2026-08-10 the provider name is reduced to the vendor first, so a
+  vendor's own spelling — name, alias, domain or endpoint URL — resolves, and a
+  vendor with no preset needs only `SCRAPER_ENDPOINT`. **Switching vendor is
+  configuration, never a code change**
   ([ADR 0013](adr/0013-optional-scraper-fallback-for-blocked-listings.md)).
-  `/api/health` reports which vendor — if any — is in the path.
-- **`stg` and `prd` scraper variables are unaudited.** The same two typos may
-  be in either; the `dev`-scoped token used to fix `dev` cannot see them
-  (`This token does not have access to requested config`). Check both with
-  `doppler secrets --only-names --config stg` from an account that can, looking
-  for `SCRAPER_API_LET` and for a `SCRAPER_PROVIDER` that is a domain rather
-  than a preset name.
+  It is a per-request bill, so switching it on stays a deliberate choice, and
+  imports degrade through URL hints, Google Places and the traveller's paste
+  when it is off, exactly as
+  [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md) describes.
+- **⚠️ Production has no scraper key.** `/api/health` on `0e55c5c` reported
+  `"scraper":"disabled"`, which now means one thing only: `SCRAPER_API_KEY` is
+  not set in that environment. Copy the `dev` values into Doppler `prd` (key and
+  provider) and confirm they reach Vercel. `stg` and `prd` could not be
+  inspected from this session — the agent token is `dev`-scoped
+  (`This token does not have access to requested config`).
 - **⚠️ The agent Doppler token is read/write, and should not be.** The service
   token issued for agent sessions ("Claude Dev", `dev`-scoped) accepts writes —
   a `POST /v3/configs/config/secrets` succeeds. Nothing an agent does in a

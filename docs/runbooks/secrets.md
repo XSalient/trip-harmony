@@ -148,17 +148,45 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Optional — the app runs without them
 
-| Variable                                                            | Missing behaviour                                                                                                                                                                     |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_INTEGRATIONS_GEMINI_API_KEY`, `AI_INTEGRATIONS_GEMINI_BASE_URL` | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected                                                                     |
-| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`                  | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                         |
-| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                      | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                    |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`     | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                        |
-| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                          | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel |
-| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                         | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                                                       |
-| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`                  | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                  |
+| Variable                                                        | Missing behaviour                                                                                                                                                                     |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_INTEGRATIONS_GEMINI_API_KEY`                                | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected. **The key alone turns AI on** — see below                          |
+| `AI_INTEGRATIONS_GEMINI_BASE_URL`                               | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                            |
+| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`              | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                         |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                  | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                    |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                        |
+| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                      | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel |
+| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                     | Legacy Manus portal stays disabled; email and magic-link sign-in are unaffected                                                                                                       |
+| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`              | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                  |
 
-`GET /api/health` reports which of these are configured, without revealing values.
+`GET /api/health` reports which of these are configured, without revealing
+values. It names the variable each one came from rather than echoing anything:
+`aiKeySource` says which of the two AI keys won, `databaseSource` which
+connection variable did, and `scraper` names the **resolved** vendor rather
+than the string somebody typed.
+
+## The AI provider
+
+`AI_INTEGRATIONS_GEMINI_API_KEY` is a Google Gemini API key
+(aistudio.google.com → Get API key). `server/_core/llm.ts` is the only thing
+that reads it: it calls `gemini-2.5-flash` through `@google/genai` for the
+referee, natural-language date parsing, listing-URL extraction and
+accommodation match analysis. Nothing else in the app needs it, and everything
+else works without it.
+
+**The key on its own is enough.** `AI_INTEGRATIONS_GEMINI_BASE_URL` is an
+override for pointing the SDK somewhere other than Google, and leaving it empty
+is the normal setup. Until 2026-08-10 `config.ai.isConfigured` demanded both,
+so a correct key was reported as `ai: missing` on `/api/health` and every
+listing-URL import was refused before it was attempted. If you see `ai: missing`
+now, the key is genuinely absent from that environment — check
+`doppler secrets --only-names --config prd`, and check that the value has
+actually reached Vercel.
+
+`BUILT_IN_FORGE_API_KEY` / `BUILT_IN_FORGE_API_URL` are the legacy Manus names
+and win when set. Forge does need its URL: image generation, voice
+transcription, the data API and owner notifications call that gateway directly
+and check for it themselves.
 
 ## The listing scraper fallback
 
@@ -170,57 +198,78 @@ that would otherwise have half-filled the form.
 [ADR-0013](../adr/0013-optional-scraper-fallback-for-blocked-listings.md)
 explains what it costs and why it is opt-in.
 
-Confirm the key and the endpoint in one command, before wondering about any
-particular listing site:
-
-```bash
-doppler run --config dev -- pnpm diagnose:url --check-scraper
-```
-
-It makes the vendor's own smoke-test request the way the app makes it, prints
-the status and the first 400 characters of the reply with the key redacted, and
-says whether the page was found where the preset expected it.
-
 `SCRAPER_API_KEY` is a secret: Doppler and Vercel only, and it is on the
-redaction list, so it never appears in a log line.
+redaction list, so it never appears in a log line. See
+[When it doesn't work](#when-it-doesnt-work) below for how to confirm a key and
+an endpoint in one command.
 
 The vendor is described by configuration rather than by code, because these
 services all make the same call under different names:
 
-| Variable                | Purpose                                                                                         |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| `SCRAPER_API_KEY`       | The vendor's key. The only variable the default setup needs                                     |
-| `SCRAPER_PROVIDER`      | `scrapingowl` (default) \| `scrapingbee` \| `scraperapi` \| `zenrows` \| `scrapfly` \| `custom` |
-| `SCRAPER_ENDPOINT`      | Overrides the preset's URL; **required** for `custom`                                           |
-| `SCRAPER_METHOD`        | `GET` or `POST`                                                                                 |
-| `SCRAPER_URL_PARAM`     | What the vendor calls the parameter holding the listing URL                                     |
-| `SCRAPER_API_KEY_PARAM` | What it calls the key, and `SCRAPER_API_KEY_IN` where it goes                                   |
-| `SCRAPER_PARAMS`        | Anything else, as `a=b&c=d` or a JSON object                                                    |
-| `SCRAPER_HTML_PATH`     | Dotted path to the HTML in a JSON reply; `none` when the body is the page                       |
-| `SCRAPER_RENDER_JS`     | Default `true`. Airbnb renders to nothing without it, and it costs more                         |
-| `SCRAPER_TIMEOUT_MS`    | Default `30000`                                                                                 |
-| `SCRAPER_HOSTS`         | Narrow the spend to these hosts; empty means any host that blocks us                            |
+| Variable                | Purpose                                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `SCRAPER_API_KEY`       | The vendor's key. The only variable the default setup needs                                         |
+| `SCRAPER_PROVIDER`      | Which vendor. A preset name, an alias, a domain or an endpoint URL — see below. `none` switches off |
+| `SCRAPER_ENDPOINT`      | Overrides the preset's URL; the one variable a vendor with no preset needs                          |
+| `SCRAPER_METHOD`        | `GET` or `POST`                                                                                     |
+| `SCRAPER_URL_PARAM`     | What the vendor calls the parameter holding the listing URL                                         |
+| `SCRAPER_API_KEY_PARAM` | What it calls the key, and `SCRAPER_API_KEY_IN` where it goes: `query`, `header`, `body` or `basic` |
+| `SCRAPER_RENDER_PARAM`  | What it calls "run the page's JavaScript"; `none` when it has no such flag                          |
+| `SCRAPER_PARAMS`        | Anything else, as `a=b&c=d` or a JSON object                                                        |
+| `SCRAPER_HTML_PATH`     | Dotted path to the HTML in a JSON reply; `none` when the body is the page                           |
+| `SCRAPER_RENDER_JS`     | Default `true`. Airbnb renders to nothing without it, and it costs more                             |
+| `SCRAPER_TIMEOUT_MS`    | Default `30000`                                                                                     |
+| `SCRAPER_HOSTS`         | Narrow the spend to these hosts; empty means any host that blocks us                                |
 
-**Switching vendor is these variables and nothing else** — the presets in
-`server/utils/scraper/providers.ts` are a convenience, not a contract we
-control. If a vendor renames a parameter or your plan uses a different
-endpoint, override the field rather than waiting for a code change. A provider
-name with no preset fails loudly at the first import rather than posting your
-key at a guessed endpoint.
+### Switching vendor
 
-**`SCRAPER_PROVIDER` is a preset name, not a vendor domain.** `scrapingowl` and
-its alias `scrapeowl` both resolve; `scrapeowl.com` does not, and neither does
-any other hostname — the name is lowercased and stripped to letters before the
-lookup, so the `.com` makes it a different, unknown service.
+**Two variables, no deploy of ours.** Put the new key in `SCRAPER_API_KEY` and
+the vendor in `SCRAPER_PROVIDER`, in whatever spelling the vendor's own
+dashboard uses — the name is reduced to the vendor before it is looked up, so
+all of these are the same service:
 
-Note the order these two variables fail in: no `SCRAPER_API_KEY` means the rung
-is **off**, and being off is checked first. So a misspelt key name — the dev
-config held `SCRAPER_API_LET` until 2026-08-10 — hides a bad `SCRAPER_PROVIDER`
-completely: imports quietly degrade as if the fallback had never been
-configured, and the provider name is never reached to be rejected. `--only-names`
-against each config catches the first mistake and `--check-scraper` catches the
-second; run both after any change here rather than trusting that a value was
-typed correctly.
+```
+scraperapi   ScraperAPI   scraper-api   scraperapi.com   https://api.scraperapi.com/
+```
+
+Presets ship for `scrapingowl` (alias `scrapeowl`), `scrapingbee`,
+`scraperapi`, `zenrows`, `scrapfly`, `scrapingant`, `scrapingdog`, `crawlbase`
+(alias `proxycrawl`) and `zyte`. They are a convenience, not a contract we
+control: if a vendor renames a parameter or your plan uses a different
+endpoint, override that one field rather than waiting for a code change.
+
+**A vendor with no preset needs no code change either.** Set `SCRAPER_ENDPOINT`
+and whichever of the field variables above differ from the common shape (key
+and target URL in the query string). The name is then only a label for the
+logs, and may be left empty. What is never guessed is the endpoint: a name we
+don't recognise with no endpoint to go with it is refused rather than having
+your key posted at an address nobody supplied.
+
+### When it doesn't work
+
+`/api/health` distinguishes three states, and they mean different things:
+
+| `scraper`       | Meaning                                                                  |
+| --------------- | ------------------------------------------------------------------------ |
+| `disabled`      | No `SCRAPER_API_KEY` in this environment. The rung is switched off       |
+| `misconfigured` | A key is set but the settings can't be honoured; `scraperError` says why |
+| a vendor name   | Live, and that is the vendor requests will go to                         |
+
+Before 2026-08-10 the middle state did not exist: an unusable provider name
+reported itself as `disabled`, so a paid-for key looked like a rung nobody had
+bothered to configure, and imports degraded silently. Note the ordering that
+made that possible — the key is checked first, so a misspelt _key name_ (the
+dev config held `SCRAPER_API_LET` for a while) still hides everything after it.
+Check names before values:
+
+```bash
+doppler secrets --only-names --config prd | grep SCRAPER
+doppler run --config dev -- pnpm diagnose:url --check-scraper
+```
+
+`--check-scraper` makes the vendor's own smoke-test request the way the app
+makes it and prints the status, the resolved endpoint and the first 400
+characters of the reply with the key redacted.
 
 To see what any given link does, with or without the fallback configured:
 

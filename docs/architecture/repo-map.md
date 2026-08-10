@@ -40,7 +40,7 @@ is compiled and with no tsx on the path.
 | ------------------------ | ----: | ------------------------------------------------------------------------------------ |
 | `_core/app.ts`           |    78 | Builds the Express app. The only place middleware is registered.                     |
 | `_core/index.ts`         |    25 | Long-running server entrypoint (local, containers).                                  |
-| `_core/env.ts`           |   210 | **All** server configuration, Zod-validated. Start here for anything config-related. |
+| `_core/env.ts`           |   553 | **All** server configuration, Zod-validated. Start here for anything config-related. |
 | `_core/logger.ts`        |   170 | Structured logger, levels, secret redaction.                                         |
 | `_core/httpLogging.ts`   |    75 | Request-id middleware, error handler, crash handlers.                                |
 | `_core/trpc.ts`          |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.       |
@@ -50,7 +50,7 @@ is compiled and with no tsx on the path.
 | `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                         |
 | `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                              |
 | `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                          |
-| `db.ts`                  |  1462 | Every database query. Large but flat — jump to the function you need.                |
+| `db.ts`                  |  2124 | Every database query. Large but flat — jump to the function you need.                |
 | `routers/`               |     — | The API surface, one file per domain (below).                                        |
 | `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
 | `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
@@ -70,8 +70,8 @@ open only its domain file.
 | `matchAnalysis.ts`  |   142 | AI accommodation↔member scoring (fire-and-forget)                    |
 | `auth.ts`           |    86 | Register, login, magic link, logout, `me`                             |
 | `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in                   |
-| `trips.ts`          |   281 | Trips, membership, roles, invites                                     |
-| `contacts.ts`       |    45 | A user's private address book                                         |
+| `trips.ts`          |   450 | Trips, membership, roles, invites, delete and clone                   |
+| `contacts.ts`       |    96 | A user's private address book, incl. saving a fellow traveller        |
 | `dates.ts`          |   223 | Date proposals, votes, natural-language parsing                       |
 | `destinations.ts`   |   161 | Destination suggestions and votes                                     |
 | `accommodations.ts` |   354 | Stays, votes, URL import, match refresh                               |
@@ -85,19 +85,19 @@ open only its domain file.
 
 ## `client/` — SPA
 
-| Path                              | What it is                                                                       |
-| --------------------------------- | -------------------------------------------------------------------------------- |
-| `src/main.tsx`                    | Entry: tRPC client, React Query, providers                                       |
-| `src/App.tsx`                     | Route table                                                                      |
-| `src/pages/*.tsx`                 | One file per screen — the bulk of the UI                                         |
-| `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …)        |
-| `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**             |
-| `src/lib/trpc.ts`                 | Typed tRPC React client                                                          |
-| `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                              |
-| `src/components/trip/`            | Shared trip UI (`FinalisedBy`, `AddedBy`, `VotedCount`) for the proposal screens |
-| `src/_core/hooks/useAuth.ts`      | Session hook                                                                     |
-| `src/contexts/ThemeContext.tsx`   | Dark mode                                                                        |
-| `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                           |
+| Path                              | What it is                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/main.tsx`                    | Entry: tRPC client, React Query, providers                                                                          |
+| `src/App.tsx`                     | Route table, and `ScrollRestoration` — new screen to the top, back to where you were                                |
+| `src/pages/*.tsx`                 | One file per screen — the bulk of the UI                                                                            |
+| `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …)                                           |
+| `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**                                                |
+| `src/lib/trpc.ts`                 | Typed tRPC React client                                                                                             |
+| `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                                                                 |
+| `src/components/trip/`            | Shared trip UI (`ScreenHeader`, `TripActionsMenu`, `FinalisedBy`, `AddedBy`, `VotedCount`) for the proposal screens |
+| `src/_core/hooks/useAuth.ts`      | Session hook                                                                                                        |
+| `src/contexts/ThemeContext.tsx`   | Dark mode                                                                                                           |
+| `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                                                              |
 
 Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub),
 `TripAccommodations.tsx` (810 lines — the most complex screen) and

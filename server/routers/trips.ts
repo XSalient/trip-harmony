@@ -181,6 +181,94 @@ export const tripsRouter = router({
       });
       return { success: true };
     }),
+  /**
+   * Deletes the trip and everything in it, for everyone.
+   *
+   * Admin-only and irreversible, so the name has to be typed back: this is the
+   * one action in the app that destroys other people's work, and an admin who
+   * meant to leave a trip must not be one tap away from ending it for the
+   * whole group. `db.deleteTripCascade` does the removal in a transaction.
+   */
+  delete: protectedProcedure
+    .input(z.object({ id: z.number(), confirmName: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.id, ctx.user.id, "admin");
+      const trip = await db.getTrip(input.id);
+      if (!trip)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
+      if (input.confirmName.trim() !== trip.name.trim())
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "That name doesn't match the trip's name.",
+        });
+
+      // Told before it happens: afterwards there is no trip to hang a
+      // notification off, and `deleteTripCascade` removes these rows anyway.
+      const members = await db.getTripMembers(input.id);
+      for (const m of members) {
+        if (m.userId === ctx.user.id) continue;
+        await db.createNotification({
+          userId: m.userId,
+          type: "general",
+          title: "A trip was deleted",
+          message: `${ctx.user.name || "An admin"} deleted the trip "${trip.name}".`,
+        });
+      }
+
+      await db.deleteTripCascade(input.id);
+      return { success: true };
+    }),
+  /**
+   * A fresh trip carrying this one's proposals, vibe board and itinerary.
+   *
+   * Admin-only for the same reason `invites` is: cloning copies the whole plan,
+   * and a watcher is on a trip to follow it rather than to take a copy of it.
+   * What does and does not come across is decided in `db.cloneTripContents`.
+   */
+  clone: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        name: z.string().min(1).max(255).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.id, ctx.user.id, "admin");
+      const source = await db.getTrip(input.id);
+      if (!source)
+        throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
+
+      const name = input.name?.trim() || `${source.name} (copy)`;
+      const tripId = await db.createTrip({
+        name: name.slice(0, 255),
+        description: source.description,
+        currency: source.currency,
+        totalBudget: source.totalBudget,
+        organizerId: ctx.user.id,
+        // A new code: sharing the original's would put anyone following an old
+        // link into whichever of the two trips resolved first.
+        inviteCode: nanoid(12),
+      });
+      await db.addTripMember({
+        tripId,
+        userId: ctx.user.id,
+        role: "admin",
+        status: "accepted",
+        joinedVia: "creator",
+        respondedAt: new Date(),
+      });
+
+      await db.cloneTripContents(input.id, tripId, ctx.user.id);
+      await db.recordActivity({
+        tripId,
+        actorUserId: ctx.user.id,
+        action: "trip.cloned",
+        entityType: "trip",
+        entityId: tripId,
+        metadata: { from: input.id },
+      });
+      return { id: tripId };
+    }),
   join: protectedProcedure
     .input(
       z.object({

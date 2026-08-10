@@ -191,27 +191,30 @@ else
 fi
 
 # The key alone switches this rung on: env.ts defaults the provider to
-# scrapingowl when SCRAPER_API_KEY is set and SCRAPER_PROVIDER is not. The
-# provider name must be a preset from server/utils/scraper/providers.ts —
-# a vendor's domain ("scrapeowl.com") is not one, and switches the rung off.
+# scrapingowl when SCRAPER_API_KEY is set and SCRAPER_PROVIDER is not. Write
+# the provider however the vendor's dashboard writes it — the name is reduced
+# to the vendor before lookup, so a domain or a full endpoint URL resolves the
+# same as the bare name. A vendor with no preset needs SCRAPER_ENDPOINT, and
+# nothing else.
 echo "==> Listing scraper fallback — blank leaves it off"
 set_secret SCRAPER_API_KEY "unblocking-service API key"
 set_secret SCRAPER_PROVIDER \
-  "scrapingowl | scrapingbee | scraperapi | zenrows | scrapfly | custom (blank = scrapingowl)" no
+  "vendor name, domain or endpoint — scrapingowl, scraperapi.com, zenrows … (blank = scrapingowl)" no
 
 SCRAPER_OVERRIDES="SCRAPER_ENDPOINT SCRAPER_METHOD SCRAPER_URL_PARAM
-  SCRAPER_API_KEY_PARAM SCRAPER_API_KEY_IN SCRAPER_PARAMS SCRAPER_HTML_PATH
-  SCRAPER_RENDER_JS SCRAPER_TIMEOUT_MS SCRAPER_HOSTS"
+  SCRAPER_API_KEY_PARAM SCRAPER_API_KEY_IN SCRAPER_RENDER_PARAM SCRAPER_PARAMS
+  SCRAPER_HTML_PATH SCRAPER_RENDER_JS SCRAPER_TIMEOUT_MS SCRAPER_HOSTS"
 
-# Every preset field is also a variable, so a service with no preset is
-# `custom` plus these. Off the beaten path for anyone using a preset, hence
-# the gate — see .env.example for what each one means.
-if confirm "override individual scraper fields (only needed for 'custom')?"; then
+# Every preset field is also a variable, so a vendor with no preset is these
+# plus an endpoint. Off the beaten path for anyone using a preset, hence the
+# gate — see .env.example for what each one means.
+if confirm "override individual scraper fields (only needed for a vendor with no preset)?"; then
   set_secret SCRAPER_ENDPOINT "full scrape endpoint URL" no
   set_secret SCRAPER_METHOD "GET | POST" no
   set_secret SCRAPER_URL_PARAM "parameter carrying the listing URL" no
   set_secret SCRAPER_API_KEY_PARAM "parameter or header carrying the key" no
-  set_secret SCRAPER_API_KEY_IN "query | header | body" no
+  set_secret SCRAPER_API_KEY_IN "query | header | body | basic" no
+  set_secret SCRAPER_RENDER_PARAM "parameter asking for a rendered page, or 'none'" no
   set_secret SCRAPER_PARAMS "extra params, 'a=b&c=d' or a JSON object" no
   set_secret SCRAPER_HTML_PATH "dotted path to the HTML in a JSON reply, or 'none'" no
   set_secret SCRAPER_RENDER_JS "run the page's JavaScript (default true)" no

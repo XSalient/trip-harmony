@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
@@ -326,110 +327,109 @@ export default function TripDestinations() {
   return (
     <AppShell title="Places" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Suggest places and vote on vibes
-            </p>
-            {lockedDestinations.length > 0 && (
-              <p className="text-xs text-primary font-medium mt-0.5">
-                {lockedDestinations.length} finalised ·{" "}
-                {lockedDestinations.map((d: any) => d.name).join(", ")}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && lockedDestinations.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-lg gap-1 text-xs h-8"
-                onClick={handleDeselect}
-                disabled={unlockAllMutation.isPending}
-              >
-                <Unlock className="h-3.5 w-3.5" /> Unlock all
-              </Button>
-            )}
-            <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="rounded-lg gap-1">
-                  <Plus className="h-4 w-4" /> Add
+        <ScreenHeader
+          subtitle="Suggest places and vote on vibes"
+          highlight={
+            lockedDestinations.length > 0
+              ? `${lockedDestinations.length} finalised · ${lockedDestinations
+                  .map((d: any) => d.name)
+                  .join(", ")}`
+              : undefined
+          }
+          actions={
+            <>
+              {isAdmin && lockedDestinations.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg gap-1 text-xs h-8"
+                  onClick={handleDeselect}
+                  disabled={unlockAllMutation.isPending}
+                >
+                  <Unlock className="h-3.5 w-3.5" /> Unlock all
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Suggest a Place</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Place Name</Label>
-                    <Input
-                      placeholder="e.g., Bali, Indonesia"
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Description (optional)</Label>
-                    <Textarea
-                      placeholder="Why this place?"
-                      value={description}
-                      onChange={e => setDescription(e.target.value)}
-                      rows={2}
-                      className="rounded-lg resize-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Image URL (optional)</Label>
-                    <Input
-                      placeholder="https://..."
-                      value={imageUrl}
-                      onChange={e => setImageUrl(e.target.value)}
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>
-                      Estimated Cost per Person ({trip?.currency || "USD"})
-                    </Label>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={estimatedCost}
-                      onChange={e => setEstimatedCost(e.target.value)}
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Vibes</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {vibeOptions.map(v => (
-                        <Badge
-                          key={v}
-                          variant={
-                            selectedVibes.includes(v) ? "default" : "outline"
-                          }
-                          className="cursor-pointer rounded-full px-3 py-1 text-xs"
-                          onClick={() => toggleVibe(v)}
-                        >
-                          {v}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleCreate}
-                    className="w-full rounded-lg"
-                    disabled={createMutation.isPending}
-                  >
-                    {createMutation.isPending ? "Adding..." : "Add Place"}
+              )}
+              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="rounded-lg gap-1">
+                    <Plus className="h-4 w-4" /> Add
                   </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Suggest a Place</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Place Name</Label>
+                      <Input
+                        placeholder="e.g., Bali, Indonesia"
+                        value={name}
+                        onChange={e => setName(e.target.value)}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description (optional)</Label>
+                      <Textarea
+                        placeholder="Why this place?"
+                        value={description}
+                        onChange={e => setDescription(e.target.value)}
+                        rows={2}
+                        className="rounded-lg resize-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Image URL (optional)</Label>
+                      <Input
+                        placeholder="https://..."
+                        value={imageUrl}
+                        onChange={e => setImageUrl(e.target.value)}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>
+                        Estimated Cost per Person ({trip?.currency || "USD"})
+                      </Label>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={estimatedCost}
+                        onChange={e => setEstimatedCost(e.target.value)}
+                        className="rounded-lg"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Vibes</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {vibeOptions.map(v => (
+                          <Badge
+                            key={v}
+                            variant={
+                              selectedVibes.includes(v) ? "default" : "outline"
+                            }
+                            className="cursor-pointer rounded-full px-3 py-1 text-xs"
+                            onClick={() => toggleVibe(v)}
+                          >
+                            {v}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleCreate}
+                      className="w-full rounded-lg"
+                      disabled={createMutation.isPending}
+                    >
+                      {createMutation.isPending ? "Adding..." : "Add Place"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
+          }
+        />
 
         {isLoading ? (
           <div className="space-y-3">

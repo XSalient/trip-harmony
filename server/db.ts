@@ -46,6 +46,7 @@ import {
   contacts,
   InsertContact,
   activityEvents,
+  accommodationAttributes,
 } from "../drizzle/schema.js";
 import type { TripRole } from "../shared/roles.js";
 import { config, ENV } from "./_core/env.js";
@@ -416,6 +417,269 @@ export async function updateTrip(id: number, data: Partial<InsertTrip>) {
   await db.update(trips).set(data).where(eq(trips.id, id));
 }
 
+/**
+ * Everything a trip owns, in the order it has to go.
+ *
+ * The schema declares no foreign keys — every `tripId` is a plain integer — so
+ * nothing is cascaded for us and a table left out here becomes a row that
+ * outlives its trip and is reachable by nobody. The vote and attribute tables
+ * are the awkward ones: they key off a *proposal* id, not a trip id, so they
+ * have to be collected from the proposals first and deleted before the
+ * proposals themselves are gone and the ids with them.
+ *
+ * Kept beside the schema deliberately: a new trip-scoped table means a line
+ * here, and `new-features.test.ts` asserts that this list still covers the
+ * schema so the next one cannot be forgotten quietly.
+ */
+export const TRIP_OWNED_TABLES = [
+  "trip_members",
+  "trip_invites",
+  "activity_events",
+  "date_proposals",
+  "destinations",
+  "accommodations",
+  "budget_items",
+  "referee_messages",
+  "notifications",
+  "member_preferences",
+  "vibe_items",
+  "itinerary_days",
+  "itinerary_items",
+  "proposal_comments",
+] as const;
+
+/**
+ * Deletes a trip and everything hanging off it, in one transaction.
+ *
+ * All-or-nothing on purpose: a half-deleted trip is worse than one that is
+ * still there, because the members page would keep listing people whose
+ * proposals had already gone.
+ */
+export async function deleteTripCascade(tripId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  await db.transaction(async tx => {
+    // Child rows keyed by proposal, not by trip. Collected before their
+    // parents are deleted, or there is nothing left to match them against.
+    const [dateIds, destIds, accIds, vibeIds] = await Promise.all([
+      tx
+        .select({ id: dateProposals.id })
+        .from(dateProposals)
+        .where(eq(dateProposals.tripId, tripId)),
+      tx
+        .select({ id: destinations.id })
+        .from(destinations)
+        .where(eq(destinations.tripId, tripId)),
+      tx
+        .select({ id: accommodations.id })
+        .from(accommodations)
+        .where(eq(accommodations.tripId, tripId)),
+      tx
+        .select({ id: vibeItems.id })
+        .from(vibeItems)
+        .where(eq(vibeItems.tripId, tripId)),
+    ]);
+
+    const ids = (rows: { id: number }[]) => rows.map(r => r.id);
+    if (dateIds.length)
+      await tx
+        .delete(dateVotes)
+        .where(inArray(dateVotes.proposalId, ids(dateIds)));
+    if (destIds.length)
+      await tx
+        .delete(destinationVotes)
+        .where(inArray(destinationVotes.destinationId, ids(destIds)));
+    if (accIds.length) {
+      await tx
+        .delete(accommodationVotes)
+        .where(inArray(accommodationVotes.accommodationId, ids(accIds)));
+      await tx
+        .delete(accommodationAttributes)
+        .where(inArray(accommodationAttributes.accommodationId, ids(accIds)));
+    }
+    if (vibeIds.length)
+      await tx
+        .delete(vibeVotes)
+        .where(inArray(vibeVotes.vibeItemId, ids(vibeIds)));
+
+    // Then everything that names the trip directly.
+    await tx.delete(itineraryItems).where(eq(itineraryItems.tripId, tripId));
+    await tx.delete(itineraryDays).where(eq(itineraryDays.tripId, tripId));
+    await tx
+      .delete(proposalComments)
+      .where(eq(proposalComments.tripId, tripId));
+    await tx.delete(vibeItems).where(eq(vibeItems.tripId, tripId));
+    await tx.delete(dateProposals).where(eq(dateProposals.tripId, tripId));
+    await tx.delete(destinations).where(eq(destinations.tripId, tripId));
+    await tx.delete(accommodations).where(eq(accommodations.tripId, tripId));
+    await tx.delete(budgetItems).where(eq(budgetItems.tripId, tripId));
+    await tx.delete(refereeMessages).where(eq(refereeMessages.tripId, tripId));
+    await tx.delete(notifications).where(eq(notifications.tripId, tripId));
+    await tx
+      .delete(memberPreferences)
+      .where(eq(memberPreferences.tripId, tripId));
+    await tx.delete(activityEvents).where(eq(activityEvents.tripId, tripId));
+    await tx.delete(tripInvites).where(eq(tripInvites.tripId, tripId));
+    await tx.delete(tripMembers).where(eq(tripMembers.tripId, tripId));
+    await tx.delete(trips).where(eq(trips.id, tripId));
+  });
+}
+
+/**
+ * A copy of a trip's plan, with none of its history.
+ *
+ * Proposals, the vibe board and the itinerary come across; votes, comments,
+ * locks, budget spend, referee messages and activity do not. A clone is the
+ * same trip run again for a different group, so carrying last year's votes
+ * over would start the new trip with decisions nobody in it had made — and
+ * `selected` in particular would present a finalised stay to a group that had
+ * never seen it.
+ *
+ * Members do not come across either: the clone belongs to whoever made it, and
+ * the rest of the group joins the same way they did the first time.
+ */
+export async function cloneTripContents(
+  sourceTripId: number,
+  targetTripId: number,
+  actorUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  await db.transaction(async tx => {
+    const [dates, dests, accs, vibes, days] = await Promise.all([
+      tx
+        .select()
+        .from(dateProposals)
+        .where(eq(dateProposals.tripId, sourceTripId)),
+      tx
+        .select()
+        .from(destinations)
+        .where(eq(destinations.tripId, sourceTripId)),
+      tx
+        .select()
+        .from(accommodations)
+        .where(eq(accommodations.tripId, sourceTripId)),
+      tx.select().from(vibeItems).where(eq(vibeItems.tripId, sourceTripId)),
+      tx
+        .select()
+        .from(itineraryDays)
+        .where(eq(itineraryDays.tripId, sourceTripId)),
+    ]);
+
+    /**
+     * Written out per table rather than spread from the source row. Spreading
+     * would carry `id` and `createdAt` into the insert, and — worse — would
+     * silently keep carrying whatever column the schema grows next, which for
+     * a "fresh copy" is exactly the wrong default. Listing the fields makes
+     * every carried value a decision, and the compiler checks the list.
+     */
+    if (dates.length)
+      await tx.insert(dateProposals).values(
+        dates.map(d => ({
+          tripId: targetTripId,
+          proposedBy: actorUserId,
+          startDate: d.startDate,
+          endDate: d.endDate,
+          label: d.label,
+        }))
+      );
+
+    if (dests.length)
+      await tx.insert(destinations).values(
+        dests.map(d => ({
+          tripId: targetTripId,
+          proposedBy: actorUserId,
+          name: d.name,
+          description: d.description,
+          imageUrl: d.imageUrl,
+          vibes: d.vibes,
+          estimatedCost: d.estimatedCost,
+        }))
+      );
+
+    if (accs.length)
+      await tx.insert(accommodations).values(
+        // `matchAnalysis` is deliberately absent: it is scored against the
+        // source trip's stated preferences, which the clone does not have yet,
+        // so carrying it would show the new group a verdict computed for
+        // someone else.
+        accs.map(a => ({
+          tripId: targetTripId,
+          proposedBy: actorUserId,
+          name: a.name,
+          description: a.description,
+          imageUrl: a.imageUrl,
+          pricePerNight: a.pricePerNight,
+          totalPrice: a.totalPrice,
+          perPersonCost: a.perPersonCost,
+          bedrooms: a.bedrooms,
+          bathrooms: a.bathrooms,
+          singleBeds: a.singleBeds,
+          doubleBeds: a.doubleBeds,
+          toilets: a.toilets,
+          ensuites: a.ensuites,
+          freeParking: a.freeParking,
+          camperParking: a.camperParking,
+          amenities: a.amenities,
+          preferences: a.preferences,
+          location: a.location,
+          link: a.link,
+          comfortScore: a.comfortScore,
+        }))
+      );
+
+    if (vibes.length)
+      await tx.insert(vibeItems).values(
+        vibes.map(v => ({
+          tripId: targetTripId,
+          proposedBy: actorUserId,
+          url: v.url,
+          title: v.title,
+          description: v.description,
+          imageUrl: v.imageUrl,
+          tags: v.tags,
+        }))
+      );
+
+    // Days carry items, so each new day id has to exist before its items can
+    // point at it.
+    for (const day of days) {
+      const [inserted] = await tx
+        .insert(itineraryDays)
+        .values({
+          tripId: targetTripId,
+          date: day.date,
+          title: day.title,
+          notes: day.notes,
+          sortOrder: day.sortOrder,
+        })
+        .returning({ id: itineraryDays.id });
+      const items = await tx
+        .select()
+        .from(itineraryItems)
+        .where(eq(itineraryItems.dayId, day.id));
+      if (!items.length) continue;
+      await tx.insert(itineraryItems).values(
+        items.map(item => ({
+          tripId: targetTripId,
+          dayId: inserted.id,
+          addedBy: actorUserId,
+          time: item.time,
+          title: item.title,
+          description: item.description,
+          location: item.location,
+          type: item.type,
+          cost: item.cost,
+          link: item.link,
+          sortOrder: item.sortOrder,
+        }))
+      );
+    }
+  });
+}
+
 export async function getUserTrips(userId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -705,6 +969,7 @@ export const ACTIVITY_ACTIONS = [
   "member.removed",
   "member.role_changed",
   "trip.edited",
+  "trip.cloned",
   "preferences.saved",
   "ai.match_refreshed",
   "ai.referee_run",

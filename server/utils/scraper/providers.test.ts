@@ -30,6 +30,28 @@ describe("resolveScraperProvider", () => {
     ).toThrow(/SCRAPER_PROVIDER/);
   });
 
+  it("takes an unknown provider when the endpoint says where to send it", () => {
+    // A vendor that launched after this file was last edited. The name is kept
+    // for the logs; the endpoint is what makes it usable, and no deploy of
+    // ours is involved.
+    const provider = resolveScraperProvider({
+      provider: "brand-new-unblocker",
+      apiKey: "k",
+      endpoint: "https://api.brandnew.test/v1/get",
+    })!;
+    expect(provider.name).toBe("brandnewunblocker");
+    expect(provider.endpoint).toBe("https://api.brandnew.test/v1/get");
+  });
+
+  it("needs no provider name at all when an endpoint is given", () => {
+    const provider = resolveScraperProvider({
+      provider: "",
+      apiKey: "k",
+      endpoint: "https://api.brandnew.test/v1/get",
+    })!;
+    expect(provider.endpoint).toBe("https://api.brandnew.test/v1/get");
+  });
+
   it("ships presets for the services people actually use", () => {
     // The point of the preset list: switching vendor is one env var, not a PR.
     expect(listScraperPresets()).toEqual(
@@ -49,6 +71,39 @@ describe("resolveScraperProvider", () => {
       expect(
         resolveScraperProvider({ provider: name, apiKey: "k" })?.name
       ).toBe("scrapingowl");
+    }
+  });
+
+  /**
+   * Whoever fills this variable in is reading the vendor's dashboard, so the
+   * name they type is whatever is written there. Every spelling below named a
+   * real, paid-for account that this resolver used to refuse.
+   */
+  it("takes a vendor's domain or endpoint as its name", () => {
+    const cases: Array<[string, string]> = [
+      ["scraperapi.com", "scraperapi"],
+      ["www.scraperapi.com", "scraperapi"],
+      ["ScraperAPI", "scraperapi"],
+      ["scraper_api", "scraperapi"],
+      ["https://api.scraperapi.com/", "scraperapi"],
+      ["api.scrapeowl.com", "scrapingowl"],
+      ["scrapfly.io", "scrapfly"],
+      ["https://api.zenrows.com/v1/", "zenrows"],
+      ["proxycrawl", "crawlbase"],
+    ];
+    for (const [written, expected] of cases) {
+      expect(
+        resolveScraperProvider({ provider: written, apiKey: "k" })?.name,
+        written
+      ).toBe(expected);
+    }
+  });
+
+  it("is still off when the provider says none, however it is spelled", () => {
+    for (const name of ["none", "None", "NONE"]) {
+      expect(
+        resolveScraperProvider({ provider: name, apiKey: "k" })
+      ).toBeNull();
     }
   });
 });
@@ -217,6 +272,48 @@ describe("switching service without touching the code", () => {
       JSON.stringify({ data: { content: "<html>via override</html>" } })
     );
     expect(page.html).toBe("<html>via override</html>");
+  });
+
+  it("renames the render flag for a vendor that calls it something else", () => {
+    const provider = resolveScraperProvider({
+      provider: "custom",
+      apiKey: "k",
+      endpoint: "https://unblock.example.test/get",
+      renderParam: "javascript",
+    })!;
+    const url = new URL(
+      buildScrapeRequest(provider, TARGET, { renderJs: true }).url
+    );
+    expect(url.searchParams.get("javascript")).toBe("true");
+  });
+
+  it("sends no render flag at all for a vendor that has none", () => {
+    // Otherwise an unknown parameter goes out and some vendors 400 on it.
+    const provider = resolveScraperProvider({
+      provider: "scrapingbee",
+      apiKey: "k",
+      renderParam: "none",
+    })!;
+    const url = new URL(
+      buildScrapeRequest(provider, TARGET, { renderJs: true }).url
+    );
+    expect(url.searchParams.get("render_js")).toBeNull();
+  });
+
+  it("authenticates in the transport for vendors that want Basic", () => {
+    const provider = resolveScraperProvider({
+      provider: "zyte",
+      apiKey: "zyte-secret",
+    })!;
+    const request = buildScrapeRequest(provider, TARGET, { renderJs: true });
+    expect(request.method).toBe("POST");
+    expect(request.headers.Authorization).toBe(
+      `Basic ${Buffer.from("zyte-secret:").toString("base64")}`
+    );
+    // The key authenticates the connection; it must not also ride in the body.
+    const body = JSON.parse(request.body!);
+    expect(body).toMatchObject({ url: TARGET, browserHtml: true });
+    expect(JSON.stringify(body)).not.toContain("zyte-secret");
   });
 
   it("describes a whole service from env alone, with no preset behind it", () => {

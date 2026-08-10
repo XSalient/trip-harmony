@@ -9,20 +9,22 @@ and mark the old one superseded — never rewrite history.
 Write one when a change affects how the system is structured, deployed, secured
 or operated. Skip it for routine feature work.
 
-| #                                                          | Decision                                         | Status   |
-| ---------------------------------------------------------- | ------------------------------------------------ | -------- |
-| [0001](0001-record-architecture-decisions.md)              | Record architecture decisions                    | Accepted |
-| [0002](0002-modular-monolith.md)                           | Modular monolith with tRPC, not services         | Accepted |
-| [0003](0003-doppler-for-secrets.md)                        | Doppler as the source of truth for secrets       | Accepted |
-| [0004](0004-structured-logging.md)                         | Structured JSON logging with request correlation | Accepted |
-| [0005](0005-domain-split-routers.md)                       | One router file per domain                       | Accepted |
-| [0006](0006-validated-config-at-boot.md)                   | Validate configuration at boot, fail fast        | Accepted |
-| [0007](0007-passkeys-for-sign-in.md)                       | Passkeys as a first-class sign-in method         | Accepted |
-| [0008](0008-listing-import-degrades-instead-of-evading.md) | Listing import degrades instead of evading       | Accepted |
-| [0009](0009-rls-on-with-no-policies.md)                    | RLS on with no policies, and no grants for anon  | Accepted |
-| [0010](0010-migrations-apply-on-deploy.md)                 | Migrations apply during the deploy               | Accepted |
-| [0011](0011-affected-tests-from-the-import-graph.md)       | Test selection comes from the import graph       | Accepted |
-| [0012](0012-session-pooler-for-the-database-url.md)        | `DATABASE_URL` points at the session pooler      | Accepted |
+| #                                                                | Decision                                              | Status   |
+| ---------------------------------------------------------------- | ----------------------------------------------------- | -------- |
+| [0001](0001-record-architecture-decisions.md)                    | Record architecture decisions                         | Accepted |
+| [0002](0002-modular-monolith.md)                                 | Modular monolith with tRPC, not services              | Accepted |
+| [0003](0003-doppler-for-secrets.md)                              | Doppler as the source of truth for secrets            | Accepted |
+| [0004](0004-structured-logging.md)                               | Structured JSON logging with request correlation      | Accepted |
+| [0005](0005-domain-split-routers.md)                             | One router file per domain                            | Accepted |
+| [0006](0006-validated-config-at-boot.md)                         | Validate configuration at boot, fail fast             | Accepted |
+| [0007](0007-passkeys-for-sign-in.md)                             | Passkeys as a first-class sign-in method              | Accepted |
+| [0008](0008-listing-import-degrades-instead-of-evading.md)       | Listing import degrades instead of evading            | Accepted |
+| [0009](0009-rls-on-with-no-policies.md)                          | RLS on with no policies, and no grants for anon       | Accepted |
+| [0010](0010-migrations-apply-on-deploy.md)                       | Migrations apply during the deploy                    | Accepted |
+| [0011](0011-affected-tests-from-the-import-graph.md)             | Test selection comes from the import graph            | Accepted |
+| [0012](0012-session-pooler-for-the-database-url.md)              | `DATABASE_URL` points at the session pooler           | Accepted |
+| [0013](0013-optional-scraper-fallback-for-blocked-listings.md)   | An optional scraper fallback for blocked listings     | Accepted |
+| [0014](0014-scraper-vendor-identity-comes-from-configuration.md) | A scraper vendor is whatever configuration says it is | Accepted |
 
 ## Template
 

@@ -8,6 +8,81 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-10 — Switching scraper vendor is configuration; trips can be copied and deleted
+
+### Added
+
+- **Admins can duplicate or delete a trip.** A ⋮ menu on the trip header holds
+  edit, duplicate and delete. A copy carries the dates, places,
+  accommodations, vibe board and itinerary and gets its own invite code;
+  votes, comments, locks, budget spend, referee messages, activity and members
+  stay with the original, because a clone is the same trip run again for a
+  different group. Deleting asks for the trip's name to be typed back — it
+  removes the trip for everyone on it — and notifies the other members before
+  the rows go. `db.deleteTripCascade` removes all fourteen trip-scoped tables
+  plus the vote and attribute rows that key off a proposal id, in one
+  transaction; a test compares that list against the schema so the next
+  trip-scoped table cannot be forgotten.
+- **Anyone on a trip can be saved to your contact book.** The book used to fill
+  up only as a side effect of sending an email invite, so the people you had
+  actually travelled with were the ones missing from it — anyone who joined by
+  following the shared link left no trace. Every tripmate and admin now gets
+  "Save to my contacts" beside a member's name. `contacts.addFromTrip` takes a
+  trip and a user id and reads the address from the membership, never from the
+  caller; watchers are excluded, since they are never shown member emails.
+- **`SCRAPER_RENDER_PARAM`**, and `basic` as a value for `SCRAPER_API_KEY_IN`
+  (HTTP Basic with the key as the username). Between them, a vendor that names
+  its render flag differently or authenticates at the transport is now
+  configurable rather than a code change. Presets added for ScrapingAnt,
+  ScrapingDog, Crawlbase (alias `proxycrawl`) and Zyte.
+
+### Fixed
+
+- **`ai: missing` with a valid Gemini key.** `config.ai.isConfigured` required a
+  base URL as well as a key, but `@google/genai` already knows Google's
+  endpoint — `AI_INTEGRATIONS_GEMINI_BASE_URL` is an override for a proxy or the
+  legacy Forge gateway. The cost was not cosmetic: `accommodations.fetchFromUrl`
+  reads the same flag and refused every listing-URL import before attempting
+  one. The key alone now counts, and `/api/health` reports `aiKeySource` — the
+  name of the variable the key came from, never its value.
+- **A vendor's own spelling of its name switched the scraper off.** The `dev`
+  config held `SCRAPER_PROVIDER=scraperapi.com`, which is what ScraperAPI's
+  dashboard calls itself and what the resolver rejected as an unknown service.
+  Provider names are now reduced to the vendor first — a URL to its host, a host
+  to its name minus `api.`/`www.` and its public suffix — so `scraperapi`,
+  `ScraperAPI`, `scraper-api`, `scraperapi.com` and
+  `https://api.scraperapi.com/` are one service. Verified end-to-end against the
+  real `dev` key: `HTTP 200`, page extracted.
+- **A misconfigured scraper reported itself as switched off.**
+  `isScraperConfigured()` demanded a provider name as well as a key, so a name
+  the resolver would have rejected read as "this rung was left off" — and a rung
+  that reports itself off is one nobody goes looking at. The key alone decides
+  now, and `/api/health` has a third state, `misconfigured`, with a
+  `scraperError` saying why. It also reports the resolved endpoint and where the
+  key goes, since "right key, wrong URL for this plan" is the failure this rung
+  actually has.
+- **Proposal screens opened part-way down.** Wouter swaps the component tree
+  and leaves the scroll offset alone, so opening Places from halfway down the
+  trip page landed halfway down Places, with its heading and its "Unlock all" /
+  "Add" buttons already scrolled past. A new screen now starts at its top;
+  going _back_ still restores where you were.
+- **"Unlock all" and "Add" could sit off the right edge.** The header strip on
+  Dates, Places and Accommodations was written three times and had the same bug
+  three times: the left column could not shrink while its "3 finalised ·
+  Barcelona, Girona, Sitges" line grew with the trip. It is now one
+  `ScreenHeader` — the summary truncates, the buttons never shrink, and they
+  wrap to their own line before anything leaves the screen.
+
+### Changed
+
+- **A vendor with no preset needs no preset.** `SCRAPER_ENDPOINT` alone now
+  describes a service, with or without a name for it; an unrecognised name is
+  only an error when there is no endpoint to go with it, since the one thing
+  worth refusing is posting a live key at an address nobody supplied.
+  `SCRAPER_PROVIDER=custom` still works and is no longer special.
+
+---
+
 ## 2026-08-10 — The scraper rung was configured, and off
 
 ### Fixed

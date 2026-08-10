@@ -122,8 +122,10 @@ export default function TripMembers() {
     { tripId },
     { enabled: tripId > 0 && canSeeDetails }
   );
+  // Tripmates save members to their own book too, so this is no longer an
+  // admin-only query — the invite form below is what stays admin-only.
   const { data: contacts } = trpc.contacts.list.useQuery(undefined, {
-    enabled: isAdmin,
+    enabled: canSeeDetails,
   });
 
   const [inviteEmail, setInviteEmail] = useState("");
@@ -136,7 +138,27 @@ export default function TripMembers() {
   const updateRole = trpc.trips.updateMemberRole.useMutation();
   const removeMember = trpc.trips.removeMember.useMutation();
   const addContact = trpc.contacts.add.useMutation();
+  const addContactFromTrip = trpc.contacts.addFromTrip.useMutation();
   const removeContact = trpc.contacts.remove.useMutation();
+
+  /** Emails already in the book, so a member row can say "saved" rather than offer again. */
+  const savedEmails = useMemo(
+    () =>
+      new Set(
+        (contacts ?? []).map((c: any) => String(c.email || "").toLowerCase())
+      ),
+    [contacts]
+  );
+
+  const handleSaveMember = async (userId: number) => {
+    try {
+      const saved = await addContactFromTrip.mutateAsync({ tripId, userId });
+      await utils.contacts.list.invalidate();
+      toast.success(`${saved.name} saved to your contacts`);
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't save that contact");
+    }
+  };
 
   const inviteUrl = useMemo(
     () =>
@@ -249,7 +271,9 @@ export default function TripMembers() {
                       </>
                     )}
                   </div>
-                  {isAdmin && !isMe && (
+                  {/* Tripmates get this menu too now, for the one entry they
+                      can use: saving someone they are travelling with. */}
+                  {canSeeDetails && !isMe && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
@@ -257,22 +281,46 @@ export default function TripMembers() {
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {TRIP_ROLES.map(r => (
-                          <DropdownMenuItem
-                            key={r}
-                            disabled={m.role === r}
-                            onClick={() => handleRoleChange(m.userId, r)}
-                            className="text-xs"
-                          >
-                            Make {TRIP_ROLE_LABELS[r]}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuItem
-                          onClick={() => handleRemove(m.userId)}
-                          className="text-xs text-destructive focus:text-destructive gap-2"
-                        >
-                          <Trash2 className="h-3 w-3" /> Remove from trip
-                        </DropdownMenuItem>
+                        {m.user?.email &&
+                          (savedEmails.has(
+                            String(m.user.email).toLowerCase()
+                          ) ? (
+                            <DropdownMenuItem
+                              disabled
+                              className="text-xs gap-2"
+                            >
+                              <BookUser className="h-3 w-3" /> In your contacts
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleSaveMember(m.userId)}
+                              disabled={addContactFromTrip.isPending}
+                              className="text-xs gap-2"
+                            >
+                              <BookUser className="h-3 w-3" /> Save to my
+                              contacts
+                            </DropdownMenuItem>
+                          ))}
+                        {isAdmin && (
+                          <>
+                            {TRIP_ROLES.map(r => (
+                              <DropdownMenuItem
+                                key={r}
+                                disabled={m.role === r}
+                                onClick={() => handleRoleChange(m.userId, r)}
+                                className="text-xs"
+                              >
+                                Make {TRIP_ROLE_LABELS[r]}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuItem
+                              onClick={() => handleRemove(m.userId)}
+                              className="text-xs text-destructive focus:text-destructive gap-2"
+                            >
+                              <Trash2 className="h-3 w-3" /> Remove from trip
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
@@ -455,7 +503,8 @@ export default function TripMembers() {
           {!contacts || contacts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
               No saved contacts yet. Invite someone by email with "Save to my
-              contacts" ticked and they'll appear here.
+              contacts" ticked, or save anyone already on this trip from the ⋮
+              menu beside their name.
             </p>
           ) : (
             <div className="space-y-2 pt-1">

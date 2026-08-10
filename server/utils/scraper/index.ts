@@ -52,22 +52,37 @@ function currentProvider(): ScraperProvider | null {
     urlParam: config.scraper.urlParam,
     apiKeyParam: config.scraper.apiKeyParam,
     apiKeyIn: config.scraper.apiKeyIn,
+    renderParam: config.scraper.renderParam,
     params: config.scraper.params,
     htmlPath: config.scraper.htmlPath,
   });
 }
 
-/** True when a scrape is worth attempting. Cheap: the ladder asks on every import. */
+/**
+ * True when a scrape is worth attempting. Cheap: the ladder asks on every import.
+ *
+ * The key alone decides. Asking for a provider name here as well is what let a
+ * name the resolver would have rejected — a vendor domain, a typo — read as
+ * "switched off" instead of "broken", and a rung that reports itself off is a
+ * rung nobody goes looking at.
+ */
 export function isScraperConfigured(): boolean {
-  return Boolean(
-    config.scraper.provider.trim() && config.scraper.apiKey.trim()
-  );
+  return Boolean(config.scraper.apiKey.trim());
 }
 
-/** Safe to log and to show in `/api/health`: names the service, never the key. */
+/**
+ * Safe to log and to show in `/api/health`: names the service and the address
+ * it will be called at, never the key.
+ *
+ * The endpoint is worth reporting because the failure this rung actually has is
+ * "the key is fine, we are calling the wrong URL for this plan" — which no
+ * amount of provider naming reveals on its own.
+ */
 export function describeScraper(): {
   enabled: boolean;
   provider: string;
+  endpoint?: string;
+  auth?: string;
   renderJs?: boolean;
   hosts?: string[];
   error?: string;
@@ -79,6 +94,8 @@ export function describeScraper(): {
     return {
       enabled: true,
       provider: provider.name,
+      endpoint: provider.endpoint,
+      auth: `${provider.auth.placement}${provider.auth.param ? `:${provider.auth.param}` : ""}`,
       renderJs: config.scraper.renderJs,
       ...(config.scraper.hosts.length ? { hosts: config.scraper.hosts } : {}),
     };

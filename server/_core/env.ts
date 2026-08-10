@@ -15,6 +15,9 @@ import fs from "node:fs";
 import path from "node:path";
 import dotenv from "dotenv";
 import { z } from "zod";
+// Pure, and imports nothing — the one module `env.ts` may depend on without
+// creating the cycle every other server module would.
+import { resolveScraperProvider } from "../utils/scraper/providers.js";
 
 /**
  * Load local env files, most specific first. Already-set variables always win,
@@ -158,7 +161,9 @@ const schema = z.object({
   SCRAPER_METHOD: z.enum(["GET", "POST"]).optional(),
   SCRAPER_URL_PARAM: z.string().trim().default(""),
   SCRAPER_API_KEY_PARAM: z.string().trim().default(""),
-  SCRAPER_API_KEY_IN: z.enum(["query", "header", "body"]).optional(),
+  SCRAPER_API_KEY_IN: z.enum(["query", "header", "body", "basic"]).optional(),
+  /** What this vendor calls "run the page's JavaScript"; `none` if it has none. */
+  SCRAPER_RENDER_PARAM: z.string().trim().default(""),
   /** `a=b&c=d`, or a JSON object when a value contains characters a query mangles. */
   SCRAPER_PARAMS: z.string().trim().default(""),
   SCRAPER_HTML_PATH: z.string().trim().default(""),
@@ -289,17 +294,35 @@ export const config = {
     },
   },
 
+  /**
+   * The key is what makes AI work; the base URL is an override.
+   *
+   * `server/_core/llm.ts` talks to Gemini through `@google/genai`, which knows
+   * Google's endpoint and only accepts `AI_INTEGRATIONS_GEMINI_BASE_URL` when
+   * you are pointing it somewhere else — a proxy, or the legacy Forge gateway.
+   * Requiring both meant a correctly-configured Gemini key was reported as
+   * `ai: missing` on `/api/health` and refused by `accommodations.matchAll`
+   * before any request was attempted.
+   *
+   * The Forge pair still wins when set, and Forge genuinely needs its URL:
+   * `imageGeneration`, `voiceTranscription`, `dataApi` and `notification` all
+   * call that gateway directly and check `apiUrl` for themselves.
+   */
   ai: {
     apiUrl:
       parsed.BUILT_IN_FORGE_API_URL || parsed.AI_INTEGRATIONS_GEMINI_BASE_URL,
     apiKey:
       parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY,
+    /** Which variable supplied the key — a name, never the value. */
+    get keySource() {
+      if (parsed.BUILT_IN_FORGE_API_KEY) return "BUILT_IN_FORGE_API_KEY";
+      if (parsed.AI_INTEGRATIONS_GEMINI_API_KEY)
+        return "AI_INTEGRATIONS_GEMINI_API_KEY";
+      return "";
+    },
     get isConfigured() {
       return Boolean(
-        (parsed.BUILT_IN_FORGE_API_URL ||
-          parsed.AI_INTEGRATIONS_GEMINI_BASE_URL) &&
-          (parsed.BUILT_IN_FORGE_API_KEY ||
-            parsed.AI_INTEGRATIONS_GEMINI_API_KEY)
+        parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY
       );
     },
   },
@@ -312,7 +335,10 @@ export const config = {
    */
   scraper: {
     /**
-     * A key with no vendor named means the vendor this project is wired for.
+     * A key with no vendor named means the vendor this project is wired for —
+     * unless `SCRAPER_ENDPOINT` already says where to send the request, which
+     * describes a service completely without needing a name for it.
+     *
      * Requiring both variables made the common setup — paste the key in and
      * expect it to work — fail silently as "that site blocked us", which is
      * the one failure mode this whole rung exists to remove.
@@ -320,9 +346,10 @@ export const config = {
     get provider() {
       const explicit = process.env.SCRAPER_PROVIDER?.trim();
       if (explicit) return explicit;
-      return process.env.SCRAPER_API_KEY?.trim()
-        ? DEFAULT_SCRAPER_PROVIDER
-        : "";
+      if (!process.env.SCRAPER_API_KEY?.trim()) return "";
+      return process.env.SCRAPER_ENDPOINT?.trim()
+        ? "custom"
+        : DEFAULT_SCRAPER_PROVIDER;
     },
     get apiKey() {
       return process.env.SCRAPER_API_KEY?.trim() ?? "";
@@ -341,6 +368,9 @@ export const config = {
     },
     get apiKeyIn() {
       return process.env.SCRAPER_API_KEY_IN?.trim() ?? "";
+    },
+    get renderParam() {
+      return process.env.SCRAPER_RENDER_PARAM?.trim() ?? "";
     },
     get params() {
       return process.env.SCRAPER_PARAMS?.trim() ?? "";
@@ -457,6 +487,38 @@ export const ENV = {
 };
 
 /**
+ * Which vendor the scraper settings actually resolve to, and why not when they
+ * don't — the resolved name rather than the raw variable, so `/api/health`
+ * answers "is my provider switch live?" instead of echoing what was typed.
+ *
+ * Never throws: a summary that can crash the health endpoint is worse than one
+ * that reports the problem.
+ */
+function describeScraperConfig(): { scraper: string; scraperError?: string } {
+  if (!config.scraper.apiKey) return { scraper: "disabled" };
+  try {
+    const provider = resolveScraperProvider({
+      provider: config.scraper.provider,
+      apiKey: config.scraper.apiKey,
+      endpoint: config.scraper.endpoint,
+      method: config.scraper.method,
+      urlParam: config.scraper.urlParam,
+      apiKeyParam: config.scraper.apiKeyParam,
+      apiKeyIn: config.scraper.apiKeyIn,
+      renderParam: config.scraper.renderParam,
+      params: config.scraper.params,
+      htmlPath: config.scraper.htmlPath,
+    });
+    return { scraper: provider ? provider.name : "disabled" };
+  } catch (err) {
+    return {
+      scraper: "misconfigured",
+      scraperError: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
  * Boot-time summary safe to log: shows which capabilities are wired up
  * without ever revealing a secret value.
  */
@@ -471,6 +533,8 @@ export function describeConfig() {
     /** Variables set but ignored for not being Postgres URLs; a common misconfiguration. */
     databaseIgnored: config.db.rejected.length ? config.db.rejected : undefined,
     ai: config.ai.isConfigured ? "configured" : "missing",
+    /** Which variable supplied the AI key — a name, never the value. */
+    aiKeySource: config.ai.keySource || null,
     // Three states, because "can send" and "can send to anyone" differ: Resend's
     // sandbox sender only reaches the account owner.
     email: !isEmailConfigured()
@@ -481,10 +545,9 @@ export function describeConfig() {
     oauth: config.auth.oAuthServerUrl ? "configured" : "disabled",
     // The service's name, never its key — which vendor is in the path is
     // exactly what you want to see when an import starts behaving differently.
-    scraper:
-      config.scraper.provider && config.scraper.apiKey
-        ? config.scraper.provider
-        : "disabled",
+    // "misconfigured" is its own state: a key that is set but unusable is not
+    // the same as a rung that was deliberately left off.
+    ...describeScraperConfig(),
     sessionSecret: config.auth.cookieSecret ? "configured" : "missing",
   };
 }

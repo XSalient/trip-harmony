@@ -219,6 +219,7 @@ async function checkScraper(target: string) {
     urlParam: config.scraper.urlParam,
     apiKeyParam: config.scraper.apiKeyParam,
     apiKeyIn: config.scraper.apiKeyIn,
+    renderParam: config.scraper.renderParam,
     params: config.scraper.params,
     htmlPath: config.scraper.htmlPath,
   })!;

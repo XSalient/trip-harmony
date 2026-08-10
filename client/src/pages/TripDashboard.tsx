@@ -18,12 +18,12 @@ import {
   Plus,
   Sparkles,
   AlertCircle,
-  Pencil,
   ClipboardList,
   FileText,
 } from "lucide-react";
 import TripSummary from "@/components/trip/TripSummary";
 import EditTripDialog from "@/components/trip/EditTripDialog";
+import TripActionsMenu from "@/components/trip/TripActionsMenu";
 import { useSectionState } from "@/components/trip/useSectionState";
 import { useProposalDialogs } from "@/components/trip/useProposalDialogs";
 import SectionCard, {
@@ -365,15 +365,11 @@ export default function TripDashboard() {
       headerRight={
         <div className="flex items-center gap-1">
           {isAdmin && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              aria-label="Edit trip"
-              onClick={() => setEditTripOpen(true)}
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
+            <TripActionsMenu
+              tripId={tripId}
+              tripName={trip.name}
+              onEdit={() => setEditTripOpen(true)}
+            />
           )}
           <Link href={`/trips/${tripId}/members`}>
             <Button
