@@ -67,7 +67,7 @@ function currentProvider(): ScraperProvider | null {
  * rung nobody goes looking at.
  */
 export function isScraperConfigured(): boolean {
-  return Boolean(config.scraper.apiKey.trim());
+  return config.scraper.enabled && Boolean(config.scraper.apiKey.trim());
 }
 
 /**

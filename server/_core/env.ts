@@ -131,6 +131,14 @@ const schema = z.object({
   POSTGRES_URL_NON_POOLING: z.string().trim().default(""),
 
   // --- AI provider --------------------------------------------------------
+  /**
+   * A kill switch, independent of whether a key exists.
+   *
+   * Without it the only way to stop calling a provider is to remove its
+   * credential, which conflates "pause this feature" with "rotate this secret"
+   * and makes the pause hard to undo in a hurry. Unset means on.
+   */
+  AI_ENABLED: z.string().trim().default(""),
   BUILT_IN_FORGE_API_URL: optionalUrl,
   BUILT_IN_FORGE_API_KEY: z.string().trim().default(""),
   AI_INTEGRATIONS_GEMINI_BASE_URL: optionalUrl,
@@ -155,6 +163,12 @@ const schema = z.object({
   // The provider is described by these variables rather than in code, so
   // switching service never needs a deploy of ours — see
   // server/utils/scraper/providers.ts and docs/runbooks/secrets.md.
+  /**
+   * The same kill switch, and this one costs money per request. Turning the
+   * rung off by deleting a paid key is a bad trade: you lose the credential to
+   * pause the spend. Unset means on.
+   */
+  SCRAPER_ENABLED: z.string().trim().default(""),
   SCRAPER_PROVIDER: z.string().trim().default(""),
   SCRAPER_API_KEY: z.string().trim().default(""),
   SCRAPER_ENDPOINT: optionalUrl,
@@ -260,6 +274,21 @@ const defaultLogLevel: LogLevel =
 /** Which unblocking service `SCRAPER_API_KEY` is assumed to belong to. */
 export const DEFAULT_SCRAPER_PROVIDER = "scrapingowl";
 
+/**
+ * An operator's "off", in the spellings operators use.
+ *
+ * Deliberately opt-out rather than opt-in: an unset or empty flag means on, so
+ * adding one of these variables to an environment that does not have it cannot
+ * silently switch a working feature off. Only an explicit, recognisable "no"
+ * disables — and anything unrecognised (`maybe`, a typo) is treated as on for
+ * the same reason.
+ */
+function isDisabled(raw: string | undefined): boolean {
+  const value = raw?.trim().toLowerCase();
+  if (!value) return false;
+  return /^(0|false|no|off|disabled?)$/.test(value);
+}
+
 /** Resend's shared sender needs no domain verification but only delivers to the account owner. */
 export const RESEND_SANDBOX_FROM = "onboarding@resend.dev";
 
@@ -320,10 +349,17 @@ export const config = {
         return "AI_INTEGRATIONS_GEMINI_API_KEY";
       return "";
     },
-    get isConfigured() {
+    /** `AI_ENABLED=false` turns the features off without removing the key. */
+    get enabled() {
+      return !isDisabled(process.env.AI_ENABLED);
+    },
+    get hasKey() {
       return Boolean(
         parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY
       );
+    },
+    get isConfigured() {
+      return this.enabled && this.hasKey;
     },
   },
 
@@ -334,6 +370,10 @@ export const config = {
    * Shapes are still validated at boot by the schema above.
    */
   scraper: {
+    /** `SCRAPER_ENABLED=false` pauses the spend without losing the key. */
+    get enabled() {
+      return !isDisabled(process.env.SCRAPER_ENABLED);
+    },
     /**
      * A key with no vendor named means the vendor this project is wired for —
      * unless `SCRAPER_ENDPOINT` already says where to send the request, which
@@ -495,6 +535,9 @@ export const ENV = {
  * that reports the problem.
  */
 function describeScraperConfig(): { scraper: string; scraperError?: string } {
+  // "off" and "disabled" are different answers to different questions: one
+  // says somebody turned this rung off, the other says nobody ever set it up.
+  if (!config.scraper.enabled) return { scraper: "off" };
   if (!config.scraper.apiKey) return { scraper: "disabled" };
   try {
     const provider = resolveScraperProvider({
@@ -532,7 +575,13 @@ export function describeConfig() {
     databaseSource: config.db.source || null,
     /** Variables set but ignored for not being Postgres URLs; a common misconfiguration. */
     databaseIgnored: config.db.rejected.length ? config.db.rejected : undefined,
-    ai: config.ai.isConfigured ? "configured" : "missing",
+    // Same three-way distinction as the scraper: switched off on purpose,
+    // never set up, or working.
+    ai: !config.ai.enabled
+      ? "off"
+      : config.ai.hasKey
+        ? "configured"
+        : "missing",
     /** Which variable supplied the AI key — a name, never the value. */
     aiKeySource: config.ai.keySource || null,
     // Three states, because "can send" and "can send to anyone" differ: Resend's

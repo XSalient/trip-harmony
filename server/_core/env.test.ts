@@ -98,6 +98,71 @@ describe("AI is configured by its key", () => {
 });
 
 /**
+ * A kill switch that is independent of the credential. Removing a key to pause
+ * a feature conflates "stop calling this" with "rotate this secret", and the
+ * scraper's key is one you pay for — losing it to pause the spend is a bad
+ * trade. Unset means on, so adding these variables to an environment that
+ * lacks them can never switch a working feature off by surprise.
+ */
+describe("AI_ENABLED and SCRAPER_ENABLED", () => {
+  it("keeps a feature on when the flag is absent or empty", async () => {
+    const { config } = await configWith({
+      AI_INTEGRATIONS_GEMINI_API_KEY: "k",
+      SCRAPER_API_KEY: "k",
+      AI_ENABLED: "",
+      SCRAPER_ENABLED: "",
+    });
+    expect(config.ai.isConfigured).toBe(true);
+    expect(config.scraper.enabled).toBe(true);
+  });
+
+  it("switches AI off while the key stays in place", async () => {
+    const { config, describeConfig } = await configWith({
+      AI_INTEGRATIONS_GEMINI_API_KEY: "gemini-key",
+      AI_ENABLED: "false",
+    });
+    expect(config.ai.isConfigured).toBe(false);
+    // The key is still there — that is the whole point of the flag.
+    expect(config.ai.hasKey).toBe(true);
+    expect(describeConfig().ai).toBe("off");
+  });
+
+  it("switches the scraper off while the key stays in place", async () => {
+    const { config, describeConfig } = await configWith({
+      SCRAPER_API_KEY: "scraper-key",
+      SCRAPER_PROVIDER: "scraperapi",
+      SCRAPER_ENABLED: "false",
+    });
+    expect(config.scraper.enabled).toBe(false);
+    expect(config.scraper.apiKey).toBe("scraper-key");
+    // "off" and "disabled" answer different questions: turned off on purpose,
+    // versus never set up at all.
+    expect(describeConfig().scraper).toBe("off");
+  });
+
+  it("accepts the spellings operators write 'off' with", async () => {
+    for (const value of ["0", "false", "FALSE", "no", "off", "disabled"]) {
+      const { config } = await configWith({
+        SCRAPER_API_KEY: "k",
+        SCRAPER_ENABLED: value,
+      });
+      expect(config.scraper.enabled, value).toBe(false);
+    }
+  });
+
+  it("treats anything it does not recognise as on", async () => {
+    // A typo must not silently disable a paid feature.
+    for (const value of ["true", "yes", "1", "enabled", "maybe", "flase"]) {
+      const { config } = await configWith({
+        SCRAPER_API_KEY: "k",
+        SCRAPER_ENABLED: value,
+      });
+      expect(config.scraper.enabled, value).toBe(true);
+    }
+  });
+});
+
+/**
  * Switching unblocking vendor is meant to be an environment edit. What the
  * health summary reports is therefore the vendor the settings *resolve to*,
  * not the string somebody typed — and "the key is set but unusable" is its own

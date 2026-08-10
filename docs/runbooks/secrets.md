@@ -153,6 +153,7 @@ contract. Adding a variable means updating **both**, plus this table.
 | `AI_INTEGRATIONS_GEMINI_API_KEY`                                | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected. **The key alone turns AI on** — see below                          |
 | `AI_INTEGRATIONS_GEMINI_BASE_URL`                               | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                            |
 | `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`              | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                         |
+| `AI_ENABLED`, `SCRAPER_ENABLED`                                 | Kill switches, independent of the keys. Empty or unset means **on**; only `0`/`false`/`no`/`off`/`disabled` turns one off — see below                                                 |
 | `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                  | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                    |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                        |
 | `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                      | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel |
@@ -182,6 +183,29 @@ listing-URL import was refused before it was attempted. If you see `ai: missing`
 now, the key is genuinely absent from that environment — check
 `doppler secrets --only-names --config prd`, and check that the value has
 actually reached Vercel.
+
+## Turning a feature off without losing its key
+
+`AI_ENABLED` and `SCRAPER_ENABLED` exist because the alternative — deleting the
+credential — conflates "pause this feature" with "rotate this secret", and the
+scraper's key is one you pay for. Deleting it to stop the spend means you no
+longer have it when you want the spend back.
+
+Both are **opt-out**: empty or unset means on, and only an explicit
+`0`, `false`, `no`, `off` or `disabled` turns the feature off. Anything
+unrecognised — including a typo like `flase` — is treated as on, so a
+mistyped flag can never silently disable a paid feature, and adding either
+variable to an environment that lacks it can never switch a working one off.
+
+`/api/health` then distinguishes the cases, which matters when you are trying
+to work out why a feature is quiet:
+
+| Value                  | Meaning                                       |
+| ---------------------- | --------------------------------------------- |
+| `off`                  | Somebody turned it off with the flag          |
+| `missing` / `disabled` | No key was ever set in this environment       |
+| `misconfigured`        | Key present, settings unusable (scraper only) |
+| `configured` / vendor  | Working                                       |
 
 `BUILT_IN_FORGE_API_KEY` / `BUILT_IN_FORGE_API_URL` are the legacy Manus names
 and win when set. Forge does need its URL: image generation, voice

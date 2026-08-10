@@ -167,6 +167,7 @@ set_secret OAUTH_SERVER_URL "legacy Manus OAuth portal; blank unless you use it"
 
 echo "==> AI provider — blank leaves AI features returning an error"
 set_secret AI_INTEGRATIONS_GEMINI_API_KEY "Gemini API key"
+set_secret AI_ENABLED "blank or true to enable; false pauses AI without losing the key" no
 set_secret AI_INTEGRATIONS_GEMINI_BASE_URL "Gemini base URL, if not the default" no
 set_secret BUILT_IN_FORGE_API_KEY "Forge API key, if used"
 set_secret BUILT_IN_FORGE_API_URL "Forge base URL, if used" no
@@ -198,6 +199,7 @@ fi
 # nothing else.
 echo "==> Listing scraper fallback — blank leaves it off"
 set_secret SCRAPER_API_KEY "unblocking-service API key"
+set_secret SCRAPER_ENABLED "blank or true to enable; false pauses the spend without losing the key" no
 set_secret SCRAPER_PROVIDER \
   "vendor name, domain or endpoint — scrapingowl, scraperapi.com, zenrows … (blank = scrapingowl)" no
 

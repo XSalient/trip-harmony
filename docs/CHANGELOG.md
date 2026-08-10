@@ -8,6 +8,55 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-10 — Kill switches, and a Vercel environment with 16 variables nobody read
+
+### Added
+
+- **`AI_ENABLED` and `SCRAPER_ENABLED`.** Until now the only way to stop
+  calling a provider was to delete its key, which conflates "pause this
+  feature" with "rotate this secret" — and the scraper's key is one you pay
+  for. Both flags are opt-out: empty or unset means on, and only an explicit
+  `0`/`false`/`no`/`off`/`disabled` turns a feature off, so a typo cannot
+  silently disable a paid feature and adding the variable somewhere it is
+  missing cannot switch a working one off. `/api/health` now distinguishes
+  `off` (turned off deliberately) from `missing`/`disabled` (never set up).
+
+### Changed
+
+- **The Vercel environment went from 23 variables to 12, with no duplicates.**
+  Sixteen managed by _Supabase's_ integration were deleted. Eleven were read by
+  no code at all (`SUPABASE_*`, `POSTGRES_HOST`/`USER`/`PASSWORD`/`DATABASE`/
+  `PRISMA_URL`) — including two unused high-privilege credentials,
+  `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_SECRET_KEY`, sitting in a project
+  that has never used Supabase's client. Three were `NEXT_PUBLIC_SUPABASE_*`:
+  Next.js naming in a Vite app, where the prefix does nothing, and duplicates of
+  the `SUPABASE_*` trio besides. The last two, `POSTGRES_URL` and
+  `POSTGRES_URL_NON_POOLING`, _are_ read as `DATABASE_URL` fallbacks by both
+  `env.ts` and `scripts/lib/migrations.mjs`, and point at the IPv6-only direct
+  host Vercel cannot reach — a live footgun the moment `DATABASE_URL` is unset
+  or mistyped ([ADR 0012](adr/0012-session-pooler-for-the-database-url.md)).
+- **Production has the scraper configuration it was missing.**
+  `SCRAPER_API_KEY`, `SCRAPER_PROVIDER`, `SCRAPER_ENABLED`, `AI_ENABLED` and
+  `PUBLIC_BASE_URL` are now set on the Vercel project. `PUBLIC_BASE_URL` had
+  never been set in any environment, though it fixes the passkey relying party
+  and the origin of magic-link and invite URLs.
+
+### Fixed
+
+- **A correction to the previous entry's diagnosis.** It concluded that no
+  Doppler → Vercel integration existed, inferred from `GET /v3/integrations`
+  returning an empty list. That inference was wrong: the agent's Doppler
+  credential is a config-scoped service token and cannot enumerate workplace
+  integrations, so the empty list carried no information. Audited properly
+  against the Vercel API, the Doppler integration **is** installed
+  (`icfg_aMeJc62QWO3IQhXzNK4GeaH5`, `projectSelection: "all"`, holding
+  `read-write:project-env-vars`) — but its `updatedAt` equals its `createdAt`
+  and not one variable on the project carries its `configurationId`. The
+  integration is installed and authorised; the per-config **sync** was never
+  created. The observation was right and the explanation was not.
+
+---
+
 ## 2026-08-10 — Switching scraper vendor is configuration; trips can be copied and deleted
 
 ### Added

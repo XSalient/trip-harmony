@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 334 tests ✅ · production build ✅ (2026-08-10) ·
+- **Health:** typecheck ✅ · 339 tests ✅ · production build ✅ (2026-08-10) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -46,12 +46,15 @@ finish a piece of work — the next person (or agent) starts here.
   that Gemini does not need, so a correct key still read as missing. Fixed on
   2026-08-10; the health summary now also names the variable the key came from
   (`aiKeySource`).
-  **Only `AI_INTEGRATIONS_GEMINI_API_KEY` is required, and it is not in the
-  production environment.** Confirmed after the fix deployed: `0e55c5c` and
-  `5e0661c` both report `"ai":"missing"`, and `5e0661c` adds
-  `"aiKeySource":null` — so neither the Gemini key nor the Forge key reached
-  the running function. It is also absent from Doppler `dev`. See the Vercel
-  note below for the likely reason.
+  **Only `AI_INTEGRATIONS_GEMINI_API_KEY` is required, and it does not exist
+  anywhere this session could see.** Confirmed after the fix deployed:
+  `5e0661c` reports `"ai":"missing"` with `"aiKeySource":null`, so neither the
+  Gemini key nor the Forge key reached the running function. A direct audit of
+  the Vercel project on 2026-08-10 found no AI variable under any name, and
+  Doppler `dev` has none either. **Nobody has set it yet** — this is not a
+  delivery problem like the scraper key was. Put it in Doppler `dev` (or
+  straight onto Vercel) and redeploy; `/api/health` will flip to
+  `"ai":"configured"` and name the variable it came from.
 - **Booking.com serves an AWS WAF challenge, not a 403.** HTTP `202` with an
   empty `<title>` and a `challenge.js`; `looksLikeBotCheck` catches it, which is
   why the ladder degrades rather than importing a captcha as a hotel. Airbnb, by
@@ -74,26 +77,58 @@ finish a piece of work — the next person (or agent) starts here.
   imports degrade through URL hints, Google Places and the traveller's paste
   when it is off, exactly as
   [ADR 0008](adr/0008-listing-import-degrades-instead-of-evading.md) describes.
-- **⚠️ Production has no scraper key, and probably no Doppler at all.**
-  `/api/health` on `5e0661c` reports `"scraper":"disabled"` — which since that
-  commit means exactly one thing, because a key that is set but unusable now
-  reports `"misconfigured"` instead. So `SCRAPER_API_KEY` is not in the
-  production environment.
-  That is the second variable to go missing in production while being present
-  (or believed present) in Doppler, alongside the AI key above, and it points at
-  the delivery path rather than at either value: **`GET /v3/integrations`
-  returns an empty list**, and `secrets.md` already records that production's
-  `DATABASE_URL` was set by hand on the Vercel project with no
-  `configurationId`, and that the `POSTGRES_*` / `SUPABASE_*` variables come
-  from Supabase's integration rather than Doppler's. The likely state is that
-  **no Doppler → Vercel integration exists**, so nothing written to `prd` has
-  ever reached a deploy.
-  Next step is a human's: either connect Doppler → Integrations → Vercel
-  (`prd` → Production, `stg` → Preview) and redeploy, or set
-  `AI_INTEGRATIONS_GEMINI_API_KEY`, `SCRAPER_API_KEY` and `SCRAPER_PROVIDER`
-  directly on the Vercel project. `/api/health` confirms either way.
-  `stg` and `prd` could not be inspected from this session — the agent token is
+- **⚠️ The Doppler → Vercel integration is installed but has never synced.**
+  Audited directly against the Vercel API on 2026-08-10. The Doppler
+  integration is present on the team — `icfg_aMeJc62QWO3IQhXzNK4GeaH5`, slug
+  `doppler`, `projectSelection: "all"`, holding `read-write:project-env-vars` —
+  and its `updatedAt` equals its `createdAt`, so it has never run. **Not one
+  environment variable on `trip-harmony` carries its `configurationId`.**
+  (An earlier note here claimed no integration existed, inferred from
+  `GET /v3/integrations` returning `[]`. That was wrong: the agent's Doppler
+  token is a config-scoped service token and cannot enumerate workplace
+  integrations, so the empty list meant nothing.)
+  The integration is installed and authorised; what is missing is the **sync**,
+  which is created per Doppler config in the Doppler dashboard. Until one
+  exists, Doppler is not the source of truth in practice — Vercel is, and
+  everything on it is hand-set.
+- **⛔ Do not point a sync at Doppler `dev` yet — it would take production
+  down.** `dev` holds placeholders, not real values: `JWT_SECRET` is **1
+  character** (a deployed environment requires ≥ 32, so boot would fail
+  outright), `DATABASE_URL` is 20 characters, and `MAIL_FROM` and
+  `RESEND_API_KEY` are 1 character each. A `dev` → Production sync would
+  overwrite the working Vercel values with those. `dev` also carries
+  `APP_ENV=development`, which would tell the production server it is a
+  development environment; the fix for that one is to **delete `APP_ENV` from
+  Doppler entirely** and let `resolveAppEnv()` derive it — it already reads
+  `VERCEL_ENV` and gets both environments right on its own.
+  Before any sync is created, `dev` needs the real `DATABASE_URL`,
+  `JWT_SECRET`, `RESEND_API_KEY`, `MAIL_FROM` and `OAUTH_SERVER_URL`. Those
+  cannot be copied out of Vercel: the API returns **ciphertext** for
+  `encrypted` variables, so only a human with the originals can put them in.
+- **Vercel environment variables were audited and cleaned on 2026-08-10:
+  23 → 12, no duplicates.** Sixteen variables managed by _Supabase's_
+  integration (`icfg_8QNFBNoYm0WGKwlK508VdYy7`) were deleted: eleven that no
+  code reads (`SUPABASE_*`, `POSTGRES_HOST/USER/PASSWORD/DATABASE/PRISMA_URL`),
+  three `NEXT_PUBLIC_SUPABASE_*` — Next.js naming in a **Vite** app, and
+  duplicates of the `SUPABASE_*` trio besides — and `POSTGRES_URL` /
+  `POSTGRES_URL_NON_POOLING`, which _are_ read as `DATABASE_URL` fallbacks by
+  both `env.ts` and `scripts/lib/migrations.mjs` and point at the IPv6-only
+  direct host Vercel cannot reach ([ADR 0012](adr/0012-session-pooler-for-the-database-url.md)) —
+  a live footgun the moment `DATABASE_URL` is ever unset. Deleting them also
+  removed two unused high-privilege credentials (`SUPABASE_SERVICE_ROLE_KEY`,
+  `SUPABASE_SECRET_KEY`) from a project that never used Supabase's client.
+  Names, targets and ids were backed up before deletion. **The Supabase
+  integration is still installed with `projectSelection: "all"`, so it may
+  re-create them** — if they reappear, restrict or uninstall it for this
+  project.
+  `stg` and `prd` in Doppler still could not be inspected — the agent token is
   `dev`-scoped (`This token does not have access to requested config`).
+- **The scraper is configured in production as of 2026-08-10.**
+  `SCRAPER_API_KEY`, `SCRAPER_PROVIDER`, `SCRAPER_ENABLED` and
+  `PUBLIC_BASE_URL` were set on the Vercel project (all three targets) from the
+  Doppler `dev` values, so production has the working ScraperAPI setup rather
+  than nothing. These are hand-set on Vercel and will be superseded the moment
+  a real Doppler sync exists — that is the intended end state, not this one.
 - **⚠️ The agent Doppler token is read/write, and should not be.** The service
   token issued for agent sessions ("Claude Dev", `dev`-scoped) accepts writes —
   a `POST /v3/configs/config/secrets` succeeds. Nothing an agent does in a
