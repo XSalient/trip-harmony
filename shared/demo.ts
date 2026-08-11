@@ -32,5 +32,49 @@ export const DEMO_EMAIL_DOMAIN = "demo.backtotravelling.example";
  */
 export const DEMO_TOUR_INVITE_CODE = "DEMO-LISBON";
 
-/** Where that button goes. Public to read; joining still requires an account. */
+/** Where the invite-link tour goes. Public to read; joining still requires an account. */
 export const DEMO_TOUR_PATH = `/join/${DEMO_TOUR_INVITE_CODE}`;
+
+/**
+ * The three seats a visitor can take in the demo, without typing anything.
+ *
+ * A demo that opens with a login form is a demo most people close. These are
+ * the personas `auth.demoSignIn` will issue a session for — and the only ones,
+ * because it prefixes every lookup with `DEMO_OPEN_ID_PREFIX` and can therefore
+ * never reach a real account.
+ *
+ * They double as the clearest explanation of the permission model there is:
+ * the same trip, seen from three different seats.
+ */
+export const DEMO_PERSONAS = [
+  {
+    /** Resolves to openId `demo:ava`. */
+    key: "ava",
+    name: "Ava Bennett",
+    role: "Admin",
+    blurb: "Runs all three trips. Can finalise, invite and change roles.",
+  },
+  {
+    key: "priya",
+    name: "Priya Raghunathan",
+    role: "Tripmate",
+    blurb: "Votes, comments and proposes — but cannot finalise anything.",
+  },
+  {
+    key: "nina",
+    name: "Nina Kowalski",
+    role: "Watcher",
+    blurb: "Follows the plan. Sees no votes, no proposers and no AI referee.",
+  },
+] as const;
+
+export type DemoPersonaKey = (typeof DEMO_PERSONAS)[number]["key"];
+
+/**
+ * What a persona key is allowed to look like.
+ *
+ * Narrow on purpose: the key is concatenated onto the demo prefix to form an
+ * `openId`, and a key that could contain anything is a key that invites someone
+ * to try.
+ */
+export const DEMO_PERSONA_KEY_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;

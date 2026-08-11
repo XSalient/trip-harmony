@@ -7,6 +7,10 @@ import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import {
+  DEMO_OPEN_ID_PREFIX,
+  DEMO_PERSONA_KEY_PATTERN,
+} from "../../shared/demo.js";
 import { getSessionCookieOptions } from "../_core/cookies.js";
 import { sdk } from "../_core/sdk.js";
 import * as db from "../db.js";
@@ -96,6 +100,53 @@ export const authRouter = router({
         maxAge: ONE_YEAR_MS,
       });
       return { success: true };
+    }),
+  /**
+   * Signs a visitor into a seeded demo account, with nothing to type.
+   *
+   * A demo whose front door is a login form is a demo most people close, so
+   * this exists to remove the form — not to weaken sign-in. Three things keep
+   * it from being a way into a real account:
+   *
+   * 1. The `openId` it looks up is **built** from `DEMO_OPEN_ID_PREFIX` and a
+   *    key matching `DEMO_PERSONA_KEY_PATTERN`. There is no input path that
+   *    reaches an account without that prefix, so the blast radius is exactly
+   *    the set of rows `pnpm seed:demo` created.
+   * 2. It only answers when the demo has been seeded. On a deployment with no
+   *    demo in it, every persona is NOT_FOUND and the landing page hides the
+   *    button that calls this.
+   * 3. It grants nothing the published credentials didn't already — the demo
+   *    password is in the runbook and in `scripts/demo/options.ts` on purpose.
+   *
+   * The seeded accounts hold no real personal data: invented names at a
+   * reserved `.example` domain, in trips nobody real is a member of.
+   */
+  demoSignIn: publicProcedure
+    .input(
+      z.object({
+        persona: z.string().regex(DEMO_PERSONA_KEY_PATTERN),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.getUserByOpenId(
+        `${DEMO_OPEN_ID_PREFIX}${input.persona}`
+      );
+      if (!user)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This deployment has no demo in it.",
+        });
+
+      const token = await sdk.createSessionToken(user.openId, {
+        name: user.name || "",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, token, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
+      return { success: true, name: user.name };
     }),
   requestMagicLink: publicProcedure
     .input(

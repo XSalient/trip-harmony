@@ -20,12 +20,92 @@ import {
   DollarSign,
   Vote,
 } from "lucide-react";
-import { DEMO_TOUR_INVITE_CODE, DEMO_TOUR_PATH } from "@shared/demo";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { DEMO_PERSONAS, DEMO_TOUR_INVITE_CODE } from "@shared/demo";
+
+/**
+ * Pick a seat in the demo and be inside the app, with nothing typed.
+ *
+ * The three seats are the permission model made visible: the same trip seen as
+ * the person who runs it, as someone who only votes, and as someone who is
+ * merely watching. It is a better explanation than the pricing page's would be.
+ */
+function DemoSeatDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { refresh } = useAuth();
+  const [, navigate] = useLocation();
+  const [pending, setPending] = useState<string | null>(null);
+  const demoSignIn = trpc.auth.demoSignIn.useMutation();
+
+  const take = async (persona: string) => {
+    setPending(persona);
+    try {
+      await demoSignIn.mutateAsync({ persona });
+      await refresh();
+      onOpenChange(false);
+      navigate("/");
+    } catch {
+      toast.error("The demo isn't available on this deployment.");
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Look around as…</DialogTitle>
+          <DialogDescription>
+            A real group trip, mid-argument. Pick a seat — nothing to sign up
+            for, and you can switch later.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          {DEMO_PERSONAS.map(persona => (
+            <button
+              key={persona.key}
+              onClick={() => take(persona.key)}
+              disabled={pending !== null}
+              className="w-full text-left rounded-xl border border-border/70 p-4 transition hover:border-primary hover:bg-accent/40 disabled:opacity-60"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold">{persona.name}</span>
+                <Badge variant="secondary" className="rounded-full text-[10px]">
+                  {persona.role}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                {pending === persona.key ? "Opening…" : persona.blurb}
+              </p>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Everyone in the demo is invented. Nothing you do here reaches a real
+          person.
+        </p>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function LandingPage() {
   const [authOpen, setAuthOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
   const { refresh } = useAuth();
-  const [, navigate] = useLocation();
 
   // Public query: it answers for a signed-out visitor, which is the whole point.
   const { data: demoTrip } = trpc.trips.getByInviteCode.useQuery({
@@ -76,18 +156,20 @@ function LandingPage() {
                 variant="outline"
                 size="lg"
                 className="w-full max-w-xs h-12 text-base rounded-xl"
-                onClick={() => navigate(DEMO_TOUR_PATH)}
+                onClick={() => setDemoOpen(true)}
               >
                 <Eye className="h-4 w-4" />
                 See a real trip
               </Button>
               <p className="text-xs text-muted-foreground mt-2">
-                Seven people, mid-argument. Nothing to set up.
+                Seven people, mid-argument. No sign-up.
               </p>
             </div>
           )}
         </div>
       </div>
+
+      <DemoSeatDialog open={demoOpen} onOpenChange={setDemoOpen} />
 
       {/* Features */}
       <div className="px-6 pb-16 max-w-lg mx-auto">

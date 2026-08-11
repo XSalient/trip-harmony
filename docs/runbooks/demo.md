@@ -27,50 +27,47 @@ http://localhost:5000.
 
 ---
 
-## Marketing — no setup, no terminal
+## Everyone else — two clicks, nothing typed
+
+This is the whole process, and it is the same for marketing, for a prospect on
+a call, and for a business owner you sent the link to:
 
 1. Open the URL.
-2. Sign in:
-   ```
-   ava@demo.backtotravelling.example
-   demo-tripmate-2026
-   ```
-   Ava is an admin on all three trips, so every screen is one tap away.
-3. Take the shots in the order below.
+2. Click **See a real trip**.
+3. Pick a seat.
 
-That is the whole process. Every other seeded person shares that password —
-`marcus@`, `priya@`, `tomas@`, `hannah@`, `dev@`, `nina@`, `joel@`, `sofia@`,
-`ben@`, `yuki@`, all at `demo.backtotravelling.example` — if you want to show
-the same trip through someone else's eyes. **`nina@` is a Watcher**: sign in as
-Nina to show the restricted view, where votes have no names on them.
+No email, no password, no sign-up form.
 
----
+| Seat                   | What they see                                                          |
+| ---------------------- | ---------------------------------------------------------------------- |
+| **Ava Bennett**, Admin | All three trips. Can finalise, invite, change roles — the full product |
+| **Priya**, Tripmate    | The Lisbon trip. Votes and comments, but the finalise buttons are gone |
+| **Nina**, Watcher      | The plan only. No votes attributed, no proposers, no AI referee        |
 
-## Prospects — one link, three clicks
+Take **Ava** for screenshots — every screen is one tap away. The three seats
+side by side are also the clearest way to explain the permission model: same
+trip, and the app visibly gives each person less.
 
-Send them the deployment URL. On the landing page they get **"See a real
-trip"** next to Get Started. That button only appears when a demo has been
-seeded, so it can never lead somewhere empty.
+The button only appears when a demo has been seeded, so an unseeded deployment
+shows nothing rather than a dead end.
 
-1. **See a real trip** → the Lisbon trip's preview.
-2. **Sign in & Join Trip** → they register with their own email.
-3. They are in, as a Tripmate, on a trip where six people have already voted,
-   argued and been scored by the referee.
+**If you want them to experience being invited**, send a join link instead.
+They register with their own email and land as a real member — which also
+captures their address:
 
-They vote and comment as themselves and cannot damage the seeded votes. You get
-their email address.
+| Link                                                   | They arrive as                                   |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| `/join/DEMO-LISBON`                                    | Tripmate on the hero trip — voting as themselves |
+| `/join/DEMO-CHAMONIX?invite=demo-chamonix-nina-invite` | Watcher, through the emailed-invite path         |
 
-**Send them somewhere specific instead**, by pasting a link directly:
+Re-run the seeder when the demo has been clicked about. Visitors who signed up
+keep their own accounts and just follow the link again.
 
-| Link                                                   | They arrive as                                                           |
-| ------------------------------------------------------ | ------------------------------------------------------------------------ |
-| `/join/DEMO-LISBON`                                    | Tripmate on the hero trip — can vote, comment, set their own preferences |
-| `/join/DEMO-CHAMONIX?invite=demo-chamonix-nina-invite` | **Watcher** — sees the plan, but no vote is attributed and no AI referee |
-| `/join/DEMO-CHAMONIX`                                  | Tripmate on the early-stage trip, where nothing is decided yet           |
+### Signing in with a password instead
 
-Re-run the seeder when the demo has been clicked about. It removes the demo
-trips and the seeded people; visitors who signed up keep their own accounts, so
-they just follow the link again.
+Still works, for a seat the picker does not offer — `marcus@`, `tomas@`,
+`hannah@`, `dev@`, `yuki@` and the rest, all at
+`demo.backtotravelling.example`, sharing the password the seeder printed.
 
 ## What you get
 
