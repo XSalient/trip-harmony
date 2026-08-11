@@ -12,22 +12,18 @@
  * reached. So the target has to earn the write rather than be assumed safe.
  */
 
-/** Prefix on every seeded user's `openId`. The reset is scoped to it. */
-export const DEMO_OPEN_ID_PREFIX = "demo:";
+// The prefixes live in `shared/` because the landing page needs them too: it
+// asks whether the demo trip exists before offering a button that leads to it.
+export {
+  DEMO_EMAIL_DOMAIN,
+  DEMO_INVITE_CODE_PREFIX,
+  DEMO_OPEN_ID_PREFIX,
+} from "../../shared/demo.js";
 
-/**
- * Prefix on every seeded trip's `inviteCode`. `inviteCode` is unique and
- * already indexed, which makes it the cheapest honest answer to "is this row
- * ours to delete?".
- */
-export const DEMO_INVITE_CODE_PREFIX = "DEMO-";
-
-/**
- * Reserved for the seeded accounts. `.example` is reserved by RFC 2606 and
- * resolves nowhere, so a demo account can never receive mail — or be mistaken
- * for a person — however the data is later copied around.
- */
-export const DEMO_EMAIL_DOMAIN = "demo.backtotravelling.example";
+import {
+  DEMO_INVITE_CODE_PREFIX,
+  DEMO_OPEN_ID_PREFIX,
+} from "../../shared/demo.js";
 
 /**
  * The published sign-in password for the seeded accounts.

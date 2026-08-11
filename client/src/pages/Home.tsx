@@ -14,15 +14,23 @@ import {
   Plus,
   LogOut,
   ChevronRight,
+  Eye,
   Sparkles,
   Shield,
   DollarSign,
   Vote,
 } from "lucide-react";
+import { DEMO_TOUR_INVITE_CODE, DEMO_TOUR_PATH } from "@shared/demo";
 
 function LandingPage() {
   const [authOpen, setAuthOpen] = useState(false);
   const { refresh } = useAuth();
+  const [, navigate] = useLocation();
+
+  // Public query: it answers for a signed-out visitor, which is the whole point.
+  const { data: demoTrip } = trpc.trips.getByInviteCode.useQuery({
+    code: DEMO_TOUR_INVITE_CODE,
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,6 +67,25 @@ function LandingPage() {
           >
             Get Started
           </Button>
+
+          {/* Only when a demo has actually been seeded — see `shared/demo.ts`.
+              A button that leads to "Trip not found" is worse than no button. */}
+          {demoTrip && (
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full max-w-xs h-12 text-base rounded-xl"
+                onClick={() => navigate(DEMO_TOUR_PATH)}
+              >
+                <Eye className="h-4 w-4" />
+                See a real trip
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Seven people, mid-argument. Nothing to set up.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,40 +1,76 @@
 # Running the marketing demo
 
-Getting from a clone to an app with three trips, eleven people and a live
-argument in it — for screenshots, a screencast, or a link to open during a call.
+Three trips, eleven people and a live argument, for screenshots, a screencast,
+or a link to send a prospect.
 
 Why it exists and why it is built this way:
 [ADR-0015](../adr/0015-demo-data-lives-in-its-own-namespace.md).
 
-## Seed it
+---
+
+## Setup — a developer, once, five minutes
+
+Seed the deployment marketing will use. After this nobody needs a terminal
+again.
 
 ```bash
-pnpm setup            # once, on a fresh clone
-pnpm seed:demo        # against DATABASE_URL
-pnpm dev              # http://localhost:5000
+pnpm seed:demo --allow-remote     # against the preview/demo deployment's DATABASE_URL
 ```
 
-Through Doppler instead, which is how most people have a database configured:
+Send marketing the deployment URL. Done.
 
-```bash
-pnpm seed:demo:doppler    # doppler run --config dev
-pnpm dev:doppler
-```
+To reset it later — after a prospect has clicked around, or before recording —
+run the same command again. It replaces the demo rather than duplicating it.
 
-Sign in with any of the seeded accounts. **Ava Bennett** is the one to use — an
-admin on all three trips, so every screen is reachable without switching user:
+Locally instead of a deployment: `pnpm seed:demo && pnpm dev`, then
+http://localhost:5000.
 
-```
-ava@demo.backtotravelling.example
-demo-tripmate-2026
-```
+---
 
-Every other person shares that password: `marcus@`, `priya@`, `tomas@`,
-`hannah@`, `dev@`, `nina@`, `joel@`, `sofia@`, `ben@`, `yuki@`, all at
-`demo.backtotravelling.example`.
+## Marketing — no setup, no terminal
 
-Re-running the seeder resets the demo to its starting state — useful between
-takes. `pnpm seed:demo --clean` removes it and creates nothing.
+1. Open the URL.
+2. Sign in:
+   ```
+   ava@demo.backtotravelling.example
+   demo-tripmate-2026
+   ```
+   Ava is an admin on all three trips, so every screen is one tap away.
+3. Take the shots in the order below.
+
+That is the whole process. Every other seeded person shares that password —
+`marcus@`, `priya@`, `tomas@`, `hannah@`, `dev@`, `nina@`, `joel@`, `sofia@`,
+`ben@`, `yuki@`, all at `demo.backtotravelling.example` — if you want to show
+the same trip through someone else's eyes. **`nina@` is a Watcher**: sign in as
+Nina to show the restricted view, where votes have no names on them.
+
+---
+
+## Prospects — one link, three clicks
+
+Send them the deployment URL. On the landing page they get **"See a real
+trip"** next to Get Started. That button only appears when a demo has been
+seeded, so it can never lead somewhere empty.
+
+1. **See a real trip** → the Lisbon trip's preview.
+2. **Sign in & Join Trip** → they register with their own email.
+3. They are in, as a Tripmate, on a trip where six people have already voted,
+   argued and been scored by the referee.
+
+They vote and comment as themselves and cannot damage the seeded votes. You get
+their email address.
+
+**Send them somewhere specific instead**, by pasting a link directly:
+
+| Link                                                   | They arrive as                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `/join/DEMO-LISBON`                                    | Tripmate on the hero trip — can vote, comment, set their own preferences |
+| `/join/DEMO-CHAMONIX?invite=demo-chamonix-nina-invite` | **Watcher** — sees the plan, but no vote is attributed and no AI referee |
+| `/join/DEMO-CHAMONIX`                                  | Tripmate on the early-stage trip, where nothing is decided yet           |
+
+Re-run the seeder when the demo has been clicked about. It removes the demo
+trips and the seeded people; visitors who signed up keep their own accounts, so
+they just follow the link again.
 
 ## What you get
 
