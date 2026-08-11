@@ -8,6 +8,13 @@
 #   dev  -> local development   (APP_ENV=development)
 #   stg  -> Vercel previews     (APP_ENV=preview)
 #   prd  -> production          (APP_ENV=production)
+#   demo -> the seeded sales demo, and the only config carrying
+#           DEMO_SEED_PASSWORD. See docs/runbooks/demo.md.
+#
+# `doppler setup` binds you to dev, the config a developer wants by default.
+# Reaching any other config therefore needs both flags spelled out —
+# `doppler run --project trip-harmony --config demo -- …` — because a personal
+# login carries no project of its own.
 #
 # See docs/runbooks/secrets.md.
 setup:

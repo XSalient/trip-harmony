@@ -160,9 +160,15 @@ a generated password that is not the published one. To seed the database that
 config points at, from a machine with network access to it:
 
 ```bash
-doppler run --config demo -- sh -c \
+doppler run --project trip-harmony --config demo -- sh -c \
   'APP_ENV=production pnpm seed:demo --allow-production --password="$DEMO_SEED_PASSWORD"'
 ```
+
+`--project` is not optional here. `doppler.yaml` binds this repository to the
+`dev` config, and a personal CLI login carries no project of its own, so
+`--config demo` on its own fails with "You must specify a project". A service
+token carries both and does not need either flag — which is exactly why this
+command can look fine to one person and break for the next.
 
 The password never has to be typed or pasted — it comes out of Doppler and goes
 straight into the flag. `--clean` on the same command removes the demo again.
