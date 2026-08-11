@@ -152,3 +152,23 @@ seeded and cleaned without touching them.
 Do not seed production with the default password. It is printed in this file
 and in `scripts/demo/options.ts`, and the seeder refuses that combination for
 exactly that reason.
+
+### The `demo` Doppler config
+
+`trip-harmony/demo` carries a full set of app secrets plus `DEMO_SEED_PASSWORD`,
+a generated password that is not the published one. To seed the database that
+config points at, from a machine with network access to it:
+
+```bash
+doppler run --config demo -- sh -c \
+  'APP_ENV=production pnpm seed:demo --allow-production --password="$DEMO_SEED_PASSWORD"'
+```
+
+The password never has to be typed or pasted — it comes out of Doppler and goes
+straight into the flag. `--clean` on the same command removes the demo again.
+
+**This cannot be run from a Claude Code web session.** That sandbox reaches the
+network through an HTTPS proxy that does not carry raw-TCP database connections,
+so `DATABASE_URL` times out there no matter which config is loaded. Seeding is a
+job for a developer machine or CI. Everything else about the demo — the code,
+the config, the deployment — is reachable from a web session.
