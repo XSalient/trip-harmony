@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_DEMO_PASSWORD,
+  DEMO_PASSWORD_ENV_VAR,
   UsageError,
   databaseHost,
   decideRun,
@@ -18,7 +19,57 @@ const LOCAL = "postgresql://postgres@127.0.0.1:5432/back_to_travelling_dev";
 const REMOTE =
   "postgresql://postgres.abcdef:secret@aws-0-eu-west-2.pooler.supabase.com:5432/postgres";
 
-const options = (argv: string[] = []) => parseArgs(argv);
+const options = (argv: string[] = []) => parseArgs(argv, {});
+
+/** `parseArgs` with only the password variable set. */
+const withEnvPassword = (value: string, argv: string[] = []) =>
+  parseArgs(argv, { [DEMO_PASSWORD_ENV_VAR]: value });
+
+describe(`${DEMO_PASSWORD_ENV_VAR}`, () => {
+  const GOOD = "not-the-published-one";
+
+  it("supplies the password, so it never becomes an argument", () => {
+    const parsed = withEnvPassword(GOOD);
+    expect(parsed.password).toBe(GOOD);
+    expect(parsed.passwordWasGiven).toBe(true);
+  });
+
+  it("unlocks a production run on its own", () => {
+    const decision = decideRun(
+      { databaseUrl: REMOTE, appEnv: "production" },
+      withEnvPassword(GOOD, ["--allow-production"])
+    );
+    expect(decision.allowed).toBe(true);
+  });
+
+  it("does not let the published password through by the back door", () => {
+    // The whole point of the production guard: putting the known password in
+    // the environment must not count as having chosen one.
+    const parsed = withEnvPassword(DEFAULT_DEMO_PASSWORD);
+    expect(parsed.passwordWasGiven).toBe(false);
+
+    const decision = decideRun(
+      { databaseUrl: REMOTE, appEnv: "production" },
+      withEnvPassword(DEFAULT_DEMO_PASSWORD, ["--allow-production"])
+    );
+    expect(decision.allowed).toBe(false);
+  });
+
+  it("ignores a value too short to be a password", () => {
+    expect(withEnvPassword("short").passwordWasGiven).toBe(false);
+    expect(withEnvPassword("short").password).toBe(DEFAULT_DEMO_PASSWORD);
+  });
+
+  it("ignores whitespace left by a careless copy-paste", () => {
+    expect(withEnvPassword("   ").passwordWasGiven).toBe(false);
+    expect(withEnvPassword(`  ${GOOD}  `).password).toBe(GOOD);
+  });
+
+  it("yields to an explicit --password", () => {
+    const parsed = withEnvPassword(GOOD, ["--password=chosen-on-the-line"]);
+    expect(parsed.password).toBe("chosen-on-the-line");
+  });
+});
 
 describe("parseArgs", () => {
   it("seeds by default", () => {

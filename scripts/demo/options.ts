@@ -49,11 +49,37 @@ export interface DemoOptions {
 
 export class UsageError extends Error {}
 
-export function parseArgs(argv: readonly string[]): DemoOptions {
+/**
+ * The environment variable a password may arrive in instead of `--password=`.
+ *
+ * Seeding a shared environment means reaching for a password that lives in a
+ * secret manager, and getting it onto the command line means a shell doing the
+ * expanding. That is where this goes wrong: `sh -c` is not a thing on Windows,
+ * `%VAR%` expands before the secret exists, and whichever form you land on,
+ * the password ends up echoed in a terminal and in the package runner's log.
+ *
+ * Reading it from the environment makes the whole problem disappear —
+ * `doppler run … -- pnpm seed:demo --allow-production` is the same command on
+ * every operating system, and the secret never becomes an argument.
+ */
+export const DEMO_PASSWORD_ENV_VAR = "DEMO_SEED_PASSWORD";
+
+export function parseArgs(
+  argv: readonly string[],
+  env: NodeJS.ProcessEnv = process.env
+): DemoOptions {
+  const fromEnv = env[DEMO_PASSWORD_ENV_VAR]?.trim();
+  const usableFromEnv =
+    fromEnv && fromEnv.length >= 8 && fromEnv !== DEFAULT_DEMO_PASSWORD
+      ? fromEnv
+      : undefined;
+
   const options: DemoOptions = {
     mode: "seed",
-    password: DEFAULT_DEMO_PASSWORD,
-    passwordWasGiven: false,
+    password: usableFromEnv ?? DEFAULT_DEMO_PASSWORD,
+    // An environment password counts as given: it was put there on purpose,
+    // and it is not the one published in this file.
+    passwordWasGiven: usableFromEnv !== undefined,
     allowRemote: false,
     allowProduction: false,
     help: false,
@@ -166,7 +192,9 @@ export function decideRun(
       reason:
         "Refusing to seed production with the default password, which is " +
         "published in scripts/demo/options.ts and in the runbook. Pass " +
-        "--password=… with something the internet does not already know.",
+        `--password=… with something the internet does not already know, or ` +
+        `set ${DEMO_PASSWORD_ENV_VAR} — a secret manager can supply that one ` +
+        "without it ever becoming a command-line argument.",
     };
   }
 
@@ -183,8 +211,14 @@ and AI mediation that make the screens worth photographing.
   --password=…          Sign-in password for the demo accounts.
                         Default: ${DEFAULT_DEMO_PASSWORD}
   --allow-remote        Required when the database is not on this machine.
-  --allow-production    Required when APP_ENV=production. Needs --password too.
+  --allow-production    Required when APP_ENV=production. Needs a password.
   -h, --help            This text.
+
+${DEMO_PASSWORD_ENV_VAR} sets the password too, and is the better way to reach
+a shared environment: it works the same on every operating system and keeps the
+secret out of your shell history. With it set, the whole command is
+
+  doppler run --project trip-harmony --config demo -- pnpm seed:demo --allow-production
 
 Seeding is idempotent: it removes what a previous run created before it
 writes, so running it twice leaves one copy of the demo, not two. It only ever
