@@ -52,6 +52,7 @@ pnpm test      # vitest, server-side
 pnpm test:affected  # only the tests your change can reach (what CI runs)
 pnpm format    # prettier; CI enforces it
 pnpm db:push   # apply drizzle/schema.ts to the database
+pnpm seed:demo # fill a database with the marketing demo (docs/runbooks/demo.md)
 pnpm db:status # is this database behind on migrations?
 ```
 

@@ -25,6 +25,7 @@ or operated. Skip it for routine feature work.
 | [0012](0012-session-pooler-for-the-database-url.md)              | `DATABASE_URL` points at the session pooler           | Accepted |
 | [0013](0013-optional-scraper-fallback-for-blocked-listings.md)   | An optional scraper fallback for blocked listings     | Accepted |
 | [0014](0014-scraper-vendor-identity-comes-from-configuration.md) | A scraper vendor is whatever configuration says it is | Accepted |
+| [0015](0015-demo-data-lives-in-its-own-namespace.md)             | Demo data lives in its own namespace                  | Accepted |
 
 ## Template
 

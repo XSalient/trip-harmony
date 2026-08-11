@@ -11,6 +11,8 @@
     "start": "NODE_ENV=production APP_ENV=${APP_ENV:-production} node dist/index.js",
     "check": "tsc --noEmit",
     "diagnose:url": "tsx scripts/diagnose-listing-url.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo:doppler": "doppler run --config dev -- tsx scripts/seed-demo.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:affected": "node scripts/affected-tests.mjs",

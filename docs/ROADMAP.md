@@ -59,6 +59,21 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 
 ---
 
+## Shipped — the marketing demo (2026-08-11)
+
+- [x] `pnpm seed:demo` — three trips, eleven people, 150 votes and the argument
+      that makes the referee worth showing. See
+      [runbooks/demo.md](runbooks/demo.md).
+- [x] The seeder can only delete what it created, and refuses a database it was
+      not told about twice
+      ([ADR-0015](adr/0015-demo-data-lives-in-its-own-namespace.md)).
+
+Not done, and worth knowing: the demo has no owner and no test that notices when
+it goes stale. `pnpm verify` will not catch a screen that has changed shape
+underneath the fixture — someone has to look before recording.
+
+---
+
 ## Shipped — trip experience overhaul
 
 Specified in [product/](product/); tracked story by story in

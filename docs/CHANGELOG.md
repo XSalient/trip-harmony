@@ -8,6 +8,44 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-11 — A seeded demo, for showing the product to people who don't have one
+
+### Added
+
+- **`pnpm seed:demo` fills a database with three trips worth photographing.**
+  An empty app demonstrates nothing, and the screens that make this product
+  worth explaining — the vote tallies, the AI match scores, the referee naming
+  a conflict — only exist once a group has argued in it. The demo is a group
+  of seven mid-argument over the Algarve, a group of five who cannot find a
+  week in March, and a Kyoto trip that finished under budget: 11 people, 150
+  votes, 8 referee messages, 5 accommodations scored against every member's
+  stated requirements, and the accessibility conflict that the referee refuses
+  to treat as a matter of taste. Copy lives in `scripts/demo/story.ts`; a
+  marketer can rewrite the whole demo without touching the runner.
+- **`docs/runbooks/demo.md`** — sign-in details, the eight screens worth
+  photographing in the order they sell, and the two buttons not to press on
+  camera.
+
+### Changed
+
+- Nothing in the app. The seeder writes rows the app already understands; no
+  server or client code was touched.
+
+### Safety
+
+- **The seeder cannot delete a row it did not create.** Demo users carry a
+  `demo:` prefix on `openId` and demo trips a `DEMO-` prefix on `inviteCode`;
+  the reset selects on those and nothing else, and trips go through the same
+  `deleteTripCascade` the app's own delete path uses. Re-running replaces the
+  demo rather than duplicating it.
+- **It refuses a database it was not told about twice.** Not-localhost needs
+  `--allow-remote`; `APP_ENV=production` needs `--allow-production` as well,
+  and refuses the published default password on top. The policy is pure and
+  unit-tested in `scripts/demo/options.test.ts` — 17 tests, mostly about
+  refusing. See [ADR-0015](adr/0015-demo-data-lives-in-its-own-namespace.md).
+
+---
+
 ## 2026-08-10 — The vote score says what it is, and "not analysed" says what it isn't
 
 ### Changed

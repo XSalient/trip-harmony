@@ -19,6 +19,9 @@ export default defineConfig({
       "server/**/*.spec.ts",
       // The test selector decides what CI runs, so it is tested like anything else.
       "scripts/**/*.test.mjs",
+      // …and the demo seeder's safety policy, which is TypeScript because
+      // nothing in a deploy runs it. See scripts/seed-demo.ts.
+      "scripts/**/*.test.ts",
     ],
   },
 });

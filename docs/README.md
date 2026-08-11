@@ -8,6 +8,7 @@ committed to git. There is no external wiki or tracker.
 | I want to…                            | Go to                                                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------- |
 | Run the app locally                   | [runbooks/local-setup.md](runbooks/local-setup.md)                                                      |
+| Show the product to someone           | [runbooks/demo.md](runbooks/demo.md)                                                                    |
 | Know what's done and what's in flight | [PROJECT_STATUS.md](PROJECT_STATUS.md)                                                                  |
 | Know what's planned                   | [ROADMAP.md](ROADMAP.md)                                                                                |
 | See the spec for work in flight       | [product/](product/)                                                                                    |

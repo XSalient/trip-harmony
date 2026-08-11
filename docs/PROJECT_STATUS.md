@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-10
+- **Last updated:** 2026-08-11
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -254,6 +254,23 @@ Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 3. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
 4. **AI prompts are inline** in router files and unversioned.
+
+## Showing it to someone
+
+`pnpm seed:demo` fills a database with three trips, eleven people and 150
+votes — enough that every screen has something on it worth photographing. See
+[runbooks/demo.md](runbooks/demo.md) for sign-in details and the shots worth
+taking, and [ADR-0015](adr/0015-demo-data-lives-in-its-own-namespace.md) for
+why it cannot delete anything it did not create.
+
+Walked in a real browser against a real Postgres on 2026-08-11: sign-in, all
+three trips, and the eleven screens the runbook lists. Two things to know. The
+demo calls no model — the match scores and referee messages are seeded text, so
+it runs with no AI key and costs nothing, but pressing **Get Referee Analysis**
+on camera will overwrite the seeded copy if a key is configured. And the
+photographs are hotlinked from Wikimedia Commons, which serves only thumbnail
+widths it has already rendered; the seeded URLs use `960px-`, and an invented
+width answers HTTP 400.
 
 ## Verifying the current state yourself
 

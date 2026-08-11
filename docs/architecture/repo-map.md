@@ -33,6 +33,9 @@ is compiled and with no tsx on the path.
 | `affected-tests.mjs`      | Runs only the tests the current change can reach.                                      |
 | `lib/affected.mjs`        | The import-graph walk and selection rules. Pure; unit-tested beside it.                |
 | `diagnose-listing-url.ts` | `pnpm diagnose:url <link>` — why an import filled nothing. Dev only, so TypeScript.    |
+| `seed-demo.ts`            | `pnpm seed:demo` — fills a database with the marketing demo. Dev only, so TypeScript.  |
+| `demo/story.ts`           | The demo's content: three trips, eleven people, the argument. Pure data — edit freely. |
+| `demo/options.ts`         | Which databases the seeder may write to. Pure; unit-tested beside it.                  |
 
 ## `server/` — API
 
