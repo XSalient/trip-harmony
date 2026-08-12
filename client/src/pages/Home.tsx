@@ -112,6 +112,10 @@ function LandingPage() {
     code: DEMO_TOUR_INVITE_CODE,
   });
 
+  // Whether this host is the demo's. The product site and the demo are one
+  // deployment behind two domains, so the server has to say which one answered.
+  const { data: capabilities } = trpc.auth.capabilities.useQuery();
+
   return (
     <div className="min-h-screen bg-background">
       <AuthDialog
@@ -148,9 +152,12 @@ function LandingPage() {
             Get Started
           </Button>
 
-          {/* Only when a demo has actually been seeded — see `shared/demo.ts`.
-              A button that leads to "Trip not found" is worse than no button. */}
-          {demoTrip && (
+          {/* Both have to hold. `demoTour` keeps it off the product site, which
+              serves the same build from a different domain. And a demo has to
+              have been seeded — a button leading to "Trip not found" is worse
+              than no button. Presentation only: `auth.demoSignIn` applies the
+              host rule itself. */}
+          {capabilities?.demoTour && demoTrip && (
             <div className="mt-4">
               <Button
                 variant="outline"

@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 378 tests ✅ · production build ✅ (2026-08-12) ·
+- **Health:** typecheck ✅ · 398 tests ✅ · production build ✅ (2026-08-12) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -154,10 +154,21 @@ integration."` even with the right integration UUID, because a Doppler
 | Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied          |
 | Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)             |
 | Production (Vercel) | ✅ Live                | `www.backtotravelling.com`, project `trip-harmony`, team `saurabhs-projects-4d5cc478` |
+| Sales demo          | Same deployment        | `demo.backtotravelling.com` — one build, two domains; gated on the Host header        |
 
 Production serves from `www.backtotravelling.com` (the apex 308-redirects to
 `www`). `/api/health` returns `"status":"ok"` with
 `"databaseSource":"DATABASE_URL"`.
+
+`demo.backtotravelling.com` is the **same deployment**, not a second one. The
+demo entry point — the landing-page button and the seat-picker API — is shown
+only when the request arrives on that hostname, because one process serving two
+domains sees one environment and the `Host` header is the only thing that
+differs. `isDemoTourHost` in `shared/demo.ts` is the check;
+[runbooks/demo.md](runbooks/demo.md) has the table of what each domain does.
+The domain has to be attached to the project in Vercel for any of this to
+appear; until it is, the demo is hidden everywhere, which is the safe direction
+to fail.
 
 It was down for a while, and the cause is worth keeping. The build died at the
 migration step:

@@ -35,6 +35,35 @@ export const DEMO_TOUR_INVITE_CODE = "DEMO-LISBON";
 /** Where the invite-link tour goes. Public to read; joining still requires an account. */
 export const DEMO_TOUR_PATH = `/join/${DEMO_TOUR_INVITE_CODE}`;
 
+/** Forces the demo tour on where the hostname would not. See `isDemoTourHost`. */
+export const DEMO_TOUR_ENV_VAR = "DEMO_TOUR_ENABLED";
+
+/**
+ * Whether a request arriving on this host should be offered the demo.
+ *
+ * The demo and the product are one deployment behind two domains — the sales
+ * demo at `demo.backtotravelling.com`, the real site at `www`. Two domains
+ * pointing at one deployment share a process and therefore share an
+ * environment, so nothing in `process.env` can tell a request to one from a
+ * request to the other. The `Host` header is the only thing that differs, which
+ * is why the demo is gated on it rather than on configuration.
+ *
+ * `localhost` is included so that seeding a local database and running the app
+ * shows the demo with nothing to configure, which is what the runbook promises.
+ *
+ * This is a shape check and nothing more: it says `demo.anything` is a demo
+ * host, and it would say so of a hostname nobody here controls. That is fine,
+ * because it is not what keeps the demo off the production site — the boundary
+ * is which hostnames Vercel will answer for at all. This function decides what
+ * to show on a request that has already arrived; it is not an access control.
+ */
+export function isDemoTourHost(host: string | undefined): boolean {
+  // `Host` carries the port (`localhost:5000`), and hostnames are case-insensitive.
+  const hostname = host?.trim().toLowerCase().split(":")[0];
+  if (!hostname) return false;
+  return hostname === "localhost" || hostname.startsWith("demo.");
+}
+
 /**
  * The three seats a visitor can take in the demo, without typing anything.
  *

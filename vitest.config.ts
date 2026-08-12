@@ -22,6 +22,9 @@ export default defineConfig({
       // …and the demo seeder's safety policy, which is TypeScript because
       // nothing in a deploy runs it. See scripts/seed-demo.ts.
       "scripts/**/*.test.ts",
+      // Rules both sides depend on, tested where they live rather than from
+      // whichever side happened to need them first.
+      "shared/**/*.test.ts",
     ],
   },
 });

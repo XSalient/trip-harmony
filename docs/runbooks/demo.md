@@ -17,7 +17,7 @@ again.
 pnpm seed:demo --allow-remote     # against the preview/demo deployment's DATABASE_URL
 ```
 
-Send marketing the URL — **https://www.backtotravelling.com**. Done.
+Send marketing the URL — **https://demo.backtotravelling.com**. Done.
 
 To reset it later — after a prospect has clicked around, or before recording —
 an app admin does it from the app itself, in one click and with no terminal:
@@ -79,6 +79,11 @@ is discarded.
 No terminal, no network requirements, from any device you can sign in on. This
 is the way to do it before a call. The command line still works and is the only
 option when nobody is an app admin yet; see _Seeding a shared environment_.
+
+The Admin section is gated on **who you are, not which host you used** — so it
+is there on `www` as well, which is where you sign in. It rebuilds the one demo
+either way, because both domains are the same deployment reading the same
+database.
 
 ### Signing in with a password instead
 
@@ -216,6 +221,47 @@ the config that feeds the sync, identifiable in the Doppler dashboard as the one
 carrying a Vercel integration. Vercel marks synced values _Sensitive_, so they
 cannot be read back from its UI to identify the source.
 
+### Two domains, one deployment
+
+`demo.backtotravelling.com` and `www.backtotravelling.com` are the **same
+build**, the same server and the same database. What separates them is the
+hostname the request arrived on:
+
+|                                              | `demo.`   | `www.`      |
+| -------------------------------------------- | --------- | ----------- |
+| **See a real trip** on the landing page      | shown     | hidden      |
+| Seat picker (`auth.demoSignIn`)              | works     | `NOT_FOUND` |
+| `/join/DEMO-LISBON` and the other demo links | works     | works       |
+| Everything else                              | identical | identical   |
+
+This is why the demo cannot drift from the product: there is no second branch
+and no second build to keep in step. It also means **the demo has to be gated on
+the hostname rather than on configuration** — one process serves both domains,
+so both see the same environment variables, and only the `Host` header differs.
+`isDemoTourHost` in `shared/demo.ts` is that check, and it treats any `demo.`
+subdomain and `localhost` as the demo's.
+
+The seat picker applies the rule itself, so hiding the button is presentation
+rather than protection: calling the API directly from the product host answers
+exactly as an unseeded deployment would.
+
+Join links are deliberately **not** gated. A prospect who was sent
+`/join/DEMO-LISBON` should land in the trip whichever host they open, and they
+join as themselves rather than as a persona.
+
+**Previews need `DEMO_TOUR_ENABLED=true`.** A preview URL is generated per build,
+so no hostname rule can recognise one. Set it on _All Pre-Production
+Environments_ to keep testing the demo there. It is opt-in on purpose: forgetting
+it hides a demo, whereas the opposite mistake puts one on the marketing site.
+
+**Passkeys do not work on the demo subdomain.** The relying-party ID comes from
+`PUBLIC_BASE_URL`, so a browser on `demo.` refuses with `'rp.id' cannot be used
+with the current origin`. Nothing in the demo needs them — the seat picker asks
+for no credential — but it will look like a bug to whoever meets it. Fixing it
+means setting the relying-party ID to `backtotravelling.com`, which covers every
+subdomain, and re-enrolling every existing passkey, since a passkey is bound to
+the ID it was created under.
+
 ### The `demo` Doppler config
 
 `trip-harmony/demo` carries a full set of app secrets plus `DEMO_SEED_PASSWORD`,
@@ -241,20 +287,8 @@ whoever wrote it and break for the next person.
 The password never has to be typed or pasted — it comes out of Doppler and goes
 straight into the flag. `--clean` on the same command removes the demo again.
 
-**`PUBLIC_BASE_URL` in this config points at a host that does not serve the
-app.** It reads `https://demo.backtotravelling.com`, which is not a registered
-domain on the Vercel project: it answers, but only to redirect to a Vercel SSO
-login, so anyone sent that link lands on a sign-in wall rather than the demo.
-
-The demo is at **`www.backtotravelling.com`** — production, where it shares the
-database with everything else and stays separate by prefix, which is the whole
-point of [ADR-0015](../adr/0015-demo-data-lives-in-its-own-namespace.md). That
-is the URL to send a prospect, and the deployment whose Admin button resets the
-demo.
-
-So this config's only current job is seeding from a developer machine. Wiring
-`demo.backtotravelling.com` up properly — registering the domain and giving it a
-sync — is unfinished business, not something the demo depends on.
+`PUBLIC_BASE_URL` here reads `https://demo.backtotravelling.com`, which is where
+the demo is served from — see _Two domains, one deployment_ below.
 
 **This cannot be run from a Claude Code web session.** That sandbox reaches the
 network through an HTTPS proxy that does not carry raw-TCP database connections,

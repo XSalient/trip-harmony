@@ -11,7 +11,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COOKIE_NAME } from "../shared/const.js";
-import { DEMO_OPEN_ID_PREFIX } from "../shared/demo.js";
+import { DEMO_OPEN_ID_PREFIX, DEMO_TOUR_ENV_VAR } from "../shared/demo.js";
 import type { TrpcContext } from "./_core/context.js";
 
 const getUserByOpenId = vi.hoisted(() => vi.fn());
@@ -39,14 +39,19 @@ const { appRouter } = await import("./routers/index.js");
 
 type SetCookie = { name: string; value: string };
 
-function createContext() {
+/**
+ * A request on the demo's own host by default, because that is where every
+ * sign-in these tests describe actually happens. The host rule has its own
+ * cases below; everywhere else it would be noise in the setup.
+ */
+function createContext(host = "demo.backtotravelling.com") {
   const cookies: SetCookie[] = [];
   const ctx: TrpcContext = {
     user: null,
     req: {
       protocol: "https",
-      headers: {},
-      get: () => undefined,
+      headers: { host },
+      get: (name: string) => (name.toLowerCase() === "host" ? host : undefined),
     } as unknown as TrpcContext["req"],
     res: {
       cookie: (name: string, value: string) => {
@@ -74,6 +79,9 @@ const demoUser = {
 describe("auth.demoSignIn", () => {
   beforeEach(() => {
     getUserByOpenId.mockReset();
+    // The override is read from the environment at call time, so a value left
+    // behind by one case would silently decide the next.
+    vi.unstubAllEnvs();
   });
 
   it("signs a visitor in as a seeded persona and sets the session cookie", async () => {
@@ -124,6 +132,81 @@ describe("auth.demoSignIn", () => {
       appRouter.createCaller(ctx).auth.demoSignIn({ persona: "ava" })
     ).rejects.toThrow(/no demo/i);
     expect(cookies).toHaveLength(0);
+  });
+
+  describe("the host rule", () => {
+    // The product site and the demo are one deployment behind two domains, so
+    // this is the whole of what keeps the demo off the marketing site. Hiding
+    // the button is presentation; these are the cases that matter.
+    it("refuses on the product site, without reaching the database", async () => {
+      getUserByOpenId.mockResolvedValue(demoUser);
+      const { ctx, cookies } = createContext("www.backtotravelling.com");
+
+      await expect(
+        appRouter.createCaller(ctx).auth.demoSignIn({ persona: "ava" })
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+      // A seeded persona existed and was still refused: the guard is the host,
+      // not the absence of demo data.
+      expect(getUserByOpenId).not.toHaveBeenCalled();
+      expect(cookies).toHaveLength(0);
+    });
+
+    it("gives a prober the same answer as a deployment with no demo", async () => {
+      // Distinguishable errors would confirm a demo exists somewhere and that
+      // the caller merely asked the wrong host.
+      getUserByOpenId.mockResolvedValue(demoUser);
+      const offHost = createContext("www.backtotravelling.com");
+      getUserByOpenId.mockResolvedValueOnce(null);
+      const unseeded = createContext();
+
+      const wrongHost = await appRouter
+        .createCaller(offHost.ctx)
+        .auth.demoSignIn({ persona: "ava" })
+        .catch((e: unknown) => e as { code: string; message: string });
+      const noDemo = await appRouter
+        .createCaller(unseeded.ctx)
+        .auth.demoSignIn({ persona: "ava" })
+        .catch((e: unknown) => e as { code: string; message: string });
+
+      expect(wrongHost.code).toBe(noDemo.code);
+      expect(wrongHost.message).toBe(noDemo.message);
+    });
+
+    it("allows it on localhost, so a seeded local database just works", async () => {
+      getUserByOpenId.mockResolvedValue(demoUser);
+      const { ctx, cookies } = createContext("localhost:5000");
+
+      await expect(
+        appRouter.createCaller(ctx).auth.demoSignIn({ persona: "ava" })
+      ).resolves.toMatchObject({ success: true });
+      expect(cookies.map(c => c.name)).toContain(COOKIE_NAME);
+    });
+
+    it("is forced on by DEMO_TOUR_ENABLED, for preview deployments", async () => {
+      // A preview URL is generated per build, so no hostname rule can recognise
+      // it. This is the escape hatch that makes previews testable.
+      getUserByOpenId.mockResolvedValue(demoUser);
+      vi.stubEnv(DEMO_TOUR_ENV_VAR, "true");
+      const { ctx } = createContext("trip-harmony-git-abc123.vercel.app");
+
+      await expect(
+        appRouter.createCaller(ctx).auth.demoSignIn({ persona: "ava" })
+      ).resolves.toMatchObject({ success: true });
+    });
+
+    it("stays off when the override is absent or not affirmative", async () => {
+      getUserByOpenId.mockResolvedValue(demoUser);
+
+      for (const value of ["", "false", "0", "no", "off"]) {
+        vi.stubEnv(DEMO_TOUR_ENV_VAR, value);
+        const { ctx } = createContext("trip-harmony-git-abc123.vercel.app");
+        await expect(
+          appRouter.createCaller(ctx).auth.demoSignIn({ persona: "ava" })
+        ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      }
+      expect(getUserByOpenId).not.toHaveBeenCalled();
+    });
   });
 
   it("never returns credential columns, even for a fictional account", async () => {

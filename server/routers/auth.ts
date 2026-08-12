@@ -10,6 +10,8 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import {
   DEMO_OPEN_ID_PREFIX,
   DEMO_PERSONA_KEY_PATTERN,
+  DEMO_TOUR_ENV_VAR,
+  isDemoTourHost,
 } from "../../shared/demo.js";
 import { getSessionCookieOptions } from "../_core/cookies.js";
 import { sdk } from "../_core/sdk.js";
@@ -21,6 +23,26 @@ import {
   sendMagicLinkEmail,
 } from "../utils/mailer.js";
 import { hashPassword, toPublicUser, verifyPassword } from "./_shared.js";
+
+/**
+ * Whether this request should be offered the demo.
+ *
+ * The host decides — see `isDemoTourHost` for why it cannot be configuration.
+ * `DEMO_TOUR_ENABLED` forces it on for hosts the check would refuse, which is
+ * what makes the demo testable on a preview deployment, where the URL is
+ * generated per build and cannot be known in advance.
+ *
+ * The override is opt-in rather than a kill switch, the opposite polarity to
+ * `AI_ENABLED`. Getting it wrong in the safe direction hides a demo; getting it
+ * wrong in the other puts one on the marketing site.
+ */
+function showsDemoTour(req: {
+  get(name: string): string | undefined;
+}): boolean {
+  const override = process.env[DEMO_TOUR_ENV_VAR]?.trim().toLowerCase();
+  if (override && /^(1|true|yes|on|enabled?)$/.test(override)) return true;
+  return isDemoTourHost(req.get("host"));
+}
 
 export const authRouter = router({
   /** Current session user. Never returns credential columns — see `toPublicUser`. */
@@ -105,17 +127,20 @@ export const authRouter = router({
    * Signs a visitor into a seeded demo account, with nothing to type.
    *
    * A demo whose front door is a login form is a demo most people close, so
-   * this exists to remove the form — not to weaken sign-in. Three things keep
+   * this exists to remove the form — not to weaken sign-in. Four things keep
    * it from being a way into a real account:
    *
    * 1. The `openId` it looks up is **built** from `DEMO_OPEN_ID_PREFIX` and a
    *    key matching `DEMO_PERSONA_KEY_PATTERN`. There is no input path that
    *    reaches an account without that prefix, so the blast radius is exactly
    *    the set of rows `pnpm seed:demo` created.
-   * 2. It only answers when the demo has been seeded. On a deployment with no
+   * 2. It only answers on a demo host. The product site and the sales demo are
+   *    one deployment behind two domains, and this is what keeps the demo on
+   *    its own — the hidden button is presentation, this is the rule.
+   * 3. It only answers when the demo has been seeded. On a deployment with no
    *    demo in it, every persona is NOT_FOUND and the landing page hides the
    *    button that calls this.
-   * 3. It grants nothing the published credentials didn't already — the demo
+   * 4. It grants nothing the published credentials didn't already — the demo
    *    password is in the runbook and in `scripts/demo/options.ts` on purpose.
    *
    * The seeded accounts hold no real personal data: invented names at a
@@ -128,6 +153,17 @@ export const authRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // The same answer as an unseeded deployment, deliberately: a caller
+      // probing the production host learns that there is no demo here, not that
+      // there is one somewhere else. Hiding the button alone would be
+      // decoration — this is the part that makes the demo host-bound.
+      if (!showsDemoTour(ctx.req)) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "This deployment has no demo in it.",
+        });
+      }
+
       const user = await db.getUserByOpenId(
         `${DEMO_OPEN_ID_PREFIX}${input.persona}`
       );
@@ -181,7 +217,10 @@ export const authRouter = router({
 
   // Lets the sign-in UI hide email-based options this deployment cannot
   // actually serve, instead of offering a link that will never arrive.
-  capabilities: publicProcedure.query(() => ({
+  capabilities: publicProcedure.query(({ ctx }) => ({
+    // Whether to offer the demo at all. The landing page pairs this with "has a
+    // demo actually been seeded", and needs both.
+    demoTour: showsDemoTour(ctx.req),
     // Offer passwordless whenever a provider exists — the UI keeps a password
     // route one click away, so a link that fails to arrive is a detour rather
     // than a dead end.
