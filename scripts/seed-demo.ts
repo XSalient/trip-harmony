@@ -822,9 +822,49 @@ async function main() {
   say("Re-run to reset the demo to this state. `--clean` removes it.");
 }
 
+/**
+ * Say what actually went wrong.
+ *
+ * A failed query arrives from the driver as "Failed query: select …" with the
+ * real reason — refused, timed out, name not resolved, password rejected —
+ * hidden on `cause`. On a first run against a shared database that reason is
+ * the entire diagnosis, and printing the stack without it sends people looking
+ * at the SQL, which is never where the problem is.
+ */
+function explain(error: unknown): string {
+  const lines: string[] = [];
+  let current: unknown = error;
+  const seen = new Set<unknown>();
+
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    const code = (current as NodeJS.ErrnoException).code;
+    lines.push(`${current.message}${code ? `  [${code}]` : ""}`);
+    current = (current as { cause?: unknown }).cause;
+  }
+
+  // Match against the whole chain: the driver reports "connection terminated
+  // unexpectedly" innermost and the reason one level out, so testing only the
+  // root misses the very case this exists for.
+  const root = lines.join("\n") || String(error);
+  const hint =
+    /ETIMEDOUT|ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|timeout|terminated/i.test(root)
+      ? "\n\nThe database did not answer. That is a network path problem, not a\n" +
+        "problem with this script: outbound Postgres on port 5432 is blocked on\n" +
+        "plenty of office and home networks. Try another network or a phone\n" +
+        "hotspot, or ask whoever runs the firewall. Supabase also answers on\n" +
+        "6543 (transaction pooler), which is sometimes open when 5432 is not."
+      : /password|authent|SASL|role .* does not exist/i.test(root)
+        ? "\n\nThe database refused the credentials. Check DATABASE_URL in the\n" +
+          "config you passed to `doppler run --config …`."
+        : "";
+
+  return lines.map((l, i) => `${i === 0 ? "" : "  caused by: "}${l}`).join("\n") + hint;
+}
+
 main()
   .then(() => process.exit(process.exitCode ?? 0))
   .catch(error => {
-    say(`Seeding failed: ${error instanceof Error ? error.stack : error}`);
+    say(`Seeding failed: ${explain(error)}`);
     process.exit(1);
   });
