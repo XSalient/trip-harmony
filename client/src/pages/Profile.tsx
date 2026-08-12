@@ -5,6 +5,7 @@
  * by magic link.
  */
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
@@ -15,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { KeyRound, LogOut } from "lucide-react";
+import { KeyRound, LogOut, Shield } from "lucide-react";
 
 function ProfileHeader() {
   const { user } = useAuth();
@@ -109,7 +110,10 @@ function SignInMethods() {
 }
 
 export default function Profile() {
-  const { logout, loading } = useAuth({ redirectOnUnauthenticated: true });
+  const { user, logout, loading } = useAuth({
+    redirectOnUnauthenticated: true,
+  });
+  const [, navigate] = useLocation();
 
   if (loading) {
     return (
@@ -128,6 +132,18 @@ export default function Profile() {
       <div className="px-4 py-4 space-y-6">
         <ProfileHeader />
         <SignInMethods />
+
+        {/* App admins only, and only a way in — the destructive part lives on
+            its own screen rather than on a page every user visits. */}
+        {user?.role === "admin" && (
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => navigate("/admin")}
+          >
+            <Shield className="h-4 w-4" /> Admin
+          </Button>
+        )}
 
         <Button
           variant="outline"

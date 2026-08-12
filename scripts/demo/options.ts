@@ -15,25 +15,20 @@
 // The prefixes live in `shared/` because the landing page needs them too: it
 // asks whether the demo trip exists before offering a button that leads to it.
 export {
+  DEFAULT_DEMO_PASSWORD,
   DEMO_EMAIL_DOMAIN,
   DEMO_INVITE_CODE_PREFIX,
   DEMO_OPEN_ID_PREFIX,
+  DEMO_PASSWORD_ENV_VAR,
 } from "../../shared/demo.js";
 
 import {
+  DEFAULT_DEMO_PASSWORD,
   DEMO_INVITE_CODE_PREFIX,
   DEMO_OPEN_ID_PREFIX,
+  DEMO_PASSWORD_ENV_VAR,
+  isUsableDemoPassword,
 } from "../../shared/demo.js";
-
-/**
- * The published sign-in password for the seeded accounts.
- *
- * Not a secret, and deliberately not treated as one: it unlocks fictional
- * people in a database that is meant to be handed to whoever is recording the
- * screencast. It is refused outright for a production target — see
- * `decideRun` — so publishing it here cannot open a real account.
- */
-export const DEFAULT_DEMO_PASSWORD = "demo-tripmate-2026";
 
 export type DemoMode = "seed" | "clean";
 
@@ -50,7 +45,8 @@ export interface DemoOptions {
 export class UsageError extends Error {}
 
 /**
- * The environment variable a password may arrive in instead of `--password=`.
+ * `DEMO_PASSWORD_ENV_VAR` is the environment variable a password may arrive in
+ * instead of `--password=`.
  *
  * Seeding a shared environment means reaching for a password that lives in a
  * secret manager, and getting it onto the command line means a shell doing the
@@ -61,18 +57,17 @@ export class UsageError extends Error {}
  * Reading it from the environment makes the whole problem disappear —
  * `doppler run … -- pnpm seed:demo --allow-production` is the same command on
  * every operating system, and the secret never becomes an argument.
+ *
+ * It and `isUsableDemoPassword` live in `shared/demo.ts`, because the admin
+ * reset button applies the same rule from the server and neither side should
+ * import the other.
  */
-export const DEMO_PASSWORD_ENV_VAR = "DEMO_SEED_PASSWORD";
-
 export function parseArgs(
   argv: readonly string[],
   env: NodeJS.ProcessEnv = process.env
 ): DemoOptions {
   const fromEnv = env[DEMO_PASSWORD_ENV_VAR]?.trim();
-  const usableFromEnv =
-    fromEnv && fromEnv.length >= 8 && fromEnv !== DEFAULT_DEMO_PASSWORD
-      ? fromEnv
-      : undefined;
+  const usableFromEnv = isUsableDemoPassword(fromEnv) ? fromEnv : undefined;
 
   const options: DemoOptions = {
     mode: "seed",

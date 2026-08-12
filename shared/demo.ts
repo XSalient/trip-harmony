@@ -78,3 +78,41 @@ export type DemoPersonaKey = (typeof DEMO_PERSONAS)[number]["key"];
  * to try.
  */
 export const DEMO_PERSONA_KEY_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+
+/**
+ * The published sign-in password for the seeded accounts.
+ *
+ * Not a secret, and deliberately not treated as one: it unlocks fictional
+ * people in a database meant to be handed to whoever is recording the
+ * screencast. Every path that can reach a shared database refuses it — the CLI
+ * in `scripts/demo/options.ts`, and `admin.resetDemo` — so publishing it here
+ * cannot open a real account.
+ */
+export const DEFAULT_DEMO_PASSWORD = "demo-tripmate-2026";
+
+/**
+ * The environment variable a demo password may arrive in.
+ *
+ * Read by the CLI instead of `--password=`, and by `admin.resetDemo`, which has
+ * no command line to read. Lives here because both a script and the server need
+ * it, and neither should be importing from the other.
+ */
+export const DEMO_PASSWORD_ENV_VAR = "DEMO_SEED_PASSWORD";
+
+/**
+ * Whether a password was chosen on purpose rather than fallen back to.
+ *
+ * The one rule both callers share: a password that is missing, too short, or
+ * the one printed in the runbook does not count as chosen, and must not be
+ * enough to rebuild a demo on a shared database.
+ */
+export function isUsableDemoPassword(
+  value: string | undefined
+): value is string {
+  const trimmed = value?.trim();
+  return (
+    trimmed !== undefined &&
+    trimmed.length >= 8 &&
+    trimmed !== DEFAULT_DEMO_PASSWORD
+  );
+}

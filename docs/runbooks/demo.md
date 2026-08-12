@@ -60,8 +60,19 @@ captures their address:
 | `/join/DEMO-LISBON`                                    | Tripmate on the hero trip — voting as themselves |
 | `/join/DEMO-CHAMONIX?invite=demo-chamonix-nina-invite` | Watcher, through the emailed-invite path         |
 
-Re-run the seeder when the demo has been clicked about. Visitors who signed up
-keep their own accounts and just follow the link again.
+Visitors who signed up through a join link keep their own accounts, and just
+follow the link again after a reset.
+
+### Resetting it after it has been clicked about
+
+Sign in as an app admin, go to **Profile → Admin → Reset demo data**, confirm.
+It takes about a second, and puts the three trips back exactly as they were
+seeded — every vote, comment and finalised accommodation a visitor left behind
+is discarded.
+
+No terminal, no network requirements, from any device you can sign in on. This
+is the way to do it before a call. The command line still works and is the only
+option when nobody is an app admin yet; see _Seeding a shared environment_.
 
 ### Signing in with a password instead
 
@@ -112,7 +123,7 @@ That is the product. Everything else is a list.
 ## Watch out for
 
 **The photographs come from Wikimedia Commons.** They are in one map at the top
-of `scripts/demo/story.ts` — replace it wholesale if you have licensed
+of `server/demo/story.ts` — replace it wholesale if you have licensed
 photography, and check the licence terms of any image you publish in an advert
 rather than a screenshot. A URL that fails to load costs a photograph, not a
 broken card: the app hides a broken image.
@@ -152,6 +163,27 @@ seeded and cleaned without touching them.
 Do not seed production with the default password. It is printed in this file
 and in `scripts/demo/options.ts`, and the seeder refuses that combination for
 exactly that reason.
+
+### Making someone an app admin
+
+App admin is `users.role`, and is not the same as being an admin **on a trip** —
+that is a per-trip role on the members page, and it grants nothing here. Only an
+app admin sees the Admin button and only an app admin can call the reset.
+
+There is no UI for granting it, on purpose: it is rare, and it is the one role
+that can rebuild the demo. Promote an account with one statement against the
+database:
+
+```sql
+update users set role = 'admin' where email = '…';
+```
+
+The button then appears on that person's Profile the next time they load the
+app.
+
+The deployed server also needs `DEMO_SEED_PASSWORD` in its own environment, or
+the reset refuses with a message saying exactly that. Setting it in the Doppler
+config is not enough unless the deployment reads that config.
 
 ### The `demo` Doppler config
 

@@ -5,6 +5,12 @@
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
     "noEmit": true,
+    // No target was set, so it defaulted to ES5 and `for (const [i, x] of
+    // arr.entries())` was an error. Nothing here is transpiled by tsc — it runs
+    // with --noEmit, and vite and esbuild emit the actual output against modern
+    // targets — so this only decides which language features typecheck. ES2022
+    // is behind what Node 24 and the browsers this ships to support.
+    "target": "ES2022",
     "module": "ESNext",
     "strict": true,
     "lib": ["esnext", "dom", "dom.iterable"],

@@ -20,6 +20,7 @@ import TripPreferences from "./pages/TripPreferences";
 import TripMembers from "./pages/TripMembers";
 import Notifications from "./pages/Notifications";
 import MagicLinkVerify from "./pages/MagicLinkVerify";
+import Admin from "@/pages/Admin";
 import Profile from "./pages/Profile";
 
 function Router() {
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/trips/:id/members" component={TripMembers} />
       <Route path="/notifications" component={Notifications} />
       <Route path="/profile" component={Profile} />
+      <Route path="/admin" component={Admin} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

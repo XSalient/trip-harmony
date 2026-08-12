@@ -70,7 +70,7 @@ generates a couple of hundred rows in the schema's fastest-growing and
 retention-free table. At demo scale that is noise; it is worth remembering if
 the seeder is ever pointed at something repeatedly.
 
-**What becomes harder.** The demo copy now lives in `scripts/demo/story.ts` and
+**What becomes harder.** The demo copy now lives in `server/demo/story.ts` and
 is real work to maintain. When a screen changes shape, the fixture is another
 place the change has to land — and a demo that has gone stale is worse than no
 demo, because it is what a prospect sees. `pnpm verify` will not catch it;
