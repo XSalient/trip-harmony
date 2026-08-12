@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-11
+- **Last updated:** 2026-08-12
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 342 tests ✅ · production build ✅ (2026-08-10) ·
+- **Health:** typecheck ✅ · 378 tests ✅ · production build ✅ (2026-08-12) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -90,11 +90,22 @@ integration."` even with the right integration UUID, because a Doppler
   credential has no business becoming an application environment variable. A
   future session that needs to audit Vercel needs a fresh token put there
   temporarily and taken out again.
-- **Unverified: which Vercel environments the sync targets.** The variables it
-  replaced were set for `production`, `preview` and `development`; a Doppler
-  sync targets the environments chosen when it was created. If preview
-  deployments start failing on missing configuration, that is the first thing
-  to check.
+- **✅ The sync targets Production only, as of 2026-08-12.** Previously recorded
+  here as unverified. Vercel's environment-variables screen settles it by
+  inspection: every row carrying the Doppler icon is scoped to _Production_, and
+  every other row — `MAIL_FROM`, `JWT_SECRET`, `DATABASE_URL`,
+  `AI_INTEGRATIONS_GEMINI_API_KEY`, `AI_ENABLED`, `PUBLIC_BASE_URL` — is a
+  hand-set copy scoped to _All Pre-Production Environments_. The same name
+  appearing twice is Vercel scoping per environment, not a duplicate to clean
+  up.
+
+  Two things follow. **Pre-production configuration is maintained by hand** and
+  does not inherit anything from Doppler, so a variable added to the synced
+  config reaches production and nowhere else. And **the sync rewrites the
+  Production set wholesale**, so a variable added directly in Vercel for
+  Production can be removed again by a later sync run — durable additions belong
+  in the source config.
+
 - **How Doppler `dev` got fit to be the source of truth.** It held placeholders
   until 2026-08-10 — `JWT_SECRET` was **1 character**, against a ≥ 32
   requirement that would have failed boot outright, and `DATABASE_URL` was 20 —

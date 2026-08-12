@@ -17,10 +17,16 @@ again.
 pnpm seed:demo --allow-remote     # against the preview/demo deployment's DATABASE_URL
 ```
 
-Send marketing the deployment URL. Done.
+Send marketing the URL — **https://www.backtotravelling.com**. Done.
 
 To reset it later — after a prospect has clicked around, or before recording —
-run the same command again. It replaces the demo rather than duplicating it.
+an app admin does it from the app itself, in one click and with no terminal:
+**Profile → Admin → Reset demo data**. See _Resetting it after it has been
+clicked about_ below.
+
+The command still works and replaces the demo rather than duplicating it, which
+is what you want when nobody is an app admin yet or the deployment has no
+`DEMO_SEED_PASSWORD`.
 
 Locally instead of a deployment: `pnpm seed:demo && pnpm dev`, then
 http://localhost:5000.
@@ -181,9 +187,34 @@ update users set role = 'admin' where email = '…';
 The button then appears on that person's Profile the next time they load the
 app.
 
-The deployed server also needs `DEMO_SEED_PASSWORD` in its own environment, or
-the reset refuses with a message saying exactly that. Setting it in the Doppler
-config is not enough unless the deployment reads that config.
+### Giving the deployed server the demo password
+
+The button rebuilds the demo on the server, so the **server** needs
+`DEMO_SEED_PASSWORD` — a password that is missing, under 8 characters, or the
+one published in this file is refused, and the reset says so by name rather than
+failing quietly.
+
+Having it in Doppler is not enough, and this is the part that catches people out.
+`trip-harmony/demo` is the config that carries the password, and it syncs
+nowhere. The one Doppler → Vercel sync that exists runs from a different config
+and lands in **Production** only. So the password reaches no deployment until
+someone puts it there.
+
+Add it in Vercel, scoped to **Production**, reading the value from Doppler:
+
+```bash
+doppler secrets get DEMO_SEED_PASSWORD --plain --project trip-harmony --config demo
+```
+
+Then redeploy. Vercel injects environment variables at build and boot, so a
+deployment that already exists will not pick the new one up.
+
+One caveat: the sync rewrites the Production set wholesale, so a variable added
+by hand can be removed again by a later sync run. If the button starts refusing
+after having worked, this is why — and the durable fix is to put the password in
+the config that feeds the sync, identifiable in the Doppler dashboard as the one
+carrying a Vercel integration. Vercel marks synced values _Sensitive_, so they
+cannot be read back from its UI to identify the source.
 
 ### The `demo` Doppler config
 
@@ -209,6 +240,21 @@ whoever wrote it and break for the next person.
 
 The password never has to be typed or pasted — it comes out of Doppler and goes
 straight into the flag. `--clean` on the same command removes the demo again.
+
+**`PUBLIC_BASE_URL` in this config points at a host that does not serve the
+app.** It reads `https://demo.backtotravelling.com`, which is not a registered
+domain on the Vercel project: it answers, but only to redirect to a Vercel SSO
+login, so anyone sent that link lands on a sign-in wall rather than the demo.
+
+The demo is at **`www.backtotravelling.com`** — production, where it shares the
+database with everything else and stays separate by prefix, which is the whole
+point of [ADR-0015](../adr/0015-demo-data-lives-in-its-own-namespace.md). That
+is the URL to send a prospect, and the deployment whose Admin button resets the
+demo.
+
+So this config's only current job is seeding from a developer machine. Wiring
+`demo.backtotravelling.com` up properly — registering the domain and giving it a
+sync — is unfinished business, not something the demo depends on.
 
 **This cannot be run from a Claude Code web session.** That sandbox reaches the
 network through an HTTPS proxy that does not carry raw-TCP database connections,
