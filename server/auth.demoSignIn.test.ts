@@ -238,26 +238,43 @@ describe("auth.demoSignIn", () => {
  *
  * There is no DOM in this suite, so this asserts the wiring rather than the
  * render — that each path onto a new session goes through `useSessionSwitch`,
- * which clears the cache before anything is read back.
+ * which resets the cache before anything is read back. What resetting has to
+ * do, and why `clear()` cannot do it, is tested directly in
+ * `client/src/_core/hooks/sessionCache.test.ts`.
  */
 describe("switching who the tab is signed in as", () => {
   const client = join(import.meta.dirname, "..", "client", "src");
   const read = (...parts: string[]) =>
     readFileSync(join(client, ...parts), "utf8");
 
-  it("clears the cache rather than invalidating one query", () => {
+  it("resets the whole cache rather than invalidating one query", () => {
     const hook = read("_core", "hooks", "useAuth.ts");
     expect(hook).toContain("export function useSessionSwitch()");
-    expect(hook).toContain("queryClient.clear()");
+    expect(hook).toContain("resetSessionCache(queryClient)");
   });
 
-  it("resets on the way out too, so the next person starts blank", () => {
+  it("empties it on the way out too, so the next person starts blank", () => {
     const hook = read("_core", "hooks", "useAuth.ts");
     const logout = hook.slice(
       hook.indexOf("const logout = useCallback"),
       hook.indexOf("useEffect(() => {", hook.indexOf("const logout"))
     );
-    expect(logout).toContain("queryClient.clear()");
+    // Discarding rather than resetting: re-answering screens that are about to
+    // unmount would only ask a dead session questions it must refuse.
+    expect(logout).toContain("discardSessionCache(queryClient)");
+  });
+
+  /**
+   * The trap this fell into once. `clear()` reads like the stronger version of
+   * resetting and is the weaker one: it removes each query from the cache
+   * without notifying the components observing it, so they keep rendering the
+   * previous session and the refetch afterwards finds an empty cache and
+   * fetches nothing.
+   */
+  it("never reaches for `clear()`, which notifies nobody", () => {
+    expect(read("_core", "hooks", "useAuth.ts")).not.toContain(
+      "queryClient.clear()"
+    );
   });
 
   it("runs on every path that starts a session", () => {

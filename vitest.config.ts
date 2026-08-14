@@ -25,6 +25,11 @@ export default defineConfig({
       // Rules both sides depend on, tested where they live rather than from
       // whichever side happened to need them first.
       "shared/**/*.test.ts",
+      // Client-side rules that are plain functions. There is no React test
+      // setup here and this does not add one: the cache helpers take a
+      // QueryClient and nothing else, which is exactly why they are functions
+      // rather than hook bodies.
+      "client/**/*.test.ts",
     ],
   },
 });

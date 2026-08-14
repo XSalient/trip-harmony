@@ -8,6 +8,58 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-14 — Signing in and out works again
+
+### Fixed
+
+- **Taking a demo seat put you back on the landing page instead of into the
+  trip.** The sign-in itself worked — the cookie was set, and reloading the page
+  showed the seat's three trips — so the whole of the failure was that the
+  screen was never told. Emptying the query cache on every change of session had
+  just been introduced, which was the right intent and the wrong call:
+  `queryClient.clear()` removes each query from the cache and destroys it, but a
+  React Query observer is subscribed to the _query_, not to the cache, so
+  removal notifies nobody. `Home` went on rendering the signed-out landing page
+  from an observer bound to a query that no longer existed, and the
+  `auth.me` refetch that followed walked an empty cache and fetched nothing.
+
+  Confirmed on the deployed demo before it was changed: after `auth.demoSignIn`
+  answered 200, the network log shows `auth.capabilities` and
+  `trips.getByInviteCode` refetched and **no second `auth.me` request at all**.
+  Signing out, which reaches `auth.me` by a different route, does show one.
+
+  Every way into a session goes through `useSessionSwitch`, so this was all four
+  of them — password, register, passkey, magic link — and the demo seat picker,
+  where it is most visible because switching seats is the point of it.
+
+  The reset now goes through `resetSessionCache`, which uses `resetQueries`: the
+  queries stay where their observers can see them, are put back to a dataless
+  state (so no frame is drawn with the last session's data, which was the point
+  of clearing), and the ones still mounted are re-answered under the new
+  session.
+
+- **Signing out asked a dead session three questions.** `resetQueries` is right
+  on the way into a session and wrong on the way out of one, where what is
+  mounted is a dashboard full of protected queries and a cookie that has just
+  been cleared: `trips.list` and `notifications.unreadCount` would both have
+  refetched and both answered 401, in the console, for answers discarded a frame
+  later when the screens unmounted. `discardSessionCache` resets each query
+  directly instead — the same notification to the same observers, which is all
+  `resetQueries` does beyond the refetch — and asks nobody anything.
+
+### Added
+
+- **`client/src/_core/hooks/sessionCache.test.ts`** — the first test under
+  `client/`, which `vitest.config.ts` now collects. It mounts a real
+  `QueryObserver` on a real `QueryClient`, which is the whole of the bug: an
+  observer is what a rendered component amounts to as far as the cache is
+  concerned. Four assertions, two per direction — the mounted query is
+  re-answered for the new session and nothing of the previous one survives; the
+  way out notifies the same observer and fires no request. The first fails
+  against `clear()`, which is how this was found and how it stays found.
+
+---
+
 ## 2026-08-14 — The watcher role, applied everywhere instead of on one screen
 
 ### Fixed

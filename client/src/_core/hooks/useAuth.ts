@@ -3,6 +3,8 @@ import { TRPCClientError } from "@trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
+import { discardSessionCache, resetSessionCache } from "./sessionCache";
+
 /**
  * Throw away everything the last person cached, then find out who this one is.
  *
@@ -14,8 +16,10 @@ import { useCallback, useEffect, useMemo } from "react";
  * the first paint is Ava's three trips, complete with the finalise buttons
  * Nina does not have.
  *
- * `clear()` rather than `invalidate()`: invalidation keeps the stale data and
- * marks it for refresh, which is exactly the frame we are trying not to draw.
+ * Reset rather than invalidate: invalidation keeps the stale data and marks it
+ * for refresh, which is exactly the frame we are trying not to draw. And reset
+ * rather than `clear()`, which drops the queries out of the cache without
+ * telling the components observing them — see `resetSessionCache`.
  *
  * Use this on every path that changes who the session belongs to — signing in,
  * registering, a passkey, a magic link, taking a demo seat, signing out.
@@ -25,9 +29,10 @@ export function useSessionSwitch() {
   const utils = trpc.useUtils();
 
   return useCallback(async () => {
-    queryClient.clear();
-    // Mounted queries refetch on their own once the cache is empty; `me` is
-    // awaited because the caller usually navigates on the strength of it.
+    // Resolves once the queries still on screen have been re-answered for the
+    // new session; `me` is awaited on top because the caller usually navigates
+    // on the strength of it, and it may not have been mounted here at all.
+    await resetSessionCache(queryClient);
     await utils.auth.me.refetch();
   }, [queryClient, utils]);
 }
@@ -68,7 +73,11 @@ export function useAuth(options?: UseAuthOptions) {
     } finally {
       // The whole cache, not just `me`: the next person to sign in from this
       // tab must not be shown the last one's trips while their own load.
-      queryClient.clear();
+      //
+      // Discarding rather than resetting: the screens still mounted here are
+      // about to unmount when `me` goes null on the next line, so re-answering
+      // them would only fire requests this session can no longer authorise.
+      discardSessionCache(queryClient);
       utils.auth.me.setData(undefined, null);
     }
   }, [logoutMutation, queryClient, utils]);
