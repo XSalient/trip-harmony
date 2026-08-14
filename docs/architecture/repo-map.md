@@ -98,7 +98,8 @@ open only its domain file.
 | `src/lib/trpc.ts`                 | Typed tRPC React client                                                                                             |
 | `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                                                                 |
 | `src/components/trip/`            | Shared trip UI (`ScreenHeader`, `TripActionsMenu`, `FinalisedBy`, `AddedBy`, `VotedCount`) for the proposal screens |
-| `src/_core/hooks/useAuth.ts`      | Session hook                                                                                                        |
+| `src/_core/hooks/useAuth.ts`      | Session hook, and `useSessionSwitch` — empties the cache when the tab changes who it is signed in as                |
+| `src/_core/hooks/useTripRole.ts`  | The caller's role on one trip, and what it lets them do. Every trip screen gates on this                            |
 | `src/contexts/ThemeContext.tsx`   | Dark mode                                                                                                           |
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                                                              |
 

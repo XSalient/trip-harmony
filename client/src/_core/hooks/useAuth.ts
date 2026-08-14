@@ -1,6 +1,36 @@
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
+
+/**
+ * Throw away everything the last person cached, then find out who this one is.
+ *
+ * Every query in this app is answered for whoever the cookie says you are —
+ * trips, roles, proposals, notifications. Signing in as somebody else while
+ * only invalidating `auth.me` leaves all of that on screen, and React Query
+ * serves it from cache before the refetch lands. The demo makes it obvious,
+ * because switching seats is the point of it: take Nina's seat after Ava's and
+ * the first paint is Ava's three trips, complete with the finalise buttons
+ * Nina does not have.
+ *
+ * `clear()` rather than `invalidate()`: invalidation keeps the stale data and
+ * marks it for refresh, which is exactly the frame we are trying not to draw.
+ *
+ * Use this on every path that changes who the session belongs to — signing in,
+ * registering, a passkey, a magic link, taking a demo seat, signing out.
+ */
+export function useSessionSwitch() {
+  const queryClient = useQueryClient();
+  const utils = trpc.useUtils();
+
+  return useCallback(async () => {
+    queryClient.clear();
+    // Mounted queries refetch on their own once the cache is empty; `me` is
+    // awaited because the caller usually navigates on the strength of it.
+    await utils.auth.me.refetch();
+  }, [queryClient, utils]);
+}
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -11,6 +41,7 @@ export function useAuth(options?: UseAuthOptions) {
   const { redirectOnUnauthenticated = false, redirectPath = "/" } =
     options ?? {};
   const utils = trpc.useUtils();
+  const queryClient = useQueryClient();
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
@@ -35,10 +66,12 @@ export function useAuth(options?: UseAuthOptions) {
       }
       throw error;
     } finally {
+      // The whole cache, not just `me`: the next person to sign in from this
+      // tab must not be shown the last one's trips while their own load.
+      queryClient.clear();
       utils.auth.me.setData(undefined, null);
-      await utils.auth.me.invalidate();
     }
-  }, [logoutMutation, utils]);
+  }, [logoutMutation, queryClient, utils]);
 
   useEffect(() => {
     try {

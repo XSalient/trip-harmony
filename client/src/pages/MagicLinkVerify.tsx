@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthDialog } from "@/components/AuthDialog";
+import { useSessionSwitch } from "@/_core/hooks/useAuth";
 
 export default function MagicLinkVerify() {
   const params = useParams<{ token: string }>();
@@ -11,11 +12,13 @@ export default function MagicLinkVerify() {
   const calledRef = useRef(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [startWithPassword, setStartWithPassword] = useState(false);
-  const utils = trpc.useUtils();
+  const switchSession = useSessionSwitch();
 
   const verifyMutation = trpc.auth.verifyMagicLink.useMutation({
     onSuccess: async () => {
-      await utils.auth.me.invalidate();
+      // A magic link can land in a tab that is already signed in as somebody
+      // else — it is the likeliest place for that to happen, in fact.
+      await switchSession();
       setTimeout(() => navigate("/"), 1500);
     },
   });

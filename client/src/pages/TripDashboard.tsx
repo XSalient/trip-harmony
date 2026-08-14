@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import {
 import TripSummary from "@/components/trip/TripSummary";
 import EditTripDialog from "@/components/trip/EditTripDialog";
 import TripActionsMenu from "@/components/trip/TripActionsMenu";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useSectionState } from "@/components/trip/useSectionState";
 import { useProposalDialogs } from "@/components/trip/useProposalDialogs";
 import SectionCard, {
@@ -98,15 +100,15 @@ export default function TripDashboard() {
     { enabled: tripId > 0 }
   );
 
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const role = myRole?.role ?? null;
-  const isAdmin = role === "admin";
   // Watchers view the trip and change nothing. The server rejects them anyway;
-  // this keeps the page from offering controls that can only fail.
-  const canContribute = role === "admin" || role === "tripmate";
+  // this keeps the page from offering controls that can only fail. The same
+  // hook answers on every other trip screen, which is the point of it: this
+  // rule used to live here and nowhere else.
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    isWatcher,
+  } = useTripRole(tripId);
 
   const [lockBusy, setLockBusy] = useState<number | null>(null);
   const [editTripOpen, setEditTripOpen] = useState(false);
@@ -385,6 +387,8 @@ export default function TripDashboard() {
       }
     >
       <div className="px-4 py-4 space-y-4">
+        {isWatcher && <WatcherNotice />}
+
         {/* Pending votes alert */}
         {totalPending > 0 && (
           <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/10">
@@ -508,7 +512,9 @@ export default function TripDashboard() {
               memberCount={memberCount}
               commentCount={(commentCounts as any)[`date_${p.id}`] || 0}
               lockBusy={lockBusy === p.id}
-              canManage={p.proposedBy === user?.id || isAdmin}
+              canManage={
+                canContribute && (p.proposedBy === user?.id || isAdmin)
+              }
               onToggleLock={() => handleToggleLock("date", p)}
               onEdit={() => openEdit("date", p)}
               onClone={() => openClone("date", p)}
@@ -556,7 +562,9 @@ export default function TripDashboard() {
                 (commentCounts as any)[`accommodation_${a.id}`] || 0
               }
               lockBusy={lockBusy === a.id}
-              canManage={a.proposedBy === user?.id || isAdmin}
+              canManage={
+                canContribute && (a.proposedBy === user?.id || isAdmin)
+              }
               onToggleLock={() => handleToggleLock("acc", a)}
               onEdit={() => openEdit("acc", a)}
               onClone={() => openClone("acc", a)}
@@ -595,7 +603,9 @@ export default function TripDashboard() {
               memberCount={memberCount}
               commentCount={(commentCounts as any)[`destination_${d.id}`] || 0}
               lockBusy={lockBusy === d.id}
-              canManage={d.proposedBy === user?.id || isAdmin}
+              canManage={
+                canContribute && (d.proposedBy === user?.id || isAdmin)
+              }
               onToggleLock={() => handleToggleLock("dest", d)}
               onEdit={() => openEdit("dest", d)}
               onClone={() => openClone("dest", d)}

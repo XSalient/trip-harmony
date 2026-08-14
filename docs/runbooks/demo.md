@@ -48,11 +48,16 @@ No email, no password, no sign-up form.
 | ---------------------- | ---------------------------------------------------------------------- |
 | **Ava Bennett**, Admin | All three trips. Can finalise, invite, change roles — the full product |
 | **Priya**, Tripmate    | The Lisbon trip. Votes and comments, but the finalise buttons are gone |
-| **Nina**, Watcher      | The plan only. No votes attributed, no proposers, no AI referee        |
+| **Nina**, Watcher      | The plan only. No votes, no proposers, no comments, no AI referee      |
 
 Take **Ava** for screenshots — every screen is one tap away. The three seats
 side by side are also the clearest way to explain the permission model: same
-trip, and the app visibly gives each person less.
+trip, and the app visibly gives each person less. Nina's screens carry one line
+saying why the buttons are missing, so "watcher" reads as a role rather than as
+a broken page.
+
+Switching seats is safe to do on camera: taking a new seat empties the cached
+data first, so Nina never opens on Ava's trips.
 
 The button only appears when a demo has been seeded, so an unseeded deployment
 shows nothing rather than a dead end.

@@ -265,14 +265,23 @@ export const datesRouter = router({
       });
       return { id };
     }),
+  /**
+   * Turns "any weekend in July" into date ranges. Tripmates and admins only.
+   *
+   * It takes the trip it is proposing into, rather than text alone, because it
+   * calls a paid model: an endpoint with no trip on it is one any signed-in
+   * account can run, for a trip they are not on, as often as they like.
+   */
   parseNatural: protectedProcedure
     .input(
       z.object({
+        tripId: z.number(),
         text: z.string().min(1),
         referenceYear: z.number().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const today = new Date();
       const todayStr = today.toISOString().split("T")[0];
       const year = input.referenceYear || today.getFullYear();

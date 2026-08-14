@@ -26,6 +26,23 @@ const proposal = {
   selected: false,
   proposedBy: 42,
   createdAt: new Date("2026-08-01"),
+  // The accommodation screen's AI scoring: a name, a score, and the member's
+  // own stated requirement read back at them.
+  matchAnalysis: JSON.stringify({
+    groupFitScore: 41,
+    memberMatches: [
+      {
+        name: "Ada",
+        score: 28,
+        reason: "Needs step-free access after surgery",
+      },
+    ],
+  }),
+  matchAnalysedAt: new Date("2026-08-02"),
+  // The vibe board's name for the proposer. Two spellings of one idea is how
+  // the board went on naming proposers to watchers after every other screen
+  // had stopped.
+  proposedByUser: { id: 42, name: "Ada" },
   votes: [
     { id: 1, userId: 42, vote: "love", createdAt: new Date("2026-08-01") },
     { id: 2, userId: 43, vote: "veto", createdAt: new Date("2026-08-02") },
@@ -120,6 +137,29 @@ describe("projectProposalForRole", () => {
     );
     expect(serialised).not.toContain("42");
     expect(serialised).not.toContain("43");
+  });
+
+  it("hides the AI match analysis from a watcher", () => {
+    const seen: any = projectProposalForRole(proposal, "watcher");
+    expect(seen).not.toHaveProperty("matchAnalysis");
+    expect(seen).not.toHaveProperty("matchAnalysedAt");
+    // The per-member breakdown quotes what each member asked for by name — the
+    // most personal thing on the screen, and the last field a watcher was
+    // still being handed.
+    expect(JSON.stringify(seen)).not.toContain("step-free");
+  });
+
+  it("hides the proposer under either of its two names", () => {
+    const seen: any = projectProposalForRole(proposal, "watcher");
+    expect(seen).not.toHaveProperty("proposedBy");
+    expect(seen).not.toHaveProperty("proposedByUser");
+    expect(JSON.stringify(seen)).not.toContain("Ada");
+  });
+
+  it("still gives a tripmate the analysis and the proposer", () => {
+    const seen: any = projectProposalForRole(proposal, "tripmate");
+    expect(seen.matchAnalysis).toContain("step-free");
+    expect(seen.proposedByUser?.name).toBe("Ada");
   });
 
   it("survives a proposal with no votes yet", () => {

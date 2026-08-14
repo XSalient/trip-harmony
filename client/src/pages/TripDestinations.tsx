@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
 import { useParams, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
@@ -128,11 +130,11 @@ export default function TripDestinations() {
   // Role, not authorship: `organizerId` names whoever created the trip and
   // cannot see a second admin, so gating on it hid these controls from admins
   // who had them and showed them to a creator who had been demoted.
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const isAdmin = myRole?.role === "admin";
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    isWatcher,
+  } = useTripRole(tripId);
 
   const toggleVibe = (vibe: string) =>
     setSelectedVibes(prev =>
@@ -320,7 +322,11 @@ export default function TripDestinations() {
     <AppShell title="Places" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
         <ScreenHeader
-          subtitle="Suggest places and vote on vibes"
+          subtitle={
+            canContribute
+              ? "Suggest places and vote on vibes"
+              : "The places the group is considering"
+          }
           highlight={
             lockedDestinations.length > 0
               ? `${lockedDestinations.length} finalised · ${lockedDestinations
@@ -341,87 +347,98 @@ export default function TripDestinations() {
                   <Unlock className="h-3.5 w-3.5" /> Unlock all
                 </Button>
               )}
-              <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="rounded-lg gap-1">
-                    <Plus className="h-4 w-4" /> Add
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Suggest a Place</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <Label>Place Name</Label>
-                      <Input
-                        placeholder="e.g., Bali, Indonesia"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Description (optional)</Label>
-                      <Textarea
-                        placeholder="Why this place?"
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        rows={2}
-                        className="rounded-lg resize-none"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Image URL (optional)</Label>
-                      <Input
-                        placeholder="https://..."
-                        value={imageUrl}
-                        onChange={e => setImageUrl(e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>
-                        Estimated Cost per Person ({trip?.currency || "USD"})
-                      </Label>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={estimatedCost}
-                        onChange={e => setEstimatedCost(e.target.value)}
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Vibes</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {vibeOptions.map(v => (
-                          <Badge
-                            key={v}
-                            variant={
-                              selectedVibes.includes(v) ? "default" : "outline"
-                            }
-                            className="cursor-pointer rounded-full px-3 py-1 text-xs"
-                            onClick={() => toggleVibe(v)}
-                          >
-                            {v}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <Button
-                      onClick={handleCreate}
-                      className="w-full rounded-lg"
-                      disabled={createMutation.isPending}
-                    >
-                      {createMutation.isPending ? "Adding..." : "Add Place"}
+              {canContribute && (
+                <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="rounded-lg gap-1">
+                      <Plus className="h-4 w-4" /> Add
                     </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Suggest a Place</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label>Place Name</Label>
+                        <Input
+                          placeholder="e.g., Bali, Indonesia"
+                          value={name}
+                          onChange={e => setName(e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Description (optional)</Label>
+                        <Textarea
+                          placeholder="Why this place?"
+                          value={description}
+                          onChange={e => setDescription(e.target.value)}
+                          rows={2}
+                          className="rounded-lg resize-none"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Image URL (optional)</Label>
+                        <Input
+                          placeholder="https://..."
+                          value={imageUrl}
+                          onChange={e => setImageUrl(e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>
+                          Estimated Cost per Person ({trip?.currency || "USD"})
+                        </Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={estimatedCost}
+                          onChange={e => setEstimatedCost(e.target.value)}
+                          className="rounded-lg"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Vibes</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {vibeOptions.map(v => (
+                            <Badge
+                              key={v}
+                              variant={
+                                selectedVibes.includes(v)
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className="cursor-pointer rounded-full px-3 py-1 text-xs"
+                              onClick={() => toggleVibe(v)}
+                            >
+                              {v}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <Button
+                        onClick={handleCreate}
+                        className="w-full rounded-lg"
+                        disabled={createMutation.isPending}
+                      >
+                        {createMutation.isPending ? "Adding..." : "Add Place"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </>
           }
         />
+
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. The places and the tally are here;
+            voting and suggesting are for tripmates.
+          </WatcherNotice>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -443,7 +460,7 @@ export default function TripDestinations() {
                 dest.votes?.filter((v: any) => v.vote === "veto").length || 0;
               const vibes = dest.vibes ? JSON.parse(dest.vibes) : [];
               const isOwner = dest.proposedBy === user?.id;
-              const canManage = isOwner || isAdmin;
+              const canManage = canContribute && (isOwner || isAdmin);
               const commentCount =
                 (commentCounts as any)[`destination_${dest.id}`] || 0;
 
@@ -566,11 +583,11 @@ export default function TripDestinations() {
                         proposalId={dest.id}
                         votedCount={dest.votes?.length || 0}
                         memberCount={memberCount}
-                        canSeeDetail={myRole?.role !== "watcher"}
+                        canSeeDetail={canContribute}
                       />
                     </div>
 
-                    {!dest.selected && (
+                    {canContribute && !dest.selected && (
                       <div className="flex gap-2">
                         {[
                           {
@@ -645,6 +662,7 @@ export default function TripDestinations() {
                       proposalId={dest.id}
                       tripId={tripId}
                       isOrganizer={isAdmin}
+                      canContribute={canContribute}
                       count={commentCount}
                     />
                   </CardContent>
@@ -657,15 +675,17 @@ export default function TripDestinations() {
             <CardContent className="p-8 text-center">
               <MapPin className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                No places yet. Suggest the first one!
+                {canContribute
+                  ? "No places yet. Suggest the first one!"
+                  : "No places suggested yet."}
               </p>
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      {/* Edit dialog — unreachable without the menu that opens it. */}
+      <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Place</DialogTitle>

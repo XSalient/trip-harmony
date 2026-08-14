@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useAuth, useSessionSwitch } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,16 +44,19 @@ function DemoSeatDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { refresh } = useAuth();
   const [, navigate] = useLocation();
   const [pending, setPending] = useState<string | null>(null);
   const demoSignIn = trpc.auth.demoSignIn.useMutation();
+  const switchSession = useSessionSwitch();
 
   const take = async (persona: string) => {
     setPending(persona);
     try {
       await demoSignIn.mutateAsync({ persona });
-      await refresh();
+      // The seats are meant to be tried one after another, so this is the one
+      // screen where a stale cache is guaranteed rather than unlikely: without
+      // the clear, Nina's first paint is whatever Ava was looking at.
+      await switchSession();
       onOpenChange(false);
       navigate("/");
     } catch {
@@ -105,7 +108,6 @@ function DemoSeatDialog({
 function LandingPage() {
   const [authOpen, setAuthOpen] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
-  const { refresh } = useAuth();
 
   // Public query: it answers for a signed-out visitor, which is the whole point.
   const { data: demoTrip } = trpc.trips.getByInviteCode.useQuery({
@@ -121,10 +123,8 @@ function LandingPage() {
       <AuthDialog
         open={authOpen}
         onOpenChange={setAuthOpen}
-        onSuccess={() => {
-          setAuthOpen(false);
-          refresh();
-        }}
+        // `AuthDialog` has already reset the session cache by the time this runs.
+        onSuccess={() => setAuthOpen(false)}
       />
       {/* Hero */}
       <div className="relative overflow-hidden">

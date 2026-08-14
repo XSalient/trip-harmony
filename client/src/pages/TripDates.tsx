@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -131,11 +133,11 @@ export default function TripDates() {
   // Role, not authorship: `organizerId` names whoever created the trip and
   // cannot see a second admin, so gating on it hid these controls from admins
   // who had them and showed them to a creator who had been demoted.
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const isAdmin = myRole?.role === "admin";
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    isWatcher,
+  } = useTripRole(tripId);
   const memberCount = useMemo(
     () => members?.filter((m: any) => m.status === "accepted").length || 0,
     [members]
@@ -287,6 +289,7 @@ export default function TripDates() {
     setNlParsing(true);
     try {
       const result = await parseNaturalMutation.mutateAsync({
+        tripId,
         text: nlText,
         referenceYear: new Date().getFullYear(),
       });
@@ -350,7 +353,11 @@ export default function TripDates() {
     <AppShell title="Dates" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
         <ScreenHeader
-          subtitle="Propose dates and vote on availability"
+          subtitle={
+            canContribute
+              ? "Propose dates and vote on availability"
+              : "The dates the group is considering"
+          }
           highlight={
             selectedProposal ? (
               <>
@@ -373,172 +380,181 @@ export default function TripDates() {
                   <Unlock className="h-3.5 w-3.5" /> Unlock
                 </Button>
               )}
-              <Dialog open={addOpen} onOpenChange={setAddOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="rounded-lg gap-1">
-                    <Plus className="h-4 w-4" /> Add
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Propose Dates</DialogTitle>
-                  </DialogHeader>
-                  <Tabs defaultValue="manual" className="w-full">
-                    <TabsList className="w-full rounded-lg">
-                      <TabsTrigger value="manual" className="flex-1 text-xs">
-                        Manual
-                      </TabsTrigger>
-                      <TabsTrigger
-                        value="natural"
-                        className="flex-1 text-xs gap-1"
-                      >
-                        <Sparkles className="h-3 w-3" /> Smart
-                      </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="manual" className="space-y-4 pt-2">
-                      <div className="space-y-2">
-                        <Label>Label (optional)</Label>
-                        <Input
-                          placeholder="e.g., Spring Break"
-                          value={label}
-                          onChange={e => setLabel(e.target.value)}
-                          className="rounded-lg"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
+              {canContribute && (
+                <Dialog open={addOpen} onOpenChange={setAddOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="rounded-lg gap-1">
+                      <Plus className="h-4 w-4" /> Add
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Propose Dates</DialogTitle>
+                    </DialogHeader>
+                    <Tabs defaultValue="manual" className="w-full">
+                      <TabsList className="w-full rounded-lg">
+                        <TabsTrigger value="manual" className="flex-1 text-xs">
+                          Manual
+                        </TabsTrigger>
+                        <TabsTrigger
+                          value="natural"
+                          className="flex-1 text-xs gap-1"
+                        >
+                          <Sparkles className="h-3 w-3" /> Smart
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="manual" className="space-y-4 pt-2">
                         <div className="space-y-2">
-                          <Label>Start</Label>
+                          <Label>Label (optional)</Label>
                           <Input
-                            type="date"
-                            value={startDate}
-                            onChange={e => setStartDate(e.target.value)}
+                            placeholder="e.g., Spring Break"
+                            value={label}
+                            onChange={e => setLabel(e.target.value)}
                             className="rounded-lg"
                           />
-                          {startDate && (
-                            <p className="text-xs text-muted-foreground">
-                              {getDayName(startDate)}
-                            </p>
-                          )}
                         </div>
-                        <div className="space-y-2">
-                          <Label>End</Label>
-                          <Input
-                            type="date"
-                            value={endDate}
-                            onChange={e => setEndDate(e.target.value)}
-                            className="rounded-lg"
-                          />
-                          {endDate && (
-                            <p className="text-xs text-muted-foreground">
-                              {getDayName(endDate)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {startDate &&
-                        endDate &&
-                        new Date(endDate) > new Date(startDate) && (
-                          <p className="text-xs text-muted-foreground text-center">
-                            {getNightsCount(
-                              new Date(startDate),
-                              new Date(endDate)
-                            )}{" "}
-                            night
-                            {getNightsCount(
-                              new Date(startDate),
-                              new Date(endDate)
-                            ) !== 1
-                              ? "s"
-                              : ""}
-                          </p>
-                        )}
-                      <Button
-                        onClick={handlePropose}
-                        className="w-full rounded-lg"
-                        disabled={proposeMutation.isPending}
-                      >
-                        {proposeMutation.isPending
-                          ? "Proposing..."
-                          : "Propose Dates"}
-                      </Button>
-                    </TabsContent>
-                    <TabsContent value="natural" className="space-y-4 pt-2">
-                      <div className="space-y-2">
-                        <Label>Describe your availability</Label>
-                        <Textarea
-                          placeholder="e.g., any weekends in July 2025, or first two weeks of August"
-                          value={nlText}
-                          onChange={e => setNlText(e.target.value)}
-                          rows={3}
-                          className="rounded-lg resize-none text-sm"
-                        />
-                      </div>
-                      <Button
-                        onClick={handleParseNatural}
-                        variant="outline"
-                        className="w-full rounded-lg gap-2"
-                        disabled={nlParsing}
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        {nlParsing ? "Parsing..." : "Parse Dates"}
-                      </Button>
-                      {nlProposals.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            {nlProposals.length} date
-                            {nlProposals.length > 1 ? "s" : ""} found:
-                          </p>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {nlProposals.map((p, i) => {
-                              const nights = getNightsCount(
-                                new Date(p.startDate),
-                                new Date(p.endDate)
-                              );
-                              const { startDay, endDay } = formatDateRange(
-                                new Date(p.startDate),
-                                new Date(p.endDate)
-                              );
-                              return (
-                                <div
-                                  key={i}
-                                  className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-xs"
-                                >
-                                  <div>
-                                    <p className="font-medium">{p.label}</p>
-                                    <p className="text-muted-foreground">
-                                      {startDay} → {endDay} · {nights} night
-                                      {nights !== 1 ? "s" : ""}
-                                    </p>
-                                  </div>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-7 text-xs rounded-lg px-2"
-                                    onClick={() => handleAddNlProposal(p)}
-                                    disabled={proposeMutation.isPending}
-                                  >
-                                    Add
-                                  </Button>
-                                </div>
-                              );
-                            })}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-2">
+                            <Label>Start</Label>
+                            <Input
+                              type="date"
+                              value={startDate}
+                              onChange={e => setStartDate(e.target.value)}
+                              className="rounded-lg"
+                            />
+                            {startDate && (
+                              <p className="text-xs text-muted-foreground">
+                                {getDayName(startDate)}
+                              </p>
+                            )}
                           </div>
-                          <Button
-                            onClick={handleAddAllNlProposals}
-                            className="w-full rounded-lg"
-                            disabled={proposeMutation.isPending}
-                          >
-                            Add All {nlProposals.length} Proposals
-                          </Button>
+                          <div className="space-y-2">
+                            <Label>End</Label>
+                            <Input
+                              type="date"
+                              value={endDate}
+                              onChange={e => setEndDate(e.target.value)}
+                              className="rounded-lg"
+                            />
+                            {endDate && (
+                              <p className="text-xs text-muted-foreground">
+                                {getDayName(endDate)}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </TabsContent>
-                  </Tabs>
-                </DialogContent>
-              </Dialog>
+                        {startDate &&
+                          endDate &&
+                          new Date(endDate) > new Date(startDate) && (
+                            <p className="text-xs text-muted-foreground text-center">
+                              {getNightsCount(
+                                new Date(startDate),
+                                new Date(endDate)
+                              )}{" "}
+                              night
+                              {getNightsCount(
+                                new Date(startDate),
+                                new Date(endDate)
+                              ) !== 1
+                                ? "s"
+                                : ""}
+                            </p>
+                          )}
+                        <Button
+                          onClick={handlePropose}
+                          className="w-full rounded-lg"
+                          disabled={proposeMutation.isPending}
+                        >
+                          {proposeMutation.isPending
+                            ? "Proposing..."
+                            : "Propose Dates"}
+                        </Button>
+                      </TabsContent>
+                      <TabsContent value="natural" className="space-y-4 pt-2">
+                        <div className="space-y-2">
+                          <Label>Describe your availability</Label>
+                          <Textarea
+                            placeholder="e.g., any weekends in July 2025, or first two weeks of August"
+                            value={nlText}
+                            onChange={e => setNlText(e.target.value)}
+                            rows={3}
+                            className="rounded-lg resize-none text-sm"
+                          />
+                        </div>
+                        <Button
+                          onClick={handleParseNatural}
+                          variant="outline"
+                          className="w-full rounded-lg gap-2"
+                          disabled={nlParsing}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          {nlParsing ? "Parsing..." : "Parse Dates"}
+                        </Button>
+                        {nlProposals.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {nlProposals.length} date
+                              {nlProposals.length > 1 ? "s" : ""} found:
+                            </p>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                              {nlProposals.map((p, i) => {
+                                const nights = getNightsCount(
+                                  new Date(p.startDate),
+                                  new Date(p.endDate)
+                                );
+                                const { startDay, endDay } = formatDateRange(
+                                  new Date(p.startDate),
+                                  new Date(p.endDate)
+                                );
+                                return (
+                                  <div
+                                    key={i}
+                                    className="flex items-center justify-between p-2 bg-muted/50 rounded-lg text-xs"
+                                  >
+                                    <div>
+                                      <p className="font-medium">{p.label}</p>
+                                      <p className="text-muted-foreground">
+                                        {startDay} → {endDay} · {nights} night
+                                        {nights !== 1 ? "s" : ""}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs rounded-lg px-2"
+                                      onClick={() => handleAddNlProposal(p)}
+                                      disabled={proposeMutation.isPending}
+                                    >
+                                      Add
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <Button
+                              onClick={handleAddAllNlProposals}
+                              className="w-full rounded-lg"
+                              disabled={proposeMutation.isPending}
+                            >
+                              Add All {nlProposals.length} Proposals
+                            </Button>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  </DialogContent>
+                </Dialog>
+              )}
             </>
           }
         />
+
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. The dates and the tally are here; voting
+            and proposing are for tripmates.
+          </WatcherNotice>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -561,7 +577,7 @@ export default function TripDates() {
                 0;
               const totalVotes = p.votes?.length || 0;
               const isOwner = p.proposedBy === user?.id;
-              const canManage = isOwner || isAdmin;
+              const canManage = canContribute && (isOwner || isAdmin);
               const nights = getNightsCount(
                 new Date(p.startDate),
                 new Date(p.endDate)
@@ -677,7 +693,7 @@ export default function TripDates() {
                         proposalId={p.id}
                         votedCount={totalVotes}
                         memberCount={memberCount}
-                        canSeeDetail={myRole?.role !== "watcher"}
+                        canSeeDetail={canContribute}
                       />
                     </div>
 
@@ -708,7 +724,7 @@ export default function TripDates() {
                       </div>
                     )}
 
-                    {!p.selected && (
+                    {canContribute && !p.selected && (
                       <div className="flex gap-2">
                         {[
                           {
@@ -772,6 +788,7 @@ export default function TripDates() {
                       proposalId={p.id}
                       tripId={tripId}
                       isOrganizer={isAdmin}
+                      canContribute={canContribute}
                       count={commentCount}
                     />
                   </CardContent>
@@ -784,18 +801,22 @@ export default function TripDates() {
             <CardContent className="p-8 text-center">
               <Calendar className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                No dates proposed yet. Add the first one!
+                {canContribute
+                  ? "No dates proposed yet. Add the first one!"
+                  : "No dates proposed yet."}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Try the Smart tab — just describe when you're free!
-              </p>
+              {canContribute && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Try the Smart tab — just describe when you're free!
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      {/* Edit dialog — unreachable without the menu that opens it. */}
+      <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Date Proposal</DialogTitle>

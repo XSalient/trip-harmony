@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "@/lib/trpc";
+import { useSessionSwitch } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,7 +55,7 @@ export function AuthDialog({
   const [magicSent, setMagicSent] = useState(false);
   const [magicDebugUrl, setMagicDebugUrl] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(startWithPassword);
-  const utils = trpc.useUtils();
+  const switchSession = useSessionSwitch();
 
   const { data: capabilities } = trpc.auth.capabilities.useQuery();
   // Assume magic links work until told otherwise, so the dialog doesn't flicker on open.
@@ -75,9 +76,11 @@ export function AuthDialog({
     resolver: zodResolver(registerSchema),
   });
 
+  // Signing in is a change of identity, not a change of one query: the tab may
+  // already hold another account's trips. See `useSessionSwitch`.
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: async () => {
-      await utils.auth.me.invalidate();
+      await switchSession();
       onSuccess();
     },
     onError: err => setServerError(err.message),
@@ -85,7 +88,7 @@ export function AuthDialog({
 
   const registerMutation = trpc.auth.register.useMutation({
     onSuccess: async () => {
-      await utils.auth.me.invalidate();
+      await switchSession();
       onSuccess();
     },
     onError: err => setServerError(err.message),
@@ -123,7 +126,7 @@ export function AuthDialog({
       const { challengeId, options } = await passkeyStartMutation.mutateAsync();
       const response = await startAuthentication({ optionsJSON: options });
       await passkeyFinishMutation.mutateAsync({ challengeId, response });
-      await utils.auth.me.invalidate();
+      await switchSession();
       onSuccess();
     } catch (error) {
       // Dismissing the system prompt is a choice, not a failure to report.

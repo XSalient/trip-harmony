@@ -20,6 +20,13 @@ interface Props {
   proposalId: number;
   tripId: number;
   isOrganizer: boolean;
+  /**
+   * False for a watcher. A thread is names, timestamps and opinions — the
+   * attribution a watcher is not given anywhere else — so the whole component
+   * disappears rather than showing a read-only view. `comments.list` refuses
+   * them too, so rendering it would only produce an error.
+   */
+  canContribute: boolean;
   count?: number;
 }
 
@@ -28,6 +35,7 @@ export default function ProposalComments({
   proposalId,
   tripId,
   isOrganizer,
+  canContribute,
   count,
 }: Props) {
   const { user } = useAuth({});
@@ -35,8 +43,8 @@ export default function ProposalComments({
   const [text, setText] = useState("");
 
   const { data: comments = [], refetch } = trpc.comments.list.useQuery(
-    { proposalType, proposalId },
-    { enabled: expanded }
+    { tripId, proposalType, proposalId },
+    { enabled: expanded && canContribute }
   );
   const addMutation = trpc.comments.add.useMutation();
   const deleteMutation = trpc.comments.delete.useMutation();
@@ -71,6 +79,8 @@ export default function ProposalComments({
       handleAdd();
     }
   };
+
+  if (!canContribute) return null;
 
   return (
     <div className="mt-2 border-t border-border/30 pt-2">

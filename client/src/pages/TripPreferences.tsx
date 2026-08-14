@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import AppShell from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import PreferencesSummary from "@/components/trip/PreferencesSummary";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import {
   CheckCircle2,
   ClipboardList,
@@ -96,6 +98,10 @@ export default function TripPreferences() {
     openComments: "",
   });
   const [saved, setSaved] = useState(false);
+  // A watcher has no requirements to state: they are not going on the trip,
+  // and `preferences.save` refuses them. The form is read-only rather than
+  // absent, so the page still explains what the group is being scored against.
+  const { canContribute, isWatcher } = useTripRole(tripId);
 
   useEffect(() => {
     if (existing) {
@@ -159,6 +165,13 @@ export default function TripPreferences() {
           memberCount={acceptedCount}
         />
 
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. Requirements are stated by the people
+            travelling, so this form is read-only for you.
+          </WatcherNotice>
+        )}
+
         {/* AI tip */}
         <div className="flex gap-2 rounded-xl border border-border/50 bg-muted/40 p-3">
           <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
@@ -199,6 +212,7 @@ export default function TripPreferences() {
                     }))
                   }
                   placeholder={section.placeholder}
+                  readOnly={!canContribute}
                   className="min-h-[130px] resize-none border-0 bg-background px-4 py-3 text-base leading-relaxed shadow-none focus-visible:ring-0"
                 />
               </CardContent>
@@ -207,27 +221,29 @@ export default function TripPreferences() {
         })}
 
         {/* Save button — sits above the bottom nav bar (h-14 = 56px) */}
-        <div className="fixed bottom-14 left-0 right-0 z-10 border-t border-border/50 bg-background/90 p-4 backdrop-blur">
-          <div className="max-w-2xl mx-auto">
-            <Button
-              className="h-11 w-full text-base font-medium"
-              onClick={handleSave}
-              disabled={saveMutation.isPending}
-            >
-              {saved ? (
-                <span className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" /> Saved!
-                </span>
-              ) : saveMutation.isPending ? (
-                "Saving…"
-              ) : existing ? (
-                "Update My Preferences"
-              ) : (
-                "Save My Preferences"
-              )}
-            </Button>
+        {canContribute && (
+          <div className="fixed bottom-14 left-0 right-0 z-10 border-t border-border/50 bg-background/90 p-4 backdrop-blur">
+            <div className="max-w-2xl mx-auto">
+              <Button
+                className="h-11 w-full text-base font-medium"
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+              >
+                {saved ? (
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" /> Saved!
+                  </span>
+                ) : saveMutation.isPending ? (
+                  "Saving…"
+                ) : existing ? (
+                  "Update My Preferences"
+                ) : (
+                  "Save My Preferences"
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </AppShell>
   );

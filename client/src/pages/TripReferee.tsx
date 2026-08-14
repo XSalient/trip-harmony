@@ -1,10 +1,12 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams } from "wouter";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -42,19 +44,20 @@ export default function TripReferee() {
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
 
+  // The referee summarises the group's argument, member by member, so it is
+  // tripmates and up — `referee.messages` refuses a watcher. The dashboard
+  // already hides the link; this page is reachable by typing the URL, and it
+  // used to answer with a permanent skeleton and a console error.
+  const { canAdminister: isAdmin, canContribute } = useTripRole(tripId);
+
   const { data: messages, isLoading } = trpc.referee.messages.useQuery(
     { tripId },
-    { enabled: tripId > 0 }
+    { enabled: tripId > 0 && canContribute }
   );
   const { data: trip } = trpc.trips.get.useQuery(
     { id: tripId },
     { enabled: tripId > 0 }
   );
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const isAdmin = myRole?.role === "admin";
   const analyzeMutation = trpc.referee.analyze.useMutation();
   const utils = trpc.useUtils();
 
@@ -114,42 +117,50 @@ export default function TripReferee() {
           </CardContent>
         </Card>
 
-        {/* Analyze button — admins only, and once per cooldown. Each run reads
-            every member's preferences and every vote on every proposal. */}
-        {isAdmin ? (
-          <div className="space-y-1.5">
-            <Button
-              onClick={handleAnalyze}
-              className="w-full h-12 rounded-xl gap-2"
-              disabled={analyzing || cooldownLeftMs > 0}
-            >
-              {analyzing ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Analyzing your trip...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Get Referee Analysis
-                </>
-              )}
-            </Button>
-            {cooldownLeftMs > 0 && (
-              <p className="text-xs text-muted-foreground text-center">
-                Just analysed — available again in {cooldownMinutes} minute
-                {cooldownMinutes === 1 ? "" : "s"}.
-              </p>
-            )}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground text-center">
-            A trip admin can ask the referee for a fresh read.
-          </p>
+        {!canContribute && (
+          <WatcherNotice>
+            You're following this trip. The referee reads every member's
+            preferences and votes, so its analysis is for the people travelling.
+          </WatcherNotice>
         )}
 
+        {/* Analyze button — admins only, and once per cooldown. Each run reads
+            every member's preferences and every vote on every proposal. */}
+        {canContribute &&
+          (isAdmin ? (
+            <div className="space-y-1.5">
+              <Button
+                onClick={handleAnalyze}
+                className="w-full h-12 rounded-xl gap-2"
+                disabled={analyzing || cooldownLeftMs > 0}
+              >
+                {analyzing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Analyzing your trip...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Get Referee Analysis
+                  </>
+                )}
+              </Button>
+              {cooldownLeftMs > 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Just analysed — available again in {cooldownMinutes} minute
+                  {cooldownMinutes === 1 ? "" : "s"}.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground text-center">
+              A trip admin can ask the referee for a fresh read.
+            </p>
+          ))}
+
         {/* Messages */}
-        {isLoading ? (
+        {!canContribute ? null : isLoading ? (
           <div className="space-y-3">
             {[1, 2].map(i => (
               <Skeleton key={i} className="h-32 rounded-xl" />

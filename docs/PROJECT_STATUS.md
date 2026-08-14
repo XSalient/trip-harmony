@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-12
+- **Last updated:** 2026-08-14
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 398 tests ✅ · production build ✅ (2026-08-12) ·
+- **Health:** typecheck ✅ · 546 tests ✅ · production build ✅ (2026-08-14) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -213,7 +213,12 @@ Verified by running the app against Postgres, not just by reading code:
   (password state, passkeys) in one place.
 - **Trips** — create, list, update, join. Membership is Admin / Tripmate /
   Watcher, enforced server-side by `requireTripRole`; a watcher sees the trip's
-  plans but no member's contact details, no who-proposed-what and no votes.
+  plans but no member's contact details, no who-proposed-what, no votes and no
+  AI match analysis. The client half of that rule now lives in one hook,
+  `client/src/_core/hooks/useTripRole.ts`, used by all ten trip screens — it
+  used to be applied on the dashboard only, so every other screen offered a
+  watcher controls the server then refused. `server/routers/roleCoverage.test.ts`
+  is the sweep that keeps both halves honest.
   Invites go by shared link or by email, and the members page shows who accepted,
   who is still pending, and how each person arrived.
 - **Contacts** — a private per-user address book, so an email is typed once.
@@ -269,9 +274,13 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 237 tests are server-side. Page components are
+1. **No frontend tests.** All 546 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
-   virtual authenticator, but that check is not committed as a suite.
+   virtual authenticator, but that check is not committed as a suite. The
+   nearest thing is `server/routers/roleCoverage.test.ts`, which reads the page
+   sources and asserts each one gates its controls on a role. That catches a
+   screen shipped without a permission check; it does not catch a screen that
+   renders wrongly, and it is not a substitute for a rendering test.
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
 3. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.

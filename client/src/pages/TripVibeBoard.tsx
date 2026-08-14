@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -66,11 +68,11 @@ export default function TripVibeBoard() {
   // Role, not authorship: `organizerId` names whoever created the trip and
   // cannot see a second admin, so gating on it hid these controls from admins
   // who had them and showed them to a creator who had been demoted.
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const isAdmin = myRole?.role === "admin";
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    isWatcher,
+  } = useTripRole(tripId);
 
   const [addOpen, setAddOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -174,86 +176,98 @@ export default function TripVibeBoard() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">
-              Share inspiration — photos, links, vibes. Vote on what resonates.
+              {canContribute
+                ? "Share inspiration — photos, links, vibes. Vote on what resonates."
+                : "The inspiration the group has collected."}
             </p>
           </div>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="rounded-xl gap-1.5">
-                <Plus className="h-4 w-4" /> Add Vibe
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-sm rounded-2xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" /> Add Inspiration
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3 pt-1">
-                <div>
-                  <Label className="text-xs">Title *</Label>
-                  <Input
-                    value={title}
-                    onChange={e => setTitle(e.target.value)}
-                    placeholder="e.g. Cozy mountain cabin"
-                    className="rounded-lg mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Description</Label>
-                  <Textarea
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    placeholder="Why does this excite you?"
-                    rows={2}
-                    className="rounded-lg mt-1 resize-none text-sm"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">
-                    Link (Airbnb, Instagram, etc.)
-                  </Label>
-                  <Input
-                    value={url}
-                    onChange={e => setUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="rounded-lg mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Image URL (optional)</Label>
-                  <Input
-                    value={imageUrl}
-                    onChange={e => setImageUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="rounded-lg mt-1"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Vibes</Label>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {TAG_OPTIONS.map(tag => (
-                      <button
-                        key={tag}
-                        onClick={() => toggleTag(tag)}
-                        className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${selectedTags.includes(tag) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary"}`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Button
-                  onClick={handleAdd}
-                  className="w-full rounded-lg"
-                  disabled={addMutation.isPending}
-                >
-                  {addMutation.isPending ? "Adding..." : "Add to Board"}
+          {canContribute && (
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="rounded-xl gap-1.5">
+                  <Plus className="h-4 w-4" /> Add Vibe
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-sm rounded-2xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" /> Add
+                    Inspiration
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3 pt-1">
+                  <div>
+                    <Label className="text-xs">Title *</Label>
+                    <Input
+                      value={title}
+                      onChange={e => setTitle(e.target.value)}
+                      placeholder="e.g. Cozy mountain cabin"
+                      className="rounded-lg mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Description</Label>
+                    <Textarea
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder="Why does this excite you?"
+                      rows={2}
+                      className="rounded-lg mt-1 resize-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">
+                      Link (Airbnb, Instagram, etc.)
+                    </Label>
+                    <Input
+                      value={url}
+                      onChange={e => setUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="rounded-lg mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Image URL (optional)</Label>
+                    <Input
+                      value={imageUrl}
+                      onChange={e => setImageUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="rounded-lg mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Vibes</Label>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {TAG_OPTIONS.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => toggleTag(tag)}
+                          className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${selectedTags.includes(tag) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary"}`}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAdd}
+                    className="w-full rounded-lg"
+                    disabled={addMutation.isPending}
+                  >
+                    {addMutation.isPending ? "Adding..." : "Add to Board"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
+
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. The board is here to look at; adding and
+            voting are for tripmates.
+          </WatcherNotice>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -277,7 +291,8 @@ export default function TripVibeBoard() {
                   item.votes?.filter((v: any) => v.vote === "veto").length || 0;
                 const score = getScore(item);
                 const tags = item.tags ? JSON.parse(item.tags) : [];
-                const canDelete = item.proposedBy === user?.id || isAdmin;
+                const canDelete =
+                  canContribute && (item.proposedBy === user?.id || isAdmin);
 
                 return (
                   <Card
@@ -308,9 +323,11 @@ export default function TripVibeBoard() {
                               {item.description}
                             </p>
                           )}
-                          <p className="text-[11px] text-muted-foreground mt-1">
-                            by {item.proposedByUser?.name || "Unknown"}
-                          </p>
+                          {item.proposedByUser?.name && (
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              by {item.proposedByUser.name}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0 ml-2">
                           <span
@@ -367,41 +384,43 @@ export default function TripVibeBoard() {
                         </span>
                       </div>
 
-                      <div className="flex gap-2">
-                        {[
-                          {
-                            vote: "love" as const,
-                            icon: Heart,
-                            label: "Yes",
-                            active:
-                              "bg-green-100 text-green-700 border-green-300",
-                          },
-                          {
-                            vote: "fine" as const,
-                            icon: HelpCircle,
-                            label: "Maybe",
-                            active:
-                              "bg-yellow-100 text-yellow-700 border-yellow-300",
-                          },
-                          {
-                            vote: "veto" as const,
-                            icon: Ban,
-                            label: "No",
-                            active: "bg-red-100 text-red-600 border-red-300",
-                          },
-                        ].map(btn => (
-                          <Button
-                            key={btn.vote}
-                            variant="outline"
-                            size="sm"
-                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                            onClick={() => handleVote(item.id, btn.vote)}
-                          >
-                            <btn.icon className="h-3.5 w-3.5 mr-1" />
-                            {btn.label}
-                          </Button>
-                        ))}
-                      </div>
+                      {canContribute && (
+                        <div className="flex gap-2">
+                          {[
+                            {
+                              vote: "love" as const,
+                              icon: Heart,
+                              label: "Yes",
+                              active:
+                                "bg-green-100 text-green-700 border-green-300",
+                            },
+                            {
+                              vote: "fine" as const,
+                              icon: HelpCircle,
+                              label: "Maybe",
+                              active:
+                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                            },
+                            {
+                              vote: "veto" as const,
+                              icon: Ban,
+                              label: "No",
+                              active: "bg-red-100 text-red-600 border-red-300",
+                            },
+                          ].map(btn => (
+                            <Button
+                              key={btn.vote}
+                              variant="outline"
+                              size="sm"
+                              className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
+                              onClick={() => handleVote(item.id, btn.vote)}
+                            >
+                              <btn.icon className="h-3.5 w-3.5 mr-1" />
+                              {btn.label}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -414,9 +433,11 @@ export default function TripVibeBoard() {
               <p className="text-sm font-medium text-muted-foreground">
                 No vibes yet
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Be the first to share inspiration — a photo, a link, an idea.
-              </p>
+              {canContribute && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Be the first to share inspiration — a photo, a link, an idea.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

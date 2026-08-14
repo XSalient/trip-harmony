@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -107,16 +108,12 @@ export default function TripMembers() {
     { id: tripId },
     { enabled: tripId > 0 }
   );
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
   const { data: members, isLoading } = trpc.trips.members.useQuery(
     { tripId },
     { enabled: tripId > 0 }
   );
-  const isAdmin = myRole?.role === "admin";
-  const canSeeDetails = myRole?.role !== "watcher";
+  const { canAdminister: isAdmin, canSeeMemberDetails: canSeeDetails } =
+    useTripRole(tripId);
 
   const { data: invites } = trpc.trips.invites.useQuery(
     { tripId },

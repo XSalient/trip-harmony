@@ -8,6 +8,8 @@
  * the shape of the request that reaches it — which is exactly where a way into
  * a real account would have to appear.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { COOKIE_NAME } from "../shared/const.js";
@@ -221,5 +223,60 @@ describe("auth.demoSignIn", () => {
       .auth.demoSignIn({ persona: "ava" });
 
     expect(JSON.stringify(result)).not.toContain("scrypt");
+  });
+});
+
+/**
+ * Taking a seat is a change of identity in a tab that already had one — the
+ * seat picker says "you can switch later", so it is the one place in the app
+ * where that is the expected use rather than the edge case.
+ *
+ * Every query here is answered for whoever the cookie says you are, and React
+ * Query serves the previous answer from cache before the refetch lands. Nina,
+ * a watcher, would open on Ava's three trips and Ava's admin controls: the
+ * exact screen the demo exists to show is not the one it showed.
+ *
+ * There is no DOM in this suite, so this asserts the wiring rather than the
+ * render — that each path onto a new session goes through `useSessionSwitch`,
+ * which clears the cache before anything is read back.
+ */
+describe("switching who the tab is signed in as", () => {
+  const client = join(import.meta.dirname, "..", "client", "src");
+  const read = (...parts: string[]) =>
+    readFileSync(join(client, ...parts), "utf8");
+
+  it("clears the cache rather than invalidating one query", () => {
+    const hook = read("_core", "hooks", "useAuth.ts");
+    expect(hook).toContain("export function useSessionSwitch()");
+    expect(hook).toContain("queryClient.clear()");
+  });
+
+  it("resets on the way out too, so the next person starts blank", () => {
+    const hook = read("_core", "hooks", "useAuth.ts");
+    const logout = hook.slice(
+      hook.indexOf("const logout = useCallback"),
+      hook.indexOf("useEffect(() => {", hook.indexOf("const logout"))
+    );
+    expect(logout).toContain("queryClient.clear()");
+  });
+
+  it("runs on every path that starts a session", () => {
+    // The demo seat picker, and the three ways to sign in for real.
+    expect(read("pages", "Home.tsx")).toContain("await switchSession()");
+    const dialog = read("components", "AuthDialog.tsx");
+    expect(dialog.match(/await switchSession\(\)/g) ?? []).toHaveLength(3);
+    expect(read("pages", "MagicLinkVerify.tsx")).toContain(
+      "await switchSession()"
+    );
+  });
+
+  it("leaves no sign-in path invalidating `me` on its own", () => {
+    for (const file of [
+      ["pages", "Home.tsx"],
+      ["components", "AuthDialog.tsx"],
+      ["pages", "MagicLinkVerify.tsx"],
+    ] as const) {
+      expect(read(...file)).not.toContain("utils.auth.me.invalidate()");
+    }
   });
 });

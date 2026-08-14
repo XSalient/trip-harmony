@@ -97,8 +97,9 @@ export async function tripRoleOf(
 
 /**
  * Strips everything personal from a proposal for a watcher: who proposed it,
- * when, and who voted which way. The vote *count* survives, because a watcher
- * following a trip should still see that a decision is being made.
+ * when, who voted which way, and how well it matched each member's stated
+ * requirements. The vote *count* survives, because a watcher following a trip
+ * should still see that a decision is being made.
  *
  * Done here rather than in the page, for the same reason `toPublicUser` exists:
  * a component that declines to render a field has already received it, and the
@@ -118,11 +119,25 @@ export function projectProposalForRole<
     lockedBy?: number | null;
     lockedAt?: Date | string | null;
     votes?: unknown[];
+    matchAnalysis?: string | null;
+    matchAnalysedAt?: Date | string | null;
+    proposedByUser?: unknown;
   },
 >(proposal: T, role: TripRole): T {
   if (canSeeMemberDetails(role)) return proposal;
   // `selected` stays: a watcher should see that a decision was made. Who made
   // it, and when, is attribution and goes with the rest.
+  //
+  // `matchAnalysis` goes too, and it is the least obvious of these: the JSON
+  // holds a per-member breakdown — a name, a score and the reason, which is
+  // that member's own stated requirement read back ("needs step-free access").
+  // It is the most personal thing on the whole screen, and it was the one
+  // field a watcher was still being handed.
+  //
+  // `proposedByUser` is the vibe board's name for `proposer`. Two names for
+  // the same idea is how the board kept showing watchers "by Priya" while
+  // every other screen had stopped: strip both here, so a third spelling is
+  // the only way to reintroduce the leak.
   const {
     proposedBy,
     proposer,
@@ -130,6 +145,9 @@ export function projectProposalForRole<
     lockedBy,
     lockedAt,
     votes,
+    matchAnalysis,
+    matchAnalysedAt,
+    proposedByUser,
     ...rest
   } = proposal;
   return {
@@ -148,6 +166,9 @@ export function projectProposalsForRole<
     lockedBy?: number | null;
     lockedAt?: Date | string | null;
     votes?: unknown[];
+    matchAnalysis?: string | null;
+    matchAnalysedAt?: Date | string | null;
+    proposedByUser?: unknown;
   },
 >(proposals: T[], role: TripRole): T[] {
   if (canSeeMemberDetails(role)) return proposals;

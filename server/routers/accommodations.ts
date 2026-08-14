@@ -426,9 +426,17 @@ export const accommodationsRouter = router({
       });
       return { id: newId };
     }),
+  /**
+   * Reads a listing URL into a draft stay. Tripmates and admins only.
+   *
+   * Carries the trip for the same reason `dates.parseNatural` does: it spends
+   * a model call and an outbound fetch, so it is not an endpoint to leave open
+   * to anyone with a session.
+   */
   fetchFromUrl: protectedProcedure
     .input(
       z.object({
+        tripId: z.number(),
         url: z.string().url(),
         /**
          * The page as the member's own browser rendered it, pasted in after we
@@ -438,7 +446,8 @@ export const accommodationsRouter = router({
         pageText: z.string().max(400_000).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const url = input.url.trim();
 
       // Every way of getting at the page, in order, behind one call —
@@ -537,9 +546,11 @@ Return ONLY JSON with these fields, null for anything unknown: name, description
         };
       }
     }),
+  /** Free-text requirements into structured attributes. Tripmates and admins only. */
   parseAttributes: protectedProcedure
-    .input(z.object({ text: z.string().min(1) }))
-    .mutation(async ({ input }) => {
+    .input(z.object({ tripId: z.number(), text: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       try {
         const response = await invokeLLM({
           messages: [

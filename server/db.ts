@@ -1649,13 +1649,14 @@ export async function getUserNotifications(userId: number, limit = 50) {
     .limit(limit);
 }
 
-export async function markNotificationRead(id: number) {
+/** Scoped to the owner: a notification id is a guessable integer. */
+export async function markNotificationRead(id: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(notifications)
     .set({ read: true })
-    .where(eq(notifications.id, id));
+    .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
 }
 
 export async function markAllNotificationsRead(userId: number) {
@@ -1734,9 +1735,17 @@ export async function createComment(data: InsertProposalComment) {
   return result.id;
 }
 
+/**
+ * A thread, scoped to the trip the caller was authorised against.
+ *
+ * `tripId` is part of the lookup rather than trusted from the caller: the
+ * router checks the caller's role on *that* trip, so a thread belonging to
+ * another trip must not come back even if its proposal id is guessed right.
+ */
 export async function getComments(
   proposalType: "date" | "destination" | "accommodation",
-  proposalId: number
+  proposalId: number,
+  tripId: number
 ) {
   const db = await getDb();
   if (!db) return [];
@@ -1746,7 +1755,8 @@ export async function getComments(
     .where(
       and(
         eq(proposalComments.proposalType, proposalType),
-        eq(proposalComments.proposalId, proposalId)
+        eq(proposalComments.proposalId, proposalId),
+        eq(proposalComments.tripId, tripId)
       )
     )
     .orderBy(proposalComments.createdAt);

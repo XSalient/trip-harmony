@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
 import { useParams, Link, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
@@ -115,11 +117,11 @@ export default function TripAccommodations() {
   // Role, not authorship: `organizerId` names whoever created the trip and
   // cannot see a second admin, so gating on it hid these controls from admins
   // who had them and showed them to a creator who had been demoted.
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const isAdmin = myRole?.role === "admin";
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    isWatcher,
+  } = useTripRole(tripId);
   const { data: prefsLastUpdated } = trpc.preferences.lastUpdated.useQuery(
     { tripId },
     { enabled: tripId > 0 }
@@ -336,6 +338,7 @@ export default function TripAccommodations() {
     setUrlFetching(true);
     try {
       const result = await fetchFromUrlMutation.mutateAsync({
+        tripId,
         url: urlInput.trim(),
         ...(pageText ? { pageText } : {}),
       });
@@ -424,6 +427,7 @@ export default function TripAccommodations() {
     setNlParsing(true);
     try {
       const result = await parseAttributesMutation.mutateAsync({
+        tripId,
         text: nlPrefsText,
       });
       if (result.success && result.data) {
@@ -607,7 +611,11 @@ export default function TripAccommodations() {
         )}
 
         <ScreenHeader
-          subtitle="Compare accommodations and vote on your favorites"
+          subtitle={
+            canContribute
+              ? "Compare accommodations and vote on your favorites"
+              : "The stays the group is comparing"
+          }
           highlight={
             lockedAccommodations.length > 0
               ? `${lockedAccommodations.length} finalised · ${lockedAccommodations
@@ -646,348 +654,369 @@ export default function TripAccommodations() {
                   <Unlock className="h-3.5 w-3.5" /> Unlock all
                 </Button>
               )}
-              <Dialog
-                open={addOpen}
-                onOpenChange={open => {
-                  setAddOpen(open);
-                  if (!open) resetForm();
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button size="sm" className="rounded-lg gap-1">
-                    <Plus className="h-4 w-4" /> Add
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-sm rounded-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Add Accommodation</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 pt-2">
-                    {/* URL auto-fill */}
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5">
-                        <Link2 className="h-3.5 w-3.5" /> Listing URL (optional)
-                      </Label>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="https://airbnb.com/rooms/..."
-                          value={urlInput}
-                          onChange={e => setUrlInput(e.target.value)}
-                          className="rounded-lg flex-1 text-sm"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-lg shrink-0"
-                          onClick={handleFetchFromUrl}
-                          disabled={!urlInput.trim() || urlFetching}
-                        >
-                          {urlFetching ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Paste a booking URL and we'll try to fill in the details
-                        automatically
-                      </p>
-
-                      {/* Booking.com and friends refuse our server but not your
-                        browser: copying the page you can already see is the
-                        only way the price ever reaches this form. */}
-                      {pasteOpen && (
-                        <div className="rounded-lg border border-dashed p-2.5 space-y-2">
-                          <div className="flex items-start gap-1.5">
-                            <ClipboardList className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                            <p className="text-[11px] text-muted-foreground leading-relaxed">
-                              This site won't let our server read the page.{" "}
-                              <a
-                                href={urlInput.trim()}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="underline underline-offset-2"
-                              >
-                                Open the listing
-                              </a>
-                              , select all (Ctrl/⌘ + A), copy, and paste it
-                              below — your browser isn't blocked, so this gets
-                              the price, beds and amenities too.
-                            </p>
-                          </div>
-                          <Textarea
-                            placeholder="Paste the copied listing page here…"
-                            value={pasteText}
-                            onChange={e => setPasteText(e.target.value)}
-                            rows={3}
-                            className="rounded-lg resize-none text-xs"
+              {canContribute && (
+                <Dialog
+                  open={addOpen}
+                  onOpenChange={open => {
+                    setAddOpen(open);
+                    if (!open) resetForm();
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="rounded-lg gap-1">
+                      <Plus className="h-4 w-4" /> Add
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-sm rounded-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Add Accommodation</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-2">
+                      {/* URL auto-fill */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-1.5">
+                          <Link2 className="h-3.5 w-3.5" /> Listing URL
+                          (optional)
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="https://airbnb.com/rooms/..."
+                            value={urlInput}
+                            onChange={e => setUrlInput(e.target.value)}
+                            className="rounded-lg flex-1 text-sm"
                           />
                           <Button
                             variant="outline"
                             size="sm"
-                            className="rounded-lg w-full gap-1.5"
-                            onClick={handleReadPastedPage}
-                            disabled={!pasteText.trim() || urlFetching}
+                            className="rounded-lg shrink-0"
+                            onClick={handleFetchFromUrl}
+                            disabled={!urlInput.trim() || urlFetching}
                           >
                             {urlFetching ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Paste a booking URL and we'll try to fill in the
+                          details automatically
+                        </p>
+
+                        {/* Booking.com and friends refuse our server but not your
+                        browser: copying the page you can already see is the
+                        only way the price ever reaches this form. */}
+                        {pasteOpen && (
+                          <div className="rounded-lg border border-dashed p-2.5 space-y-2">
+                            <div className="flex items-start gap-1.5">
+                              <ClipboardList className="h-3.5 w-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                This site won't let our server read the page.{" "}
+                                <a
+                                  href={urlInput.trim()}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="underline underline-offset-2"
+                                >
+                                  Open the listing
+                                </a>
+                                , select all (Ctrl/⌘ + A), copy, and paste it
+                                below — your browser isn't blocked, so this gets
+                                the price, beds and amenities too.
+                              </p>
+                            </div>
+                            <Textarea
+                              placeholder="Paste the copied listing page here…"
+                              value={pasteText}
+                              onChange={e => setPasteText(e.target.value)}
+                              rows={3}
+                              className="rounded-lg resize-none text-xs"
+                            />
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg w-full gap-1.5"
+                              onClick={handleReadPastedPage}
+                              disabled={!pasteText.trim() || urlFetching}
+                            >
+                              {urlFetching ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-3.5 w-3.5" />
+                              )}
+                              Read pasted page
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t pt-3 space-y-3">
+                        <div className="space-y-1.5">
+                          <Label>Name</Label>
+                          <Input
+                            placeholder="e.g., Beachfront Villa"
+                            value={form.name}
+                            onChange={e => updateForm("name", e.target.value)}
+                            className="rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Description</Label>
+                          <Textarea
+                            placeholder="What makes this special?"
+                            value={form.description}
+                            onChange={e =>
+                              updateForm("description", e.target.value)
+                            }
+                            rows={2}
+                            className="rounded-lg resize-none"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Image URL</Label>
+                          <Input
+                            placeholder="https://..."
+                            value={form.imageUrl}
+                            onChange={e =>
+                              updateForm("imageUrl", e.target.value)
+                            }
+                            className="rounded-lg"
+                          />
+                        </div>
+
+                        {/* Pricing */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label>Price/Night ({currency})</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.pricePerNight}
+                              onChange={e =>
+                                updateForm("pricePerNight", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label>Total Price ({currency})</Label>
+                            <Input
+                              type="number"
+                              placeholder="0"
+                              value={form.totalPrice}
+                              onChange={e =>
+                                updateForm("totalPrice", e.target.value)
+                              }
+                              className="rounded-lg"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Rooms */}
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Rooms</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">
+                                Single/Twin Beds
+                              </Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={form.singleBeds}
+                                onChange={e =>
+                                  updateForm("singleBeds", e.target.value)
+                                }
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">
+                                Double/Queen Beds
+                              </Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={form.doubleBeds}
+                                onChange={e =>
+                                  updateForm("doubleBeds", e.target.value)
+                                }
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Bedrooms total</Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={form.bedrooms}
+                                onChange={e =>
+                                  updateForm("bedrooms", e.target.value)
+                                }
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Full Bathrooms</Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={form.bathrooms}
+                                onChange={e =>
+                                  updateForm("bathrooms", e.target.value)
+                                }
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">
+                                Standalone Toilets
+                              </Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={form.toilets}
+                                onChange={e =>
+                                  updateForm("toilets", e.target.value)
+                                }
+                                className="rounded-lg"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Ensuites</Label>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={form.ensuites}
+                                onChange={e =>
+                                  updateForm("ensuites", e.target.value)
+                                }
+                                className="rounded-lg"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Parking */}
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Parking</p>
+                          <div className="flex items-center justify-between py-1">
+                            <Label className="text-sm font-normal flex items-center gap-2">
+                              <Car className="h-4 w-4" /> Free Parking
+                            </Label>
+                            <Switch
+                              checked={form.freeParking}
+                              onCheckedChange={v =>
+                                updateForm("freeParking", v)
+                              }
+                            />
+                          </div>
+                          <div className="flex items-center justify-between py-1">
+                            <Label className="text-sm font-normal flex items-center gap-2">
+                              <Car className="h-4 w-4" /> Camper/RV Parking
+                            </Label>
+                            <Switch
+                              checked={form.camperParking}
+                              onCheckedChange={v =>
+                                updateForm("camperParking", v)
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        {/* Location & Link */}
+                        <div className="space-y-1.5">
+                          <Label>Location</Label>
+                          <Input
+                            placeholder="Address or area"
+                            value={form.location}
+                            onChange={e =>
+                              updateForm("location", e.target.value)
+                            }
+                            className="rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Booking Link</Label>
+                          <Input
+                            placeholder="https://..."
+                            value={form.link}
+                            onChange={e => updateForm("link", e.target.value)}
+                            className="rounded-lg"
+                          />
+                        </div>
+
+                        {/* Amenities */}
+                        <div className="space-y-1.5">
+                          <Label>Amenities (comma separated)</Label>
+                          <Input
+                            placeholder="WiFi, Pool, Kitchen..."
+                            value={form.amenities}
+                            onChange={e =>
+                              updateForm("amenities", e.target.value)
+                            }
+                            className="rounded-lg"
+                          />
+                        </div>
+
+                        {/* Natural language preferences */}
+                        <div className="space-y-2 border-t pt-3">
+                          <Label className="flex items-center gap-1.5">
+                            <Sparkles className="h-3.5 w-3.5 text-primary" />{" "}
+                            Describe preferences in plain language
+                          </Label>
+                          <Textarea
+                            placeholder="e.g., 2 single beds and 1 double bed, 2 separate toilets, ensuite master bedroom, microwave, free parking"
+                            value={nlPrefsText}
+                            onChange={e => setNlPrefsText(e.target.value)}
+                            rows={3}
+                            className="rounded-lg resize-none text-sm"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full rounded-lg gap-2"
+                            onClick={handleParseNlPrefs}
+                            disabled={!nlPrefsText.trim() || nlParsing}
+                          >
+                            {nlParsing ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <Sparkles className="h-3.5 w-3.5" />
                             )}
-                            Read pasted page
+                            {nlParsing ? "Parsing..." : "Apply Preferences"}
                           </Button>
+                          <p className="text-[11px] text-muted-foreground">
+                            AI will map your description to the form fields
+                            above
+                          </p>
                         </div>
-                      )}
+                      </div>
+
+                      <Button
+                        onClick={handleCreate}
+                        className="w-full rounded-lg"
+                        disabled={createMutation.isPending}
+                      >
+                        {createMutation.isPending
+                          ? "Adding..."
+                          : "Add Accommodation"}
+                      </Button>
                     </div>
-
-                    <div className="border-t pt-3 space-y-3">
-                      <div className="space-y-1.5">
-                        <Label>Name</Label>
-                        <Input
-                          placeholder="e.g., Beachfront Villa"
-                          value={form.name}
-                          onChange={e => updateForm("name", e.target.value)}
-                          className="rounded-lg"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Description</Label>
-                        <Textarea
-                          placeholder="What makes this special?"
-                          value={form.description}
-                          onChange={e =>
-                            updateForm("description", e.target.value)
-                          }
-                          rows={2}
-                          className="rounded-lg resize-none"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Image URL</Label>
-                        <Input
-                          placeholder="https://..."
-                          value={form.imageUrl}
-                          onChange={e => updateForm("imageUrl", e.target.value)}
-                          className="rounded-lg"
-                        />
-                      </div>
-
-                      {/* Pricing */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label>Price/Night ({currency})</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.pricePerNight}
-                            onChange={e =>
-                              updateForm("pricePerNight", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label>Total Price ({currency})</Label>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={form.totalPrice}
-                            onChange={e =>
-                              updateForm("totalPrice", e.target.value)
-                            }
-                            className="rounded-lg"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Rooms */}
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Rooms</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Single/Twin Beds</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={form.singleBeds}
-                              onChange={e =>
-                                updateForm("singleBeds", e.target.value)
-                              }
-                              className="rounded-lg"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Double/Queen Beds</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={form.doubleBeds}
-                              onChange={e =>
-                                updateForm("doubleBeds", e.target.value)
-                              }
-                              className="rounded-lg"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Bedrooms total</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={form.bedrooms}
-                              onChange={e =>
-                                updateForm("bedrooms", e.target.value)
-                              }
-                              className="rounded-lg"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Full Bathrooms</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={form.bathrooms}
-                              onChange={e =>
-                                updateForm("bathrooms", e.target.value)
-                              }
-                              className="rounded-lg"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">
-                              Standalone Toilets
-                            </Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={form.toilets}
-                              onChange={e =>
-                                updateForm("toilets", e.target.value)
-                              }
-                              className="rounded-lg"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label className="text-xs">Ensuites</Label>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              value={form.ensuites}
-                              onChange={e =>
-                                updateForm("ensuites", e.target.value)
-                              }
-                              className="rounded-lg"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Parking */}
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">Parking</p>
-                        <div className="flex items-center justify-between py-1">
-                          <Label className="text-sm font-normal flex items-center gap-2">
-                            <Car className="h-4 w-4" /> Free Parking
-                          </Label>
-                          <Switch
-                            checked={form.freeParking}
-                            onCheckedChange={v => updateForm("freeParking", v)}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between py-1">
-                          <Label className="text-sm font-normal flex items-center gap-2">
-                            <Car className="h-4 w-4" /> Camper/RV Parking
-                          </Label>
-                          <Switch
-                            checked={form.camperParking}
-                            onCheckedChange={v =>
-                              updateForm("camperParking", v)
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      {/* Location & Link */}
-                      <div className="space-y-1.5">
-                        <Label>Location</Label>
-                        <Input
-                          placeholder="Address or area"
-                          value={form.location}
-                          onChange={e => updateForm("location", e.target.value)}
-                          className="rounded-lg"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label>Booking Link</Label>
-                        <Input
-                          placeholder="https://..."
-                          value={form.link}
-                          onChange={e => updateForm("link", e.target.value)}
-                          className="rounded-lg"
-                        />
-                      </div>
-
-                      {/* Amenities */}
-                      <div className="space-y-1.5">
-                        <Label>Amenities (comma separated)</Label>
-                        <Input
-                          placeholder="WiFi, Pool, Kitchen..."
-                          value={form.amenities}
-                          onChange={e =>
-                            updateForm("amenities", e.target.value)
-                          }
-                          className="rounded-lg"
-                        />
-                      </div>
-
-                      {/* Natural language preferences */}
-                      <div className="space-y-2 border-t pt-3">
-                        <Label className="flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-primary" />{" "}
-                          Describe preferences in plain language
-                        </Label>
-                        <Textarea
-                          placeholder="e.g., 2 single beds and 1 double bed, 2 separate toilets, ensuite master bedroom, microwave, free parking"
-                          value={nlPrefsText}
-                          onChange={e => setNlPrefsText(e.target.value)}
-                          rows={3}
-                          className="rounded-lg resize-none text-sm"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full rounded-lg gap-2"
-                          onClick={handleParseNlPrefs}
-                          disabled={!nlPrefsText.trim() || nlParsing}
-                        >
-                          {nlParsing ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-3.5 w-3.5" />
-                          )}
-                          {nlParsing ? "Parsing..." : "Apply Preferences"}
-                        </Button>
-                        <p className="text-[11px] text-muted-foreground">
-                          AI will map your description to the form fields above
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button
-                      onClick={handleCreate}
-                      className="w-full rounded-lg"
-                      disabled={createMutation.isPending}
-                    >
-                      {createMutation.isPending
-                        ? "Adding..."
-                        : "Add Accommodation"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
+              )}
             </>
           }
         />
+
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. The stays and their scores are here;
+            voting and adding are for tripmates.
+          </WatcherNotice>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -1014,7 +1043,7 @@ export default function TripAccommodations() {
                     .filter(Boolean)
                 : [];
               const isOwner = acc.proposedBy === user?.id;
-              const canManage = isOwner || isAdmin;
+              const canManage = canContribute && (isOwner || isAdmin);
               const commentCount =
                 (commentCounts as any)[`accommodation_${acc.id}`] || 0;
 
@@ -1212,156 +1241,162 @@ export default function TripAccommodations() {
                       </a>
                     )}
 
-                    {/* AI Match Analysis — auto-populated from DB */}
-                    {(() => {
-                      let match: any = null;
-                      try {
-                        if (acc.matchAnalysis)
-                          match = JSON.parse(acc.matchAnalysis);
-                      } catch {}
-                      const expanded = matchExpanded[acc.id];
-                      const refreshing = refreshingMatch[acc.id];
-                      return (
-                        <div className="mb-3">
-                          {match ? (
-                            <div className="rounded-xl border border-border/60 overflow-hidden">
-                              <button
-                                className="w-full flex items-center justify-between p-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-                                onClick={() =>
-                                  setMatchExpanded(prev => ({
-                                    ...prev,
-                                    [acc.id]: !prev[acc.id],
-                                  }))
-                                }
-                              >
-                                <div className="flex items-center gap-2">
-                                  <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
-                                  <span className="text-xs font-medium">
-                                    AI Match
-                                  </span>
-                                  <span
-                                    className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                                      match.groupFitScore >= 70
-                                        ? "bg-green-100 text-green-700"
-                                        : match.groupFitScore >= 45
-                                          ? "bg-yellow-100 text-yellow-700"
-                                          : "bg-red-100 text-red-700"
-                                    }`}
-                                  >
-                                    {match.groupFitScore}/100
-                                  </span>
-                                  <span className="text-xs text-yellow-600 flex items-center gap-0.5">
-                                    <Star className="h-3 w-3" />
-                                    {typeof match.comfortScore === "number"
-                                      ? match.comfortScore.toFixed(1)
-                                      : match.comfortScore}
-                                  </span>
-                                  {match.resentmentRisk === "high" && (
-                                    <span className="text-xs text-red-600 flex items-center gap-0.5">
-                                      <AlertTriangle className="h-3 w-3" /> High
-                                      risk
+                    {/* AI Match Analysis — auto-populated from DB. Not for a
+                        watcher: it names members and quotes the requirements
+                        they wrote. The server strips it from their payload, so
+                        this only saves rendering an empty card. */}
+                    {canContribute &&
+                      (() => {
+                        let match: any = null;
+                        try {
+                          if (acc.matchAnalysis)
+                            match = JSON.parse(acc.matchAnalysis);
+                        } catch {}
+                        const expanded = matchExpanded[acc.id];
+                        const refreshing = refreshingMatch[acc.id];
+                        return (
+                          <div className="mb-3">
+                            {match ? (
+                              <div className="rounded-xl border border-border/60 overflow-hidden">
+                                <button
+                                  className="w-full flex items-center justify-between p-2.5 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                                  onClick={() =>
+                                    setMatchExpanded(prev => ({
+                                      ...prev,
+                                      [acc.id]: !prev[acc.id],
+                                    }))
+                                  }
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <Brain className="h-3.5 w-3.5 text-primary shrink-0" />
+                                    <span className="text-xs font-medium">
+                                      AI Match
                                     </span>
-                                  )}
-                                  {matchStaleness(acc) === "stale" && (
-                                    <span className="text-[10px] text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5">
-                                      May be out of date
-                                    </span>
-                                  )}
-                                </div>
-                                {expanded ? (
-                                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                                ) : (
-                                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                )}
-                              </button>
-                              {expanded && (
-                                <div className="p-2.5 space-y-2">
-                                  <p className="text-xs text-muted-foreground">
-                                    {match.summary}
-                                  </p>
-                                  {match.flags?.length > 0 && (
-                                    <div className="space-y-1">
-                                      {match.flags.map(
-                                        (f: string, i: number) => (
-                                          <div
-                                            key={i}
-                                            className="flex items-start gap-1.5 text-xs text-red-600"
-                                          >
-                                            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-                                            {f}
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
-                                  )}
-                                  {match.memberMatches?.length > 0 && (
-                                    <div className="space-y-1.5">
-                                      <p className="text-xs font-medium flex items-center gap-1">
-                                        <Users className="h-3 w-3" /> Per-member
-                                        breakdown
-                                      </p>
-                                      {match.memberMatches.map(
-                                        (m: any, i: number) => (
-                                          <div
-                                            key={i}
-                                            className="flex items-start gap-2 p-1.5 rounded-lg bg-muted/30"
-                                          >
-                                            <span
-                                              className={`text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                                                m.score >= 70
-                                                  ? "bg-green-100 text-green-700"
-                                                  : m.score >= 45
-                                                    ? "bg-yellow-100 text-yellow-700"
-                                                    : "bg-red-100 text-red-700"
-                                              }`}
-                                            >
-                                              {m.score}
-                                            </span>
-                                            <div>
-                                              <p className="text-xs font-medium">
-                                                {m.name}{" "}
-                                                <span className="font-normal text-muted-foreground">
-                                                  {m.verdict}
-                                                </span>
-                                              </p>
-                                              <p className="text-xs text-muted-foreground">
-                                                {m.reason}
-                                              </p>
-                                            </div>
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
-                                  )}
-                                  {isAdmin ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="w-full text-xs h-7 text-muted-foreground"
-                                      onClick={() => handleRefreshMatch(acc.id)}
-                                      disabled={refreshing}
+                                    <span
+                                      className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                                        match.groupFitScore >= 70
+                                          ? "bg-green-100 text-green-700"
+                                          : match.groupFitScore >= 45
+                                            ? "bg-yellow-100 text-yellow-700"
+                                            : "bg-red-100 text-red-700"
+                                      }`}
                                     >
-                                      {refreshing ? (
-                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                      ) : (
-                                        <RefreshCw className="h-3 w-3 mr-1" />
-                                      )}
-                                      {refreshing
-                                        ? "Analysing…"
-                                        : "Re-run analysis"}
-                                    </Button>
+                                      {match.groupFitScore}/100
+                                    </span>
+                                    <span className="text-xs text-yellow-600 flex items-center gap-0.5">
+                                      <Star className="h-3 w-3" />
+                                      {typeof match.comfortScore === "number"
+                                        ? match.comfortScore.toFixed(1)
+                                        : match.comfortScore}
+                                    </span>
+                                    {match.resentmentRisk === "high" && (
+                                      <span className="text-xs text-red-600 flex items-center gap-0.5">
+                                        <AlertTriangle className="h-3 w-3" />{" "}
+                                        High risk
+                                      </span>
+                                    )}
+                                    {matchStaleness(acc) === "stale" && (
+                                      <span className="text-[10px] text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5">
+                                        May be out of date
+                                      </span>
+                                    )}
+                                  </div>
+                                  {expanded ? (
+                                    <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
                                   ) : (
-                                    <p className="text-[11px] text-muted-foreground text-center">
-                                      Only an admin can re-run this.
-                                    </p>
+                                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                                   )}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-start gap-2 text-xs text-muted-foreground">
-                              <Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                              {/*
+                                </button>
+                                {expanded && (
+                                  <div className="p-2.5 space-y-2">
+                                    <p className="text-xs text-muted-foreground">
+                                      {match.summary}
+                                    </p>
+                                    {match.flags?.length > 0 && (
+                                      <div className="space-y-1">
+                                        {match.flags.map(
+                                          (f: string, i: number) => (
+                                            <div
+                                              key={i}
+                                              className="flex items-start gap-1.5 text-xs text-red-600"
+                                            >
+                                              <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+                                              {f}
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    )}
+                                    {match.memberMatches?.length > 0 && (
+                                      <div className="space-y-1.5">
+                                        <p className="text-xs font-medium flex items-center gap-1">
+                                          <Users className="h-3 w-3" />{" "}
+                                          Per-member breakdown
+                                        </p>
+                                        {match.memberMatches.map(
+                                          (m: any, i: number) => (
+                                            <div
+                                              key={i}
+                                              className="flex items-start gap-2 p-1.5 rounded-lg bg-muted/30"
+                                            >
+                                              <span
+                                                className={`text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                                  m.score >= 70
+                                                    ? "bg-green-100 text-green-700"
+                                                    : m.score >= 45
+                                                      ? "bg-yellow-100 text-yellow-700"
+                                                      : "bg-red-100 text-red-700"
+                                                }`}
+                                              >
+                                                {m.score}
+                                              </span>
+                                              <div>
+                                                <p className="text-xs font-medium">
+                                                  {m.name}{" "}
+                                                  <span className="font-normal text-muted-foreground">
+                                                    {m.verdict}
+                                                  </span>
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                  {m.reason}
+                                                </p>
+                                              </div>
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+                                    )}
+                                    {isAdmin ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full text-xs h-7 text-muted-foreground"
+                                        onClick={() =>
+                                          handleRefreshMatch(acc.id)
+                                        }
+                                        disabled={refreshing}
+                                      >
+                                        {refreshing ? (
+                                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                        ) : (
+                                          <RefreshCw className="h-3 w-3 mr-1" />
+                                        )}
+                                        {refreshing
+                                          ? "Analysing…"
+                                          : "Re-run analysis"}
+                                      </Button>
+                                    ) : (
+                                      <p className="text-[11px] text-muted-foreground text-center">
+                                        Only an admin can re-run this.
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-start gap-2 text-xs text-muted-foreground">
+                                <Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                {/*
                                 Says what has not happened, because importing a
                                 listing looks like analysis and is not: the
                                 import fills in these details, this scores them
@@ -1369,32 +1404,32 @@ export default function TripAccommodations() {
                                 every field arrived from Booking.com still reads
                                 "not analysed", and that read as a failed import.
                               */}
-                              <span className="flex-1">
-                                No AI match yet — it scores this stay against
-                                every member's preferences. Imported listing
-                                details don't include it
-                                {isAdmin ? "" : "; an admin can run it"}.
-                              </span>
-                              {isAdmin && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 text-xs shrink-0"
-                                  onClick={() => handleRefreshMatch(acc.id)}
-                                  disabled={refreshing}
-                                >
-                                  {refreshing ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    "Analyse"
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                                <span className="flex-1">
+                                  No AI match yet — it scores this stay against
+                                  every member's preferences. Imported listing
+                                  details don't include it
+                                  {isAdmin ? "" : "; an admin can run it"}.
+                                </span>
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 text-xs shrink-0"
+                                    onClick={() => handleRefreshMatch(acc.id)}
+                                    disabled={refreshing}
+                                  >
+                                    {refreshing ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      "Analyse"
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                     {/* Vote counts */}
                     <div className="flex gap-4 text-xs mb-3 items-center">
@@ -1414,12 +1449,12 @@ export default function TripAccommodations() {
                         proposalId={acc.id}
                         votedCount={acc.votes?.length || 0}
                         memberCount={memberCount}
-                        canSeeDetail={myRole?.role !== "watcher"}
+                        canSeeDetail={canContribute}
                       />
                     </div>
 
                     {/* Vote buttons */}
-                    {!acc.selected && (
+                    {canContribute && !acc.selected && (
                       <div className="flex gap-2">
                         {[
                           {
@@ -1492,6 +1527,7 @@ export default function TripAccommodations() {
                       proposalId={acc.id}
                       tripId={tripId}
                       isOrganizer={isAdmin}
+                      canContribute={canContribute}
                       count={commentCount}
                     />
                   </CardContent>
@@ -1504,18 +1540,22 @@ export default function TripAccommodations() {
             <CardContent className="p-8 text-center">
               <Home className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
-                No accommodations yet. Add the first option!
+                {canContribute
+                  ? "No accommodations yet. Add the first option!"
+                  : "No accommodations added yet."}
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Paste a booking URL and let AI fill in the details.
-              </p>
+              {canContribute && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Paste a booking URL and let AI fill in the details.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
 
-      {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      {/* Edit dialog — unreachable without the menu that opens it. */}
+      <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Edit Accommodation</DialogTitle>

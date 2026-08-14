@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AppShell from "@/components/AppShell";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -77,6 +79,10 @@ export default function TripBudget() {
     { tripId },
     { enabled: tripId > 0 }
   );
+  // This screen asked for no role at all, so a watcher was shown an Add
+  // Expense button, a delete on every row and a budget-limit dialog — three
+  // controls whose only possible outcome was a FORBIDDEN from the server.
+  const { canContribute, isWatcher } = useTripRole(tripId);
   const addMutation = trpc.budget.add.useMutation();
   const deleteMutation = trpc.budget.delete.useMutation();
   const updateBudgetMutation = trpc.trips.updateMemberBudget.useMutation();
@@ -155,48 +161,57 @@ export default function TripBudget() {
       showBack
       backHref={`/trips/${tripId}`}
       headerRight={
-        <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-sm rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>Your Budget Limit</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <p className="text-sm text-muted-foreground">
-                Set your maximum per-person budget. You'll get alerts when costs
-                exceed this.
-              </p>
-              <div className="space-y-2">
-                <Label>Max Budget ({currency})</Label>
-                <Input
-                  type="number"
-                  placeholder={
-                    myMember?.budgetMax
-                      ? String(myMember.budgetMax)
-                      : "e.g., 500"
-                  }
-                  value={myBudgetMax}
-                  onChange={e => setMyBudgetMax(e.target.value)}
-                  className="rounded-lg"
-                />
-              </div>
-              <Button
-                onClick={handleSetBudget}
-                className="w-full rounded-lg"
-                disabled={updateBudgetMutation.isPending}
-              >
-                {updateBudgetMutation.isPending ? "Saving..." : "Set Limit"}
+        canContribute ? (
+          <Dialog open={budgetOpen} onOpenChange={setBudgetOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <Settings className="h-4 w-4" />
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Your Budget Limit</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <p className="text-sm text-muted-foreground">
+                  Set your maximum per-person budget. You'll get alerts when
+                  costs exceed this.
+                </p>
+                <div className="space-y-2">
+                  <Label>Max Budget ({currency})</Label>
+                  <Input
+                    type="number"
+                    placeholder={
+                      myMember?.budgetMax
+                        ? String(myMember.budgetMax)
+                        : "e.g., 500"
+                    }
+                    value={myBudgetMax}
+                    onChange={e => setMyBudgetMax(e.target.value)}
+                    className="rounded-lg"
+                  />
+                </div>
+                <Button
+                  onClick={handleSetBudget}
+                  className="w-full rounded-lg"
+                  disabled={updateBudgetMutation.isPending}
+                >
+                  {updateBudgetMutation.isPending ? "Saving..." : "Set Limit"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : null
       }
     >
       <div className="px-4 py-4 space-y-4">
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. The totals are here; adding and removing
+            expenses is for tripmates.
+          </WatcherNotice>
+        )}
+
         {/* Summary Cards */}
         {summary && (
           <>
@@ -286,61 +301,65 @@ export default function TripBudget() {
         )}
 
         {/* Add button */}
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full rounded-xl h-11 gap-2">
-              <Plus className="h-4 w-4" /> Add Expense
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-sm rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>Add Expense</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="rounded-lg">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="accommodation">Accommodation</SelectItem>
-                    <SelectItem value="transport">Transport</SelectItem>
-                    <SelectItem value="food">Food & Dining</SelectItem>
-                    <SelectItem value="activities">Activities</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input
-                  placeholder="e.g., Villa deposit"
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="rounded-lg"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Amount ({currency})</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={amount}
-                  onChange={e => setAmount(e.target.value)}
-                  className="rounded-lg"
-                />
-              </div>
-              <Button
-                onClick={handleAdd}
-                className="w-full rounded-lg"
-                disabled={addMutation.isPending}
-              >
-                {addMutation.isPending ? "Adding..." : "Add Expense"}
+        {canContribute && (
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button className="w-full rounded-xl h-11 gap-2">
+                <Plus className="h-4 w-4" /> Add Expense
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-sm rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Add Expense</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="accommodation">
+                        Accommodation
+                      </SelectItem>
+                      <SelectItem value="transport">Transport</SelectItem>
+                      <SelectItem value="food">Food & Dining</SelectItem>
+                      <SelectItem value="activities">Activities</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Description</Label>
+                  <Input
+                    placeholder="e.g., Villa deposit"
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    className="rounded-lg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Amount ({currency})</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={amount}
+                    onChange={e => setAmount(e.target.value)}
+                    className="rounded-lg"
+                  />
+                </div>
+                <Button
+                  onClick={handleAdd}
+                  className="w-full rounded-lg"
+                  disabled={addMutation.isPending}
+                >
+                  {addMutation.isPending ? "Adding..." : "Add Expense"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Items List */}
         {isLoading ? (
@@ -372,14 +391,16 @@ export default function TripBudget() {
                     <span className="text-sm font-semibold shrink-0">
                       {currency} {parseFloat(item.amount).toFixed(0)}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {canContribute && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               );

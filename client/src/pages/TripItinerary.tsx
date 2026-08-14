@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import AppShell from "@/components/AppShell";
+import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams } from "wouter";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -71,11 +73,11 @@ export default function TripItinerary() {
   // Role, not authorship: `organizerId` names whoever created the trip and
   // cannot see a second admin, so gating on it hid these controls from admins
   // who had them and showed them to a creator who had been demoted.
-  const { data: myRole } = trpc.trips.myRole.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  const isAdmin = myRole?.role === "admin";
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    isWatcher,
+  } = useTripRole(tripId);
 
   const [addDayOpen, setAddDayOpen] = useState(false);
   const [dayDate, setDayDate] = useState("");
@@ -193,7 +195,9 @@ export default function TripItinerary() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">
-              Plan your days together.
+              {canContribute
+                ? "Plan your days together."
+                : "The group's day-by-day plan."}
             </p>
           </div>
           {isAdmin && (
@@ -247,6 +251,13 @@ export default function TripItinerary() {
             </Dialog>
           )}
         </div>
+
+        {isWatcher && (
+          <WatcherNotice>
+            You're following this trip. The itinerary is here to read; adding to
+            it is for tripmates.
+          </WatcherNotice>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -377,14 +388,15 @@ export default function TripItinerary() {
                                   )}
                                 </div>
                               </div>
-                              {(item.addedBy === user?.id || isAdmin) && (
-                                <button
-                                  onClick={() => handleDeleteItem(item.id)}
-                                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive shrink-0"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              )}
+                              {canContribute &&
+                                (item.addedBy === user?.id || isAdmin) && (
+                                  <button
+                                    onClick={() => handleDeleteItem(item.id)}
+                                    className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive shrink-0"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                             </div>
                           ))
                         ) : (
@@ -393,14 +405,16 @@ export default function TripItinerary() {
                           </p>
                         )}
 
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full rounded-lg text-xs h-8 border border-dashed border-border/50"
-                          onClick={() => openAddItem(day.id)}
-                        >
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Add item
-                        </Button>
+                        {canContribute && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full rounded-lg text-xs h-8 border border-dashed border-border/50"
+                            onClick={() => openAddItem(day.id)}
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Add item
+                          </Button>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -429,7 +443,8 @@ export default function TripItinerary() {
         )}
       </div>
 
-      <Dialog open={addItemOpen} onOpenChange={setAddItemOpen}>
+      {/* Unreachable without the button that opens it. */}
+      <Dialog open={addItemOpen && canContribute} onOpenChange={setAddItemOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Add Item</DialogTitle>

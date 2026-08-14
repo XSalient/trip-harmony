@@ -12,10 +12,11 @@ export const notificationsRouter = router({
   unreadCount: protectedProcedure.query(async ({ ctx }) => {
     return db.getUnreadNotificationCount(ctx.user.id);
   }),
+  /** The caller's own notification: the id alone is not proof of ownership. */
   markRead: protectedProcedure
     .input(z.object({ id: z.number() }))
-    .mutation(async ({ input }) => {
-      await db.markNotificationRead(input.id);
+    .mutation(async ({ ctx, input }) => {
+      await db.markNotificationRead(input.id, ctx.user.id);
       return { success: true };
     }),
   markAllRead: protectedProcedure.mutation(async ({ ctx }) => {

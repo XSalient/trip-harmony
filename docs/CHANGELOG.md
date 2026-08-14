@@ -8,6 +8,51 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-14 — The watcher role, applied everywhere instead of on one screen
+
+### Fixed
+
+- **Watchers no longer see controls they cannot use — on any screen.** The
+  contribute rule was written once, on the trip dashboard, and nowhere else:
+  every other screen asked only "am I an admin?", so a watcher opening Dates,
+  Places, Accommodations, Itinerary, Vibe Board, Budget or Preferences was
+  offered vote buttons, Add buttons, edit and delete menus and a comment box,
+  each of which the server then refused. All ten trip screens now take their
+  permissions from one hook, `useTripRole`, and say in a line why the buttons
+  are missing rather than looking broken.
+- **The AI match analysis is no longer sent to watchers.** The per-member
+  breakdown names each member and quotes the requirement they wrote ("needs
+  step-free access after surgery") — the most personal thing in the app, and
+  the one field the watcher projection had missed. The vibe board's proposer
+  was leaking the same way, under a second spelling (`proposedByUser`).
+- **`comments.list` checked nothing at all.** Any signed-in account could read
+  any proposal's comment thread by guessing an id, member or not. It now
+  requires tripmate on the thread's own trip, and the query is scoped to that
+  trip so a guessed id cannot reach another one.
+- **`notifications.markRead` took an id and trusted it.** Now scoped to the
+  caller in the query itself.
+- **Three AI endpoints were open to any signed-in account** —
+  `dates.parseNatural`, `accommodations.fetchFromUrl` and
+  `accommodations.parseAttributes` each spend a model call and took no trip.
+  They now take the trip they are proposing into, and require tripmate on it.
+- **Switching demo seats showed the previous seat's data.** Signing in only
+  invalidated `auth.me`, leaving every other cached query — so taking Nina's
+  watcher seat after Ava's admin seat painted Ava's three trips and Ava's
+  controls first. Every path that changes who the session belongs to now goes
+  through `useSessionSwitch`, which empties the cache before anything is read
+  back. That covers signing out too.
+
+### Added
+
+- **`server/routers/roleCoverage.test.ts`** — a sweep, not a sample. Every
+  trip-scoped procedure must state the role it needs (with a written reason for
+  each of the eleven that legitimately need none), and every trip screen must
+  take its role from the hook and gate its write controls. It fails when the
+  _next_ endpoint or screen arrives without a role on it, which is the failure
+  this release was.
+
+---
+
 ## 2026-08-11 — A seeded demo, for showing the product to people who don't have one
 
 ### Added

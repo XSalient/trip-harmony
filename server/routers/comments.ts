@@ -40,15 +40,25 @@ export const commentsRouter = router({
       await requireTripRole(input.tripId, ctx.user.id, "watcher");
       return db.getCommentCountsByTrip(input.tripId);
     }),
+  /**
+   * A thread's contents. Tripmates and admins only.
+   *
+   * A comment carries a name, a timestamp and an opinion — the same attribution
+   * `projectProposalForRole` strips from a watcher's proposals — so the thread
+   * itself is not a watcher's to read. It also used to check nothing at all:
+   * any signed-in account could read any thread by guessing a proposal id.
+   */
   list: protectedProcedure
     .input(
       z.object({
+        tripId: z.number(),
         proposalType: z.enum(["date", "destination", "accommodation"]),
         proposalId: z.number(),
       })
     )
-    .query(async ({ input }) => {
-      return db.getComments(input.proposalType, input.proposalId);
+    .query(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
+      return db.getComments(input.proposalType, input.proposalId, input.tripId);
     }),
   add: protectedProcedure
     .input(
