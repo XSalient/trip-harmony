@@ -44,10 +44,12 @@ export default function TripDashboard() {
   const [, navigate] = useLocation();
   const tripId = parseInt(params.id || "0");
 
-  const { data: trip, isLoading } = trpc.trips.get.useQuery(
-    { id: tripId },
-    { enabled: tripId > 0 }
-  );
+  const {
+    data: trip,
+    isLoading,
+    error: tripError,
+    refetch: refetchTrip,
+  } = trpc.trips.get.useQuery({ id: tripId }, { enabled: tripId > 0 });
   const { data: members } = trpc.trips.members.useQuery(
     { tripId },
     { enabled: tripId > 0 }
@@ -134,6 +136,34 @@ export default function TripDashboard() {
           {[1, 2, 3].map(i => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
+        </div>
+      </AppShell>
+    );
+  }
+
+  /**
+   * A trip you cannot see and a trip we could not load are different answers.
+   *
+   * Both used to render "Trip not found", so a server fault — the case that
+   * made this page fail intermittently — was reported as a missing trip, with
+   * nothing to do about it. Only the refusals are genuinely "not found".
+   */
+  if (tripError) {
+    const code = tripError.data?.code;
+    const refused = code === "FORBIDDEN" || code === "NOT_FOUND";
+    return (
+      <AppShell title="Trip" showBack backHref="/">
+        <div className="p-8 text-center space-y-4">
+          <p className="text-muted-foreground">
+            {refused
+              ? "Trip not found."
+              : "This trip could not be loaded just now."}
+          </p>
+          {!refused && (
+            <Button variant="outline" onClick={() => refetchTrip()}>
+              Try again
+            </Button>
+          )}
         </div>
       </AppShell>
     );

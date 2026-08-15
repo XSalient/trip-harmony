@@ -683,10 +683,15 @@ export async function cloneTripContents(
 export async function getUserTrips(userId: number) {
   const db = await getDb();
   if (!db) return [];
+  // Accepted only. `trips.get` runs `requireTripRole`, which refuses any other
+  // status, so a pending or declined membership listed here is a card that can
+  // only ever land on "Trip not found".
   const memberships = await db
     .select()
     .from(tripMembers)
-    .where(eq(tripMembers.userId, userId));
+    .where(
+      and(eq(tripMembers.userId, userId), eq(tripMembers.status, "accepted"))
+    );
   const tripIds = memberships.map(m => m.tripId);
   if (tripIds.length === 0) return [];
   const results = [];

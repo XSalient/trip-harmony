@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 593 tests ✅ · production build ✅ (2026-08-15) ·
+- **Health:** typecheck ✅ · 613 tests ✅ · production build ✅ (2026-08-15) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -50,6 +50,19 @@ finish a piece of work — the next person (or agent) starts here.
   you are pointing the SDK at a proxy. The model is `AI_MODEL`, defaulting to
   `gemini-3.6-flash`, and `/api/health` reports `aiModel` so the next
   retirement is visible rather than silent.
+- **Page navigation no longer traps the back button.** Five defects, one
+  symptom pair — a trip page you could not back out of, and a trip that would
+  not open when tapped. The back arrow pushed instead of popping (`backHref` is
+  passed on every screen, so the `history.back()` branch was unreachable); both
+  unauthenticated redirects used `location.href`, which pushes, so back returned
+  to the screen that had just bounced you and it bounced you again; a transient
+  database error was reported to the client as a signed-out session; `auth.me`'s
+  15s abort was applied by URL sniffing and so killed whatever batch it rode in,
+  which on the trip page is fifteen other queries; and `getUserTrips` listed
+  memberships that `requireTripRole` refuses. Fixed 2026-08-15 — see the
+  changelog. History depth now lives in `client/src/lib/navigationDepth.ts`; the
+  rule it encodes is that popping is only safe while a screen of ours is behind.
+
 - **Booking.com serves an AWS WAF challenge, not a 403.** HTTP `202` with an
   empty `<title>` and a `challenge.js`; `looksLikeBotCheck` catches it, which is
   why the ladder degrades rather than importing a captcha as a hotel. Airbnb, by

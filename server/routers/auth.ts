@@ -45,8 +45,23 @@ function showsDemoTour(req: {
 }
 
 export const authRouter = router({
-  /** Current session user. Never returns credential columns — see `toPublicUser`. */
-  me: publicProcedure.query(({ ctx }) => toPublicUser(ctx.user)),
+  /**
+   * Current session user. Never returns credential columns — see `toPublicUser`.
+   *
+   * Public, so `requireUser` never runs and the `authFailed` check has to be
+   * repeated here. It matters most on this procedure: the whole client treats a
+   * null `me` as signed out, so reporting one when the session merely could not
+   * be looked up is what bounced people to the landing page on its own.
+   */
+  me: publicProcedure.query(({ ctx }) => {
+    if (ctx.authFailed) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Could not verify your session. Please try again.",
+      });
+    }
+    return toPublicUser(ctx.user);
+  }),
   logout: publicProcedure.mutation(({ ctx }) => {
     const cookieOptions = getSessionCookieOptions(ctx.req);
     ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

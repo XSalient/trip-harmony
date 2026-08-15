@@ -112,16 +112,28 @@ export function useAuth(options?: UseAuthOptions) {
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
     if (meQuery.isLoading || logoutMutation.isPending) return;
+    // A failed `me` is not a signed-out `me`. The server refuses this
+    // procedure when it could not determine the session at all — a dropped
+    // database connection, a pool timeout — rather than reporting null and
+    // having the whole client conclude you are signed out. That refusal still
+    // leaves `user` null here, so without this the redirect would fire anyway
+    // and a blip would go on logging people out mid-trip.
+    if (meQuery.error) return;
     if (state.user) return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
 
-    window.location.href = redirectPath;
+    // `replace`, not `href`. Assigning `href` pushes a history entry, so the
+    // screen we are bouncing out of stayed behind us: back returned to it, it
+    // asked the same question, and it bounced forward again. Replacing spends
+    // the entry we are leaving instead of stacking another on top of it.
+    window.location.replace(redirectPath);
   }, [
     redirectOnUnauthenticated,
     redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
+    meQuery.error,
     state.user,
   ]);
 

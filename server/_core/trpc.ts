@@ -51,6 +51,16 @@ export const publicProcedure = base;
 const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
 
+  // Not "signed out" — "we could not tell". Saying `UNAUTHED_ERR_MSG` here
+  // would send the client to the landing page over a database blip, so this
+  // fails as the server fault it is. See `createContext`.
+  if (ctx.authFailed) {
+    throw new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Could not verify your session. Please try again.",
+    });
+  }
+
   if (!ctx.user) {
     throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
   }

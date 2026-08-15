@@ -1,10 +1,16 @@
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink, TRPCClientError } from "@trpc/client";
+import {
+  httpBatchLink,
+  httpLink,
+  splitLink,
+  TRPCClientError,
+} from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
+import { trackNavigationDepth } from "./lib/navigationDepth";
 import "./index.css";
 
 const queryClient = new QueryClient();
@@ -21,7 +27,11 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   // Already on the login page — redirecting would reload into the same error.
   if (window.location.pathname === LOGIN_PATH) return;
 
-  window.location.href = LOGIN_PATH;
+  // `replace`, not `href`: assigning `href` pushes, which leaves the screen we
+  // are bouncing out of sitting behind us. Pressing back then returned to it,
+  // it asked the same unauthorised question, and it bounced forward again —
+  // a back button with no way out. Replacing drops the screen we are leaving.
+  window.location.replace(LOGIN_PATH);
 };
 
 queryClient.getQueryCache().subscribe(event => {
@@ -44,14 +54,15 @@ queryClient.getMutationCache().subscribe(event => {
  * The whole app is gated on `auth.me` resolving, so that one request must never
  * hang indefinitely (an unreachable database used to leave it pending forever).
  * Other procedures are left alone — some do slow AI work.
+ *
+ * Which is why `auth.me` travels on its own link, unbatched. This timeout used
+ * to be applied by sniffing the request URL for "auth.me", but a batched URL
+ * names every procedure in the batch, so it matched whenever `auth.me` was
+ * merely travelling with fifteen trip queries — and aborting the request
+ * aborted all of them. Mounting the trip page does exactly that, so a slow
+ * batch failed `auth.me`, which reads as signed out, which bounced you home.
  */
 const AUTH_REQUEST_TIMEOUT_MS = 15_000;
-
-const requestUrl = (input: URL | RequestInfo) => {
-  if (typeof input === "string") return input;
-  if (input instanceof URL) return input.toString();
-  return input.url;
-};
 
 /** Abort signal that fires on timeout, or as soon as react-query cancels the query. */
 const timeoutSignal = (
@@ -78,30 +89,40 @@ const timeoutSignal = (
   };
 };
 
+/** The session cookie has to ride along, on every link. */
+const withCredentials = (init?: RequestInit): RequestInit => ({
+  ...(init ?? {}),
+  credentials: "include",
+});
+
 const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
-      fetch(input, init) {
-        const options: RequestInit = {
-          ...(init ?? {}),
-          credentials: "include",
-        };
-
-        if (!requestUrl(input).includes("auth.me")) {
-          return globalThis.fetch(input, options);
-        }
-
-        const { signal, cleanup } = timeoutSignal(
-          init?.signal,
-          AUTH_REQUEST_TIMEOUT_MS
-        );
-        return globalThis.fetch(input, { ...options, signal }).finally(cleanup);
-      },
+    splitLink({
+      condition: op => op.path === "auth.me",
+      true: httpLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        fetch(input, init) {
+          const { signal, cleanup } = timeoutSignal(
+            init?.signal,
+            AUTH_REQUEST_TIMEOUT_MS
+          );
+          return globalThis
+            .fetch(input, { ...withCredentials(init), signal })
+            .finally(cleanup);
+        },
+      }),
+      false: httpBatchLink({
+        url: "/api/trpc",
+        transformer: superjson,
+        fetch: (input, init) => globalThis.fetch(input, withCredentials(init)),
+      }),
     }),
   ],
 });
+
+// Before the first render, so the entry the document loaded on is counted.
+trackNavigationDepth(window, window.history);
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

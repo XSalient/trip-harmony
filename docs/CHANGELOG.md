@@ -8,6 +8,54 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-15 — Back means back
+
+### Fixed
+
+- **The back arrow pushed history instead of unwinding it.** Every screen passes
+  `backHref`, so `AppShell` always took the `navigate(backHref)` branch — and
+  `navigate` is `pushState`. Backing out of a screen therefore _appended_ to the
+  history stack rather than popping it, and the browser's own back button then
+  replayed the trail forwards: from a trip page it took you into the section you
+  had just closed. The arrow now pops when a screen of ours is behind it, and
+  falls back to `backHref` — replacing, not pushing — when none is, which is the
+  case on a deep link or the first paint after a redirect. Depth is counted from
+  the history events wouter already dispatches and stamped onto
+  `history.state`, so it survives a reload; see `client/src/lib/navigationDepth.ts`.
+
+- **Being bounced to the landing page trapped the back button.** Both redirects
+  — the `useAuth` watcher and the global unauthorised-error subscriber —
+  assigned `window.location.href`, which pushes. The screen you were bounced out
+  of stayed behind you, so pressing back returned to it, it asked the same
+  unauthorised question, and it bounced you forward again. Both now use
+  `location.replace`.
+
+- **A database blip signed you out.** `createContext` caught every error from
+  `authenticateRequest` and set `user = null`, so a dropped connection or a pool
+  timeout was indistinguishable from a missing cookie: protected procedures
+  answered `Please login (10001)`, and the client redirects on exactly that
+  message. Tapping a trip could throw you straight back to the list. Errors that
+  are not an `HttpError` — the class `authenticateRequest` raises for verdicts it
+  reaches itself — are now flagged as indeterminate and refused as
+  `INTERNAL_SERVER_ERROR` by `requireUser` and by `auth.me`, and the cause is
+  logged rather than swallowed.
+
+- **`auth.me`'s timeout aborted whatever it was batched with.** The 15-second
+  abort was applied by sniffing the request URL for `auth.me`, but a batched
+  tRPC URL names every procedure in the batch — so it matched whenever `auth.me`
+  merely travelled alongside the trip page's fifteen queries, and aborting the
+  request aborted all of them. A slow batch failed `auth.me`, which reads as
+  signed out, which bounced you home. `auth.me` now travels on its own unbatched
+  link via `splitLink`, so the timeout applies to it and nothing else.
+
+- **The trips list offered trips the trip page refuses.** `getUserTrips`
+  selected every membership row regardless of status while `trips.get` runs
+  `requireTripRole`, which rejects anything that is not `accepted` — so a
+  declined membership rendered as a tappable card that could only land on "Trip
+  not found". The list is now filtered to accepted memberships.
+
+---
+
 ## 2026-08-15 — The AI Referee says what it saw, and admits when it saw nothing
 
 ### Fixed
