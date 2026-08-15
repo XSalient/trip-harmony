@@ -8,6 +8,77 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-15 — The AI Referee says what it saw, and admits when it saw nothing
+
+### Fixed
+
+- **A failed referee run read exactly like a trip with no conflicts.** When the
+  model call threw, the referee stored an encouraging nudge — "Keep the momentum
+  going — every vote counts! 🎯" — as a mediation message, and the error was
+  swallowed without a log line. Nobody looking at the screen could tell an
+  outage from harmony, and nobody debugging it had anything to read. A run that
+  fails now answers **"Analysis unavailable — I have not read this trip"**,
+  which says in as many words that silence is a failed request and not a trip
+  without conflicts.
+
+  Two consequences worth knowing. The failure is **not stored**: the cooldown is
+  the age of the newest stored message, so persisting it would have locked the
+  button for ten minutes over an outage that may last seconds, and would have
+  left "Analysis unavailable" standing as the group's most recent read. And a
+  deployment with **no AI provider** now says that specifically, checked before
+  the trip is read rather than after seven queries — the same lesson
+  `accommodations.fetchFromUrl` learned. Successful runs keep the ten-minute
+  cooldown exactly as before.
+
+- **The referee could not see what the accommodations screen had already
+  found.** A stay could show `AI Match 42/100`, `High risk` and a failed
+  must-have on `/trips/:id/accommodations` while the referee, which had only
+  ever been given vote tallies, reported the group in harmony. Two AI features
+  reading the same trip disagreed because one was never shown what the other
+  had recorded. The referee's context now carries each stay's stored
+  `matchAnalysis` — group fit, resentment risk, flags and the per-member
+  verdicts — and a stay that has never been analysed is named as such, which is
+  not the same as a stay that scored well.
+
+- **Money is divided by the server now.** `perPersonShare` and
+  `exceedsBudgetCapFor` are computed from the stored price and each member's own
+  cap, and the prompt tells the model to quote them rather than recompute them.
+  A model asked to split a total across four people and compare it against three
+  different caps will eventually get one wrong and say so with complete
+  confidence.
+
+### Changed
+
+- **The referee's prompt moved out of the router into
+  `server/prompts/referee.ts`**, with a version — `referee/v2` — persisted in
+  the `context` JSON that referee messages already store. No migration: that
+  column is text holding JSON. Messages written before this carry no
+  `promptVersion` and are v1, the inline prompt.
+
+  The prompt itself now demands what a mediator should always have been asked
+  for: observed facts and the recommendation under separate headings; only
+  proposals, people, votes, preferences and prices that appear in the supplied
+  context; missing data named rather than inferred; must-haves treated as
+  constraints that disqualify a proposal rather than preferences to be averaged
+  away; the specific trade-off behind the recommendation, including who is worse
+  off; and no claim to have decided anything, because it hasn't.
+
+  The context it reasons about is assembled by a pure function, and includes a
+  `dataGaps` list written in plain English — who set no preferences, what nobody
+  has voted on, which stays were never analysed — so "I don't know" is a fact
+  the referee can repeat rather than an absence it has to notice.
+
+### Added
+
+- **`server/prompts/referee.test.ts` and `server/routers/referee.test.ts`** — 42
+  tests, no model, no database, no network. The four situations the referee
+  exists for are asserted directly on the facts it is handed (an accessibility
+  must-have nothing satisfies, a stay that breaks two members' caps, a group
+  who never filled the preference form in, a proposal nobody has voted on), and
+  the endpoint's behaviour is asserted against a stubbed model: the failure is
+  reported as a failure and stored nowhere, an empty completion counts as a
+  failure, admin-only access and the cooldown are unchanged.
+
 ## 2026-08-14 — Signing in and out works again
 
 ### Fixed

@@ -60,6 +60,7 @@ is compiled and with no tsx on the path.
 | `utils/listingSource.ts` |   180 | The import ladder in order: paste → page → scraper → place → url. Start here.        |
 | `utils/scraper/`         |     — | The optional unblocking-service rung. `providers.ts` is the vendor-as-config table.  |
 | `replit_integrations/`   |     — | **Legacy, unused.** Don't read or extend.                                            |
+| `prompts/referee.ts`     |   508 | The AI Referee's prompt, its version, and the facts it may reason about.             |
 
 ### `server/routers/`
 
@@ -79,7 +80,7 @@ open only its domain file.
 | `destinations.ts`   |   161 | Destination suggestions and votes                                     |
 | `accommodations.ts` |   354 | Stays, votes, URL import, match refresh                               |
 | `budget.ts`         |    74 | Expenses and summaries                                                |
-| `referee.ts`        |    88 | AI mediation                                                          |
+| `referee.ts`        |   183 | AI mediation. The prompt itself is in `server/prompts/referee.ts`     |
 | `preferences.ts`    |    36 | Per-trip member requirements                                          |
 | `comments.ts`       |    41 | Comment threads                                                       |
 | `notifications.ts`  |    23 | Notification feed                                                     |

@@ -143,7 +143,10 @@ What is left is preview, and tidying how production's secrets are managed.
 
 ## Later
 
-- [ ] Move AI prompts into versioned files with fixtures
+- [~] Move AI prompts into versioned files with fixtures. The referee's is
+  done — `server/prompts/referee.ts`, version `referee/v2` stored with every
+  message, tested without a model (2026-08-15). Match analysis, the listing
+  extractor and the date parser are still inline.
 - [ ] Rate-limit auth endpoints (AI endpoints done in E4)
 - [ ] Real-time updates (currently poll-on-focus)
 - [ ] Currency conversion using live rates

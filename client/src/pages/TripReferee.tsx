@@ -20,6 +20,7 @@ import {
   Lightbulb,
   PartyPopper,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { Streamdown } from "streamdown";
 
@@ -62,6 +63,10 @@ export default function TripReferee() {
   const utils = trpc.useUtils();
 
   const [analyzing, setAnalyzing] = useState(false);
+  // A run the model could not answer is not stored — it is not an analysis, and
+  // it must not become the group's newest "read". It is shown here instead, for
+  // the admin who pressed the button, until they press it again.
+  const [unavailable, setUnavailable] = useState<string | null>(null);
   // Ticks so the countdown moves and the button re-enables on its own.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -86,6 +91,14 @@ export default function TripReferee() {
         phase: trip.phase,
       });
       utils.referee.messages.invalidate({ tripId });
+      if (result.analysisUnavailable) {
+        setUnavailable(result.content);
+        toast.error(
+          "The referee could not read this trip — nothing was analysed."
+        );
+        return;
+      }
+      setUnavailable(null);
       toast.success(
         result.fromCooldown
           ? "Showing the referee's last read — it was analysed moments ago."
@@ -158,6 +171,22 @@ export default function TripReferee() {
               A trip admin can ask the referee for a fresh read.
             </p>
           ))}
+
+        {/* The failed run, said plainly. Not a message card: it was never
+            stored, and it is not the referee's reading of the trip. */}
+        {canContribute && unavailable && (
+          <Card className="border-destructive/40 bg-destructive/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2 text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="text-xs font-medium">Not analysed</span>
+              </div>
+              <div className="text-sm leading-relaxed prose prose-sm max-w-none">
+                <Streamdown>{unavailable}</Streamdown>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Messages */}
         {!canContribute ? null : isLoading ? (

@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-14
+- **Last updated:** 2026-08-15
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 551 tests ✅ · production build ✅ (2026-08-14) ·
+- **Health:** typecheck ✅ · 593 tests ✅ · production build ✅ (2026-08-15) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -243,6 +243,17 @@ Verified by running the app against Postgres, not just by reading code:
   accommodation URL import, accommodation↔member match scoring. **Nothing runs
   on its own:** every model call follows a deliberate action, match analysis and
   the referee are admin-only, and the referee has a ten-minute cooldown.
+  **The referee is honest about what it did and did not read** (2026-08-15). Its
+  prompt lives in `server/prompts/referee.ts`, versioned `referee/v2`, and the
+  version is stored inside the `context` JSON of every message it writes. A run
+  the model cannot answer now says "Analysis unavailable — I have not read this
+  trip" instead of the encouraging nudge it used to store as a mediation, and it
+  is deliberately **not** persisted: the cooldown is the age of the newest stored
+  message, so an outage of seconds would otherwise have cost ten minutes. The
+  referee is also shown each stay's saved match analysis — flags, resentment risk
+  and per-member verdicts — because it previously reported a group in harmony
+  while the accommodations screen showed `42/100` and a failed must-have on the
+  same stay.
   Import and match analysis are separate calls, and a stay imported from a
   listing is correctly un-analysed until an admin asks — the card's empty state
   says so, having previously read like a failed import. These
@@ -274,7 +285,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** All 546 tests are server-side. Page components are
+1. **No frontend tests.** Nearly all 593 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite. The
    nearest thing is `server/routers/roleCoverage.test.ts`, which reads the page
@@ -284,7 +295,11 @@ Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
 3. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
-4. **AI prompts are inline** in router files and unversioned.
+4. **Most AI prompts are still inline** in router files and unversioned. The
+   referee's is not: it lives in `server/prompts/referee.ts` as of 2026-08-15,
+   carries a version (`referee/v2`) that is stored with every message it
+   produces, and is covered by tests that need no model. Match analysis, the
+   listing extractor and the date parser still hold theirs inline.
 
 ## Showing it to someone
 

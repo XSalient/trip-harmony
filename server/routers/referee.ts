@@ -1,15 +1,49 @@
 /**
  * AI mediation: conflict detection and compromise suggestions.
+ *
+ * The prompt, and the facts the referee is allowed to reason about, live in
+ * `server/prompts/referee.ts` — versioned and tested there without a model.
+ * What is left here is the endpoint: who may ask, how often, and what is said
+ * when the model does not answer.
  */
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { invokeLLM } from "../_core/llm.js";
+import { config } from "../_core/env.js";
+import { logger } from "../_core/logger.js";
 import * as db from "../db.js";
 import { extractLLMText, requireTripRole } from "./_shared.js";
+import {
+  buildRefereeContext,
+  buildRefereePrompt,
+  refereeUnavailableMessage,
+  type RefereeUnavailableReason,
+} from "../prompts/referee.js";
 import {
   REFEREE_COOLDOWN_MS,
   refereeCooldownRemainingMs,
 } from "../../shared/const.js";
+
+const log = logger.child({ scope: "referee" });
+
+/**
+ * What a run that never happened returns.
+ *
+ * Deliberately not stored. The cooldown is the age of the newest stored
+ * message, so persisting a failure would lock the button for ten minutes over
+ * an outage that might last seconds — and would leave "Analysis unavailable"
+ * sitting in the feed as the group's most recent read. `retryAfterMs: 0` says
+ * the same thing to the button: try again whenever you like.
+ */
+function unavailable(reason: RefereeUnavailableReason) {
+  return {
+    id: null as number | null,
+    content: refereeUnavailableMessage(reason),
+    fromCooldown: false,
+    analysisUnavailable: true,
+    retryAfterMs: 0,
+  };
+}
 
 export const refereeRouter = router({
   messages: protectedProcedure
@@ -40,11 +74,22 @@ export const refereeRouter = router({
       const retryAfterMs = refereeCooldownRemainingMs(last?.createdAt);
       if (last && retryAfterMs > 0) {
         return {
-          id: last.id,
+          id: last.id as number | null,
           content: last.content,
           fromCooldown: true,
+          analysisUnavailable: false,
           retryAfterMs,
         };
+      }
+
+      // Checked before the trip is read, so a deployment with no key says so
+      // instead of spending seven queries to reach a failure it already knew
+      // about. `accommodations.fetchFromUrl` learned this the same way.
+      if (!config.ai.isConfigured) {
+        log.warn("referee asked for with no AI provider configured", {
+          tripId: input.tripId,
+        });
+        return unavailable("no-provider");
       }
 
       await db.recordActivity({
@@ -55,141 +100,84 @@ export const refereeRouter = router({
         entityId: input.tripId,
       });
 
-      const trip = await db.getTrip(input.tripId);
-      const members = await db.getTripMembers(input.tripId);
-      const allPrefs = await db.getAllTripPreferences(input.tripId);
-      const budgetItems = await db.getBudgetItems(input.tripId);
-      const dateProposals = await db.getDateProposals(input.tripId);
-      const destinations = await db.getDestinations(input.tripId);
-      const accommodations = await db.getAccommodations(input.tripId);
+      const [
+        trip,
+        members,
+        allPrefs,
+        budgetItems,
+        dateProposals,
+        destinations,
+        accommodations,
+      ] = await Promise.all([
+        db.getTrip(input.tripId),
+        db.getTripMembers(input.tripId),
+        db.getAllTripPreferences(input.tripId),
+        db.getBudgetItems(input.tripId),
+        db.getDateProposals(input.tripId),
+        db.getDestinations(input.tripId),
+        db.getAccommodations(input.tripId),
+      ]);
 
-      const totalBudget = budgetItems.reduce(
-        (s, i) => s + parseFloat(i.amount as string),
-        0
-      );
-      const accepted = members.filter(m => m.status === "accepted");
-      const memberCount = accepted.length;
-
-      const nameOf = (userId: number) =>
-        accepted.find(m => m.userId === userId)?.user?.name ||
-        `Member #${userId}`;
-
-      // Each preference field accepts 2,000 characters, so a large group can
-      // outgrow a sensible prompt on its own. Trim per field rather than
-      // slicing the finished JSON, which would hand the model a broken object.
-      const trim = (s: string | undefined) =>
-        s ? (s.length > 400 ? `${s.slice(0, 400)}…` : s) : null;
-
-      // What each member said they need. This is the trip-specific signal the
-      // referee reasons about — generic personality scores never told it which
-      // proposal was the problem.
-      const preferences = accepted.map(m => {
-        const row = allPrefs.find(p => p.userId === m.userId);
-        let parsed: Record<string, string> | null = null;
-        try {
-          if (row) parsed = JSON.parse(row.rawText);
-        } catch {}
-        return {
-          name: m.user?.name || `Member #${m.userId}`,
-          mustHaves: trim(parsed?.mustHaves),
-          avoids: trim(parsed?.avoids),
-          comments: trim(parsed?.openComments),
-        };
-      });
-
-      /**
-       * A proposal's disagreement, in the shape the referee can act on: how the
-       * group split, and who still owes a vote. An option nobody has voted on
-       * is a different problem from one the group is split over, and the
-       * referee has to be able to tell them apart.
-       */
-      const summariseVotes = (
-        label: string,
-        votes: Array<{ userId: number; vote: string }> | undefined
-      ) => {
-        const cast = votes ?? [];
-        const tally: Record<string, number> = {};
-        for (const v of cast) tally[v.vote] = (tally[v.vote] ?? 0) + 1;
-        const votedIds = new Set(cast.map(v => v.userId));
-        return {
-          label,
-          votes: tally,
-          notVoted: accepted
-            .filter(m => !votedIds.has(m.userId))
-            .map(m => nameOf(m.userId)),
-        };
-      };
-
-      const contextSummary = JSON.stringify({
-        tripName: trip?.name,
+      const context = buildRefereeContext({
+        trip,
         phase: input.phase,
-        memberCount,
-        preferences,
-        totalBudget,
-        perPerson: memberCount > 0 ? (totalBudget / memberCount).toFixed(2) : 0,
-        dates: dateProposals.map((p: any) =>
-          summariseVotes(p.label || "Untitled dates", p.votes)
-        ),
-        destinations: destinations.map((d: any) =>
-          summariseVotes(d.name, d.votes)
-        ),
-        accommodations: accommodations.map((a: any) =>
-          summariseVotes(a.name, a.votes)
-        ),
+        members,
+        preferences: allPrefs,
+        budgetItems,
+        dateProposals,
+        destinations,
+        accommodations,
       });
+      const prompt = buildRefereePrompt(context);
+      // Carries `promptVersion`, so a stored message can always be traced back
+      // to the wording that produced it.
+      const contextJson = JSON.stringify(context);
 
       try {
         const response = await invokeLLM({
           messages: [
-            {
-              role: "system",
-              content: `You are Back To Travelling's Active Referee — a witty, empathetic AI mediator for group trip planning. Your job is to detect tension points (budget gaps, preference conflicts, voting deadlocks) and suggest fair compromises. Be concise, warm, and occasionally funny. Keep responses under 200 words. Use emoji sparingly. Address the group directly.`,
-            },
-            {
-              role: "user",
-              content: `Analyze this group trip situation and provide mediation advice.
-
-"preferences" is what each member said they need for this trip. Each entry under "dates", "destinations" and "accommodations" is one proposal: "votes" tallies how the group voted on it, and "notVoted" names the members who have not voted on it yet.
-
-${contextSummary}
-
-Provide: 1) A brief status assessment, 2) Any detected conflicts or tension points, 3) A specific compromise suggestion if needed, 4) An encouraging next step.
-
-Name the actual proposals and people involved — "Barcelona has two vetoes" or "the beach house clashes with Sam's no-stairs must-have", never "there is some disagreement". If the real blocker is that nobody has voted yet, say so and name who is holding it up.`,
-            },
+            { role: "system", content: prompt.system },
+            { role: "user", content: prompt.user },
           ],
         });
 
-        const content = extractLLMText(response, "The referee is thinking...");
+        const content = extractLLMText(response).trim();
+        // An empty completion is a failed call that happens to have returned
+        // 200. Storing it would put a blank card in the feed and start the
+        // cooldown on nothing.
+        if (!content) {
+          log.warn("referee model returned no text", {
+            tripId: input.tripId,
+            promptVersion: context.promptVersion,
+          });
+          return unavailable("model-error");
+        }
 
         const msgId = await db.createRefereeMessage({
           tripId: input.tripId,
           phase: input.phase,
           messageType: "mediation",
           content,
-          context: contextSummary,
+          context: contextJson,
         });
 
         return {
-          id: msgId,
+          id: msgId as number | null,
           content,
           fromCooldown: false,
+          analysisUnavailable: false,
           retryAfterMs: REFEREE_COOLDOWN_MS,
         };
       } catch (error) {
-        const fallbackContent = `Hey team! I see you're in the ${input.phase} phase with ${memberCount} members. Keep the momentum going — every vote counts! 🎯`;
-        const msgId = await db.createRefereeMessage({
+        // This used to be swallowed, and answered with an encouraging nudge —
+        // so a broken model call and a trip in perfect harmony read identically
+        // to the group, and left no trace for anyone debugging it.
+        log.error("referee analysis failed", {
           tripId: input.tripId,
-          phase: input.phase,
-          messageType: "nudge",
-          content: fallbackContent,
+          promptVersion: context.promptVersion,
+          err: error,
         });
-        return {
-          id: msgId,
-          content: fallbackContent,
-          fromCooldown: false,
-          retryAfterMs: REFEREE_COOLDOWN_MS,
-        };
+        return unavailable("model-error");
       }
     }),
 });
