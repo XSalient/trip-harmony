@@ -114,16 +114,17 @@ it. Don't add features there expecting anyone to see them.
 
 ## `shared/`, `drizzle/`
 
-| File                     | What it is                                             |
-| ------------------------ | ------------------------------------------------------ |
-| `shared/const.ts`        | Cookie name, TTLs, shared error messages               |
-| `shared/votes.ts`        | Vote values, labels, weights, and the finalise rule    |
-| `shared/suggestions.ts`  | Reading a budget or dates out of preference text       |
-| `shared/budget.ts`       | Budget scopes and the arithmetic both sides share      |
-| `shared/roles.ts`        | Trip roles and their ordering — imported by both sides |
-| `shared/types.ts`        | Types used by both client and server                   |
-| `shared/_core/errors.ts` | `HttpError` and constructors                           |
-| `drizzle/schema.ts`      | Every table and enum — the canonical data model        |
+| File                      | What it is                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| `shared/const.ts`         | Cookie name, TTLs, shared error messages                                        |
+| `shared/votes.ts`         | Vote values, labels, weights, and the finalise rule                             |
+| `shared/suggestions.ts`   | Reading a budget or dates out of preference text                                |
+| `shared/budget.ts`        | Budget scopes and the arithmetic both sides share                               |
+| `shared/roles.ts`         | Trip roles and their ordering — imported by both sides                          |
+| `shared/productEvents.ts` | Product-measurement contract: every event, and the only metadata each may carry |
+| `shared/types.ts`         | Types used by both client and server                                            |
+| `shared/_core/errors.ts`  | `HttpError` and constructors                                                    |
+| `drizzle/schema.ts`       | Every table and enum — the canonical data model                                 |
 
 ## Deliberately noisy — never read
 

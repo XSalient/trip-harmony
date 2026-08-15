@@ -35,6 +35,7 @@ users ── webauthn_credentials        (0:n  enrolled passkeys)
 proposal_comments ── (proposal_type, proposal_id)   polymorphic, all proposal kinds
 magic_link_tokens                                    standalone, short-lived
 webauthn_challenges                                  standalone, short-lived
+product_events                                       standalone; names a trip but does not hang off one
 ```
 
 ## Tables
@@ -106,12 +107,13 @@ LLM, so new requirements never need a schema change.
 
 ### Supporting
 
-| Table               | Purpose                                                                                                                                                                                                                                                    |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `budget_proposals`  | A named figure with a `scope` (trip total / per person / per adult / per group) and an optional `covers` note. **Exactly one is finalised at a time** — budget follows dates, not places. The arithmetic that compares scopes lives in `shared/budget.ts`. |
-| `referee_messages`  | AI mediation output, typed nudge/mediation/compromise/celebration/summary.                                                                                                                                                                                 |
-| `notifications`     | In-app feed with read state.                                                                                                                                                                                                                               |
-| `proposal_comments` | Polymorphic on `(proposal_type, proposal_id)` so one implementation serves every proposal kind.                                                                                                                                                            |
+| Table               | Purpose                                                                                                                                                                                                                                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `budget_proposals`  | A named figure with a `scope` (trip total / per person / per adult / per group) and an optional `covers` note. **Exactly one is finalised at a time** — budget follows dates, not places. The arithmetic that compares scopes lives in `shared/budget.ts`.                                                |
+| `referee_messages`  | AI mediation output, typed nudge/mediation/compromise/celebration/summary.                                                                                                                                                                                                                                |
+| `notifications`     | In-app feed with read state.                                                                                                                                                                                                                                                                              |
+| `proposal_comments` | Polymorphic on `(proposal_type, proposal_id)` so one implementation serves every proposal kind.                                                                                                                                                                                                           |
+| `product_events`    | First-party product measurement — eleven events, an enum/boolean/count metadata blob and no free-text column at all. **Not deleted with its trip**, and joined to nothing; see [ADR 0024](../adr/0024-first-party-product-measurement.md) and [../runbooks/beta-metrics.md](../runbooks/beta-metrics.md). |
 
 ## Conventions
 
@@ -121,7 +123,8 @@ LLM, so new requirements never need a schema change.
 - Money is stored as `numeric`/text, never a float. Format at the edge.
 - `createdAt` / `updatedAt` default to `now()`.
 - Foreign keys cascade from `trips`: deleting a trip removes its proposals, votes
-  and comments.
+  and comments. `product_events` is the deliberate exception — measurement has
+  to survive a deleted trip or the abandoned ones drop out of every rate.
 
 ## Indexes
 

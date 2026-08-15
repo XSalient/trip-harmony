@@ -22,6 +22,7 @@ committed to git. There is no external wiki or tracker.
 | Handle secrets                        | [runbooks/secrets.md](runbooks/secrets.md)                                                              |
 | Debug a problem                       | [runbooks/logging.md](runbooks/logging.md) · [runbooks/troubleshooting.md](runbooks/troubleshooting.md) |
 | Change the database schema            | [runbooks/database.md](runbooks/database.md)                                                            |
+| Measure how the beta is going         | [runbooks/beta-metrics.md](runbooks/beta-metrics.md)                                                    |
 | Know why a decision was made          | [adr/](adr/)                                                                                            |
 
 AI agents: read [../AGENTS.md](../AGENTS.md) first.

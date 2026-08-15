@@ -38,6 +38,20 @@ export const preferencesRouter = router({
         actorUserId: ctx.user.id,
         action: "preferences.saved",
       });
+      // How many of the four boxes they filled in, never a word of what is in
+      // them — this is the free-text field measurement most has to stay out of.
+      const sections = [
+        input.mustHaves,
+        input.strongPreferences,
+        input.avoids,
+        input.openComments,
+      ].filter(text => text.trim().length > 0).length;
+      await db.recordProductEvent({
+        event: "preference.saved",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { sections },
+      });
       // Saving preferences used to re-analyse every accommodation in the trip,
       // so a six-member group filling in a form spent six full passes over the
       // same stays. The accommodations screen now marks results older than this

@@ -116,6 +116,12 @@ export const budgetRouter = router({
         metadata: { vote: "love", implicit: true },
       });
 
+      await db.recordProductEvent({
+        event: "proposal.created",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "budget" },
+      });
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
@@ -180,6 +186,12 @@ export const budgetRouter = router({
           metadata: { userId, reason: "one vote per group" },
         });
       }
+      await db.recordProductEvent({
+        event: "vote.recorded",
+        tripId: proposal.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "budget", changed: Boolean(had) },
+      });
       return { success: true };
     }),
 

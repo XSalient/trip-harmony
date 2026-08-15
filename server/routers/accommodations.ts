@@ -175,6 +175,12 @@ export const accommodationsRouter = router({
         metadata: { vote: "love", implicit: true },
       });
       const members = await db.getTripMembers(input.tripId);
+      await db.recordProductEvent({
+        event: "proposal.created",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "accommodation" },
+      });
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
           await db.createNotification({
@@ -243,6 +249,12 @@ export const accommodationsRouter = router({
           metadata: { userId, reason: "one vote per group" },
         });
       }
+      await db.recordProductEvent({
+        event: "vote.recorded",
+        tripId: accommodation.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "accommodation", changed: Boolean(had) },
+      });
       return { success: true };
     }),
   unvote: protectedProcedure
@@ -301,6 +313,14 @@ export const accommodationsRouter = router({
         entityId: input.accommodationId,
         metadata: { name: accommodation.name },
       });
+      // Only the finalising direction is a decision. Un-finalising is a
+      // correction, and counting it would net a group's progress to zero.
+      if (input.locked)
+        await db.recordProductEvent({
+          event: "accommodation.finalised",
+          tripId: accommodation.tripId,
+          actorUserId: ctx.user.id,
+        });
       return { success: true };
     }),
   /** Clear every finalised accommodation on the trip. */

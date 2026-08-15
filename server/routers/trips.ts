@@ -83,6 +83,15 @@ export const tripsRouter = router({
         inviterName: ctx.user.name || "Someone",
         origin: originOf(ctx.req),
       });
+      // The role, never the address. The activity trail keeps the address
+      // because the members page shows it back to the group; measurement has
+      // no such need, so it does not have it.
+      await db.recordProductEvent({
+        event: "invite.sent",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { role: input.role },
+      });
       return { success: true };
     }),
   invites: protectedProcedure
@@ -138,6 +147,12 @@ export const tripsRouter = router({
         ctx.user.name || "Member",
         null
       );
+      await db.recordProductEvent({
+        event: "trip.created",
+        tripId,
+        actorUserId: ctx.user.id,
+        metadata: { cloned: false },
+      });
       return { id: tripId, inviteCode };
     }),
   update: protectedProcedure
@@ -167,6 +182,9 @@ export const tripsRouter = router({
       // Until this check existed any signed-in user could rename any trip, and
       // change its phase, status, currency and budget.
       await requireTripRole(input.id, ctx.user.id, "admin");
+      // Read before the write so a status that was already `completed` is not
+      // counted again every time an admin saves the dialog.
+      const before = await db.getTrip(input.id);
       const { id, ...data } = input;
       await db.updateTrip(id, data);
       await db.recordActivity({
@@ -177,6 +195,23 @@ export const tripsRouter = router({
         entityId: id,
         metadata: { fields: Object.keys(data) },
       });
+      // The app has no "archived": `cancelled` is the nearest state it has, and
+      // it is recorded as itself rather than folded into completion, which
+      // would make the decision-completion figure flattering and wrong.
+      if (input.status && input.status !== before?.status) {
+        if (input.status === "completed")
+          await db.recordProductEvent({
+            event: "trip.completed",
+            tripId: id,
+            actorUserId: ctx.user.id,
+          });
+        else if (input.status === "cancelled")
+          await db.recordProductEvent({
+            event: "trip.cancelled",
+            tripId: id,
+            actorUserId: ctx.user.id,
+          });
+      }
       return { success: true };
     }),
   /**
@@ -276,6 +311,13 @@ export const tripsRouter = router({
         entityId: tripId,
         metadata: { from: input.id },
       });
+      // A clone is a trip created, flagged so the two can be told apart.
+      await db.recordProductEvent({
+        event: "trip.created",
+        tripId,
+        actorUserId: ctx.user.id,
+        metadata: { cloned: true },
+      });
       return { id: tripId };
     }),
   join: protectedProcedure
@@ -341,6 +383,14 @@ export const tripsRouter = router({
         entityType: "member",
         entityId: ctx.user.id,
         metadata: { role, joinedVia },
+      });
+      // `via` is what keeps the acceptance rate honest: only the `email` half
+      // has a matching `invite.sent` to divide by. See the metrics runbook.
+      await db.recordProductEvent({
+        event: "invite.accepted",
+        tripId: trip.id,
+        actorUserId: ctx.user.id,
+        metadata: { role, via: joinedVia },
       });
 
       // Tell the admins, not the whole trip — and never a watcher.

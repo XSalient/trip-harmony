@@ -79,6 +79,12 @@ export const destinationsRouter = router({
         entityId: id,
         metadata: { vote: "love", implicit: true },
       });
+      await db.recordProductEvent({
+        event: "proposal.created",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "destination" },
+      });
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
@@ -142,6 +148,12 @@ export const destinationsRouter = router({
           metadata: { userId, reason: "one vote per group" },
         });
       }
+      await db.recordProductEvent({
+        event: "vote.recorded",
+        tripId: destination.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "destination", changed: Boolean(had) },
+      });
       return { success: true };
     }),
   unvote: protectedProcedure

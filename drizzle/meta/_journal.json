@@ -134,6 +134,13 @@
       "when": 1788122165605,
       "tag": "0018_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788208565605,
+      "tag": "0019_product_events",
+      "breakpoints": true
     }
   ]
 }

@@ -99,6 +99,16 @@ export const refereeRouter = router({
         entityType: "trip",
         entityId: input.tripId,
       });
+      // Recorded where the run is decided on, so the count is runs that
+      // actually reached the model — a cooldown hit and a missing provider
+      // both return above this line. A run that the model then fails still
+      // counts; the runbook says so.
+      await db.recordProductEvent({
+        event: "referee.run",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { phase: input.phase },
+      });
 
       const [
         trip,

@@ -34,6 +34,7 @@ or operated. Skip it for routine feature work.
 | [0021](0021-optimistic-updates-for-drag-and-drop.md)             | A dragged member moves on the drop                    | Accepted |
 | [0022](0022-membership-is-read-once-per-request.md)              | A membership is read once per request                 | Accepted |
 | [0023](0023-preview-and-production-share-one-database.md)        | Preview and production share one database             | Accepted |
+| [0024](0024-first-party-product-measurement.md)                  | First-party product measurement, in its own table     | Accepted |
 
 ## Template
 

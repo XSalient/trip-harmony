@@ -82,6 +82,14 @@ export const datesRouter = router({
         entityId: id,
         metadata: { vote: "available", implicit: true },
       });
+      // Measurement counts the proposal, not the implicit vote it carries: the
+      // participation figure is meant to be things people chose to do.
+      await db.recordProductEvent({
+        event: "proposal.created",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "date" },
+      });
       // Notify members. Watchers opted out of trip updates by being watchers.
       const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
@@ -146,6 +154,12 @@ export const datesRouter = router({
           metadata: { userId, reason: "one vote per group" },
         });
       }
+      await db.recordProductEvent({
+        event: "vote.recorded",
+        tripId: proposal.tripId,
+        actorUserId: ctx.user.id,
+        metadata: { kind: "date", changed: Boolean(had) },
+      });
       return { success: true };
     }),
   unvote: protectedProcedure
@@ -190,6 +204,11 @@ export const datesRouter = router({
         action: "proposal.locked",
         entityType: "date",
         entityId: input.proposalId,
+      });
+      await db.recordProductEvent({
+        event: "dates.finalised",
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
       });
       return { success: true };
     }),

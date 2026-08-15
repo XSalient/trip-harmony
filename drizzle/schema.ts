@@ -441,6 +441,58 @@ export type ActivityEvent = typeof activityEvents.$inferSelect;
 export type InsertActivityEvent = typeof activityEvents.$inferInsert;
 
 /**
+ * First-party product measurement for the beta.
+ *
+ * Separate from `activity_events` on purpose, and the reasons are in
+ * `docs/adr/0016-first-party-product-measurement.md`. The short version:
+ * the activity trail belongs to the trip and is deleted with it, which would
+ * quietly remove abandoned trips from every funnel — exactly the trips a beta
+ * most needs to count. And the trail carries member detail (an invite's email
+ * address, a proposal's name) because it exists to be shown back to the group;
+ * this table may not, so the columns give free text nowhere to go.
+ *
+ * `tripId` therefore outlives the trip it names and `actorUserId` may outlive
+ * the account. Both are nullable: an event is worth recording even when it
+ * belongs to neither. Nothing joins these back to `trips` or `users` — see the
+ * runbook, `docs/runbooks/beta-metrics.md`.
+ *
+ * Deliberately not in `TRIP_OWNED_TABLES` in `server/db.ts`, which is the one
+ * place that would otherwise sweep it up.
+ */
+export const productEvents = pgTable(
+  "product_events",
+  {
+    id: serial("id").primaryKey(),
+    /** One of `PRODUCT_EVENTS` in `shared/productEvents.ts`. */
+    event: varchar("event", { length: 48 }).notNull(),
+    /** Null for an event that is not about one trip. Not a foreign key. */
+    tripId: integer("tripId"),
+    /** Null where the actor is not the point, or is not known. Not a foreign key. */
+    actorUserId: integer("actorUserId"),
+    /**
+     * JSON, and only ever the enums, booleans and counts that
+     * `sanitiseProductEventMetadata` admits.
+     */
+    metadata: text("metadata"),
+    /**
+     * When the thing happened, which is also when the row was written — named
+     * for the event rather than the row so the runbook's queries read as
+     * measurement.
+     */
+    occurredAt: timestamp("occurredAt").defaultNow().notNull(),
+  },
+  t => [
+    // Every query in the runbook is "this event, over this window".
+    index("product_events_event_occurred_idx").on(t.event, t.occurredAt),
+    // The funnels are per-trip: invites sent against invites accepted.
+    index("product_events_trip_idx").on(t.tripId),
+  ]
+);
+
+export type ProductEventRow = typeof productEvents.$inferSelect;
+export type InsertProductEvent = typeof productEvents.$inferInsert;
+
+/**
  * Date proposals — suggested date ranges for a trip.
  */
 export const dateProposals = pgTable(

@@ -157,6 +157,18 @@ describe("cloneTripContents copies the plan, not the history", () => {
  * honest as the schema grows.
  */
 describe("deleteTripCascade covers the schema", () => {
+  /**
+   * The one table that names a trip and is deliberately not deleted with it.
+   * Product measurement has to survive a deleted trip, or the abandoned ones —
+   * the trips a beta most needs to count — drop out of every funnel and the
+   * numbers flatter the product. See
+   * `docs/adr/0016-first-party-product-measurement.md`.
+   *
+   * Adding to this set is a decision, not a convenience. Anything else that
+   * names a trip still has to be in the cascade.
+   */
+  const OUTLIVES_ITS_TRIP = new Set(["product_events"]);
+
   it("names every table that holds a tripId", () => {
     const schema = readFileSync(
       join(import.meta.dirname, "..", "..", "drizzle", "schema.ts"),
@@ -167,10 +179,24 @@ describe("deleteTripCascade covers the schema", () => {
       const table = block.match(/pgTable\(\s*"([a-z_]+)"/)?.[1];
       if (!table) continue;
       const body = block.slice(0, block.indexOf("});"));
-      if (/\btripId:/.test(body)) withTripId.add(table);
+      if (/\btripId:/.test(body) && !OUTLIVES_ITS_TRIP.has(table))
+        withTripId.add(table);
     }
     expect(withTripId.size).toBeGreaterThan(0);
     expect([...withTripId].sort()).toEqual([...TRIP_OWNED_TABLES].sort());
+  });
+
+  it("leaves the measurement table out, and says so out loud", () => {
+    // Asserted from the other side too: the exemption above is only honest if
+    // the cascade really does not name it.
+    for (const table of OUTLIVES_ITS_TRIP)
+      expect(TRIP_OWNED_TABLES as readonly string[]).not.toContain(table);
+    const src = readSource("../db.ts");
+    const fn = src.slice(
+      src.indexOf("export async function deleteTripCascade"),
+      src.indexOf("export async function cloneTripContents")
+    );
+    expect(fn).not.toContain("productEvents");
   });
 
   it("deletes the trip row itself last", () => {

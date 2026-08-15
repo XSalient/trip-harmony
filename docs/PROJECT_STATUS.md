@@ -53,7 +53,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 1024 tests ✅ · production build ✅ (2026-08-28) ·
+- **Health:** typecheck ✅ · 1069 tests ✅ · production build ✅ (2026-08-30) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -229,6 +229,28 @@ finish a piece of work — the next person (or agent) starts here.
   in `vibe_items`, `vibe_votes`, `itinerary_days`, `itinerary_items` and that
   column go with them. Take a backup first if anything in production is worth
   keeping.
+  0019 adds `product_events` and is the first migration to close its own table:
+  it enables RLS and revokes the two Supabase roles itself, guarded so a plain
+  Postgres without those roles still applies it. It is purely additive, so it
+  is backward compatible with `master` as ADR 0023 requires, and it has **not**
+  been applied yet — a preview build will not apply it, so it lands with the
+  production deploy of this change. `pnpm db:status:doppler` confirms.
+- **The beta can now be measured.** Eleven product events — trip created,
+  invite sent, invite accepted, preference saved, proposal created, vote cast
+  or changed, referee run, dates finalised, accommodation finalised, trip
+  completed, trip cancelled — recorded server-side into `product_events`,
+  against the contract in `shared/productEvents.ts`. A budget is a proposal
+  like any other now, so it is counted as `proposal.created` with
+  `kind: "budget"` rather than under an event of its own. No vendor, no
+  client-side script, and no free-text column: metadata may only be an enum, a
+  boolean or a count, which is why "privacy-safe" is a property of the schema
+  rather than a promise. Nothing in the API reads it; the four questions are
+  answered with the SQL in
+  [runbooks/beta-metrics.md](runbooks/beta-metrics.md). Reasoning and the
+  honest costs — rows outlive their trips, no retention policy, two event
+  vocabularies to keep straight — are in
+  [ADR 0024](adr/0024-first-party-product-measurement.md). Not yet run against
+  real traffic: the events are covered by tests, not by a production sample.
 - **✅ AI is configured and working in production.** It reported
   `"ai":"missing"` for a day, and there were three separate causes, all now
   fixed. `config.ai.isConfigured` demanded a base URL that Gemini does not
@@ -493,7 +515,7 @@ Verified by running the app against Postgres, not just by reading code:
 
 Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
-1. **No frontend tests.** Nearly all 593 tests are server-side. Page components are
+1. **No frontend tests.** Nearly all 653 tests are server-side. Page components are
    unverified — the passkey flow was checked with a scripted browser and a
    virtual authenticator, but that check is not committed as a suite. The
    nearest thing is `server/routers/roleCoverage.test.ts`, which reads the page
@@ -503,7 +525,11 @@ Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 2. **Client bundle is ~2.2 MB** (585 KB gzipped) in one chunk — no code splitting.
 3. **Legacy Manus/Replit integrations** (`server/replit_integrations/`,
    `vite-plugin-manus-runtime`, the OAuth portal path) are unused but still wired in.
-4. **Most AI prompts are still inline** in router files and unversioned. The
+4. **No retention or erase path for the two event tables.** `activity_events`
+   and `product_events` both grow without bound and neither can answer "delete
+   everything about this person". Accepted for a beta and recorded in ADR 0016;
+   it has to be built before the product is anything more than one.
+5. **Most AI prompts are still inline** in router files and unversioned. The
    referee's is not: it lives in `server/prompts/referee.ts` as of 2026-08-15,
    carries a version (`referee/v2`) that is stored with every message it
    produces, and is covered by tests that need no model. Match analysis, the

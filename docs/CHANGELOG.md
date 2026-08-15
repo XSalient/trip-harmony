@@ -907,6 +907,44 @@ functional and partial indexes `push` never creates.
   behaviour — so expect the two names side by side; `drizzle/schema.ts` and
   `docs/architecture/data-model.md` say as much.
 
+## 2026-08-15 — The beta can tell whether it is working
+
+### Added
+
+- **First-party product measurement.** Eleven events, recorded on the server by
+  the same procedures that perform the action: a trip created, an invite sent,
+  an invite accepted, preferences saved, a proposal created, a vote cast or
+  changed, an AI Referee run, dates finalised, an accommodation finalised, and a
+  trip marked complete or cancelled. A budget is a proposal like any other, so
+  it is counted as one rather than under a name of its own. No analytics
+  vendor, no client-side script, nothing to consent to — the events are rows in
+  a `product_events` table this app writes and only this app reads.
+
+  What an event may carry is declared once, in `shared/productEvents.ts`:
+  the name, the time, the trip, the actor, and metadata that can only be an
+  enum, a boolean or a count. **There is no string field**, so a name, an email
+  address, a line of somebody's requirements, a comment or anything a model
+  wrote has no shape it could take. `recordProductEvent` applies that filter
+  before the insert, so the promise is kept in one place rather than at eleven
+  call sites, and — like the activity trail — it never throws: a metrics blip
+  cannot fail a member's action.
+
+  Two things it deliberately does _not_ do. It is not the activity trail:
+  `activity_events` is deleted with its trip, which would drop every abandoned
+  trip out of every funnel, and it stores member detail because it is shown
+  back to the group. And it is not exposed by the API — the four beta
+  questions are answered with SQL from
+  [the metrics runbook](runbooks/beta-metrics.md): invite acceptance, active
+  participation, referee use and decision completion, each with the caveats
+  that make its number honest. Reasoning in
+  [ADR 0024](adr/0024-first-party-product-measurement.md).
+
+  Migration `0019_product_events.sql` creates the table with RLS enabled and no
+  grants for `anon` / `authenticated`, per ADR 0009 — the first table to close
+  itself in its own migration rather than by hand afterwards.
+
+---
+
 ## 2026-08-15 — Back means back
 
 ### Fixed

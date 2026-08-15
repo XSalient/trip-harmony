@@ -51,6 +51,7 @@ import {
   InsertContactGroup,
   InsertContactGroupMember,
   activityEvents,
+  productEvents,
   accommodationAttributes,
   contentReports,
   InsertContentReport,
@@ -60,6 +61,10 @@ import {
 } from "../drizzle/schema.js";
 import { TRIP_ROLE_RANK, type TripRole } from "../shared/roles.js";
 import { ACTIVE_TRIP_STATUSES } from "../shared/billing.js";
+import {
+  sanitiseProductEventMetadata,
+  type ProductEvent,
+} from "../shared/productEvents.js";
 import { config, ENV } from "./_core/env.js";
 import { cachedTripMember, forgetMemberships } from "./_core/requestCache.js";
 import { logger } from "./_core/logger.js";
@@ -557,6 +562,13 @@ export const USER_ROWS_DELETED = [
 export const USER_ROWS_ANONYMISED = [
   "proposal_comments",
   "activity_events",
+  // Measurement, and the reason it survives is the reason it exists: a beta
+  // that dropped a departing member's events would lose them from every funnel
+  // they were ever counted in, which is the same mistake as measuring from the
+  // activity trail (ADR 0024). Nothing is lost by keeping them — the row holds
+  // an enum, a boolean or a count and never a word of free text, and the
+  // `actorUserId` it names is a user row this cascade has just anonymised.
+  "product_events",
 ] as const;
 
 /**
@@ -1944,6 +1956,65 @@ export async function getTripActivity(tripId: number, limit = 100) {
     .from(activityEvents)
     .where(eq(activityEvents.tripId, tripId))
     .orderBy(desc(activityEvents.createdAt))
+    .limit(limit);
+}
+
+// ---- Product measurement ----
+
+/**
+ * Records one product event. **Never throws**, for the same reason
+ * `recordActivity` does not: measurement is not worth failing a member's
+ * action over, and a beta that drops a trip because a metrics insert timed out
+ * has measured itself into a worse product.
+ *
+ * The metadata is filtered through the contract in `shared/productEvents.ts`
+ * before it goes near the database, so this function — not the eleven call
+ * sites — is where the privacy promise is kept. A dropped field is logged at
+ * warn: it means a call site and the contract disagree, which is a bug worth
+ * seeing even though it is not worth raising.
+ */
+export async function recordProductEvent(entry: {
+  event: ProductEvent;
+  tripId?: number | null;
+  actorUserId?: number | null;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const { metadata, rejected } = sanitiseProductEventMetadata(
+      entry.event,
+      entry.metadata
+    );
+    if (rejected.length)
+      log.warn("dropped product event metadata not in the contract", {
+        event: entry.event,
+        keys: rejected,
+      });
+
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(productEvents).values({
+      event: entry.event,
+      tripId: entry.tripId ?? null,
+      actorUserId: entry.actorUserId ?? null,
+      metadata: Object.keys(metadata).length ? JSON.stringify(metadata) : null,
+    });
+  } catch (err) {
+    log.warn("failed to record product event", { event: entry.event, err });
+  }
+}
+
+/**
+ * The raw rows, newest first, for the queries in
+ * `docs/runbooks/beta-metrics.md` when psql is not to hand. Nothing in the API
+ * exposes this — measurement is read by whoever runs the beta, not by members.
+ */
+export async function getProductEvents(limit = 1000) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(productEvents)
+    .orderBy(desc(productEvents.occurredAt))
     .limit(limit);
 }
 
