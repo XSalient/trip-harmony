@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import ScreenHeader from "@/components/trip/ScreenHeader";
@@ -48,21 +47,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const vibeOptions = [
-  "Beach",
-  "Mountains",
-  "City",
-  "Cultural",
-  "Adventure",
-  "Relaxation",
-  "Foodie",
-  "Nightlife",
-  "Nature",
-  "Historical",
-  "Romantic",
-  "Family-friendly",
-];
 
 export default function TripDestinations() {
   const { user } = useAuth({ redirectOnUnauthenticated: true });
@@ -117,7 +101,6 @@ export default function TripDestinations() {
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [estimatedCost, setEstimatedCost] = useState("");
-  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -125,7 +108,6 @@ export default function TripDestinations() {
   const [editDescription, setEditDescription] = useState("");
   const [editImageUrl, setEditImageUrl] = useState("");
   const [editEstimatedCost, setEditEstimatedCost] = useState("");
-  const [editVibes, setEditVibes] = useState<string[]>([]);
 
   // Role, not authorship: `organizerId` names whoever created the trip and
   // cannot see a second admin, so gating on it hid these controls from admins
@@ -136,15 +118,6 @@ export default function TripDestinations() {
     isWatcher,
   } = useTripRole(tripId);
 
-  const toggleVibe = (vibe: string) =>
-    setSelectedVibes(prev =>
-      prev.includes(vibe) ? prev.filter(v => v !== vibe) : [...prev, vibe]
-    );
-  const toggleEditVibe = (vibe: string) =>
-    setEditVibes(prev =>
-      prev.includes(vibe) ? prev.filter(v => v !== vibe) : [...prev, vibe]
-    );
-
   const openEdit = (dest: any) => {
     setEditingId(dest.id);
     setEditName(dest.name || "");
@@ -153,7 +126,6 @@ export default function TripDestinations() {
     setEditEstimatedCost(
       dest.estimatedCost ? String(parseFloat(dest.estimatedCost)) : ""
     );
-    setEditVibes(dest.vibes ? JSON.parse(dest.vibes) : []);
     setEditOpen(true);
   };
 
@@ -168,8 +140,6 @@ export default function TripDestinations() {
         name: name.trim(),
         description: description.trim() || undefined,
         imageUrl: imageUrl.trim() || undefined,
-        vibes:
-          selectedVibes.length > 0 ? JSON.stringify(selectedVibes) : undefined,
         estimatedCost: estimatedCost || undefined,
       });
       utils.destinations.list.invalidate({ tripId });
@@ -178,7 +148,6 @@ export default function TripDestinations() {
       setDescription("");
       setImageUrl("");
       setEstimatedCost("");
-      setSelectedVibes([]);
       toast.success("Suggestion added!");
     } catch (e: any) {
       toast.error(e?.message || "Failed to add the suggestion");
@@ -194,7 +163,6 @@ export default function TripDestinations() {
         description: editDescription || undefined,
         imageUrl: editImageUrl || undefined,
         estimatedCost: editEstimatedCost || undefined,
-        vibes: editVibes.length > 0 ? JSON.stringify(editVibes) : undefined,
       });
       utils.destinations.list.invalidate({ tripId });
       setEditOpen(false);
@@ -292,7 +260,6 @@ export default function TripDestinations() {
     setEstimatedCost(
       dest.estimatedCost ? String(parseFloat(dest.estimatedCost)) : ""
     );
-    setSelectedVibes(dest.vibes ? JSON.parse(dest.vibes) : []);
     setAddOpen(true);
   };
 
@@ -399,25 +366,6 @@ export default function TripDestinations() {
                           className="rounded-lg"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Vibes</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {vibeOptions.map(v => (
-                            <Badge
-                              key={v}
-                              variant={
-                                selectedVibes.includes(v)
-                                  ? "default"
-                                  : "outline"
-                              }
-                              className="cursor-pointer rounded-full px-3 py-1 text-xs"
-                              onClick={() => toggleVibe(v)}
-                            >
-                              {v}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
                       <Button
                         onClick={handleCreate}
                         className="w-full rounded-lg"
@@ -458,7 +406,6 @@ export default function TripDestinations() {
                 dest.votes?.filter((v: any) => v.vote === "fine").length || 0;
               const vetos =
                 dest.votes?.filter((v: any) => v.vote === "veto").length || 0;
-              const vibes = dest.vibes ? JSON.parse(dest.vibes) : [];
               const isOwner = dest.proposedBy === user?.id;
               const canManage = canContribute && (isOwner || isAdmin);
               const commentCount =
@@ -541,20 +488,6 @@ export default function TripDestinations() {
                         )}
                       </div>
                     </div>
-
-                    {vibes.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {vibes.map((v: string) => (
-                          <Badge
-                            key={v}
-                            variant="secondary"
-                            className="text-[10px] rounded-full"
-                          >
-                            {v}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
 
                     {dest.estimatedCost && (
                       <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
@@ -727,21 +660,6 @@ export default function TripDestinations() {
                 onChange={e => setEditEstimatedCost(e.target.value)}
                 className="rounded-lg mt-1"
               />
-            </div>
-            <div>
-              <Label className="text-xs">Vibes</Label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {vibeOptions.map(v => (
-                  <Badge
-                    key={v}
-                    variant={editVibes.includes(v) ? "default" : "outline"}
-                    className="cursor-pointer rounded-full px-3 py-1 text-xs"
-                    onClick={() => toggleEditVibe(v)}
-                  >
-                    {v}
-                  </Badge>
-                ))}
-              </div>
             </div>
             <Button
               onClick={handleEdit}

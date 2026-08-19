@@ -87,7 +87,6 @@ export interface DemoDestination {
   name: string;
   description: string;
   imageUrl?: string;
-  vibes: string[];
   estimatedCost?: string;
   proposedBy: string;
   createdDaysAgo: number;
@@ -532,7 +531,6 @@ const lisbon: DemoTrip = {
       description:
         "Four nights at the start. Everyone lands here anyway, and nobody has to be persuaded.",
       imageUrl: PHOTOS.lisbon,
-      vibes: ["City", "Food", "Walkable", "Nightlife"],
       estimatedCost: "420.00",
       proposedBy: "ava",
       createdDaysAgo: 32,
@@ -554,7 +552,6 @@ const lisbon: DemoTrip = {
       description:
         "Six nights at the other end. Cliffs, a working town rather than a strip, and a train back to the airport.",
       imageUrl: PHOTOS.lagos,
-      vibes: ["Beach", "Cliffs", "Slow"],
       estimatedCost: "560.00",
       proposedBy: "tomas",
       createdDaysAgo: 31,
@@ -576,7 +573,6 @@ const lisbon: DemoTrip = {
       description:
         "Two nights in the middle. Three hours each way on the train.",
       imageUrl: PHOTOS.porto,
-      vibes: ["Wine", "River", "Architecture"],
       estimatedCost: "310.00",
       proposedBy: "priya",
       createdDaysAgo: 30,
@@ -607,7 +603,6 @@ const lisbon: DemoTrip = {
       description:
         "A night on the way south, so the surfers get one clean morning.",
       imageUrl: PHOTOS.ericeira,
-      vibes: ["Surf", "Small town"],
       estimatedCost: "140.00",
       proposedBy: "tomas",
       createdDaysAgo: 26,
@@ -625,7 +620,6 @@ const lisbon: DemoTrip = {
       name: "Seville (day trip)",
       description: "Four hours each way, in September, for one afternoon.",
       imageUrl: PHOTOS.seville,
-      vibes: ["Day trip", "Heat"],
       estimatedCost: "95.00",
       proposedBy: "marcus",
       createdDaysAgo: 25,
@@ -1421,7 +1415,6 @@ const chamonix: DemoTrip = {
       description:
         "The default. A real town, and the Aiguille du Midi if the weather holds.",
       imageUrl: PHOTOS.chamonix,
-      vibes: ["Big mountain", "Town", "Off-piste"],
       estimatedCost: "620.00",
       proposedBy: "ava",
       createdDaysAgo: 9,
@@ -1438,7 +1431,6 @@ const chamonix: DemoTrip = {
       description:
         "Snow-sure and high, but it is a lift station with hotels attached.",
       imageUrl: PHOTOS.valThorens,
-      vibes: ["Snow-sure", "High", "Purpose-built"],
       estimatedCost: "700.00",
       proposedBy: "ben",
       createdDaysAgo: 8,
@@ -1455,7 +1447,6 @@ const chamonix: DemoTrip = {
       description:
         "Beautiful, car-free, and roughly 40% more expensive than everything else here.",
       imageUrl: PHOTOS.zermatt,
-      vibes: ["Postcard", "Car-free", "Expensive"],
       estimatedCost: "980.00",
       proposedBy: "sofia",
       createdDaysAgo: 6,
@@ -1601,7 +1592,6 @@ const kyoto: DemoTrip = {
       name: "Kyoto",
       description: "The whole trip. No day trips, no second city, no regrets.",
       imageUrl: PHOTOS.kyoto,
-      vibes: ["Temples", "Autumn", "Food", "Walkable"],
       proposedBy: "yuki",
       createdDaysAgo: 317,
       selected: true,

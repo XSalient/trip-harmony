@@ -567,7 +567,6 @@ export async function cloneTripContents(
           name: d.name,
           description: d.description,
           imageUrl: d.imageUrl,
-          vibes: d.vibes,
           estimatedCost: d.estimatedCost,
         }))
       );

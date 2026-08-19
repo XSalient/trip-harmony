@@ -53,7 +53,7 @@ is compiled and with no tsx on the path.
 | `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                         |
 | `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                              |
 | `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                          |
-| `db.ts`                  |  1884 | Every database query. Large but flat — jump to the function you need.                |
+| `db.ts`                  |  1883 | Every database query. Large but flat — jump to the function you need.                |
 | `routers/`               |     — | The API surface, one file per domain (below).                                        |
 | `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
 | `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
@@ -77,7 +77,7 @@ open only its domain file.
 | `trips.ts`          |   450 | Trips, membership, roles, invites, delete and clone                   |
 | `contacts.ts`       |    96 | A user's private address book, incl. saving a fellow traveller        |
 | `dates.ts`          |   223 | Date proposals, votes, natural-language parsing                       |
-| `destinations.ts`   |   257 | Suggestions and votes — the UI calls the section "Suggestions"        |
+| `destinations.ts`   |   254 | Suggestions and votes — the UI calls the section "Suggestions"        |
 | `accommodations.ts` |   354 | Stays, votes, URL import, match refresh                               |
 | `budget.ts`         |    74 | Expenses and summaries                                                |
 | `referee.ts`        |   183 | AI mediation. The prompt itself is in `server/prompts/referee.ts`     |

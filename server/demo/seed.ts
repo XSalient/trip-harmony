@@ -452,7 +452,6 @@ async function seedTrip(
         name: destination.name,
         description: destination.description,
         imageUrl: destination.imageUrl,
-        vibes: JSON.stringify(destination.vibes),
         estimatedCost: destination.estimatedCost,
         proposedBy: idOf(people, destination.proposedBy),
         selected: destination.selected ?? false,

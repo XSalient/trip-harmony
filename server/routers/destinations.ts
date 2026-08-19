@@ -29,7 +29,6 @@ export const destinationsRouter = router({
         name: z.string().min(1),
         description: z.string().optional(),
         imageUrl: z.string().optional(),
-        vibes: z.string().optional(),
         estimatedCost: z.string().optional(),
       })
     )
@@ -211,7 +210,6 @@ export const destinationsRouter = router({
         name: z.string().min(1).optional(),
         description: z.string().optional(),
         imageUrl: z.string().optional(),
-        vibes: z.string().optional(),
         estimatedCost: z.string().optional(),
       })
     )
@@ -244,7 +242,6 @@ export const destinationsRouter = router({
         name: `${destination.name} (copy)`,
         description: destination.description ?? undefined,
         imageUrl: destination.imageUrl ?? undefined,
-        vibes: destination.vibes ?? undefined,
         estimatedCost: destination.estimatedCost ?? undefined,
       });
       await db.voteDestination({

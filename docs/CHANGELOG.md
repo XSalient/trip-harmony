@@ -20,11 +20,17 @@ is built, run or deployed.
   summary, and their query functions in `server/db.ts`. Clone and delete no
   longer carry or clear rows that no longer exist.
 
+- **The vibe tags on a suggestion are gone too** — the twelve-chip picker
+  ("Beach", "Mountains", "Foodie", …) in the add and edit dialogs, the badges on
+  each card, and the `vibes` column behind them. They described a destination,
+  and a suggestion is no longer necessarily one.
+
 - **`vibe_items`, `vibe_votes`, `itinerary_days` and `itinerary_items` are
-  dropped**, along with the `vibe_vote` and `itinerary_item_type` enums —
-  migration `0006_drop_vibe_board_and_itinerary`. **This is destructive and
-  irreversible.** The deploy applies it, so take a backup first if any
-  production row is worth keeping.
+  dropped**, along with the `vibe_vote` and `itinerary_item_type` enums
+  (migration `0006_drop_vibe_board_and_itinerary`), and so is
+  `destinations.vibes` (migration `0007_drop_destination_vibe_tags`). **Both are
+  destructive and irreversible.** The deploy applies them, so take a backup
+  first if any production row is worth keeping.
 
 ### Changed
 

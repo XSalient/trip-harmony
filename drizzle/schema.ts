@@ -299,7 +299,6 @@ export const destinations = pgTable("destinations", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   imageUrl: text("imageUrl"),
-  vibes: text("vibes"),
   estimatedCost: decimal("estimatedCost", { precision: 12, scale: 2 }),
   proposedBy: integer("proposedBy").notNull(),
   /** Finalised. A trip can finalise several suggestions. */

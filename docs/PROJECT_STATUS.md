@@ -36,11 +36,12 @@ finish a piece of work — the next person (or agent) starts here.
   `activity_events` was created with RLS enabled and no grants for `anon` /
   `authenticated`, per ADR 0009 — Postgres has no default-on RLS, so every new
   table has to be closed explicitly.
-  **0006 drops the vibe-board and itinerary tables and has not been applied to
-  production yet** (2026-08-19). It is destructive and irreversible: the deploy
-  applies it, and the rows in `vibe_items`, `vibe_votes`, `itinerary_days` and
-  `itinerary_items` go with it. Take a backup first if anything in production
-  is worth keeping.
+  **0006 and 0007 have not been applied to production yet** (2026-08-19). 0006
+  drops the vibe-board and itinerary tables; 0007 drops `destinations.vibes`.
+  Both are destructive and irreversible: the deploy applies them, and the rows
+  in `vibe_items`, `vibe_votes`, `itinerary_days`, `itinerary_items` and that
+  column go with them. Take a backup first if anything in production is worth
+  keeping.
 - **✅ AI is configured and working in production.** It reported
   `"ai":"missing"` for a day, and there were three separate causes, all now
   fixed. `config.ai.isConfigured` demanded a base URL that Gemini does not

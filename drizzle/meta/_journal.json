@@ -50,6 +50,13 @@
       "when": 1787111871158,
       "tag": "0006_drop_vibe_board_and_itinerary",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787171765605,
+      "tag": "0007_drop_destination_vibe_tags",
+      "breakpoints": true
     }
   ]
 }
