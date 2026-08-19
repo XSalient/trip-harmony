@@ -16,10 +16,9 @@ Full instructions: **[docs/runbooks/local-setup.md](docs/runbooks/local-setup.md
 ## What's in the box
 
 - **Trip preferences** — each member's must-haves, dealbreakers and notes, per trip
-- **Phased planning** — dates → destination → accommodation → itinerary, each with proposals, voting and comments
+- **Phased planning** — dates → suggestions → accommodation, each with proposals, voting and comments
 - **Budget guardian** — per-person tracking against each member's own comfort ceiling
 - **AI referee** — conflict detection, compromise suggestions, and accommodation↔member match scoring
-- **Vibe board** — shared inspiration with lightweight voting
 
 ## Stack
 

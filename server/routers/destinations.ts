@@ -1,5 +1,8 @@
 /**
- * Destination suggestions with vibe tags and voting.
+ * Suggestions with tags and voting.
+ *
+ * Named `destinations` throughout the API and the database; the UI calls the
+ * section "Suggestions", because a suggestion is anything the group votes on.
  */
 import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";

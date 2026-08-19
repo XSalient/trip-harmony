@@ -253,7 +253,7 @@ export const dateProposals = pgTable("date_proposals", {
   endDate: timestamp("endDate").notNull(),
   label: varchar("label", { length: 255 }),
   /**
-   * Finalised. Dates allow exactly one per trip; places and accommodations
+   * Finalised. Dates allow exactly one per trip; suggestions and accommodations
    * allow many — see `selectDateProposal` vs `setDestinationLock` in
    * `server/db.ts`, which is where that difference is enforced.
    */
@@ -287,7 +287,11 @@ export type DateVote = typeof dateVotes.$inferSelect;
 export type InsertDateVote = typeof dateVotes.$inferInsert;
 
 /**
- * Destinations — suggested destinations for vibe board.
+ * Suggestions — anything the group proposes and votes on.
+ *
+ * Still called `destinations` on the wire and in the database; the UI calls
+ * the section "Suggestions". Renaming the table would cost a data migration
+ * for no behaviour, so the two names live side by side deliberately.
  */
 export const destinations = pgTable("destinations", {
   id: serial("id").primaryKey(),
@@ -298,7 +302,7 @@ export const destinations = pgTable("destinations", {
   vibes: text("vibes"),
   estimatedCost: decimal("estimatedCost", { precision: 12, scale: 2 }),
   proposedBy: integer("proposedBy").notNull(),
-  /** Finalised. A trip can finalise several places. */
+  /** Finalised. A trip can finalise several suggestions. */
   selected: boolean("selected").default(false).notNull(),
   lockedBy: integer("lockedBy"),
   lockedAt: timestamp("lockedAt"),
@@ -538,81 +542,6 @@ export type AccommodationAttribute =
   typeof accommodationAttributes.$inferSelect;
 export type InsertAccommodationAttribute =
   typeof accommodationAttributes.$inferInsert;
-
-/**
- * Vibe board items — inspiration links shared by group members.
- */
-export const vibeItems = pgTable("vibe_items", {
-  id: serial("id").primaryKey(),
-  tripId: integer("tripId").notNull(),
-  proposedBy: integer("proposedBy").notNull(),
-  url: text("url"),
-  title: text("title").notNull(),
-  description: text("description"),
-  imageUrl: text("imageUrl"),
-  tags: text("tags"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type VibeItem = typeof vibeItems.$inferSelect;
-export type InsertVibeItem = typeof vibeItems.$inferInsert;
-
-export const vibeVoteEnum = pgEnum("vibe_vote", ["love", "fine", "veto"]);
-
-export const vibeVotes = pgTable("vibe_votes", {
-  id: serial("id").primaryKey(),
-  vibeItemId: integer("vibeItemId").notNull(),
-  userId: integer("userId").notNull(),
-  vote: vibeVoteEnum("vote").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type VibeVote = typeof vibeVotes.$inferSelect;
-export type InsertVibeVote = typeof vibeVotes.$inferInsert;
-
-/**
- * Itinerary days — daily plan entries for a trip.
- */
-export const itineraryDays = pgTable("itinerary_days", {
-  id: serial("id").primaryKey(),
-  tripId: integer("tripId").notNull(),
-  date: text("date").notNull(),
-  title: text("title"),
-  notes: text("notes"),
-  sortOrder: integer("sortOrder").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type ItineraryDay = typeof itineraryDays.$inferSelect;
-export type InsertItineraryDay = typeof itineraryDays.$inferInsert;
-
-export const itineraryItemTypeEnum = pgEnum("itinerary_item_type", [
-  "activity",
-  "food",
-  "transport",
-  "accommodation",
-  "free",
-  "other",
-]);
-
-export const itineraryItems = pgTable("itinerary_items", {
-  id: serial("id").primaryKey(),
-  dayId: integer("dayId").notNull(),
-  tripId: integer("tripId").notNull(),
-  time: text("time"),
-  title: text("title").notNull(),
-  description: text("description"),
-  location: text("location"),
-  type: itineraryItemTypeEnum("type").default("other").notNull(),
-  cost: decimal("cost", { precision: 10, scale: 2 }),
-  link: text("link"),
-  addedBy: integer("addedBy").notNull(),
-  sortOrder: integer("sortOrder").default(0).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type ItineraryItem = typeof itineraryItems.$inferSelect;
-export type InsertItineraryItem = typeof itineraryItems.$inferInsert;
 
 /**
  * Proposal comments — member comments on any proposal type.

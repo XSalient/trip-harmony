@@ -66,7 +66,7 @@ type SectionCardProps = {
   href: string;
   /**
    * How many proposals in this section are finalised. Dates can only ever be
-   * 0 or 1 and read "Decided"; places and accommodations count up.
+   * 0 or 1 and read "Decided"; suggestions and accommodations count up.
    */
   lockedCount?: number;
   /** Dates are single-lock, so their badge says "Decided" rather than "1 finalised". */
@@ -173,7 +173,7 @@ export default function SectionCard({
 
 /**
  * A plain collapsible block for the sections that are a link rather than a list
- * — budget, vibe board, itinerary, the referee, and the trip description.
+ * — budget, the referee, and the trip description.
  */
 export function CollapsibleRow({
   title,

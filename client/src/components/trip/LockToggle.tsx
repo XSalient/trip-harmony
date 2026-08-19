@@ -1,7 +1,7 @@
 /**
  * Finalise or un-finalise one proposal, in the space of an icon.
  *
- * Dates allow one lock and places and accommodations allow many, but that is
+ * Dates allow one lock and suggestions and accommodations allow many, but that is
  * the caller's problem — from here it is one row, on or off.
  */
 import { Lock, Unlock } from "lucide-react";

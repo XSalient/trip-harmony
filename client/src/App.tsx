@@ -14,8 +14,6 @@ import TripDestinations from "./pages/TripDestinations";
 import TripAccommodations from "./pages/TripAccommodations";
 import TripBudget from "./pages/TripBudget";
 import TripReferee from "./pages/TripReferee";
-import TripVibeBoard from "./pages/TripVibeBoard";
-import TripItinerary from "./pages/TripItinerary";
 import TripPreferences from "./pages/TripPreferences";
 import TripMembers from "./pages/TripMembers";
 import Notifications from "./pages/Notifications";
@@ -32,12 +30,10 @@ function Router() {
       <Route path="/join/:code" component={JoinTrip} />
       <Route path="/trips/:id" component={TripDashboard} />
       <Route path="/trips/:id/dates" component={TripDates} />
-      <Route path="/trips/:id/destinations" component={TripDestinations} />
+      <Route path="/trips/:id/suggestions" component={TripDestinations} />
       <Route path="/trips/:id/accommodations" component={TripAccommodations} />
       <Route path="/trips/:id/budget" component={TripBudget} />
       <Route path="/trips/:id/referee" component={TripReferee} />
-      <Route path="/trips/:id/vibe" component={TripVibeBoard} />
-      <Route path="/trips/:id/itinerary" component={TripItinerary} />
       <Route path="/trips/:id/preferences" component={TripPreferences} />
       <Route path="/trips/:id/members" component={TripMembers} />
       <Route path="/notifications" component={Notifications} />

@@ -8,6 +8,35 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-19 — Not a travel planner
+
+### Removed
+
+- **The Vibe Board and the Itinerary are gone.** Both were built for a
+  group-travel product; neither has a role in an app whose job is proposing
+  things and voting on them. Gone with them: the `vibeBoard` and `itinerary`
+  tRPC routers, their screens (`TripVibeBoard.tsx`, `TripItinerary.tsx`) and
+  routes, their sections on the trip page, the itinerary line on the trip
+  summary, and their query functions in `server/db.ts`. Clone and delete no
+  longer carry or clear rows that no longer exist.
+
+- **`vibe_items`, `vibe_votes`, `itinerary_days` and `itinerary_items` are
+  dropped**, along with the `vibe_vote` and `itinerary_item_type` enums —
+  migration `0006_drop_vibe_board_and_itinerary`. **This is destructive and
+  irreversible.** The deploy applies it, so take a backup first if any
+  production row is worth keeping.
+
+### Changed
+
+- **"Places" is now "Suggestions".** The section takes anything the group wants
+  to discuss and vote on, not only a destination, so the heading, the summary
+  line, the empty states, the dialogs and the route (`/trips/:id/destinations`
+  → `/trips/:id/suggestions`) all say so. **Any bookmark to the old path now
+  404s.** The router, the tRPC namespace and the `destinations` table keep their
+  original names — renaming them would cost a data migration and change no
+  behaviour — so expect the two names side by side; `drizzle/schema.ts` and
+  `docs/architecture/data-model.md` say as much.
+
 ## 2026-08-15 — Back means back
 
 ### Fixed

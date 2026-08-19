@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-15
+- **Last updated:** 2026-08-19
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -12,7 +12,7 @@ finish a piece of work — the next person (or agent) starts here.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. See [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 613 tests ✅ · production build ✅ (2026-08-15) ·
+- **Health:** typecheck ✅ · 575 tests ✅ · production build ✅ (2026-08-19) ·
   dev server ✅
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
@@ -24,7 +24,7 @@ finish a piece of work — the next person (or agent) starts here.
   no model call happens on an ordinary write). The **passkey** enrol → sign-out →
   passkey sign-in round trip was last verified on 2026-08-01 and has not been
   repeated since.
-- **Migrations:** all six are applied to the live Supabase database
+- **Migrations:** the first six are applied to the live Supabase database
   (`Trip Harmony`, `eqpqjivaubdbdmyrlczh`), with drizzle's tracking table
   baselined so `pnpm db:migrate` is correct against it. The role mapping landed
   on the real members (creator → admin, the other → tripmate) and `travel_dna`
@@ -36,6 +36,11 @@ finish a piece of work — the next person (or agent) starts here.
   `activity_events` was created with RLS enabled and no grants for `anon` /
   `authenticated`, per ADR 0009 — Postgres has no default-on RLS, so every new
   table has to be closed explicitly.
+  **0006 drops the vibe-board and itinerary tables and has not been applied to
+  production yet** (2026-08-19). It is destructive and irreversible: the deploy
+  applies it, and the rows in `vibe_items`, `vibe_votes`, `itinerary_days` and
+  `itinerary_items` go with it. Take a backup first if anything in production
+  is worth keeping.
 - **✅ AI is configured and working in production.** It reported
   `"ai":"missing"` for a day, and there were three separate causes, all now
   fixed. `config.ai.isConfigured` demanded a base URL that Gemini does not
@@ -236,17 +241,19 @@ Verified by running the app against Postgres, not just by reading code:
   who is still pending, and how each person arrived.
 - **Contacts** — a private per-user address book, so an email is typed once.
   Saving a contact grants nothing: an invite is still sent and still accepted.
-- **Planning** — date proposals, destinations, accommodations, vibe board and
-  itinerary, each with proposal/vote/comment/clone/edit/delete. Posting a
-  proposal records its author's vote, so a new option never sits at zero.
-  Admins finalise proposals: **one** set of dates, but **any number** of places
-  and accommodations — a week in Spain is Barcelona _and_ Girona. Who finalised
-  what, and when, is recorded and shown. The green/red number on a card is a
-  weighted vote total (Yes +2, Maybe +1, No −3) and is tappable for the
-  arithmetic; the weights live once, in
-  `client/src/components/trip/VoteScore.tsx`, which is also what the cards sort
-  by. The vibe board scores its own way (No −2) and is deliberately left alone —
-  changing it would reorder existing boards.
+- **Planning** — date proposals, suggestions and accommodations, each with
+  proposal/vote/comment/clone/edit/delete. Posting a proposal records its
+  author's vote, so a new option never sits at zero.
+  Admins finalise proposals: **one** set of dates, but **any number** of
+  suggestions and accommodations. Who finalised what, and when, is recorded and
+  shown. The green/red number on a card is a weighted vote total
+  (Yes +2, Maybe +1, No −3) and is tappable for the arithmetic; the weights live
+  once, in `client/src/components/trip/VoteScore.tsx`, which is also what the
+  cards sort by.
+  The **Suggestions** section is the `destinations` router and table under
+  another name (2026-08-19): the group votes on anything, not only on places.
+  The table keeps its original name — renaming it would cost a data migration
+  and change no behaviour.
 - **Budget** — expense logging, category breakdown, per-person split, per-member caps.
 - **Notifications** — in-app feed with unread counts.
 - **Preferences** — per-member, per-trip requirements. Since Travel DNA was

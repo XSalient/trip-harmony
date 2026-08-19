@@ -18,12 +18,12 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 - [x] Mobile-first theming and layout
 - [x] ~~Travel DNA quiz, profile storage, group compatibility analysis~~ (removed 2026-08-02, E1)
 - [x] Trip creation, shareable invite links, membership status and roles
-- [x] Planning phases — dates, destinations, accommodations
+- [x] Planning phases — dates, suggestions, accommodations
 - [x] AI referee — conflict detection, compromise suggestions, nudges
 - [x] Budget guardian — per-person tracking, currency, comfort thresholds
 - [x] Voting — Love/Fine/Veto, weighting, optimistic UI with unvote
 - [x] Trip dashboard, notifications, comment threads
-- [x] Vibe board and itinerary builder
+- [x] ~~Vibe board and itinerary builder~~ (removed 2026-08-19)
 - [x] Accommodation URL auto-fill via LLM extraction
 - [x] Natural-language date proposals
 - [x] Per-member trip preferences and requirement matching

@@ -20,8 +20,6 @@ import { refereeRouter } from "./referee.js";
 import { notificationsRouter } from "./notifications.js";
 import { commentsRouter } from "./comments.js";
 import { preferencesRouter } from "./preferences.js";
-import { vibeBoardRouter } from "./vibeBoard.js";
-import { itineraryRouter } from "./itinerary.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -38,8 +36,6 @@ export const appRouter = router({
   notifications: notificationsRouter,
   comments: commentsRouter,
   preferences: preferencesRouter,
-  vibeBoard: vibeBoardRouter,
-  itinerary: itineraryRouter,
 });
 
 export type AppRouter = typeof appRouter;

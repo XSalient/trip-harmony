@@ -134,10 +134,10 @@ export function projectProposalForRole<
   // It is the most personal thing on the whole screen, and it was the one
   // field a watcher was still being handed.
   //
-  // `proposedByUser` is the vibe board's name for `proposer`. Two names for
-  // the same idea is how the board kept showing watchers "by Priya" while
-  // every other screen had stopped: strip both here, so a third spelling is
-  // the only way to reintroduce the leak.
+  // `proposedByUser` is a second spelling of `proposer` that a router once
+  // returned, which is how one screen kept showing watchers "by Priya" while
+  // every other screen had stopped. Both are stripped here, so a third
+  // spelling is the only way to reintroduce the leak.
   const {
     proposedBy,
     proposer,

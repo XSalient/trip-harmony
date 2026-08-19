@@ -2,8 +2,8 @@
  * A new screen starts at its top; going back returns you to where you were.
  *
  * The browser only does this for real navigations. A single-page app swaps the
- * component tree and leaves the scroll offset alone, so opening Places from
- * halfway down the trip page landed you halfway down Places — its heading and
+ * component tree and leaves the scroll offset alone, so opening Suggestions from
+ * halfway down the trip page landed you halfway down Suggestions — its heading and
  * its "Unlock all" / "Add" buttons already scrolled off, which reads as a
  * screen that is cut off at the top rather than one that is merely scrolled.
  *

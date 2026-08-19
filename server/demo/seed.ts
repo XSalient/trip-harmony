@@ -33,8 +33,6 @@ import {
   dateVotes,
   destinationVotes,
   destinations,
-  itineraryDays,
-  itineraryItems,
   memberPreferences,
   notifications,
   proposalComments,
@@ -43,8 +41,6 @@ import {
   tripMembers,
   trips,
   users,
-  vibeItems,
-  vibeVotes,
 } from "../../drizzle/schema.js";
 import {
   DEMO_EMAIL_DOMAIN,
@@ -69,9 +65,6 @@ const NOW = Date.now();
 
 const daysAgo = (n: number) => new Date(NOW - n * MS_PER_DAY);
 const inDays = (n: number) => new Date(NOW + n * MS_PER_DAY);
-
-/** `YYYY-MM-DD` in UTC, which is what `itinerary_days.date` holds. */
-const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 
 const emailFor = (mailbox: string) => `${mailbox}@${DEMO_EMAIL_DOMAIN}`;
 
@@ -594,7 +587,7 @@ async function seedTrip(
     await seedComments("accommodation", row.id, stay.comments);
   }
 
-  // --- Budget, referee, vibe board -----------------------------------------
+  // --- Budget and referee ---------------------------------------------------
 
   for (const item of trip.budget ?? []) {
     await drizzleDb.insert(budgetItems).values({
@@ -624,69 +617,6 @@ async function seedTrip(
       type: "trip",
       id: tripId,
     });
-  }
-
-  for (const item of trip.vibe ?? []) {
-    const [row] = await drizzleDb
-      .insert(vibeItems)
-      .values({
-        tripId,
-        proposedBy: idOf(people, item.proposedBy),
-        url: item.url,
-        title: item.title,
-        description: item.description,
-        imageUrl: item.imageUrl,
-        tags: JSON.stringify(item.tags),
-        createdAt: daysAgo(item.daysAgo),
-      })
-      .returning({ id: vibeItems.id });
-    bump("vibeItems");
-
-    for (const [index, vote] of item.votes.entries()) {
-      await drizzleDb.insert(vibeVotes).values({
-        vibeItemId: row.id,
-        userId: idOf(people, vote.person),
-        vote: vote.vote,
-        createdAt: voteTiming(vote, item.daysAgo, index).createdAt,
-      });
-      bump("votes");
-    }
-  }
-
-  // --- Itinerary -----------------------------------------------------------
-
-  if (trip.itinerary?.length && trip.startsInDays !== undefined) {
-    for (const [dayIndex, day] of trip.itinerary.entries()) {
-      const [dayRow] = await drizzleDb
-        .insert(itineraryDays)
-        .values({
-          tripId,
-          date: isoDate(inDays(trip.startsInDays + day.dayOffset)),
-          title: day.title,
-          notes: day.notes,
-          sortOrder: dayIndex,
-          createdAt: daysAgo(Math.max(0.5, trip.createdDaysAgo - 20)),
-        })
-        .returning({ id: itineraryDays.id });
-      bump("itineraryDays");
-
-      for (const [itemIndex, item] of day.items.entries()) {
-        await drizzleDb.insert(itineraryItems).values({
-          dayId: dayRow.id,
-          tripId,
-          time: item.time,
-          title: item.title,
-          description: item.description,
-          location: item.location,
-          type: item.type,
-          cost: item.cost,
-          addedBy: idOf(people, item.addedBy),
-          sortOrder: itemIndex,
-          createdAt: daysAgo(Math.max(0.5, trip.createdDaysAgo - 20)),
-        });
-        bump("itineraryItems");
-      }
-    }
   }
 
   // --- Notifications -------------------------------------------------------

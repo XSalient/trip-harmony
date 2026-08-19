@@ -10,14 +10,13 @@ import { toast } from "sonner";
 import { useState } from "react";
 import {
   Calendar,
-  MapPin,
+  Lightbulb,
   Home as HomeIcon,
   DollarSign,
   Users,
   CheckCircle2,
   Bot,
   Plus,
-  Sparkles,
   AlertCircle,
   ClipboardList,
   FileText,
@@ -92,12 +91,6 @@ export default function TripDashboard() {
     { enabled: tripId > 0 }
   );
   const { data: prefCount } = trpc.preferences.countForTrip.useQuery(
-    { tripId },
-    { enabled: tripId > 0 }
-  );
-  // Only the summary needs this — a count of planned days. The itinerary
-  // itself lives on its own screen.
-  const { data: itineraryDays } = trpc.itinerary.getDays.useQuery(
     { tripId },
     { enabled: tripId > 0 }
   );
@@ -209,7 +202,7 @@ export default function TripDashboard() {
    * Finalise or un-finalise from the dashboard.
    *
    * Dates replace whatever was locked before, so the whole list is rewritten
-   * optimistically; places and accommodations toggle one row and leave the
+   * optimistically; suggestions and accommodations toggle one row and leave the
    * rest. Follows the vote handlers' `setData` pattern rather than inventing a
    * second approach to the same problem.
    */
@@ -255,7 +248,7 @@ export default function TripDashboard() {
     }
   };
 
-  // Dates finalise to exactly one; places and accommodations to any number.
+  // Dates finalise to exactly one; suggestions and accommodations to any number.
   // These were all `find()` when every section was single-lock — treating the
   // last two as "the chosen one" silently hid every finalised option but one.
   const lockedDate = dateProposals?.find((d: any) => d.selected);
@@ -441,11 +434,10 @@ export default function TripDashboard() {
         <TripSummary
           tripId={tripId}
           lockedDate={lockedDate}
-          lockedPlaces={lockedDests.length}
-          totalPlaces={destinations?.length ?? 0}
+          lockedSuggestions={lockedDests.length}
+          totalSuggestions={destinations?.length ?? 0}
           lockedAccommodations={lockedAccs.length}
           totalAccommodations={accommodations?.length ?? 0}
-          itineraryDays={itineraryDays?.length ?? 0}
           open={isOpen("summary")}
           onToggle={() => toggle("summary")}
         />
@@ -604,21 +596,21 @@ export default function TripDashboard() {
           ))}
         </SectionCard>
 
-        {/* ── Places (the `destinations` router, renamed in the UI only) ── */}
+        {/* ── Suggestions (the `destinations` router, renamed in the UI only) ── */}
         <SectionCard
-          title="Places"
-          icon={MapPin}
-          href={`/trips/${tripId}/destinations`}
+          title="Suggestions"
+          icon={Lightbulb}
+          href={`/trips/${tripId}/suggestions`}
           lockedCount={lockedDests.length}
           pendingCount={pendingVotes.destinations}
           addSlot={
             canContribute ? (
-              <AddProposalButton href={`/trips/${tripId}/destinations?add=1`} />
+              <AddProposalButton href={`/trips/${tripId}/suggestions?add=1`} />
             ) : null
           }
-          emptyText="No places yet — suggest the first one!"
-          open={isOpen("places")}
-          onToggle={() => toggle("places")}
+          emptyText="No suggestions yet — add the first one!"
+          open={isOpen("suggestions")}
+          onToggle={() => toggle("suggestions")}
         >
           {topDests.map((d: any) => (
             <ChoiceProposalRow
@@ -626,7 +618,7 @@ export default function TripDashboard() {
               tripId={tripId}
               row={d}
               userId={user?.id}
-              detailHref={`/trips/${tripId}/destinations`}
+              detailHref={`/trips/${tripId}/suggestions`}
               proposalType="destination"
               isAdmin={isAdmin}
               canContribute={canContribute}
@@ -664,43 +656,6 @@ export default function TripDashboard() {
           </p>
           <SectionLink href={`/trips/${tripId}/budget`}>
             View the budget
-          </SectionLink>
-        </CollapsibleRow>
-
-        {/* ── Vibe Board ── */}
-        <CollapsibleRow
-          title="Vibe Board"
-          icon={<Sparkles className="h-5 w-5" />}
-          iconClass="bg-pink-100 dark:bg-pink-900/30 text-pink-600"
-          open={isOpen("vibe")}
-          onToggle={() => toggle("vibe")}
-        >
-          <p className="text-sm text-muted-foreground mb-2">
-            Share inspiration — links, photos, ideas.
-          </p>
-          <SectionLink href={`/trips/${tripId}/vibe`}>
-            Open the vibe board
-          </SectionLink>
-        </CollapsibleRow>
-
-        {/* ── Itinerary ── */}
-        <CollapsibleRow
-          title="Itinerary"
-          subtitle={
-            itineraryDays && itineraryDays.length > 0
-              ? `${itineraryDays.length} day${itineraryDays.length > 1 ? "s" : ""} planned`
-              : undefined
-          }
-          icon={<Calendar className="h-5 w-5" />}
-          iconClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
-          open={isOpen("itinerary")}
-          onToggle={() => toggle("itinerary")}
-        >
-          <p className="text-sm text-muted-foreground mb-2">
-            Plan your days with activities &amp; logistics.
-          </p>
-          <SectionLink href={`/trips/${tripId}/itinerary`}>
-            Open the itinerary
           </SectionLink>
         </CollapsibleRow>
 

@@ -20,8 +20,6 @@ trips ──┬── date_proposals      ── date_votes
         ├── destinations        ── destination_votes
         ├── accommodations      ── accommodation_votes
         │                       └── accommodation_attributes
-        ├── vibe_items          ── vibe_votes
-        ├── itinerary_days      ── itinerary_items
         ├── budget_items
         ├── member_preferences        (per member, per trip)
         ├── referee_messages          (AI output)
@@ -38,16 +36,16 @@ webauthn_challenges                                  standalone, short-lived
 
 ### Identity
 
-| Table                                                | Purpose                                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                                              | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                                                                                 |
-| `magic_link_tokens`                                  | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                                                                                             |
-| `date_proposals` · `destinations` · `accommodations` | `selected` means finalised. **Dates allow exactly one per trip; places and accommodations allow many** — the rule is enforced in `server/db.ts` (`lockDateProposal` clears the trip first, `setDestinationLock` and `setAccommodationLock` touch one row). `lockedBy` / `lockedAt` record who and when, and are null for anything finalised before that existed. |
-| `activity_events`                                    | Everything members do to a trip. Deliberately has no feed — see the E3 story in `docs/product/`. Fastest-growing table here, with no retention policy yet.                                                                                                                                                                                                       |
-| `trip_invites`                                       | An invitation to an email address. Separate from `trip_members` because that table's `userId` is NOT NULL and most invitees have no account yet. One live invite per address per trip, case-insensitively.                                                                                                                                                       |
-| `contacts`                                           | A user's own address book, so a friend's email is typed once. Grants nothing: an invite is still sent and still has to be accepted.                                                                                                                                                                                                                              |
-| `webauthn_credentials`                               | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices.                                                                  |
-| `webauthn_challenges`                                | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                                                                                         |
+| Table                                                | Purpose                                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                                              | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                                                                                      |
+| `magic_link_tokens`                                  | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                                                                                                  |
+| `date_proposals` · `destinations` · `accommodations` | `selected` means finalised. **Dates allow exactly one per trip; suggestions and accommodations allow many** — the rule is enforced in `server/db.ts` (`lockDateProposal` clears the trip first, `setDestinationLock` and `setAccommodationLock` touch one row). `lockedBy` / `lockedAt` record who and when, and are null for anything finalised before that existed. |
+| `activity_events`                                    | Everything members do to a trip. Deliberately has no feed — see the E3 story in `docs/product/`. Fastest-growing table here, with no retention policy yet.                                                                                                                                                                                                            |
+| `trip_invites`                                       | An invitation to an email address. Separate from `trip_members` because that table's `userId` is NOT NULL and most invitees have no account yet. One live invite per address per trip, case-insensitively.                                                                                                                                                            |
+| `contacts`                                           | A user's own address book, so a friend's email is typed once. Grants nothing: an invite is still sent and still has to be accepted.                                                                                                                                                                                                                                   |
+| `webauthn_credentials`                               | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices.                                                                       |
+| `webauthn_challenges`                                | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                                                                                              |
 
 ### Trips
 
@@ -68,7 +66,11 @@ member per proposal.
 | `date_proposals` | `date_votes`          | available / maybe / unavailable |
 | `destinations`   | `destination_votes`   | love / fine / veto              |
 | `accommodations` | `accommodation_votes` | love / fine / veto              |
-| `vibe_items`     | `vibe_votes`          | love / fine / veto              |
+
+`destinations` is the **Suggestions** section in the UI — anything the group
+proposes and votes on, not only a place. The table keeps its original name
+because renaming it would cost a data migration and change no behaviour; the
+two names are expected to differ.
 
 `accommodations` also stores parsed structured details (bedrooms, bathrooms,
 en-suites, amenities, prices, link) and cached AI match analysis —
@@ -81,13 +83,12 @@ LLM, so new requirements never need a schema change.
 
 ### Supporting
 
-| Table                                | Purpose                                                                                         |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| `budget_items`                       | Category, amount, split type; summarised per person.                                            |
-| `itinerary_days` / `itinerary_items` | Day-by-day plan with typed items (activity/food/transport/…).                                   |
-| `referee_messages`                   | AI mediation output, typed nudge/mediation/compromise/celebration/summary.                      |
-| `notifications`                      | In-app feed with read state.                                                                    |
-| `proposal_comments`                  | Polymorphic on `(proposal_type, proposal_id)` so one implementation serves every proposal kind. |
+| Table               | Purpose                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
+| `budget_items`      | Category, amount, split type; summarised per person.                                            |
+| `referee_messages`  | AI mediation output, typed nudge/mediation/compromise/celebration/summary.                      |
+| `notifications`     | In-app feed with read state.                                                                    |
+| `proposal_comments` | Polymorphic on `(proposal_type, proposal_id)` so one implementation serves every proposal kind. |
 
 ## Conventions
 

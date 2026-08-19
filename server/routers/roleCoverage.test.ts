@@ -79,8 +79,6 @@ const TRIP_ROUTERS: Record<string, Record<string, string>> = {
   "accommodations.ts": {},
   "budget.ts": {},
   "preferences.ts": {},
-  "itinerary.ts": {},
-  "vibeBoard.ts": {},
   "referee.ts": {},
   "comments.ts": {
     delete: "Finds the comment first, then checks the role on its own trip.",
@@ -150,15 +148,13 @@ describe("every trip-scoped procedure states the role it needs", () => {
  * eleven arrives with vote buttons and no role.
  */
 const CONTRIBUTE_MUTATIONS =
-  /\.(propose|vote|unvote|create|add|addDay|addItem|edit|delete|deleteDay|deleteItem|clone|save)\.useMutation/;
+  /\.(propose|vote|unvote|create|add|edit|delete|clone|save)\.useMutation/;
 
 const TRIP_PAGES = [
   "TripDashboard.tsx",
   "TripDates.tsx",
   "TripDestinations.tsx",
   "TripAccommodations.tsx",
-  "TripItinerary.tsx",
-  "TripVibeBoard.tsx",
   "TripBudget.tsx",
   "TripPreferences.tsx",
   "TripMembers.tsx",
@@ -242,8 +238,6 @@ describe("the server refuses a non-member on every trip-scoped read", () => {
     ["accommodations.list", () => caller.accommodations.list({ tripId: 1 })],
     ["budget.list", () => caller.budget.list({ tripId: 1 })],
     ["budget.summary", () => caller.budget.summary({ tripId: 1 })],
-    ["itinerary.getDays", () => caller.itinerary.getDays({ tripId: 1 })],
-    ["vibeBoard.list", () => caller.vibeBoard.list({ tripId: 1 })],
     ["preferences.getMy", () => caller.preferences.getMy({ tripId: 1 })],
     ["referee.messages", () => caller.referee.messages({ tripId: 1 })],
     ["trips.members", () => caller.trips.members({ tripId: 1 })],

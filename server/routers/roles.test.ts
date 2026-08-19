@@ -39,8 +39,8 @@ const proposal = {
     ],
   }),
   matchAnalysedAt: new Date("2026-08-02"),
-  // The vibe board's name for the proposer. Two spellings of one idea is how
-  // the board went on naming proposers to watchers after every other screen
+  // A second spelling of the proposer. Two spellings of one idea is how one
+  // screen went on naming proposers to watchers after every other screen
   // had stopped.
   proposedByUser: { id: 42, name: "Ada" },
   votes: [

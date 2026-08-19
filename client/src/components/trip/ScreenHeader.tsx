@@ -2,7 +2,7 @@
  * The strip at the top of a proposals screen: what the screen is for on the
  * left, its actions on the right.
  *
- * It exists because the same markup was written three times — Dates, Places and
+ * It exists because the same markup was written three times — Dates, Suggestions and
  * Accommodations — and had the same bug three times. The left column could not
  * shrink (no `min-w-0`) while its "3 finalised · Barcelona, Girona, Sitges"
  * line grew with the trip, so on a phone it pushed "Unlock all" and "Add" past

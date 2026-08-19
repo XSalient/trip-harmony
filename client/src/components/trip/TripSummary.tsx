@@ -1,7 +1,7 @@
 /**
- * Where the trip actually stands, in four lines, at the top of the page.
+ * Where the trip actually stands, in three lines, at the top of the page.
  *
- * Everything here was already on the trip page — but spread across four
+ * Everything here was already on the trip page — but spread across the
  * sections you had to open and read to answer "are we going yet?". The rest of
  * the page starts collapsed precisely because this card exists.
  */
@@ -43,22 +43,20 @@ function Line({
 export default function TripSummary({
   tripId,
   lockedDate,
-  lockedPlaces,
-  totalPlaces,
+  lockedSuggestions,
+  totalSuggestions,
   lockedAccommodations,
   totalAccommodations,
-  itineraryDays,
   open,
   onToggle,
 }: {
   tripId: number;
   /** The one locked date proposal, if the group has picked one. */
   lockedDate?: { startDate: string | Date; endDate: string | Date } | null;
-  lockedPlaces: number;
-  totalPlaces: number;
+  lockedSuggestions: number;
+  totalSuggestions: number;
   lockedAccommodations: number;
   totalAccommodations: number;
-  itineraryDays: number;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -103,20 +101,10 @@ export default function TripSummary({
               done={lockedAccommodations > 0}
             />
             <Line
-              label="Places"
-              value={countOf(lockedPlaces, totalPlaces)}
-              href={`/trips/${tripId}/destinations`}
-              done={lockedPlaces > 0}
-            />
-            <Line
-              label="Itinerary"
-              value={
-                itineraryDays > 0
-                  ? `${itineraryDays} day${itineraryDays > 1 ? "s" : ""} planned`
-                  : "Nothing planned yet"
-              }
-              href={`/trips/${tripId}/itinerary`}
-              done={itineraryDays > 0}
+              label="Suggestions"
+              value={countOf(lockedSuggestions, totalSuggestions)}
+              href={`/trips/${tripId}/suggestions`}
+              done={lockedSuggestions > 0}
             />
           </div>
         )}

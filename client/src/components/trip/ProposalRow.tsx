@@ -2,7 +2,7 @@
  * The compact proposal rows the trip page shows inside each section.
  *
  * Two shapes, because the votes differ: dates are Yes/Maybe/No on availability,
- * while places and accommodations are Yes/Maybe/No on enthusiasm and share a
+ * while suggestions and accommodations are Yes/Maybe/No on enthusiasm and share a
  * single row type. Everything around the vote buttons — the lock, the comment
  * count, the owner menu, the who-voted control — is the same in all three, so it
  * lives in `RowShell` and is written once.

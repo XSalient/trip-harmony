@@ -4,7 +4,7 @@
  *
  * Delete and clone live behind a menu rather than beside the edit pencil
  * because the trip header is the one place a mis-tap is expensive: deleting a
- * trip removes everyone's proposals, votes and itinerary, not just yours. The
+ * trip removes everyone's proposals, votes and comments, not just yours. The
  * confirmation asks for the trip's name for the same reason — a dialog whose
  * only control is a red button is a dialog people dismiss by reflex.
  */
@@ -124,10 +124,9 @@ export default function TripActionsMenu({
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <p className="text-xs text-muted-foreground">
-              The copy keeps the dates, places, accommodations, vibe board and
-              itinerary. Votes, comments, budget spend and members stay with the
-              original — you'll be the only member of the copy until you invite
-              people to it.
+              The copy keeps the dates, suggestions and accommodations. Votes,
+              comments, budget spend and members stay with the original — you'll
+              be the only member of the copy until you invite people to it.
             </p>
             <div>
               <Label className="text-xs">Name</Label>
@@ -157,8 +156,7 @@ export default function TripActionsMenu({
           <div className="space-y-3 pt-1">
             <p className="text-xs text-muted-foreground">
               This removes the trip for everyone on it, along with every
-              proposal, vote, comment, budget entry and itinerary day. It cannot
-              be undone.
+              proposal, vote, comment and budget entry. It cannot be undone.
             </p>
             <div>
               <Label className="text-xs">

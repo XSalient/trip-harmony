@@ -43,6 +43,13 @@
       "when": 1785693567143,
       "tag": "0005_activity_and_vote_times",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787111871158,
+      "tag": "0006_drop_vibe_board_and_itinerary",
+      "breakpoints": true
     }
   ]
 }

@@ -20,7 +20,7 @@ import { useParams, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  MapPin,
+  Lightbulb,
   Plus,
   Heart,
   ThumbsUp,
@@ -159,7 +159,7 @@ export default function TripDestinations() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast.error("Place name is required");
+      toast.error("A name is required");
       return;
     }
     try {
@@ -179,9 +179,9 @@ export default function TripDestinations() {
       setImageUrl("");
       setEstimatedCost("");
       setSelectedVibes([]);
-      toast.success("Place added!");
+      toast.success("Suggestion added!");
     } catch (e: any) {
-      toast.error(e?.message || "Failed to add place");
+      toast.error(e?.message || "Failed to add the suggestion");
     }
   };
 
@@ -198,7 +198,7 @@ export default function TripDestinations() {
       });
       utils.destinations.list.invalidate({ tripId });
       setEditOpen(false);
-      toast.success("Place updated");
+      toast.success("Suggestion updated");
     } catch {
       toast.error("Failed to update");
     }
@@ -248,8 +248,8 @@ export default function TripDestinations() {
   };
 
   /**
-   * Finalise or un-finalise one place. Several places can be
-   * finalised at once, so this toggles a single row and leaves the rest.
+   * Finalise or un-finalise one suggestion. Several can be finalised at once,
+   * so this toggles a single row and leaves the rest.
    */
   const handleToggleLock = async (destinationId: number, locked: boolean) => {
     try {
@@ -275,7 +275,7 @@ export default function TripDestinations() {
     try {
       await deleteMutation.mutateAsync({ id });
       utils.destinations.list.invalidate({ tripId });
-      toast.success("Place removed");
+      toast.success("Suggestion removed");
     } catch (e: any) {
       toast.error(
         e?.message?.includes("Not authorized")
@@ -310,22 +310,22 @@ export default function TripDestinations() {
     [members]
   );
 
-  // A trip can finalise several places — Barcelona *and* Girona. This was a
-  // `find()` back when the database cleared every other row before setting one,
-  // which made every finalised place but one invisible.
+  // A trip can finalise several suggestions at once. This was a `find()` back
+  // when the database cleared every other row before setting one, which made
+  // every finalised suggestion but one invisible.
   const lockedDestinations = useMemo(
     () => sortedDestinations.filter((d: any) => d.selected),
     [sortedDestinations]
   );
 
   return (
-    <AppShell title="Places" showBack backHref={`/trips/${tripId}`}>
+    <AppShell title="Suggestions" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
         <ScreenHeader
           subtitle={
             canContribute
-              ? "Suggest places and vote on vibes"
-              : "The places the group is considering"
+              ? "Suggest anything and vote on it"
+              : "What the group is considering"
           }
           highlight={
             lockedDestinations.length > 0
@@ -356,13 +356,13 @@ export default function TripDestinations() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Suggest a Place</DialogTitle>
+                      <DialogTitle>Add a Suggestion</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-2">
                       <div className="space-y-2">
-                        <Label>Place Name</Label>
+                        <Label>Name</Label>
                         <Input
-                          placeholder="e.g., Bali, Indonesia"
+                          placeholder="What are you suggesting?"
                           value={name}
                           onChange={e => setName(e.target.value)}
                           className="rounded-lg"
@@ -371,7 +371,7 @@ export default function TripDestinations() {
                       <div className="space-y-2">
                         <Label>Description (optional)</Label>
                         <Textarea
-                          placeholder="Why this place?"
+                          placeholder="Why this one?"
                           value={description}
                           onChange={e => setDescription(e.target.value)}
                           rows={2}
@@ -435,7 +435,7 @@ export default function TripDestinations() {
 
         {isWatcher && (
           <WatcherNotice>
-            You're following this trip. The places and the tally are here;
+            You're following this trip. The suggestions and the tally are here;
             voting and suggesting are for tripmates.
           </WatcherNotice>
         )}
@@ -651,7 +651,7 @@ export default function TripDestinations() {
                         ) : (
                           <>
                             <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
-                            Finalise this place
+                            Finalise this
                           </>
                         )}
                       </Button>
@@ -673,11 +673,11 @@ export default function TripDestinations() {
         ) : (
           <Card className="border-dashed">
             <CardContent className="p-8 text-center">
-              <MapPin className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+              <Lightbulb className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">
                 {canContribute
-                  ? "No places yet. Suggest the first one!"
-                  : "No places suggested yet."}
+                  ? "Nothing suggested yet. Add the first one!"
+                  : "Nothing suggested yet."}
               </p>
             </CardContent>
           </Card>
@@ -688,7 +688,7 @@ export default function TripDestinations() {
       <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Place</DialogTitle>
+            <DialogTitle>Edit Suggestion</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-1">
             <div>

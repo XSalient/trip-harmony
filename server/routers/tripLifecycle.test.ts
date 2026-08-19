@@ -126,7 +126,6 @@ describe("cloneTripContents copies the plan, not the history", () => {
       "dateVotes",
       "destinationVotes",
       "accommodationVotes",
-      "vibeVotes",
       "proposalComments",
       "activityEvents",
       "budgetItems",

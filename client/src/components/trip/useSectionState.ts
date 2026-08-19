@@ -14,10 +14,8 @@ export type SectionKey =
   | "preferences"
   | "dates"
   | "accommodations"
-  | "places"
+  | "suggestions"
   | "budget"
-  | "vibe"
-  | "itinerary"
   | "referee";
 
 /** Only the summary. Everything else starts closed — that is the point of E5. */

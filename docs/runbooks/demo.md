@@ -99,7 +99,7 @@ Still works, for a seat the picker does not offer — `marcus@`, `tomas@`,
 ## What you get
 
 **Lisbon & the Algarve** — the hero. Seven people, mid-argument, in the
-accommodation phase. Dates decided, two places finalised, one stay booked.
+accommodation phase. Dates decided, two suggestions finalised, one stay booked.
 
 **Chamonix, before the season ends** — five people, nine days old, still
 picking dates. Nobody is free in the same week. One declined invite, two
@@ -119,7 +119,7 @@ Ordered by how well they sell the product.
 | **Budget Guardian** | `/trips/<lisbon>/budget`         | €7,579 across five categories, and a live "1 member over their budget limit" alert.                                   |
 | **Members**         | `/trips/<lisbon>/members`        | Three roles, join provenance, a pending invite, the contact picker, the share link.                                   |
 | **Dates**           | `/trips/<lisbon>/dates`          | Three ranges, one decided; a vote someone changed their mind on.                                                      |
-| **Places**          | `/trips/<lisbon>/destinations`   | Two finalised, one vetoed four times, one argued into a compromise.                                                   |
+| **Suggestions**     | `/trips/<lisbon>/suggestions`    | Two finalised, one vetoed four times, one argued into a compromise.                                                   |
 | **Trip dashboard**  | `/trips/<lisbon>`                | Everything summarised, including "1 unvoted proposal" and "6/7 members submitted".                                    |
 | **Home**            | `/`                              | All three trips with their phase badges: Picking Dates, Finding Accommodations, All Set.                              |
 

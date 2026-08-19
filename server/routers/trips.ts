@@ -219,7 +219,7 @@ export const tripsRouter = router({
       return { success: true };
     }),
   /**
-   * A fresh trip carrying this one's proposals, vibe board and itinerary.
+   * A fresh trip carrying this one's proposals.
    *
    * Admin-only for the same reason `invites` is: cloning copies the whole plan,
    * and a watcher is on a trip to follow it rather than to take a copy of it.

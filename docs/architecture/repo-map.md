@@ -53,7 +53,7 @@ is compiled and with no tsx on the path.
 | `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                         |
 | `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                              |
 | `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                          |
-| `db.ts`                  |  2124 | Every database query. Large but flat — jump to the function you need.                |
+| `db.ts`                  |  1884 | Every database query. Large but flat — jump to the function you need.                |
 | `routers/`               |     — | The API surface, one file per domain (below).                                        |
 | `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
 | `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
@@ -69,7 +69,7 @@ open only its domain file.
 
 | File                | Lines | Covers                                                                |
 | ------------------- | ----: | --------------------------------------------------------------------- |
-| `index.ts`          |    43 | Table of contents — the whole API in one screen                       |
+| `index.ts`          |    41 | Table of contents — the whole API in one screen                       |
 | `_shared.ts`        |   180 | `requireTripRole`, role projections, `toPublicUser`, password hashing |
 | `matchAnalysis.ts`  |   142 | AI accommodation↔member scoring (fire-and-forget)                    |
 | `auth.ts`           |    86 | Register, login, magic link, logout, `me`                             |
@@ -77,15 +77,13 @@ open only its domain file.
 | `trips.ts`          |   450 | Trips, membership, roles, invites, delete and clone                   |
 | `contacts.ts`       |    96 | A user's private address book, incl. saving a fellow traveller        |
 | `dates.ts`          |   223 | Date proposals, votes, natural-language parsing                       |
-| `destinations.ts`   |   161 | Destination suggestions and votes                                     |
+| `destinations.ts`   |   257 | Suggestions and votes — the UI calls the section "Suggestions"        |
 | `accommodations.ts` |   354 | Stays, votes, URL import, match refresh                               |
 | `budget.ts`         |    74 | Expenses and summaries                                                |
 | `referee.ts`        |   183 | AI mediation. The prompt itself is in `server/prompts/referee.ts`     |
 | `preferences.ts`    |    36 | Per-trip member requirements                                          |
 | `comments.ts`       |    41 | Comment threads                                                       |
 | `notifications.ts`  |    23 | Notification feed                                                     |
-| `vibeBoard.ts`      |    75 | Inspiration board                                                     |
-| `itinerary.ts`      |    76 | Day-by-day plan                                                       |
 
 ## `client/` — SPA
 
@@ -104,7 +102,7 @@ open only its domain file.
 | `src/contexts/ThemeContext.tsx`   | Dark mode                                                                                                           |
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                                                              |
 
-Pages worth knowing: `TripDashboard.tsx` (1,085 lines — the hub),
+Pages worth knowing: `TripDashboard.tsx` (691 lines — the hub),
 `TripAccommodations.tsx` (810 lines — the most complex screen) and
 `Profile.tsx` (the account screen: password, passkeys, sign out).
 
@@ -119,7 +117,7 @@ it. Don't add features there expecting anyone to see them.
 | `shared/roles.ts`        | Trip roles and their ordering — imported by both sides |
 | `shared/types.ts`        | Types used by both client and server                   |
 | `shared/_core/errors.ts` | `HttpError` and constructors                           |
-| `drizzle/schema.ts`      | All 24 tables and enums — the canonical data model     |
+| `drizzle/schema.ts`      | All 21 tables and enums — the canonical data model     |
 
 ## Deliberately noisy — never read
 
