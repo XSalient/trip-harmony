@@ -12,15 +12,18 @@ comments table.
 ```
 users ──┬── trips                      (as creator; `organizerId`)
         ├── contacts                   (private address book)
-        └── trip_members ── trips      (many-to-many, with role and status)
+        └── trip_members ── trips      (many-to-many, with role, status and group)
 
 trips ──── trip_invites                (email invites awaiting an answer)
+
+trips ──┬── trip_groups                (families/households; members and attendees point at one)
+        └── trip_attendees             (everyone coming, app account or not)
 
 trips ──┬── date_proposals      ── date_votes
         ├── destinations        ── destination_votes
         ├── accommodations      ── accommodation_votes
         │                       └── accommodation_attributes
-        ├── budget_items
+        ├── budget_proposals    ── budget_votes
         ├── member_preferences        (per member, per trip)
         ├── referee_messages          (AI output)
         └── notifications
@@ -49,11 +52,13 @@ webauthn_challenges                                  standalone, short-lived
 
 ### Trips
 
-| Table                | Purpose                                                                                                                 |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `trips`              | `inviteCode` (nanoid) is the public join handle. `phase` tracks planning progress; `status` tracks lifecycle.           |
-| `trip_members`       | Join table carrying `role` (organizer/member), `status` (pending/accepted/declined) and a per-member `budgetMax`.       |
-| `member_preferences` | Free-text must-haves, strong preferences, avoids and comments, stored per member per trip and parsed by the AI matcher. |
+| Table                | Purpose                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trips`              | `inviteCode` (nanoid) is the public join handle. `phase` tracks planning progress; `status` tracks lifecycle. `votingUnit` is `member` (default) or `group`.                                                  |
+| `trip_members`       | Join table carrying `role`, `status` (pending/accepted/declined), an optional `groupId` and a per-member `budgetMax`.                                                                                         |
+| `trip_groups`        | A family or household. A member belongs to at most one; **belonging to none is normal** and means a group of one. Carries the group's `budgetMax`, which supersedes the member's.                             |
+| `trip_attendees`     | Everyone coming, with or without an account. `kind` is adult/child/pet; `age` is null for a pet and optional otherwise. `memberUserId` links the row to an account, one per trip, so headcount is one number. |
+| `member_preferences` | Free-text must-haves, strong preferences, avoids and comments, stored per member per trip and parsed by the AI matcher.                                                                                       |
 
 ### Proposals and votes
 
@@ -61,11 +66,18 @@ Each proposal type follows the same pattern: a proposal table (with `proposedBy`
 and an optional selected flag on the trip) and a votes table with one row per
 member per proposal.
 
-| Proposal         | Votes                 | Vote values                     |
-| ---------------- | --------------------- | ------------------------------- |
-| `date_proposals` | `date_votes`          | available / maybe / unavailable |
-| `destinations`   | `destination_votes`   | love / fine / veto              |
-| `accommodations` | `accommodation_votes` | love / fine / veto              |
+| Proposal           | Votes                 | Vote values                     |
+| ------------------ | --------------------- | ------------------------------- |
+| `date_proposals`   | `date_votes`          | available / maybe / unavailable |
+| `destinations`     | `destination_votes`   | love / fine / veto              |
+| `accommodations`   | `accommodation_votes` | love / fine / veto              |
+| `budget_proposals` | `budget_votes`        | love / fine / veto              |
+
+**One vote per group** is not a column. When `trips.votingUnit = "group"`, a
+vote replaces any vote by another member of the same group on that proposal —
+enforced on write by `applyGroupVoteExclusivity` in `server/db.ts`, so every
+tally counts rows that are already one per group. See
+[ADR 0016](../adr/0016-one-vote-per-group.md).
 
 `destinations` is the **Suggestions** section in the UI — anything the group
 proposes and votes on, not only a place. The table keeps its original name
@@ -83,12 +95,12 @@ LLM, so new requirements never need a schema change.
 
 ### Supporting
 
-| Table               | Purpose                                                                                         |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| `budget_items`      | Category, amount, split type; summarised per person.                                            |
-| `referee_messages`  | AI mediation output, typed nudge/mediation/compromise/celebration/summary.                      |
-| `notifications`     | In-app feed with read state.                                                                    |
-| `proposal_comments` | Polymorphic on `(proposal_type, proposal_id)` so one implementation serves every proposal kind. |
+| Table               | Purpose                                                                                                                                                                                                                                                    |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `budget_proposals`  | A named figure with a `scope` (trip total / per person / per adult / per group) and an optional `covers` note. **Exactly one is finalised at a time** — budget follows dates, not places. The arithmetic that compares scopes lives in `shared/budget.ts`. |
+| `referee_messages`  | AI mediation output, typed nudge/mediation/compromise/celebration/summary.                                                                                                                                                                                 |
+| `notifications`     | In-app feed with read state.                                                                                                                                                                                                                               |
+| `proposal_comments` | Polymorphic on `(proposal_type, proposal_id)` so one implementation serves every proposal kind.                                                                                                                                                            |
 
 ## Conventions
 

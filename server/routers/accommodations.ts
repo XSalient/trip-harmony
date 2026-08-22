@@ -120,6 +120,12 @@ export const accommodationsRouter = router({
         proposedBy: ctx.user.id,
       });
       // Proposing is itself a vote — nobody adds a stay they are against.
+      await db.applyGroupVoteExclusivity(
+        "accommodation",
+        id,
+        input.tripId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: id,
         userId: ctx.user.id,
@@ -178,6 +184,16 @@ export const accommodationsRouter = router({
         input.accommodationId,
         ctx.user.id
       );
+      // One vote per group when the trip votes that way: a groupmate's vote on
+      // this proposal is replaced, not added to. Enforced here, before every
+      // write, so every tally downstream counts rows that are already one per
+      // group. See docs/adr/0016-one-vote-per-group.md.
+      const displaced = await db.applyGroupVoteExclusivity(
+        "accommodation",
+        input.accommodationId,
+        accommodation.tripId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: input.accommodationId,
         userId: ctx.user.id,
@@ -191,6 +207,16 @@ export const accommodationsRouter = router({
         entityId: input.accommodationId,
         metadata: { vote: input.vote, from: had?.vote ?? null },
       });
+      for (const userId of displaced) {
+        await db.recordActivity({
+          tripId: accommodation.tripId,
+          actorUserId: ctx.user.id,
+          action: "vote.superseded",
+          entityType: "accommodation",
+          entityId: input.accommodationId,
+          metadata: { userId, reason: "one vote per group" },
+        });
+      }
       return { success: true };
     }),
   unvote: protectedProcedure
@@ -419,6 +445,12 @@ export const accommodationsRouter = router({
         freeParking: accommodation.freeParking ?? undefined,
         amenities: accommodation.amenities ?? undefined,
       });
+      await db.applyGroupVoteExclusivity(
+        "accommodation",
+        newId,
+        accommodation.tripId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: newId,
         userId: ctx.user.id,

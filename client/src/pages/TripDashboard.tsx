@@ -33,6 +33,7 @@ import SectionCard, {
   SectionLink,
 } from "@/components/trip/SectionCard";
 import {
+  BudgetProposalRow,
   ChoiceProposalRow,
   DateProposalRow,
 } from "@/components/trip/ProposalRow";
@@ -57,6 +58,10 @@ export default function TripDashboard() {
     { tripId },
     { enabled: tripId > 0 }
   );
+  const { data: budgets, refetch: refetchBudgets } = trpc.budget.list.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
   const { data: destinations, refetch: refetchDest } =
     trpc.destinations.list.useQuery({ tripId }, { enabled: tripId > 0 });
   const { data: accommodations, refetch: refetchAcc } =
@@ -69,6 +74,10 @@ export default function TripDashboard() {
   const unvoteDestMutation = trpc.destinations.unvote.useMutation();
   const voteAccMutation = trpc.accommodations.vote.useMutation();
   const unvoteAccMutation = trpc.accommodations.unvote.useMutation();
+  const voteBudgetMutation = trpc.budget.vote.useMutation();
+  const unvoteBudgetMutation = trpc.budget.unvote.useMutation();
+  const deleteBudgetMutation = trpc.budget.delete.useMutation();
+  const lockBudgetMutation = trpc.budget.setLock.useMutation();
   const deleteDateMutation = trpc.dates.delete.useMutation();
   const deleteDestMutation = trpc.destinations.delete.useMutation();
   const deleteAccMutation = trpc.accommodations.delete.useMutation();
@@ -175,6 +184,9 @@ export default function TripDashboard() {
   const acceptedMembers =
     members?.filter((m: any) => m.status === "accepted") || [];
   const memberCount = acceptedMembers.length || 1;
+  // Voters, not members: a family is one in group mode, and a watcher is never
+  // one. Derived by the server so four screens cannot answer it differently.
+  const voterCount = (trip as any)?.voterCount || 1;
 
   const pendingVotes = {
     dates:
@@ -192,11 +204,17 @@ export default function TripDashboard() {
         (a: any) =>
           !a.selected && !a.votes?.some((v: any) => v.userId === user?.id)
       ).length || 0,
+    budgets:
+      budgets?.filter(
+        (b: any) =>
+          !b.selected && !b.votes?.some((v: any) => v.userId === user?.id)
+      ).length || 0,
   };
   const totalPending =
     pendingVotes.dates +
     pendingVotes.destinations +
-    pendingVotes.accommodations;
+    pendingVotes.accommodations +
+    pendingVotes.budgets;
 
   /**
    * Finalise or un-finalise from the dashboard.
@@ -206,7 +224,10 @@ export default function TripDashboard() {
    * rest. Follows the vote handlers' `setData` pattern rather than inventing a
    * second approach to the same problem.
    */
-  const handleToggleLock = async (kind: "date" | "dest" | "acc", row: any) => {
+  const handleToggleLock = async (
+    kind: "date" | "dest" | "acc" | "budget",
+    row: any
+  ) => {
     const next = !row.selected;
     setLockBusy(row.id);
     try {
@@ -227,7 +248,7 @@ export default function TripDashboard() {
           locked: next,
         });
         await refetchDest();
-      } else {
+      } else if (kind === "acc") {
         utils.accommodations.list.setData({ tripId }, (old: any) =>
           old?.map((a: any) => (a.id === row.id ? { ...a, selected: next } : a))
         );
@@ -236,6 +257,17 @@ export default function TripDashboard() {
           locked: next,
         });
         await refetchAcc();
+      } else {
+        // Budget finalises to exactly one, like dates: a trip has several
+        // places to sleep but one answer to "how much are we spending".
+        utils.budget.list.setData({ tripId }, (old: any) =>
+          old?.map((b: any) => ({ ...b, selected: next && b.id === row.id }))
+        );
+        await lockBudgetMutation.mutateAsync({
+          proposalId: row.id,
+          locked: next,
+        });
+        await refetchBudgets();
       }
       toast.success(next ? "Finalised" : "Un-finalised");
     } catch (e: any) {
@@ -243,6 +275,7 @@ export default function TripDashboard() {
       refetchDates();
       refetchDest();
       refetchAcc();
+      refetchBudgets();
     } finally {
       setLockBusy(null);
     }
@@ -254,6 +287,52 @@ export default function TripDashboard() {
   const lockedDate = dateProposals?.find((d: any) => d.selected);
   const lockedDests = destinations?.filter((d: any) => d.selected) ?? [];
   const lockedAccs = accommodations?.filter((a: any) => a.selected) ?? [];
+  const lockedBudget = budgets?.find((b: any) => b.selected);
+
+  const handleBudgetVote = (
+    proposalId: number,
+    vote: "love" | "fine" | "veto"
+  ) => {
+    const currentVote = budgets
+      ?.find((b: any) => b.id === proposalId)
+      ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
+    const isUnvote = currentVote === vote;
+    utils.budget.list.setData({ tripId }, (old: any) => {
+      if (!old) return old;
+      return old.map((b: any) => {
+        if (b.id !== proposalId) return b;
+        const filtered =
+          b.votes?.filter((v: any) => v.userId !== user?.id) || [];
+        return {
+          ...b,
+          votes: isUnvote
+            ? filtered
+            : [...filtered, { userId: user?.id, vote }],
+        };
+      });
+    });
+    if (isUnvote) {
+      unvoteBudgetMutation.mutate(
+        { proposalId },
+        { onError: () => refetchBudgets(), onSuccess: () => refetchBudgets() }
+      );
+    } else {
+      voteBudgetMutation.mutate(
+        { proposalId, vote },
+        { onError: () => refetchBudgets(), onSuccess: () => refetchBudgets() }
+      );
+    }
+  };
+
+  const removeBudget = async (id: number) => {
+    try {
+      await deleteBudgetMutation.mutateAsync({ id });
+      await refetchBudgets();
+      toast.success("Removed");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't remove that");
+    }
+  };
 
   const handleDateVote = (
     proposalId: number,
@@ -381,6 +460,7 @@ export default function TripDashboard() {
   const topDates = dateProposals?.slice(0, 3) || [];
   const topDests = destinations?.slice(0, 3) || [];
   const topAccs = accommodations?.slice(0, 3) || [];
+  const topBudgets = budgets?.slice(0, 3) || [];
 
   return (
     <AppShell
@@ -437,6 +517,8 @@ export default function TripDashboard() {
           lockedSuggestions={lockedDests.length}
           totalSuggestions={destinations?.length ?? 0}
           lockedAccommodations={lockedAccs.length}
+          budget={budgetSummary?.finalised ?? null}
+          headcount={budgetSummary?.headcount ?? null}
           totalAccommodations={accommodations?.length ?? 0}
           open={isOpen("summary")}
           onToggle={() => toggle("summary")}
@@ -531,7 +613,7 @@ export default function TripDashboard() {
               proposalType="date"
               isAdmin={isAdmin}
               canContribute={canContribute}
-              memberCount={memberCount}
+              voterCount={voterCount}
               commentCount={(commentCounts as any)[`date_${p.id}`] || 0}
               lockBusy={lockBusy === p.id}
               canManage={
@@ -579,7 +661,7 @@ export default function TripDashboard() {
               }
               isAdmin={isAdmin}
               canContribute={canContribute}
-              memberCount={memberCount}
+              voterCount={voterCount}
               commentCount={
                 (commentCounts as any)[`accommodation_${a.id}`] || 0
               }
@@ -622,7 +704,7 @@ export default function TripDashboard() {
               proposalType="destination"
               isAdmin={isAdmin}
               canContribute={canContribute}
-              memberCount={memberCount}
+              voterCount={voterCount}
               commentCount={(commentCounts as any)[`destination_${d.id}`] || 0}
               lockBusy={lockBusy === d.id}
               canManage={
@@ -637,27 +719,54 @@ export default function TripDashboard() {
           ))}
         </SectionCard>
 
-        {/* ── Budget ── */}
-        <CollapsibleRow
+        {/* ── Budget — a voting section like the three above it ── */}
+        <SectionCard
           title="Budget"
-          subtitle={
-            budgetSummary && budgetSummary.total > 0
-              ? `${trip.currency} ${budgetSummary.total.toFixed(0)} total`
-              : "Nothing tracked yet"
+          icon={DollarSign}
+          href={`/trips/${tripId}/budget`}
+          lockedCount={lockedBudget ? 1 : 0}
+          singleLock
+          pendingCount={pendingVotes.budgets}
+          addSlot={
+            canContribute ? (
+              <AddProposalButton href={`/trips/${tripId}/budget?add=1`} />
+            ) : null
           }
-          icon={<DollarSign className="h-5 w-5" />}
+          emptyText="No budget proposed yet — put a number on the table."
           open={isOpen("budget")}
           onToggle={() => toggle("budget")}
         >
-          <p className="text-sm text-muted-foreground mb-2">
-            {budgetSummary && budgetSummary.total > 0
-              ? `${trip.currency} ${budgetSummary.total.toFixed(0)} total · ~${trip.currency} ${budgetSummary.perPerson.toFixed(0)} per person across ${memberCount} ${memberCount === 1 ? "member" : "members"}.`
-              : "Track expenses and set a comfortable limit for the group."}
-          </p>
-          <SectionLink href={`/trips/${tripId}/budget`}>
-            View the budget
-          </SectionLink>
-        </CollapsibleRow>
+          {topBudgets.map((b: any) => (
+            <BudgetProposalRow
+              key={b.id}
+              tripId={tripId}
+              row={b}
+              userId={user?.id}
+              detailHref={`/trips/${tripId}/budget`}
+              proposalType="budget"
+              isAdmin={isAdmin}
+              canContribute={canContribute}
+              voterCount={voterCount}
+              commentCount={(commentCounts as any)[`budget_${b.id}`] || 0}
+              lockBusy={lockBusy === b.id}
+              canManage={
+                canContribute && (b.proposedBy === user?.id || isAdmin)
+              }
+              onToggleLock={() => handleToggleLock("budget", b)}
+              onEdit={() => navigate(`/trips/${tripId}/budget?edit=${b.id}`)}
+              onClone={() => navigate(`/trips/${tripId}/budget?add=1`)}
+              onDelete={() => removeBudget(b.id)}
+              onVote={(vote: "love" | "fine" | "veto") =>
+                handleBudgetVote(b.id, vote)
+              }
+              tripTotalLabel={
+                budgetSummary?.leading && b.id === budgetSummary.leading.id
+                  ? `${b.currency} ${Math.round(budgetSummary.leading.tripTotal).toLocaleString()} for the trip`
+                  : undefined
+              }
+            />
+          ))}
+        </SectionCard>
 
         {/* ── AI Referee — not for watchers: it summarises the group's argument ── */}
         {canContribute && (

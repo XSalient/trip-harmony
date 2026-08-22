@@ -1,7 +1,7 @@
 # E10 — Attendees: who is actually coming
 
 - **Covers request items:** 19, 20
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E9 (an attendee belongs to a group)
 
 ## Why
@@ -31,15 +31,15 @@ in headcount, not in a budget split, not in the summary's "per person".
 
 **Acceptance criteria**
 
-- [ ] I can add an adult, a child with an age, and a pet to my group.
-- [ ] The form offers no age field for a pet, and the row saves with `age = null`.
-- [ ] I can edit and remove attendees in **my own** group; an admin can do it for
+- [x] I can add an adult, a child with an age, and a pet to my group.
+- [x] The form offers no age field for a pet, and the row saves with `age = null`.
+- [x] I can edit and remove attendees in **my own** group; an admin can do it for
       any group.
-- [ ] A tripmate cannot add or edit attendees in someone else's group; a watcher
+- [x] A tripmate cannot add or edit attendees in someone else's group; a watcher
       cannot add any.
-- [ ] Deleting a group leaves its attendees on the trip, ungrouped — the same
+- [x] Deleting a group leaves its attendees on the trip, ungrouped — the same
       rule as members (E9.1).
-- [ ] An attendee receives no notification, ever, and appears in no vote
+- [x] An attendee receives no notification, ever, and appears in no vote
       denominator.
 
 **Touches**
@@ -76,11 +76,11 @@ already exist.
 
 **Acceptance criteria**
 
-- [ ] The trip summary reads "6 adults · 3 children · 1 pet", counting each
+- [x] The trip summary reads "6 adults · 3 children · 1 pet", counting each
       person exactly once.
-- [ ] Each group shows its own headcount on the members page.
-- [ ] `getTripHeadcount` never counts a pet in `people`.
-- [ ] A watcher gets names and kinds but **no ages** — asserted on the payload.
+- [x] Each group shows its own headcount on the members page.
+- [x] `getTripHeadcount` never counts a pet in `people`.
+- [x] A watcher gets names and kinds but **no ages** — asserted on the payload.
 
 **Touches**
 

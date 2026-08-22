@@ -1,7 +1,7 @@
 # E9 — Member groups
 
 - **Covers request items:** 17, 18
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E2 (the role model this gates against)
 
 ## Why
@@ -27,18 +27,18 @@ actions. Setting a group's spending cap is admin, or a tripmate in that group.
 
 **Acceptance criteria**
 
-- [ ] I can create a group with a name, rename it, and delete it.
-- [ ] I can move any member into a group, into a different group, or out of all
+- [x] I can create a group with a name, rename it, and delete it.
+- [x] I can move any member into a group, into a different group, or out of all
       of them.
-- [ ] A member in no group is shown as ungrouped and is never auto-assigned.
-- [ ] Deleting a group leaves every one of its members on the trip, ungrouped.
+- [x] A member in no group is shown as ungrouped and is never auto-assigned.
+- [x] Deleting a group leaves every one of its members on the trip, ungrouped.
       It never removes a member.
-- [ ] Group names are unique per trip, case-insensitively; a duplicate returns
+- [x] Group names are unique per trip, case-insensitively; a duplicate returns
       `CONFLICT` with a message a person can act on.
-- [ ] A tripmate sees the grouping read-only. A watcher sees group names and
+- [x] A tripmate sees the grouping read-only. A watcher sees group names and
       membership, and **no `budgetMax` on any group or member** — asserted on
       the payload, not on the rendering.
-- [ ] Cloning a trip clones its groups and each member's group. Deleting a trip
+- [x] Cloning a trip clones its groups and each member's group. Deleting a trip
       removes its groups.
 
 **Touches**
@@ -79,13 +79,13 @@ New activity verbs in `ACTIVITY_ACTIONS` (`server/db.ts:884-905`):
 
 **Acceptance criteria**
 
-- [ ] `trips.votingUnit` is `member` (default) or `group`, and only an admin can
+- [x] `trips.votingUnit` is `member` (default) or `group`, and only an admin can
       change it.
-- [ ] The setting lives on the members page beside the group list — not in the
+- [x] The setting lives on the members page beside the group list — not in the
       trip edit dialog.
-- [ ] Changing it explains what will happen to votes already cast (E11 defines
+- [x] Changing it explains what will happen to votes already cast (E11 defines
       it: nothing retroactive).
-- [ ] A trip that never creates a group behaves exactly as it does today,
+- [x] A trip that never creates a group behaves exactly as it does today,
       whatever the setting says.
 
 **Touches**

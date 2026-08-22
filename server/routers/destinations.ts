@@ -48,6 +48,12 @@ export const destinationsRouter = router({
         proposedBy: ctx.user.id,
       });
       // Suggesting a destination is a vote for it — count it without a second click.
+      await db.applyGroupVoteExclusivity(
+        "destination",
+        id,
+        input.tripId,
+        ctx.user.id
+      );
       await db.voteDestination({
         destinationId: id,
         userId: ctx.user.id,
@@ -101,6 +107,16 @@ export const destinationsRouter = router({
         input.destinationId,
         ctx.user.id
       );
+      // One vote per group when the trip votes that way: a groupmate's vote on
+      // this proposal is replaced, not added to. Enforced here, before every
+      // write, so every tally downstream counts rows that are already one per
+      // group. See docs/adr/0016-one-vote-per-group.md.
+      const displaced = await db.applyGroupVoteExclusivity(
+        "destination",
+        input.destinationId,
+        destination.tripId,
+        ctx.user.id
+      );
       await db.voteDestination({
         destinationId: input.destinationId,
         userId: ctx.user.id,
@@ -114,6 +130,16 @@ export const destinationsRouter = router({
         entityId: input.destinationId,
         metadata: { vote: input.vote, from: had?.vote ?? null },
       });
+      for (const userId of displaced) {
+        await db.recordActivity({
+          tripId: destination.tripId,
+          actorUserId: ctx.user.id,
+          action: "vote.superseded",
+          entityType: "destination",
+          entityId: input.destinationId,
+          metadata: { userId, reason: "one vote per group" },
+        });
+      }
       return { success: true };
     }),
   unvote: protectedProcedure
@@ -244,6 +270,12 @@ export const destinationsRouter = router({
         imageUrl: destination.imageUrl ?? undefined,
         estimatedCost: destination.estimatedCost ?? undefined,
       });
+      await db.applyGroupVoteExclusivity(
+        "destination",
+        newId,
+        destination.tripId,
+        ctx.user.id
+      );
       await db.voteDestination({
         destinationId: newId,
         userId: ctx.user.id,

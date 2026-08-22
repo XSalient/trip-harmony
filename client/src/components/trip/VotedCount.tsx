@@ -4,6 +4,12 @@
  * The count alone was the one thing every screen showed and the one thing that
  * never answered the question people actually have, which is who to chase.
  *
+ * The denominator is **voters**, not people: on a trip that votes per group a
+ * family is one voter, and watchers are in neither mode's count. It is computed
+ * once on the server (`trips.get` → `voterCount`) and passed in, because four
+ * screens deriving it themselves is how one page came to say "2/4" while the
+ * next said "2/3".
+ *
  * Watchers get plain text: they receive vote counts but no vote authorship, so
  * there is nothing to open.
  */
@@ -18,7 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type ProposalType = "date" | "destination" | "accommodation";
+type ProposalType = "date" | "destination" | "accommodation" | "budget";
 
 /** Vote values differ per proposal type; these are the words members saw. */
 const VOTE_LABELS: Record<string, string> = {
@@ -44,7 +50,7 @@ export default function VotedCount({
   proposalType,
   proposalId,
   votedCount,
-  memberCount,
+  voterCount,
   canSeeDetail,
   className = "",
 }: {
@@ -52,13 +58,14 @@ export default function VotedCount({
   proposalType: ProposalType;
   proposalId: number;
   votedCount: number;
-  memberCount: number;
+  /** Groups plus ungrouped tripmates in group mode; accepted tripmates otherwise. */
+  voterCount: number;
   /** False for watchers — they see the tally, never who cast what. */
   canSeeDetail: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const label = `${votedCount}/${memberCount} voted`;
+  const label = `${votedCount}/${voterCount} voted`;
 
   const { data, isLoading } = trpc.comments.voters.useQuery(
     { tripId, proposalType, proposalId },
@@ -107,6 +114,12 @@ export default function VotedCount({
                     >
                       <span className="flex-1 truncate">
                         {v.name || "Member"}
+                        {v.group && (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {v.group}
+                          </span>
+                        )}
                       </span>
                       <span
                         className={`font-medium ${VOTE_TONE[v.vote] ?? ""}`}
@@ -131,7 +144,10 @@ export default function VotedCount({
                       key={m.userId}
                       className="text-sm text-muted-foreground truncate"
                     >
-                      {m.name || "Member"}
+                      {/* In group mode this list is of groups, not people:
+                          naming both adults in one family reads as two chases
+                          for one decision. */}
+                      {m.group || m.name || "Member"}
                     </p>
                   ))}
                 </div>

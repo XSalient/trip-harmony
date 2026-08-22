@@ -56,6 +56,7 @@ export const datesRouter = router({
         label: input.label,
       });
       // Proposing dates says you can make them — record it as the first vote.
+      await db.applyGroupVoteExclusivity("date", id, input.tripId, ctx.user.id);
       await db.voteDateProposal({
         proposalId: id,
         userId: ctx.user.id,
@@ -110,6 +111,16 @@ export const datesRouter = router({
         });
       await requireTripRole(proposal.tripId, ctx.user.id, "tripmate");
       const had = await db.getMyDateVote(input.proposalId, ctx.user.id);
+      // One vote per group when the trip votes that way: a groupmate's vote on
+      // this proposal is replaced, not added to. Enforced here, before every
+      // write, so every tally downstream counts rows that are already one per
+      // group. See docs/adr/0016-one-vote-per-group.md.
+      const displaced = await db.applyGroupVoteExclusivity(
+        "date",
+        input.proposalId,
+        proposal.tripId,
+        ctx.user.id
+      );
       await db.voteDateProposal({
         proposalId: input.proposalId,
         userId: ctx.user.id,
@@ -123,6 +134,16 @@ export const datesRouter = router({
         entityId: input.proposalId,
         metadata: { vote: input.vote, from: had?.vote ?? null },
       });
+      for (const userId of displaced) {
+        await db.recordActivity({
+          tripId: proposal.tripId,
+          actorUserId: ctx.user.id,
+          action: "vote.superseded",
+          entityType: "date",
+          entityId: input.proposalId,
+          metadata: { userId, reason: "one vote per group" },
+        });
+      }
       return { success: true };
     }),
   unvote: protectedProcedure
@@ -258,6 +279,12 @@ export const datesRouter = router({
         endDate: proposal.endDate,
         label: proposal.label ? `${proposal.label} (copy)` : undefined,
       });
+      await db.applyGroupVoteExclusivity(
+        "date",
+        id,
+        proposal.tripId,
+        ctx.user.id
+      );
       await db.voteDateProposal({
         proposalId: id,
         userId: ctx.user.id,

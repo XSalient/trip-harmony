@@ -1,7 +1,7 @@
 # E11 — One vote per group
 
 - **Covers request items:** 21
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E9 (there is nothing to vote as until groups exist)
 
 ## Why
@@ -41,16 +41,16 @@ one, and the four would drift. This decision gets an ADR.
 
 **Acceptance criteria**
 
-- [ ] With `votingUnit = "group"`: two members of one group vote on one
+- [x] With `votingUnit = "group"`: two members of one group vote on one
       proposal; the proposal ends with **one** vote — the later one — attributed
       to whoever cast it last.
-- [ ] The first member sees the vote change under them on refetch, labelled with
+- [x] The first member sees the vote change under them on refetch, labelled with
       who cast it. It does not change silently.
-- [ ] An ungrouped tripmate still votes for themselves and is unaffected by
+- [x] An ungrouped tripmate still votes for themselves and is unaffected by
       anyone else's vote.
-- [ ] With `votingUnit = "member"`, behaviour is what it is today. A regression
+- [x] With `votingUnit = "member"`, behaviour is what it is today. A regression
       test asserts it on a trip with no groups.
-- [ ] A watcher still cannot vote, in either mode.
+- [x] A watcher still cannot vote, in either mode.
 
 **Touches**
 
@@ -73,12 +73,12 @@ proposal type, which is the hardest version of this bug to notice.
 
 **Acceptance criteria**
 
-- [ ] Moving a member into a group that has already voted leaves at most one
+- [x] Moving a member into a group that has already voted leaves at most one
       vote per group on **every** proposal on the trip.
-- [ ] The vote that survives is the most recently updated one (`updatedAt`).
-- [ ] The dropped vote is recorded in the activity trail as `vote.superseded`,
+- [x] The vote that survives is the most recently updated one (`updatedAt`).
+- [x] The dropped vote is recorded in the activity trail as `vote.superseded`,
       naming both members.
-- [ ] Switching a live trip from member to group mode does **not** delete votes
+- [x] Switching a live trip from member to group mode does **not** delete votes
       retroactively; the collapse happens on the next vote cast in that group,
       and the UI says so where the setting is changed.
 
@@ -106,14 +106,14 @@ the temporary inconsistency. Say what will happen at the switch instead.
 
 **Acceptance criteria**
 
-- [ ] In group mode, the denominator is the number of **voters** — groups plus
+- [x] In group mode, the denominator is the number of **voters** — groups plus
       ungrouped tripmates — not people.
-- [ ] In member mode, it is accepted tripmates, as today.
-- [ ] **Watchers are in neither denominator.** Check the current derivation and
+- [x] In member mode, it is accepted tripmates, as today.
+- [x] **Watchers are in neither denominator.** Check the current derivation and
       fix it if it counts them.
-- [ ] The denominator is computed once, on the server, and returned as
+- [x] The denominator is computed once, on the server, and returned as
       `voterCount`; no page re-derives it.
-- [ ] "Still to vote" lists the groups that have not voted, by group name, not
+- [x] "Still to vote" lists the groups that have not voted, by group name, not
       the people in them.
 
 **Touches**

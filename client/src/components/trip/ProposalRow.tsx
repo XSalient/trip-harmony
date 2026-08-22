@@ -28,7 +28,7 @@ import {
 import LockToggle from "./LockToggle";
 import VotedCount from "./VotedCount";
 
-type ProposalType = "date" | "destination" | "accommodation";
+type ProposalType = "date" | "destination" | "accommodation" | "budget";
 
 /** What every row needs, whatever it is a proposal for. */
 type CommonProps = {
@@ -38,7 +38,8 @@ type CommonProps = {
   proposalType: ProposalType;
   isAdmin: boolean;
   canContribute: boolean;
-  memberCount: number;
+  /** Voters, not members — a family is one. See `VotedCount`. */
+  voterCount: number;
   commentCount: number;
   lockBusy: boolean;
   /** True when the viewer proposed this, so they may edit or delete it. */
@@ -55,7 +56,7 @@ function RowShell({
   proposalType,
   isAdmin,
   canContribute,
-  memberCount,
+  voterCount,
   commentCount,
   lockBusy,
   canManage,
@@ -124,7 +125,7 @@ function RowShell({
           proposalType={proposalType}
           proposalId={row.id}
           votedCount={row.votes?.length || 0}
-          memberCount={memberCount}
+          voterCount={voterCount}
           canSeeDetail={canContribute}
         />
       </div>
@@ -202,6 +203,14 @@ const CHOICE_OPTIONS = [
   },
 ] as const;
 
+/** Short forms, because a proposal row has one line to say this in. */
+const SCOPE_WORDS = {
+  trip_total: "for the trip",
+  per_person: "per person",
+  per_adult: "per adult",
+  per_group: "per family",
+} as const;
+
 const countVotes = (row: any, vote: string) =>
   row.votes?.filter((v: any) => v.vote === vote).length || 0;
 
@@ -249,6 +258,60 @@ export function DateProposalRow({
       }
       votes={
         <VoteButtons options={DATE_OPTIONS} myVote={myVote} onVote={onVote} />
+      }
+    />
+  );
+}
+
+/**
+ * A budget.
+ *
+ * Same votes and the same shell as a suggestion; what differs is the title,
+ * which has to carry two figures at once — the amount as it was written
+ * ("1,400 per family") and what that comes to for the whole trip. A card
+ * showing only one of them cannot be compared with the card next to it, which
+ * was written in a different unit.
+ */
+export function BudgetProposalRow({
+  userId,
+  onVote,
+  tripTotalLabel,
+  ...props
+}: CommonProps & {
+  userId?: number;
+  onVote: (vote: "love" | "fine" | "veto") => void;
+  /** The normalised trip total, e.g. "EUR 16,800 for the trip". */
+  tripTotalLabel?: string;
+}) {
+  const { row, detailHref } = props;
+  const myVote = row.votes?.find((v: any) => v.userId === userId)?.vote;
+
+  return (
+    <RowShell
+      {...props}
+      title={
+        <>
+          <Link href={detailHref}>
+            <span className="font-medium cursor-pointer hover:underline">
+              {row.title}
+            </span>
+          </Link>
+          <div className="text-[11px] text-muted-foreground">
+            {row.currency} {Number(row.amount).toLocaleString()}{" "}
+            {SCOPE_WORDS[row.scope as keyof typeof SCOPE_WORDS] ?? ""}
+            {tripTotalLabel ? ` · ${tripTotalLabel}` : ""}
+          </div>
+        </>
+      }
+      tally={
+        <>
+          <span className="text-green-600">{countVotes(row, "love")}✓</span>
+          <span className="text-yellow-600">{countVotes(row, "fine")}?</span>
+          <span className="text-red-500">{countVotes(row, "veto")}✗</span>
+        </>
+      }
+      votes={
+        <VoteButtons options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
       }
     />
   );

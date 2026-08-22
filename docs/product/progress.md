@@ -44,12 +44,12 @@ table. Reasoning in
 
 ### Groups and budget
 
-| #   | Epic                                                                    | Items      | Status      |
-| --- | ----------------------------------------------------------------------- | ---------- | ----------- |
-| E9  | [Member groups](stories/E9-member-groups.md)                            | 17, 18     | Not started |
-| E10 | [Attendees](stories/E10-attendees.md)                                   | 19, 20     | Not started |
-| E11 | [One vote per group](stories/E11-one-vote-per-group.md)                 | 21         | Not started |
-| E12 | [Budget as a voting section](stories/E12-budget-as-a-voting-section.md) | 22, 23, 24 | Not started |
+| #   | Epic                                                                    | Items      | Status |
+| --- | ----------------------------------------------------------------------- | ---------- | ------ |
+| E9  | [Member groups](stories/E9-member-groups.md)                            | 17, 18     | Done   |
+| E10 | [Attendees](stories/E10-attendees.md)                                   | 19, 20     | Done   |
+| E11 | [One vote per group](stories/E11-one-vote-per-group.md)                 | 21         | Done   |
+| E12 | [Budget as a voting section](stories/E12-budget-as-a-voting-section.md) | 22, 23, 24 | Done   |
 
 ## Stories
 
@@ -87,19 +87,19 @@ table. Reasoning in
 
 ### Groups and budget
 
-| ID    | Story                                             | Status      | Commit | Date |
-| ----- | ------------------------------------------------- | ----------- | ------ | ---- |
-| E9.1  | Group members into families                       | Not started |        |      |
-| E9.2  | Per-trip voting unit: per person or per family    | Not started |        |      |
-| E10.1 | Record everyone travelling, app or no app         | Not started |        |      |
-| E10.2 | Headcount: adults, children, pets                 | Not started |        |      |
-| E11.1 | A family casts one vote                           | Not started |        |      |
-| E11.2 | Moving between groups leaves the votes correct    | Not started |        |      |
-| E11.3 | "x/y voted" counts the things that vote           | Not started |        |      |
-| E12.1 | Budget proposals are voted like anything else     | Not started |        |      |
-| E12.2 | Amounts have a scope and are compared fairly      | Not started |        |      |
-| E12.3 | Caps are personal; the group is told, not the sum | Not started |        |      |
-| E12.4 | The expense journal is removed cleanly            | Not started |        |      |
+| ID    | Story                                             | Status | Commit     | Date       |
+| ----- | ------------------------------------------------- | ------ | ---------- | ---------- |
+| E9.1  | Group members into families                       | Done   | `…c93c197` | 2026-08-22 |
+| E9.2  | Per-trip voting unit: per person or per family    | Done   | `…c93c197` | 2026-08-22 |
+| E10.1 | Record everyone travelling, app or no app         | Done   | `…c93c197` | 2026-08-22 |
+| E10.2 | Headcount: adults, children, pets                 | Done   | `…c93c197` | 2026-08-22 |
+| E11.1 | A family casts one vote                           | Done   | `…c93c197` | 2026-08-22 |
+| E11.2 | Moving between groups leaves the votes correct    | Done   | `…c93c197` | 2026-08-22 |
+| E11.3 | "x/y voted" counts the things that vote           | Done   | `…c93c197` | 2026-08-22 |
+| E12.1 | Budget proposals are voted like anything else     | Done   | `…c93c197` | 2026-08-22 |
+| E12.2 | Amounts have a scope and are compared fairly      | Done   | `…c93c197` | 2026-08-22 |
+| E12.3 | Caps are personal; the group is told, not the sum | Done   | `…c93c197` | 2026-08-22 |
+| E12.4 | The expense journal is removed cleanly            | Done   | `…c93c197` | 2026-08-22 |
 
 ## Open questions
 

@@ -26,6 +26,8 @@ or operated. Skip it for routine feature work.
 | [0013](0013-optional-scraper-fallback-for-blocked-listings.md)   | An optional scraper fallback for blocked listings     | Accepted |
 | [0014](0014-scraper-vendor-identity-comes-from-configuration.md) | A scraper vendor is whatever configuration says it is | Accepted |
 | [0015](0015-demo-data-lives-in-its-own-namespace.md)             | Demo data lives in its own namespace                  | Accepted |
+| [0016](0016-one-vote-per-group.md)                               | One vote per group is enforced when a vote is written | Accepted |
+| [0017](0017-budget-is-a-proposal-not-a-ledger.md)                | Budget is a proposal type, not an expense ledger      | Accepted |
 
 ## Template
 

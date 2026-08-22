@@ -25,7 +25,13 @@ export const tripsRouter = router({
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       await requireTripRole(input.id, ctx.user.id, "watcher");
-      return db.getTrip(input.id);
+      const trip = await db.getTrip(input.id);
+      if (!trip) return trip;
+      // `voterCount` is derived once, here, rather than per screen. Two
+      // derivations of one number is how one page says "2/4 voted" while the
+      // next says "2/3" — and with groups there are now two right answers
+      // depending on the trip's voting unit.
+      return { ...trip, voterCount: await db.getTripVoterCount(input.id) };
     }),
   /** The caller's own role, so the UI knows which controls to render. */
   myRole: protectedProcedure
@@ -140,6 +146,14 @@ export const tripsRouter = router({
         joinedVia: "creator",
         respondedAt: new Date(),
       });
+      // A member is an attendee too, so headcount is one number rather than
+      // "members plus attendees, mind the overlap".
+      await db.upsertMemberAttendee(
+        tripId,
+        ctx.user.id,
+        ctx.user.name || "Member",
+        null
+      );
       return { id: tripId, inviteCode };
     }),
   update: protectedProcedure
@@ -257,6 +271,12 @@ export const tripsRouter = router({
         joinedVia: "creator",
         respondedAt: new Date(),
       });
+      await db.upsertMemberAttendee(
+        tripId,
+        ctx.user.id,
+        ctx.user.name || "Member",
+        null
+      );
 
       await db.cloneTripContents(input.id, tripId, ctx.user.id);
       await db.recordActivity({
@@ -311,6 +331,14 @@ export const tripsRouter = router({
         invitedBy,
         respondedAt: new Date(),
       });
+      // Idempotent: a re-accepted invite must not count somebody twice, which
+      // a partial unique index on (tripId, memberUserId) also enforces.
+      await db.upsertMemberAttendee(
+        trip.id,
+        ctx.user.id,
+        ctx.user.name || "Member",
+        null
+      );
 
       await db.recordActivity({
         tripId: trip.id,
@@ -426,6 +454,9 @@ export const tripsRouter = router({
           });
       }
       await db.removeTripMember(input.tripId, input.userId);
+      // Their attendee row goes with them: leaving it behind would keep them in
+      // the headcount and in every per-person figure derived from it.
+      await db.deleteMemberAttendee(input.tripId, input.userId);
       await db.recordActivity({
         tripId: input.tripId,
         actorUserId: ctx.user.id,
@@ -443,8 +474,21 @@ export const tripsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
+      const member = await requireTripRole(
+        input.tripId,
+        ctx.user.id,
+        "tripmate"
+      );
+      // A cap belongs to whatever is being charged. In a group that is the
+      // group — one household, one wallet — and setting a personal one there
+      // would be a number nothing reads.
+      if (member.groupId != null) {
+        await db.updateTripGroup(member.groupId, {
+          budgetMax: input.budgetMax,
+        });
+        return { success: true, appliedTo: "group" as const };
+      }
       await db.updateMemberBudget(input.tripId, ctx.user.id, input.budgetMax);
-      return { success: true };
+      return { success: true, appliedTo: "member" as const };
     }),
 });

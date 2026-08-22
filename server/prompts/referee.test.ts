@@ -52,7 +52,8 @@ function input(over: Partial<RefereeInput> = {}): RefereeInput {
     phase: "accommodation",
     members: [],
     preferences: [],
-    budgetItems: [],
+    budgetProposals: [],
+    headcount: { adults: 0, children: 0, groups: 0 },
     dateProposals: [],
     destinations: [],
     accommodations: [],
@@ -154,7 +155,25 @@ describe("a stay the group cannot afford", () => {
         member(2, "Priya", { budgetMax: "800.00" }),
         member(3, "Tom"),
       ],
-      budgetItems: [{ amount: "600.00" }, { amount: "150.50" }],
+      // Two budgets on the table, written in different units, so the
+      // normalisation the referee reasons over is exercised rather than
+      // assumed. Three adults: 250 each is a 750 trip.
+      budgetProposals: [
+        {
+          title: "Modest",
+          amount: "250.00",
+          scope: "per_person",
+          votes: [{ vote: "love" }, { vote: "fine" }],
+        },
+        {
+          title: "Comfortable",
+          amount: "3600.00",
+          scope: "trip_total",
+          selected: true,
+          votes: [{ vote: "love" }],
+        },
+      ],
+      headcount: { adults: 3, children: 0, groups: 3 },
       accommodations: [
         {
           name: "Grand Hotel Amrâth",
@@ -186,10 +205,18 @@ describe("a stay the group cannot afford", () => {
     );
   });
 
-  it("totals logged spending without rounding it away", () => {
-    expect(context.budget.loggedTotal).toBe(750.5);
-    expect(context.budget.loggedPerPerson).toBe(250.17);
+  it("normalises every proposal to one comparable trip total", () => {
+    // The whole point of the scope: 250 per person and 3,600 for the trip are
+    // not comparable until one of them has been converted, and the model must
+    // never be the thing doing the converting.
+    expect(context.budget.proposals.map(p => p.tripTotal)).toEqual([750, 3600]);
+    expect(context.budget.proposals[0].perPerson).toBe(250);
+    expect(context.budget.finalisedTotal).toBe(3600);
     expect(context.budget.currency).toBe("EUR");
+  });
+
+  it("carries no trace of the expense journal it replaced", () => {
+    expect(JSON.stringify(context.budget)).not.toContain("logged");
   });
 
   it("tells the model to quote those figures rather than recompute them", () => {

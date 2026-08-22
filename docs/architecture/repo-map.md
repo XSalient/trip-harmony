@@ -76,10 +76,11 @@ open only its domain file.
 | `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in                   |
 | `trips.ts`          |   450 | Trips, membership, roles, invites, delete and clone                   |
 | `contacts.ts`       |    96 | A user's private address book, incl. saving a fellow traveller        |
+| `groups.ts`         |     — | Families/households, the trip's voting unit, and attendees            |
 | `dates.ts`          |   223 | Date proposals, votes, natural-language parsing                       |
 | `destinations.ts`   |   254 | Suggestions and votes — the UI calls the section "Suggestions"        |
 | `accommodations.ts` |   354 | Stays, votes, URL import, match refresh                               |
-| `budget.ts`         |    74 | Expenses and summaries                                                |
+| `budget.ts`         |     — | Budget proposals, votes and the normalised figures                    |
 | `referee.ts`        |   183 | AI mediation. The prompt itself is in `server/prompts/referee.ts`     |
 | `preferences.ts`    |    36 | Per-trip member requirements                                          |
 | `comments.ts`       |    41 | Comment threads                                                       |
@@ -114,10 +115,11 @@ it. Don't add features there expecting anyone to see them.
 | File                     | What it is                                             |
 | ------------------------ | ------------------------------------------------------ |
 | `shared/const.ts`        | Cookie name, TTLs, shared error messages               |
+| `shared/budget.ts`       | Budget scopes and the arithmetic both sides share      |
 | `shared/roles.ts`        | Trip roles and their ordering — imported by both sides |
 | `shared/types.ts`        | Types used by both client and server                   |
 | `shared/_core/errors.ts` | `HttpError` and constructors                           |
-| `drizzle/schema.ts`      | All 21 tables and enums — the canonical data model     |
+| `drizzle/schema.ts`      | Every table and enum — the canonical data model        |
 
 ## Deliberately noisy — never read
 

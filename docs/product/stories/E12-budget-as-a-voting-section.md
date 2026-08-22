@@ -1,7 +1,7 @@
 # E12 — Budget as a voting section
 
 - **Covers request items:** 22, 23, 24
-- **Status:** Not started
+- **Status:** Done
 - **Depends on:** E9 (a budget can be per group), E10 (per-person needs a
   headcount), E11 (a budget vote is one per group like every other vote)
 
@@ -44,16 +44,16 @@ Finalising a second un-finalises the first.
 
 **Acceptance criteria**
 
-- [ ] I can propose a budget with a title, amount, currency and one of the four
+- [x] I can propose a budget with a title, amount, currency and one of the four
       scopes, and it appears with my Yes already counted.
-- [ ] Voting, unvoting, comments, "x/y voted", the vote score and its
+- [x] Voting, unvoting, comments, "x/y voted", the vote score and its
       explanation dialog behave exactly as they do on Suggestions — including
       one vote per group (E11).
-- [ ] An admin can finalise a budget; finalising a second un-finalises the
+- [x] An admin can finalise a budget; finalising a second un-finalises the
       first; a tripmate and a watcher cannot finalise.
-- [ ] A locked budget cannot be edited or deleted (the E6.1 rule).
-- [ ] Only the proposer or an admin can edit or delete an unlocked one.
-- [ ] A watcher's `budget.list` payload carries no proposer, no vote authorship,
+- [x] A locked budget cannot be edited or deleted (the E6.1 rule).
+- [x] Only the proposer or an admin can edit or delete an unlocked one.
+- [x] A watcher's `budget.list` payload carries no proposer, no vote authorship,
       no caps and no over-cap count.
 
 **Touches**
@@ -97,13 +97,13 @@ helper, or proposing quietly overrides a groupmate's vote.
 
 **Acceptance criteria**
 
-- [ ] Every proposal card shows its stated figure and its normalised trip total.
-- [ ] On a trip with families, I see **my group's share** of each proposal.
-- [ ] A group's share is computed from chargeable heads — adults + children —
+- [x] Every proposal card shows its stated figure and its normalised trip total.
+- [x] On a trip with families, I see **my group's share** of each proposal.
+- [x] A group's share is computed from chargeable heads — adults + children —
       and **pets are never chargeable**.
-- [ ] The shares of all groups sum to the trip total.
-- [ ] A trip with no attendees renders `0`, never `NaN` or `Infinity`.
-- [ ] Proposals sort by vote score, as every other section does.
+- [x] The shares of all groups sum to the trip total.
+- [x] A trip with no attendees renders `0`, never `NaN` or `Infinity`.
+- [x] Proposals sort by vote score, as every other section does.
 
 **Touches**
 
@@ -130,14 +130,14 @@ them later is a change to one function.
 
 **Acceptance criteria**
 
-- [ ] A group's cap (`trip_groups.budgetMax`, E9) supersedes the member cap
+- [x] A group's cap (`trip_groups.budgetMax`, E9) supersedes the member cap
       (`tripMembers.budgetMax`) for anyone in that group; an ungrouped member
       keeps their own.
-- [ ] The cap dialog says which of the two it is setting.
-- [ ] The screen shows **how many** voters are over their cap against the
+- [x] The cap dialog says which of the two it is setting.
+- [x] The screen shows **how many** voters are over their cap against the
       leading proposal — never who, never by how much.
-- [ ] A watcher sees no cap and no over-cap count.
-- [ ] Finalising a budget notifies the voters who are over their resolved cap,
+- [x] A watcher sees no cap and no over-cap count.
+- [x] Finalising a budget notifies the voters who are over their resolved cap,
       **once**, and nobody else.
 
 **Touches**
@@ -166,12 +166,12 @@ currency is right there.
 
 **Acceptance criteria**
 
-- [ ] `budget_items` and the `budget_category` and `split_type` enums are
+- [x] `budget_items` and the `budget_category` and `split_type` enums are
       dropped, in a migration of their own.
-- [ ] No router, page, prompt or test references them.
-- [ ] The changelog and `PROJECT_STATUS.md` both carry the destructive-migration
+- [x] No router, page, prompt or test references them.
+- [x] The changelog and `PROJECT_STATUS.md` both carry the destructive-migration
       warning, in the shape used for 0006 and 0007.
-- [ ] `roleCoverage.test.ts` is updated for budget's new procedures.
+- [x] `roleCoverage.test.ts` is updated for budget's new procedures.
 
 **Touches**
 

@@ -8,6 +8,79 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-22 — Families, headcount, and a budget that gets decided
+
+### Added
+
+- **A trip can be organised as families.** Groups (`trip_groups`) hold the
+  members of one household; a member belongs to at most one, and belonging to
+  none is normal — an ungrouped member is a group of one everywhere it matters.
+  Admins create, rename and delete groups and move people between them on the
+  members page. Deleting a group never removes anybody: it clears the label and
+  leaves everyone on the trip.
+
+- **One vote per family, as a per-trip setting.** `votingUnit` is `member` by
+  default — what every trip did before — or `group`, where a family casts one
+  vote that any tripmate in it may cast or change, attributed to whoever last
+  did. Enforced when a vote is written rather than by a column on four vote
+  tables ([ADR 0016](adr/0016-one-vote-per-group.md)). Moving somebody between
+  groups reconciles every proposal on the trip and records what it dropped;
+  switching a live trip is **not** retroactive — votes already cast stand.
+
+- **"x/y voted" counts voters, not people.** The denominator is groups plus
+  ungrouped tripmates in group mode, accepted tripmates otherwise, and
+  **watchers are in neither** — they never could vote, so counting them made the
+  tally unreachable. It is derived once on the server and returned by
+  `trips.get`; four screens were each deriving their own, and all four counted
+  watchers.
+
+- **Everyone who is coming is recorded, app account or not.** `trip_attendees`
+  holds adults, children with ages, and pets — no login, no vote, no
+  notifications. Members are attendees too, one row each written when they
+  accept, so headcount is one number rather than "members plus guests, mind the
+  overlap". A pet is never asked for an age and is **never a chargeable head**:
+  `getTripHeadcount` is the only place headcount is computed, and every
+  per-person figure divides by it.
+
+### Changed
+
+- **Budget is a voting section.** Propose a figure, vote Yes/Maybe/No, an admin
+  finalises — the same shape as Dates, Suggestions and Accommodations, with the
+  same comments, vote score, "x/y voted" and finalise attribution. A proposal
+  carries a **scope** (total for the trip / per person / per adult / per family)
+  and every card shows both what was written and its normalised trip total, so
+  figures in different units can be compared. **Exactly one budget is finalised
+  at a time** — budget follows dates, not places.
+
+- **A spending cap belongs to the household.** A group's `budgetMax` supersedes
+  its members'; the cap dialog says which it is setting. The screen reports how
+  many voters are above their cap against the leading proposal — never who,
+  never by how much, and never to a watcher. The old alert fired on every logged
+  expense and quoted the member's own ceiling back at them, in dollars, whatever
+  the trip's currency; it now fires once, on finalise, in the trip's currency.
+
+- **`budget.list` goes through the watcher projection**, which the journal never
+  did. A watcher gets group names, headcount and vote counts; no ages, no caps,
+  no over-cap count, no proposer and no vote authorship.
+
+- **The AI Referee reasons about budgets, not receipts.** Its facts are the
+  proposals on the table, each normalised to one trip total, what is finalised,
+  and the tightest cap in the group.
+
+### Removed
+
+- **The expense journal is gone**, along with `budget_items` and the
+  `budget_category` and `split_type` enums (migration
+  `0011_drop_budget_items.sql`). It recorded what had been spent on a trip that
+  had not happened, and its per-person split divided by member count — so a
+  family of four that logged one expense counted as one person.
+  **This migration is destructive and irreversible.** It ships last and alone so
+  it can be held back for a release; take a backup first if any production row
+  is worth keeping. Reasoning in
+  [ADR 0017](adr/0017-budget-is-a-proposal-not-a-ledger.md).
+
+---
+
 ## 2026-08-19 — Not a travel planner
 
 ### Removed

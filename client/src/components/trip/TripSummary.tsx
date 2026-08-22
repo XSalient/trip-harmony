@@ -47,6 +47,8 @@ export default function TripSummary({
   totalSuggestions,
   lockedAccommodations,
   totalAccommodations,
+  budget,
+  headcount,
   open,
   onToggle,
 }: {
@@ -57,6 +59,14 @@ export default function TripSummary({
   totalSuggestions: number;
   lockedAccommodations: number;
   totalAccommodations: number;
+  /** The finalised budget as one trip total, when the group has settled it. */
+  budget?: { currency: string; tripTotal: number } | null;
+  /** Adults and children. Pets are shown but never divided by. */
+  headcount?: {
+    adults: number;
+    children: number;
+    pets: number;
+  } | null;
   open: boolean;
   onToggle: () => void;
 }) {
@@ -66,6 +76,14 @@ export default function TripSummary({
         "d MMM yyyy"
       )}`
     : "Not finalised";
+
+  const who = (h: { adults: number; children: number; pets: number }) => {
+    const parts = [`${h.adults} ${h.adults === 1 ? "adult" : "adults"}`];
+    if (h.children)
+      parts.push(`${h.children} ${h.children === 1 ? "child" : "children"}`);
+    if (h.pets) parts.push(`${h.pets} ${h.pets === 1 ? "pet" : "pets"}`);
+    return parts.join(" · ");
+  };
 
   const countOf = (locked: number, total: number) =>
     locked > 0 ? `${locked} of ${total} finalised` : `${total} proposed`;
@@ -106,6 +124,24 @@ export default function TripSummary({
               href={`/trips/${tripId}/suggestions`}
               done={lockedSuggestions > 0}
             />
+            <Line
+              label="Budget"
+              value={
+                budget
+                  ? `${budget.currency} ${Math.round(budget.tripTotal).toLocaleString()}`
+                  : "Not finalised"
+              }
+              href={`/trips/${tripId}/budget`}
+              done={Boolean(budget)}
+            />
+            {headcount && (
+              <Line
+                label="Coming"
+                value={who(headcount)}
+                href={`/trips/${tripId}/members`}
+                done={headcount.adults + headcount.children > 0}
+              />
+            )}
           </div>
         )}
       </CardContent>

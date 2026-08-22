@@ -50,6 +50,10 @@ import {
   Clock,
   Check,
   X,
+  Users,
+  PawPrint,
+  Baby,
+  Plus,
 } from "lucide-react";
 import {
   TRIP_ROLES,
@@ -98,6 +102,19 @@ function JoinedVia({
   return <span className="text-muted-foreground/70">Not recorded</span>;
 }
 
+/** "2 adults · 2 children" for one group, from the single headcount source. */
+function headcountLabel(headcount: any, groupId: number | null): string {
+  const h = headcount?.byGroup?.[groupId == null ? "none" : String(groupId)];
+  if (!h) return "";
+  const parts: string[] = [];
+  if (h.adults)
+    parts.push(`${h.adults} ${h.adults === 1 ? "adult" : "adults"}`);
+  if (h.children)
+    parts.push(`${h.children} ${h.children === 1 ? "child" : "children"}`);
+  if (h.pets) parts.push(`${h.pets} ${h.pets === 1 ? "pet" : "pets"}`);
+  return parts.join(" · ");
+}
+
 export default function TripMembers() {
   const { user } = useAuth({ redirectOnUnauthenticated: true });
   const params = useParams<{ id: string }>();
@@ -124,6 +141,37 @@ export default function TripMembers() {
   const { data: contacts } = trpc.contacts.list.useQuery(undefined, {
     enabled: canSeeDetails,
   });
+
+  const { data: groups } = trpc.groups.list.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const { data: attendees } = trpc.groups.attendees.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+  const { data: headcount } = trpc.groups.headcount.useQuery(
+    { tripId },
+    { enabled: tripId > 0 }
+  );
+
+  const createGroup = trpc.groups.create.useMutation();
+  const renameGroup = trpc.groups.rename.useMutation();
+  const removeGroup = trpc.groups.remove.useMutation();
+  const assignMember = trpc.groups.assignMember.useMutation();
+  const setVotingUnit = trpc.groups.setVotingUnit.useMutation();
+  const addAttendee = trpc.groups.addAttendee.useMutation();
+  const removeAttendee = trpc.groups.removeAttendee.useMutation();
+
+  const [newGroupName, setNewGroupName] = useState("");
+  const [attendeeFor, setAttendeeFor] = useState<number | null | undefined>(
+    undefined
+  );
+  const [attendeeName, setAttendeeName] = useState("");
+  const [attendeeKind, setAttendeeKind] = useState<"adult" | "child" | "pet">(
+    "child"
+  );
+  const [attendeeAge, setAttendeeAge] = useState("");
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<TripRole>("tripmate");
@@ -166,6 +214,13 @@ export default function TripMembers() {
   );
 
   const accepted = members?.filter((m: any) => m.status === "accepted") ?? [];
+  const myGroupId =
+    accepted.find((m: any) => m.userId === user?.id)?.groupId ?? null;
+  const groupName = (id: number) =>
+    (groups ?? []).find((g: any) => g.id === id)?.name ?? "Group";
+  /** Admins act on any group; a tripmate acts on their own and nobody else's. */
+  const canAddTo = (groupId: number | null) =>
+    isAdmin || (groupId != null && groupId === myGroupId);
   const pendingInvites =
     invites?.filter((i: any) => i.status === "pending") ?? [];
   const answeredInvites =
@@ -185,6 +240,109 @@ export default function TripMembers() {
       utils.trips.invites.invalidate({ tripId });
     } catch (e: any) {
       toast.error(e?.message || "Failed to send invite");
+    }
+  };
+
+  const refreshGroups = () => {
+    utils.groups.list.invalidate({ tripId });
+    utils.groups.attendees.invalidate({ tripId });
+    utils.groups.headcount.invalidate({ tripId });
+    utils.trips.members.invalidate({ tripId });
+    // The denominator on every proposal screen changes with the grouping, and
+    // it comes from `trips.get`.
+    utils.trips.get.invalidate({ id: tripId });
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+    try {
+      await createGroup.mutateAsync({ tripId, name: newGroupName.trim() });
+      setNewGroupName("");
+      refreshGroups();
+      toast.success("Group added");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't add that group");
+    }
+  };
+
+  const handleRenameGroup = async (id: number, current: string) => {
+    const name = window.prompt("Rename this group", current);
+    if (!name || name === current) return;
+    try {
+      await renameGroup.mutateAsync({ id, name });
+      refreshGroups();
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't rename that group");
+    }
+  };
+
+  const handleRemoveGroup = async (id: number) => {
+    try {
+      await removeGroup.mutateAsync({ id });
+      refreshGroups();
+      toast.success("Group removed. Everyone in it is still on the trip.");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't remove that group");
+    }
+  };
+
+  const handleAssign = async (userId: number, groupId: number | null) => {
+    try {
+      const res = await assignMember.mutateAsync({ tripId, userId, groupId });
+      refreshGroups();
+      // Say it out loud. A vote disappearing from a proposal with no
+      // explanation is worse than the move itself.
+      if (res.votesSuperseded > 0)
+        toast.success(
+          `Moved. ${res.votesSuperseded} duplicate ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped, so each group holds one.`
+        );
+      else toast.success("Moved");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't move them");
+    }
+  };
+
+  const handleVotingUnit = async (unit: "member" | "group") => {
+    try {
+      await setVotingUnit.mutateAsync({ tripId, votingUnit: unit });
+      refreshGroups();
+      toast.success(
+        unit === "group"
+          ? "Each group now casts one vote. Votes already cast are untouched — the first new vote in a group replaces its others."
+          : "Everyone votes for themselves again."
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't change that");
+    }
+  };
+
+  const handleAddAttendee = async () => {
+    if (!attendeeName.trim()) return toast.error("A name is needed");
+    try {
+      await addAttendee.mutateAsync({
+        tripId,
+        groupId: attendeeFor ?? null,
+        name: attendeeName.trim(),
+        kind: attendeeKind,
+        age:
+          attendeeKind === "pet" || !attendeeAge ? null : Number(attendeeAge),
+      });
+      setAttendeeName("");
+      setAttendeeAge("");
+      setAttendeeFor(undefined);
+      refreshGroups();
+      toast.success("Added to the trip");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't add them");
+    }
+  };
+
+  const handleRemoveAttendee = async (id: number) => {
+    try {
+      await removeAttendee.mutateAsync({ id });
+      refreshGroups();
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't remove them");
     }
   };
 
@@ -223,6 +381,227 @@ export default function TripMembers() {
   return (
     <AppShell title="Members" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-5">
+        {/* ── Who's coming ──
+            Members are attendees too, so this is one count and not "members
+            plus guests, mind the overlap". Pets are counted and shown, and
+            never divided by. */}
+        {headcount && (
+          <Card className="bg-muted/40 border-border/50">
+            <CardContent className="p-3 flex items-center gap-2 text-sm">
+              <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span>
+                {headcount.adults} {headcount.adults === 1 ? "adult" : "adults"}
+                {headcount.children > 0 &&
+                  ` · ${headcount.children} ${headcount.children === 1 ? "child" : "children"}`}
+                {headcount.pets > 0 &&
+                  ` · ${headcount.pets} ${headcount.pets === 1 ? "pet" : "pets"}`}
+              </span>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Groups ── */}
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            Families and households
+          </h2>
+
+          {isAdmin && (
+            <Card className="border-border/50">
+              <CardContent className="p-3 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add a group, e.g. The Patels"
+                    value={newGroupName}
+                    onChange={e => setNewGroupName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleCreateGroup()}
+                    className="rounded-lg h-9"
+                  />
+                  <Button
+                    size="sm"
+                    className="rounded-lg shrink-0"
+                    onClick={handleCreateGroup}
+                    disabled={createGroup.isPending}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* The switch lives here, beside the groups, because it is a
+                    statement about the people and this is where its effect
+                    can be seen. */}
+                <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/50">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">One vote per family</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {(trip as any)?.votingUnit === "group"
+                        ? "Each group casts one vote. Anyone in it can cast or change it."
+                        : "Everyone votes for themselves."}
+                    </p>
+                  </div>
+                  <Button
+                    variant={
+                      (trip as any)?.votingUnit === "group"
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    className="rounded-lg shrink-0 text-xs h-8"
+                    onClick={() =>
+                      handleVotingUnit(
+                        (trip as any)?.votingUnit === "group"
+                          ? "member"
+                          : "group"
+                      )
+                    }
+                    disabled={setVotingUnit.isPending}
+                  >
+                    {(trip as any)?.votingUnit === "group" ? "On" : "Off"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(groups ?? []).length === 0 && !isAdmin && (
+            <p className="text-sm text-muted-foreground">
+              Nobody is grouped on this trip.
+            </p>
+          )}
+
+          {(groups ?? []).map((g: any) => (
+            <Card key={g.id} className="border-border/50">
+              <CardContent className="p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-sm font-medium flex-1 truncate">
+                    {g.name}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground shrink-0">
+                    {headcountLabel(headcount, g.id)}
+                  </span>
+                  {isAdmin && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => handleRenameGroup(g.id, g.name)}
+                          className="text-xs"
+                        >
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleRemoveGroup(g.id)}
+                          className="text-xs text-destructive focus:text-destructive gap-2"
+                        >
+                          <Trash2 className="h-3 w-3" /> Remove group
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  {(attendees ?? [])
+                    .filter((a: any) => a.groupId === g.id)
+                    .map((a: any) => (
+                      <span
+                        key={a.id}
+                        className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
+                      >
+                        {a.kind === "pet" ? (
+                          <PawPrint className="h-3 w-3 text-muted-foreground" />
+                        ) : a.kind === "child" ? (
+                          <Baby className="h-3 w-3 text-muted-foreground" />
+                        ) : null}
+                        {a.name}
+                        {/* Never for a pet, and never to a watcher — the
+                            server strips it either way. */}
+                        {a.age != null && (
+                          <span className="text-muted-foreground">{a.age}</span>
+                        )}
+                        {canAddTo(g.id) && a.memberUserId == null && (
+                          <button
+                            onClick={() => handleRemoveAttendee(a.id)}
+                            className="text-muted-foreground hover:text-destructive"
+                            aria-label={`Remove ${a.name}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  {canAddTo(g.id) && (
+                    <button
+                      onClick={() => setAttendeeFor(g.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Plus className="h-3 w-3" /> Add someone
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Ungrouped is a normal state, not an error: a trip that never wanted
+            families still has everybody here. */}
+        {(attendees ?? []).some((a: any) => a.groupId == null) && (
+          <Card className="border-border/50 border-dashed">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-sm font-medium flex-1">
+                  Not in a group
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {headcountLabel(headcount, null)}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {(attendees ?? [])
+                  .filter((a: any) => a.groupId == null)
+                  .map((a: any) => (
+                    <span
+                      key={a.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
+                    >
+                      {a.kind === "pet" ? (
+                        <PawPrint className="h-3 w-3 text-muted-foreground" />
+                      ) : a.kind === "child" ? (
+                        <Baby className="h-3 w-3 text-muted-foreground" />
+                      ) : null}
+                      {a.name}
+                      {a.age != null && (
+                        <span className="text-muted-foreground">{a.age}</span>
+                      )}
+                      {isAdmin && a.memberUserId == null && (
+                        <button
+                          onClick={() => handleRemoveAttendee(a.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`Remove ${a.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                {isAdmin && (
+                  <button
+                    onClick={() => setAttendeeFor(null)}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    <Plus className="h-3 w-3" /> Add someone
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* ── Members ── */}
         <div className="space-y-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -245,6 +624,11 @@ export default function TripMembers() {
                         )}
                       </span>
                       <RoleBadge role={m.role} />
+                      {m.groupId != null && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {groupName(m.groupId)}
+                        </Badge>
+                      )}
                     </div>
                     {/* Watchers get names and roles; everything below is detail. */}
                     {canSeeDetails && (
@@ -300,6 +684,24 @@ export default function TripMembers() {
                           ))}
                         {isAdmin && (
                           <>
+                            {(groups ?? []).map((g: any) => (
+                              <DropdownMenuItem
+                                key={`g${g.id}`}
+                                disabled={m.groupId === g.id}
+                                onClick={() => handleAssign(m.userId, g.id)}
+                                className="text-xs"
+                              >
+                                Move to {g.name}
+                              </DropdownMenuItem>
+                            ))}
+                            {m.groupId != null && (
+                              <DropdownMenuItem
+                                onClick={() => handleAssign(m.userId, null)}
+                                className="text-xs"
+                              >
+                                Remove from group
+                              </DropdownMenuItem>
+                            )}
                             {TRIP_ROLES.map(r => (
                               <DropdownMenuItem
                                 key={r}
@@ -552,6 +954,71 @@ export default function TripMembers() {
               })}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      {/* Add someone with no account: a child, a partner, the dog. */}
+      <Dialog
+        open={attendeeFor !== undefined}
+        onOpenChange={open => !open && setAttendeeFor(undefined)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add someone to the trip</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-sm text-muted-foreground">
+              They are counted in the headcount and in what the trip costs. They
+              get no login, no vote and no emails.
+            </p>
+            <div>
+              <Label className="text-xs">Name</Label>
+              <Input
+                value={attendeeName}
+                onChange={e => setAttendeeName(e.target.value)}
+                className="rounded-lg mt-1"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">What are they?</Label>
+              <div className="grid grid-cols-3 gap-1.5 mt-1">
+                {(["adult", "child", "pet"] as const).map(k => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setAttendeeKind(k)}
+                    className={`rounded-lg border px-2 py-1.5 text-xs capitalize transition-colors ${
+                      attendeeKind === k
+                        ? "border-primary bg-primary/10 text-primary font-medium"
+                        : "border-border/60 text-muted-foreground hover:border-border"
+                    }`}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* No age for a pet — the question does not apply, and the server
+                drops one even if a caller sends it. */}
+            {attendeeKind !== "pet" && (
+              <div>
+                <Label className="text-xs">Age (optional)</Label>
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={attendeeAge}
+                  onChange={e => setAttendeeAge(e.target.value)}
+                  className="rounded-lg mt-1"
+                />
+              </div>
+            )}
+            <Button
+              onClick={handleAddAttendee}
+              className="w-full rounded-lg"
+              disabled={addAttendee.isPending}
+            >
+              Add them
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </AppShell>

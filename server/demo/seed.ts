@@ -27,7 +27,10 @@ import {
   accommodationVotes,
   accommodations,
   activityEvents,
-  budgetItems,
+  budgetProposals,
+  budgetVotes,
+  tripGroups,
+  tripAttendees,
   contacts,
   dateProposals,
   dateVotes,
@@ -47,6 +50,7 @@ import {
   DEMO_INVITE_CODE_PREFIX,
   DEMO_OPEN_ID_PREFIX,
 } from "../../shared/demo.js";
+import { reconcileGroupVotes } from "../db.js";
 import {
   PEOPLE,
   PRIMARY_PERSON,
@@ -266,11 +270,34 @@ async function seedTrip(
       endDate: trip.endsInDays !== undefined ? inDays(trip.endsInDays) : null,
       currency: trip.currency,
       totalBudget: trip.totalBudget,
+      votingUnit: trip.votingUnit ?? "member",
       createdAt: daysAgo(trip.createdDaysAgo),
       updatedAt: daysAgo(Math.max(0.1, trip.createdDaysAgo - 30)),
     })
     .returning({ id: trips.id });
   const tripId = tripRow.id;
+
+  // --- Groups and attendees ------------------------------------------------
+
+  // Groups come before members, because a member row carries its groupId.
+  const groupIds = new Map<string, number>();
+  for (const group of trip.groups ?? []) {
+    const [row] = await drizzleDb
+      .insert(tripGroups)
+      .values({
+        tripId,
+        name: group.name,
+        budgetMax: group.budgetMax,
+        createdAt: daysAgo(trip.createdDaysAgo),
+      })
+      .returning({ id: tripGroups.id });
+    groupIds.set(group.key, row.id);
+    bump("groups");
+  }
+  const groupOfPerson = new Map<string, number>();
+  for (const group of trip.groups ?? [])
+    for (const person of group.members)
+      groupOfPerson.set(person, groupIds.get(group.key)!);
 
   // --- Members, invites, preferences ---------------------------------------
 
@@ -280,6 +307,7 @@ async function seedTrip(
       userId: idOf(people, member.person),
       role: member.role,
       status: member.status,
+      groupId: groupOfPerson.get(member.person) ?? null,
       budgetMax: member.budgetMax,
       invitedBy: member.invitedBy ? idOf(people, member.invitedBy) : null,
       joinedVia: member.joinedVia,
@@ -290,6 +318,20 @@ async function seedTrip(
       joinedAt: daysAgo(member.joinedDaysAgo),
     });
     bump("members");
+
+    // Members are attendees too, so the headcount is one number. Matches what
+    // `trips.join` does for a real acceptance.
+    if (member.status === "accepted") {
+      await drizzleDb.insert(tripAttendees).values({
+        tripId,
+        groupId: groupOfPerson.get(member.person) ?? null,
+        memberUserId: idOf(people, member.person),
+        name: PEOPLE.find(p => p.key === member.person)!.name,
+        kind: "adult",
+        createdAt: daysAgo(member.joinedDaysAgo),
+      });
+      bump("attendees");
+    }
 
     if (member.invitedBy) {
       record(
@@ -310,6 +352,20 @@ async function seedTrip(
         { type: "member", id: idOf(people, member.person) }
       );
     }
+  }
+
+  // Everyone else who is coming: children, and one dog with no age.
+  for (const attendee of trip.attendees ?? []) {
+    await drizzleDb.insert(tripAttendees).values({
+      tripId,
+      groupId: attendee.group ? (groupIds.get(attendee.group) ?? null) : null,
+      name: attendee.name,
+      kind: attendee.kind,
+      age: attendee.kind === "pet" ? null : (attendee.age ?? null),
+      notes: attendee.notes,
+      createdAt: daysAgo(trip.createdDaysAgo),
+    });
+    bump("attendees");
   }
 
   for (const invite of trip.pendingInvites ?? []) {
@@ -357,7 +413,7 @@ async function seedTrip(
   // --- Comments, shared by all three proposal types -------------------------
 
   const seedComments = async (
-    proposalType: "date" | "destination" | "accommodation",
+    proposalType: "date" | "destination" | "accommodation" | "budget",
     proposalId: number,
     comments: DemoComment[] | undefined
   ) => {
@@ -588,19 +644,59 @@ async function seedTrip(
 
   // --- Budget and referee ---------------------------------------------------
 
-  for (const item of trip.budget ?? []) {
-    await drizzleDb.insert(budgetItems).values({
-      tripId,
-      category: item.category,
-      description: item.description,
-      amount: item.amount,
-      currency: trip.currency,
-      paidBy: idOf(people, item.paidBy),
-      splitType: item.splitType ?? "equal",
-      approved: item.approved ?? false,
-      createdAt: daysAgo(item.daysAgo),
-    });
-    bump("budgetItems");
+  for (const proposal of trip.budget ?? []) {
+    const [row] = await drizzleDb
+      .insert(budgetProposals)
+      .values({
+        tripId,
+        proposedBy: idOf(people, proposal.proposedBy),
+        title: proposal.title,
+        amount: proposal.amount,
+        currency: trip.currency,
+        scope: proposal.scope,
+        covers: proposal.covers,
+        selected: proposal.selected ?? false,
+        lockedBy: proposal.lockedBy ? idOf(people, proposal.lockedBy) : null,
+        lockedAt:
+          proposal.lockedDaysAgo !== undefined
+            ? daysAgo(proposal.lockedDaysAgo)
+            : null,
+        createdAt: daysAgo(proposal.createdDaysAgo),
+      })
+      .returning({ id: budgetProposals.id });
+    bump("budgetProposals");
+    record(
+      proposal.proposedBy,
+      "proposal.created",
+      daysAgo(proposal.createdDaysAgo),
+      { type: "budget", id: row.id },
+      { title: proposal.title, scope: proposal.scope }
+    );
+    if (proposal.lockedBy && proposal.lockedDaysAgo !== undefined) {
+      record(
+        proposal.lockedBy,
+        "proposal.locked",
+        daysAgo(proposal.lockedDaysAgo),
+        { type: "budget", id: row.id }
+      );
+    }
+
+    for (const [index, vote] of proposal.votes.entries()) {
+      const timing = voteTiming(vote, proposal.createdDaysAgo, index);
+      await drizzleDb.insert(budgetVotes).values({
+        proposalId: row.id,
+        userId: idOf(people, vote.person),
+        vote: vote.vote,
+        ...timing,
+      });
+      bump("votes");
+      record(vote.person, "vote.cast", timing.createdAt, {
+        type: "budget",
+        id: row.id,
+      });
+    }
+
+    await seedComments("budget", row.id, proposal.comments);
   }
 
   for (const message of trip.referee ?? []) {
@@ -697,6 +793,11 @@ export async function runDemoSeed(options: {
   const seeded: { name: string; id: number }[] = [];
   for (const trip of TRIPS) {
     const { tripId, counts } = await seedTrip(drizzleDb, people, trip);
+    // The story's votes are written row by row, which bypasses the
+    // one-vote-per-group rule the routers enforce. Applying it here means a
+    // demo trip that votes per family never shows a family holding two votes —
+    // which would demonstrate the feature broken.
+    if (trip.votingUnit === "group") await reconcileGroupVotes(tripId);
     seeded.push({ name: trip.name, id: tripId });
     for (const [key, value] of Object.entries(counts)) {
       totals[key] = (totals[key] ?? 0) + value;

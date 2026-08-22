@@ -28,6 +28,11 @@
  * Two AI features looking at the same trip disagreed because one of them was
  * never shown what the other had already found.
  */
+import {
+  perPersonOf,
+  tripTotalOf,
+  type BudgetScope,
+} from "../../shared/budget.js";
 
 /**
  * Identifies the prompt that produced a stored referee message.
@@ -91,7 +96,15 @@ export type RefereeInput = {
   phase: string;
   members: RefereeMemberRow[];
   preferences: Array<{ userId: number; rawText: string }>;
-  budgetItems: Array<{ amount?: string | number | null }>;
+  budgetProposals: Array<{
+    title?: string | null;
+    amount?: string | number | null;
+    scope?: string | null;
+    selected?: boolean;
+    votes?: Array<{ vote: string }> | null;
+  }>;
+  /** Adults, children and voting units. Pets are never in it — see `shared/budget.ts`. */
+  headcount: { adults: number; children: number; groups: number };
   dateProposals: RefereeProposalRow[];
   destinations: RefereeProposalRow[];
   accommodations: RefereeAccommodationRow[];
@@ -153,8 +166,19 @@ export type RefereeContext = {
   budget: {
     currency: string;
     plannedTotal: number | null;
-    loggedTotal: number;
-    loggedPerPerson: number | null;
+    /**
+     * Every budget on the table, each normalised to one trip total so the model
+     * can compare figures that were written per person and per family.
+     */
+    proposals: Array<{
+      title: string;
+      tripTotal: number;
+      perPerson: number | null;
+      scope: string;
+      score: number;
+      finalised: boolean;
+    }>;
+    finalisedTotal: number | null;
     memberCaps: Array<{ name: string; cap: number }>;
     lowestMemberCap: number | null;
   };
@@ -279,9 +303,30 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
     preferences.push(fact);
   }
 
-  const loggedTotal = round2(
-    input.budgetItems.reduce((sum, item) => sum + (num(item.amount) ?? 0), 0)
-  );
+  // Normalised through the same module the screen and the server use, so the
+  // referee cannot quote a figure back that disagrees with the one on the card.
+  const VOTE_WEIGHTS: Record<string, number> = { love: 2, fine: 1, veto: -3 };
+  const budgetFacts = input.budgetProposals.map(p => {
+    const amount = num(p.amount) ?? 0;
+    const scope = (p.scope ?? "trip_total") as BudgetScope;
+    const tripTotal = round2(
+      tripTotalOf(amount, scope, { ...input.headcount, pets: 0 })
+    );
+    return {
+      title: trim(p.title, 120) || "Untitled budget",
+      tripTotal,
+      perPerson: round2(
+        perPersonOf(tripTotal, { ...input.headcount, pets: 0 })
+      ),
+      scope,
+      score: (p.votes ?? []).reduce(
+        (t, v) => t + (VOTE_WEIGHTS[v.vote] ?? 0),
+        0
+      ),
+      finalised: Boolean(p.selected),
+    };
+  });
+  const finalisedTotal = budgetFacts.find(b => b.finalised)?.tripTotal ?? null;
   const memberCaps = accepted
     .map(member => ({
       name: nameOf(member.userId),
@@ -391,9 +436,13 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
   if (memberCaps.length === 0 && memberCount > 0) {
     dataGaps.push("No member has set a personal budget cap.");
   }
-  if (input.budgetItems.length === 0) {
+  if (budgetFacts.length === 0) {
     dataGaps.push(
-      "No spending has been logged, so the budget total below is zero because nothing was entered, not because the trip is cheap."
+      "Nobody has proposed a budget, so there is no agreed figure to reason about — not a figure of zero."
+    );
+  } else if (finalisedTotal === null) {
+    dataGaps.push(
+      "A budget has been proposed but none is finalised, so any total below is a candidate rather than a decision."
     );
   }
 
@@ -408,9 +457,8 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
     budget: {
       currency: input.trip?.currency || "USD",
       plannedTotal: num(input.trip?.totalBudget),
-      loggedTotal,
-      loggedPerPerson:
-        memberCount > 0 ? round2(loggedTotal / memberCount) : null,
+      proposals: budgetFacts,
+      finalisedTotal,
       memberCaps,
       lowestMemberCap: memberCaps.length
         ? Math.min(...memberCaps.map(c => c.cap))
