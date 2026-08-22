@@ -89,17 +89,17 @@ table. Reasoning in
 
 | ID    | Story                                             | Status | Commit     | Date       |
 | ----- | ------------------------------------------------- | ------ | ---------- | ---------- |
-| E9.1  | Group members into families                       | Done   | `…c93c197` | 2026-08-22 |
-| E9.2  | Per-trip voting unit: per person or per family    | Done   | `…c93c197` | 2026-08-22 |
-| E10.1 | Record everyone travelling, app or no app         | Done   | `…c93c197` | 2026-08-22 |
-| E10.2 | Headcount: adults, children, pets                 | Done   | `…c93c197` | 2026-08-22 |
-| E11.1 | A family casts one vote                           | Done   | `…c93c197` | 2026-08-22 |
-| E11.2 | Moving between groups leaves the votes correct    | Done   | `…c93c197` | 2026-08-22 |
-| E11.3 | "x/y voted" counts the things that vote           | Done   | `…c93c197` | 2026-08-22 |
-| E12.1 | Budget proposals are voted like anything else     | Done   | `…c93c197` | 2026-08-22 |
-| E12.2 | Amounts have a scope and are compared fairly      | Done   | `…c93c197` | 2026-08-22 |
-| E12.3 | Caps are personal; the group is told, not the sum | Done   | `…c93c197` | 2026-08-22 |
-| E12.4 | The expense journal is removed cleanly            | Done   | `…c93c197` | 2026-08-22 |
+| E9.1  | Group members into families                       | Done   | `…a2fbb51` | 2026-08-22 |
+| E9.2  | Per-trip voting unit: per person or per family    | Done   | `…a2fbb51` | 2026-08-22 |
+| E10.1 | Record everyone travelling, app or no app         | Done   | `…a2fbb51` | 2026-08-22 |
+| E10.2 | Headcount: adults, children, pets                 | Done   | `…a2fbb51` | 2026-08-22 |
+| E11.1 | A family casts one vote                           | Done   | `…a2fbb51` | 2026-08-22 |
+| E11.2 | Moving between groups leaves the votes correct    | Done   | `…a2fbb51` | 2026-08-22 |
+| E11.3 | "x/y voted" counts the things that vote           | Done   | `…a2fbb51` | 2026-08-22 |
+| E12.1 | Budget proposals are voted like anything else     | Done   | `…a2fbb51` | 2026-08-22 |
+| E12.2 | Amounts have a scope and are compared fairly      | Done   | `…a2fbb51` | 2026-08-22 |
+| E12.3 | Caps are personal; the group is told, not the sum | Done   | `…a2fbb51` | 2026-08-22 |
+| E12.4 | The expense journal is removed cleanly            | Done   | `…a2fbb51` | 2026-08-22 |
 
 ## Open questions
 
