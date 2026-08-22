@@ -55,7 +55,20 @@ export const tripsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      // A tripmate may bring their own family in to *watch*, but not to vote.
+      // On a trip of families the person who knows who is in a household is the
+      // person in it, and having to ask an admin to add your own mother is the
+      // kind of friction that ends with her not being on the trip at all.
+      //
+      // Safe to loosen only because of what a watcher is: they change nothing,
+      // and `getTripVoterCount` leaves them out of every denominator — so this
+      // cannot grow the voting group behind an admin's back. Inviting anyone
+      // who *can* vote stays admin-only, and so does the shared invite link,
+      // which makes tripmates.
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
+      if (input.role !== "watcher")
+        await requireTripRole(input.tripId, ctx.user.id, "admin");
+
       const trip = await db.getTrip(input.tripId);
       if (!trip)
         throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });

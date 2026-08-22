@@ -368,9 +368,15 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
   const accommodations: RefereeAccommodationFact[] = input.accommodations.map(
     stay => {
       const totalPrice = num(stay.totalPrice);
+      // Divided by the people coming, not the people with logins — the same
+      // number `accommodations.create` stores and the budget section uses.
+      // Member count made a family of four look like one person, so the
+      // referee compared a per-head figure that nobody would ever pay against
+      // caps that were set per person.
+      const sleeping = input.headcount.adults + input.headcount.children;
       const perPersonShare =
-        totalPrice !== null && memberCount > 0
-          ? round2(totalPrice / memberCount)
+        totalPrice !== null && sleeping > 0
+          ? round2(totalPrice / sleeping)
           : null;
       return {
         ...summarise(stay.name || "Untitled stay", stay),

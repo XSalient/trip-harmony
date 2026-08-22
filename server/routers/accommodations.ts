@@ -62,8 +62,25 @@ export const accommodationsRouter = router({
     .input(z.object({ tripId: z.number() }))
     .query(async ({ ctx, input }) => {
       const role = await tripRoleOf(input.tripId, ctx.user.id);
-      const accommodations = await db.getAccommodations(input.tripId);
-      return projectProposalsForRole(accommodations, role);
+      const [accommodations, headcount] = await Promise.all([
+        db.getAccommodations(input.tripId),
+        db.getTripHeadcount(input.tripId),
+      ]);
+      // `perPersonCost` is stored when the stay is added, and was wrong from
+      // the next arrival onwards: nothing recomputed it when somebody joined or
+      // a child was added, so a house priced for four kept saying so once six
+      // were coming. Recomputed here from the current headcount, which is the
+      // only figure anybody would actually pay. The stored column stays as the
+      // record of what it was when the stay was proposed.
+      const priced = accommodations.map(a => ({
+        ...a,
+        perPersonCost: a.totalPrice
+          ? (
+              parseFloat(a.totalPrice as string) / (headcount.people || 1)
+            ).toFixed(2)
+          : a.perPersonCost,
+      }));
+      return projectProposalsForRole(priced, role);
     }),
   create: protectedProcedure
     .input(
@@ -107,12 +124,18 @@ export const accommodationsRouter = router({
           message:
             "An identical accommodation already exists. Please change at least one field.",
         });
-      // Calculate per-person cost
-      const members = await db.getTripMembers(input.tripId);
-      const memberCount =
-        members.filter(m => m.status === "accepted").length || 1;
+      // Per-person cost divides by the people who are *coming*, not by the
+      // people with logins. A family of four books one account and sleeps in
+      // four beds; dividing by member count made the same house look 40% dearer
+      // a head and left the children — the ones the bedrooms are for — out of
+      // the figure entirely. Pets are never in the divisor.
+      //
+      // `getTripHeadcount` is the one place headcount is computed; the budget
+      // section divides by the same number, so the two cannot disagree about
+      // what a night costs each person.
+      const headcount = await db.getTripHeadcount(input.tripId);
       const perPersonCost = input.totalPrice
-        ? (parseFloat(input.totalPrice) / memberCount).toFixed(2)
+        ? (parseFloat(input.totalPrice) / (headcount.people || 1)).toFixed(2)
         : undefined;
       const id = await db.createAccommodation({
         ...input,
@@ -149,6 +172,7 @@ export const accommodationsRouter = router({
         entityId: id,
         metadata: { vote: "love", implicit: true },
       });
+      const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
           await db.createNotification({

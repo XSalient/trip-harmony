@@ -126,7 +126,9 @@ Answer these as they come up; they block the story named beside each.
 
 - ~~Two live authorisation holes~~ — both closed by E2: `trips.update` now
   requires admin (it previously checked nothing at all), and
-  `trips.sendInviteEmail` is admin-only.
+  `trips.sendInviteEmail` is admin-only. **Since 2026-08-22 it is
+  tripmate-or-above, and admin-only for any role but `watcher`** — see the
+  superseded note in [stories/E2-members-and-roles.md](stories/E2-members-and-roles.md).
 - One real bug is fixed by E3.3: changing your vote leaves `createdAt` at the
   original time, so a changed vote reports the wrong moment.
 - The riskiest single change is E6.1 — multi-lock silently breaks every

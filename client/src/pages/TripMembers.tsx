@@ -129,8 +129,11 @@ export default function TripMembers() {
     { tripId },
     { enabled: tripId > 0 }
   );
-  const { canAdminister: isAdmin, canSeeMemberDetails: canSeeDetails } =
-    useTripRole(tripId);
+  const {
+    canAdminister: isAdmin,
+    canContribute,
+    canSeeMemberDetails: canSeeDetails,
+  } = useTripRole(tripId);
 
   const { data: invites } = trpc.trips.invites.useQuery(
     { tripId },
@@ -229,7 +232,11 @@ export default function TripMembers() {
   const handleInvite = async (email: string, name?: string) => {
     if (!email) return;
     try {
-      await sendInvite.mutateAsync({ tripId, email, role: inviteRole });
+      // A tripmate can only invite a watcher. Pinned here rather than trusted
+      // from the picker, so a stale selection cannot post a role the server
+      // will refuse.
+      const role: TripRole = isAdmin ? inviteRole : "watcher";
+      await sendInvite.mutateAsync({ tripId, email, role });
       toast.success(`Invite sent to ${email}`);
       if (saveToContacts && name !== undefined) {
         // A contact saved here is a convenience only — it grants nothing.
@@ -795,7 +802,7 @@ export default function TripMembers() {
         )}
 
         {/* ── Invite ── */}
-        {isAdmin && (
+        {canContribute && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
               Invite someone
@@ -805,24 +812,39 @@ export default function TripMembers() {
               <CardContent className="p-3 space-y-3">
                 <div>
                   <Label className="text-xs">Join as</Label>
-                  <Select
-                    value={inviteRole}
-                    onValueChange={v => setInviteRole(v as TripRole)}
-                  >
-                    <SelectTrigger className="mt-1 rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TRIP_ROLES.map(r => (
-                        <SelectItem key={r} value={r}>
-                          {TRIP_ROLE_LABELS[r]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isAdmin ? (
+                    <Select
+                      value={inviteRole}
+                      onValueChange={v => setInviteRole(v as TripRole)}
+                    >
+                      <SelectTrigger className="mt-1 rounded-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TRIP_ROLES.map(r => (
+                          <SelectItem key={r} value={r}>
+                            {TRIP_ROLE_LABELS[r]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    // Not a disabled Select: there is nothing to choose from, so
+                    // a dropdown that cannot drop down is a control that lies.
+                    <div className="mt-1 rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+                      {TRIP_ROLE_LABELS.watcher}
+                    </div>
+                  )}
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    {TRIP_ROLE_DESCRIPTIONS[inviteRole]}
+                    {TRIP_ROLE_DESCRIPTIONS[isAdmin ? inviteRole : "watcher"]}
                   </p>
+                  {!isAdmin && (
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Tripmates can add watchers — people who follow the trip
+                      without voting, so no decision waits on them. Ask an admin
+                      to add someone who votes.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -867,28 +889,34 @@ export default function TripMembers() {
               </CardContent>
             </Card>
 
-            <Card className="border-border/50">
-              <CardContent className="p-3 space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Or share this link. Anyone who follows it joins as a Tripmate.
-                </p>
-                <div className="flex gap-2">
-                  <code className="flex-1 text-[11px] bg-muted p-2.5 rounded-lg break-all">
-                    {inviteUrl}
-                  </code>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      navigator.clipboard.writeText(inviteUrl);
-                      toast.success("Invite link copied!");
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Admins only, whatever the invite form above allows: this link
+                makes tripmates, so handing it to a tripmate would hand out
+                votes — the one thing the loosened invite rule protects. */}
+            {isAdmin && (
+              <Card className="border-border/50">
+                <CardContent className="p-3 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Or share this link. Anyone who follows it joins as a
+                    Tripmate.
+                  </p>
+                  <div className="flex gap-2">
+                    <code className="flex-1 text-[11px] bg-muted p-2.5 rounded-lg break-all">
+                      {inviteUrl}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteUrl);
+                        toast.success("Invite link copied!");
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>

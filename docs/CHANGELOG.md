@@ -8,6 +8,41 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-22 — A tripmate can add their own family to watch
+
+### Changed
+
+- **A tripmate can invite a watcher.** Inviting was admin-only, which on a trip
+  of families meant asking somebody else to add your own mother — the person who
+  knows who is in a household had to go through the person who does not.
+  `trips.sendInviteEmail` now requires a tripmate, and requires an admin for any
+  role other than `watcher`. The members page shows the invite form to
+  tripmates with the role fixed to Watcher and says why.
+
+  Safe to loosen only because of what a watcher is: they change nothing and are
+  in no vote denominator, so this cannot grow the voting group behind an admin's
+  back. **The shared invite link is unchanged and stays admin-only** — it makes
+  tripmates, so handing it out would hand out votes. This supersedes an E2
+  acceptance criterion; the story records what replaced it and why.
+
+### Fixed
+
+- **A stay's per-person cost counts the people coming, not the logins.**
+  `accommodations.create` divided the total price by accepted member count, so a
+  family of four who share one account counted as one person — and the children
+  the bedrooms are actually for were left out of the figure entirely. It now
+  divides by `getTripHeadcount().people`, the same number the budget section
+  uses, with pets excluded. The AI Referee's `perPersonShare` had the same bug
+  and is fixed with it, so the caps it checks a stay against are now compared
+  with a figure somebody might really pay.
+
+  The figure is also **recomputed on read** rather than trusted from the row.
+  It was stored once when the stay was proposed and nothing ever recomputed it,
+  so a house priced for four went on saying so after two more people joined.
+  The stored column stays as the record of what it was at the time.
+
+---
+
 ## 2026-08-22 — Families, headcount, and a budget that gets decided
 
 ### Added

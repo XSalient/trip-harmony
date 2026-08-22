@@ -146,6 +146,38 @@ describe("a member's own attendee row", () => {
   });
 });
 
+describe("what divides by headcount", () => {
+  it("a stay's per-person cost counts the people coming, not the logins", () => {
+    // A family of four books one account and sleeps in four beds. Dividing by
+    // accepted member count made the same house look far dearer a head and
+    // left the children — the ones the bedrooms are for — out of the figure.
+    const acc = source("accommodations.ts");
+    expect(acc).toContain("getTripHeadcount");
+    expect(acc).toContain("headcount.people");
+    expect(acc).not.toMatch(/const memberCount\s*=/);
+  });
+
+  it("recomputes a stay's per-person cost on read, so it cannot go stale", () => {
+    // Stored once at create, it was wrong from the next arrival onwards:
+    // nothing recomputed it when somebody joined or a child was added.
+    const acc = source("accommodations.ts");
+    expect(acc).toMatch(
+      /list: protectedProcedure[\s\S]{0,900}getTripHeadcount[\s\S]{0,900}perPersonCost/
+    );
+  });
+
+  it("the referee divides a stay the same way the screen does", () => {
+    const referee = readFileSync(
+      join(import.meta.dirname, "..", "prompts", "referee.ts"),
+      "utf8"
+    );
+    expect(referee).toContain(
+      "input.headcount.adults + input.headcount.children"
+    );
+    expect(referee).toMatch(/perPersonShare[\s\S]{0,120}sleeping/);
+  });
+});
+
 describe("a pet has no age", () => {
   it("is enforced on the server, not only by hiding the field", () => {
     const groups = source("groups.ts");

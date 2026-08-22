@@ -16,7 +16,7 @@ finish a piece of work — the next person (or agent) starts here.
   voting section rather than an expense journal. See [product/](product/) for
   the specifications and [product/progress.md](product/progress.md) for the
   story-by-story record.
-- **Health:** typecheck ✅ · 660 tests ✅ · production build ✅ (2026-08-22) ·
+- **Health:** typecheck ✅ · 672 tests ✅ · production build ✅ (2026-08-22) ·
   dev server ✅
   (2026-08-22, after E9–E12: walked in a real browser against a real Postgres
   built by applying migrations 0000–0011 in order. Two members of one family
@@ -40,6 +40,16 @@ finish a piece of work — the next person (or agent) starts here.
   no model call happens on an ordinary write). The **passkey** enrol → sign-out →
   passkey sign-in round trip was last verified on 2026-08-01 and has not been
   repeated since.
+- **A tripmate can invite a watcher** (2026-08-22). Inviting was admin-only,
+  which on a trip of families meant asking somebody else to add your own family.
+  `trips.sendInviteEmail` requires a tripmate, and an admin for any role but
+  `watcher`; the shared invite link stays admin-only because it makes tripmates.
+  This supersedes an E2 acceptance criterion — the story says so rather than the
+  box being quietly unticked. **If a watcher ever gains a vote, or is ever
+  counted in a vote denominator, this has to go back to admin-only in the same
+  commit**; `server/routers/invites.test.ts` asserts the rule and the properties
+  it rests on together, so that connection is not left to memory.
+
 - **Migrations 0008–0011 have not been applied to production yet** (2026-08-22).
   0008 adds `trip_groups` and the trip's voting unit; 0009 adds `trip_attendees`
   and **backfills one adult attendee per accepted member** (without it, an
