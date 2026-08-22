@@ -62,8 +62,25 @@ export const accommodationsRouter = router({
     .input(z.object({ tripId: z.number() }))
     .query(async ({ ctx, input }) => {
       const role = await tripRoleOf(input.tripId, ctx.user.id);
-      const accommodations = await db.getAccommodations(input.tripId);
-      return projectProposalsForRole(accommodations, role);
+      const [accommodations, headcount] = await Promise.all([
+        db.getAccommodations(input.tripId),
+        db.getTripHeadcount(input.tripId),
+      ]);
+      // `perPersonCost` is stored when the stay is added, and was wrong from
+      // the next arrival onwards: nothing recomputed it when somebody joined or
+      // a child was added, so a house priced for four kept saying so once six
+      // were coming. Recomputed here from the current headcount, which is the
+      // only figure anybody would actually pay. The stored column stays as the
+      // record of what it was when the stay was proposed.
+      const priced = accommodations.map(a => ({
+        ...a,
+        perPersonCost: a.totalPrice
+          ? (
+              parseFloat(a.totalPrice as string) / (headcount.people || 1)
+            ).toFixed(2)
+          : a.perPersonCost,
+      }));
+      return projectProposalsForRole(priced, role);
     }),
   create: protectedProcedure
     .input(
@@ -107,12 +124,18 @@ export const accommodationsRouter = router({
           message:
             "An identical accommodation already exists. Please change at least one field.",
         });
-      // Calculate per-person cost
-      const members = await db.getTripMembers(input.tripId);
-      const memberCount =
-        members.filter(m => m.status === "accepted").length || 1;
+      // Per-person cost divides by the people who are *coming*, not by the
+      // people with logins. A family of four books one account and sleeps in
+      // four beds; dividing by member count made the same house look 40% dearer
+      // a head and left the children — the ones the bedrooms are for — out of
+      // the figure entirely. Pets are never in the divisor.
+      //
+      // `getTripHeadcount` is the one place headcount is computed; the budget
+      // section divides by the same number, so the two cannot disagree about
+      // what a night costs each person.
+      const headcount = await db.getTripHeadcount(input.tripId);
       const perPersonCost = input.totalPrice
-        ? (parseFloat(input.totalPrice) / memberCount).toFixed(2)
+        ? (parseFloat(input.totalPrice) / (headcount.people || 1)).toFixed(2)
         : undefined;
       const id = await db.createAccommodation({
         ...input,
@@ -120,6 +143,12 @@ export const accommodationsRouter = router({
         proposedBy: ctx.user.id,
       });
       // Proposing is itself a vote — nobody adds a stay they are against.
+      await db.applyGroupVoteExclusivity(
+        "accommodation",
+        id,
+        input.tripId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: id,
         userId: ctx.user.id,
@@ -143,6 +172,7 @@ export const accommodationsRouter = router({
         entityId: id,
         metadata: { vote: "love", implicit: true },
       });
+      const members = await db.getTripMembers(input.tripId);
       for (const m of members) {
         if (m.userId !== ctx.user.id && m.role !== "watcher") {
           await db.createNotification({
@@ -178,6 +208,16 @@ export const accommodationsRouter = router({
         input.accommodationId,
         ctx.user.id
       );
+      // One vote per group when the trip votes that way: a groupmate's vote on
+      // this proposal is replaced, not added to. Enforced here, before every
+      // write, so every tally downstream counts rows that are already one per
+      // group. See docs/adr/0016-one-vote-per-group.md.
+      const displaced = await db.applyGroupVoteExclusivity(
+        "accommodation",
+        input.accommodationId,
+        accommodation.tripId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: input.accommodationId,
         userId: ctx.user.id,
@@ -191,6 +231,16 @@ export const accommodationsRouter = router({
         entityId: input.accommodationId,
         metadata: { vote: input.vote, from: had?.vote ?? null },
       });
+      for (const userId of displaced) {
+        await db.recordActivity({
+          tripId: accommodation.tripId,
+          actorUserId: ctx.user.id,
+          action: "vote.superseded",
+          entityType: "accommodation",
+          entityId: input.accommodationId,
+          metadata: { userId, reason: "one vote per group" },
+        });
+      }
       return { success: true };
     }),
   unvote: protectedProcedure
@@ -419,6 +469,12 @@ export const accommodationsRouter = router({
         freeParking: accommodation.freeParking ?? undefined,
         amenities: accommodation.amenities ?? undefined,
       });
+      await db.applyGroupVoteExclusivity(
+        "accommodation",
+        newId,
+        accommodation.tripId,
+        ctx.user.id
+      );
       await db.voteAccommodation({
         accommodationId: newId,
         userId: ctx.user.id,

@@ -12,6 +12,7 @@ import { authRouter } from "./auth.js";
 import { passkeysRouter } from "./passkeys.js";
 import { tripsRouter } from "./trips.js";
 import { contactsRouter } from "./contacts.js";
+import { groupsRouter } from "./groups.js";
 import { datesRouter } from "./dates.js";
 import { destinationsRouter } from "./destinations.js";
 import { accommodationsRouter } from "./accommodations.js";
@@ -28,6 +29,7 @@ export const appRouter = router({
   passkeys: passkeysRouter,
   trips: tripsRouter,
   contacts: contactsRouter,
+  groups: groupsRouter,
   dates: datesRouter,
   destinations: destinationsRouter,
   accommodations: accommodationsRouter,

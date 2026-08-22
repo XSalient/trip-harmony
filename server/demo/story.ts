@@ -144,14 +144,37 @@ export interface DemoAccommodation {
   comments?: DemoComment[];
 }
 
-export interface DemoBudgetItem {
-  category: "accommodation" | "transport" | "food" | "activities" | "other";
-  description: string;
+export interface DemoBudgetProposal {
+  key: string;
+  title: string;
   amount: string;
-  paidBy: string;
-  splitType?: "equal" | "custom";
-  approved?: boolean;
-  daysAgo: number;
+  scope: "trip_total" | "per_person" | "per_adult" | "per_group";
+  covers?: string;
+  proposedBy: string;
+  createdDaysAgo: number;
+  selected?: boolean;
+  lockedBy?: string;
+  lockedDaysAgo?: number;
+  votes: DemoVote<"love" | "fine" | "veto">[];
+  comments?: DemoComment[];
+}
+
+/** A family or household on the trip. */
+export interface DemoGroup {
+  key: string;
+  name: string;
+  budgetMax?: string;
+  /** The `person` keys of the members in it. */
+  members: string[];
+}
+
+/** Somebody coming who has no account — a child, a partner, the dog. */
+export interface DemoAttendee {
+  group?: string;
+  name: string;
+  kind: "adult" | "child" | "pet";
+  age?: number;
+  notes?: string;
 }
 
 export interface DemoRefereeMessage {
@@ -212,7 +235,10 @@ export interface DemoTrip {
   dateProposals?: DemoDateProposal[];
   destinations?: DemoDestination[];
   accommodations?: DemoAccommodation[];
-  budget?: DemoBudgetItem[];
+  votingUnit?: "member" | "group";
+  groups?: DemoGroup[];
+  attendees?: DemoAttendee[];
+  budget?: DemoBudgetProposal[];
   referee?: DemoRefereeMessage[];
   notifications?: DemoNotification[];
 }
@@ -1090,89 +1116,98 @@ const lisbon: DemoTrip = {
     },
   ],
 
+  // Two figures on the table, written in different units on purpose: the
+  // screen normalises both to a trip total so they can be compared at all.
+  votingUnit: "group",
+
+  groups: [
+    {
+      key: "kellys",
+      name: "The Kellys",
+      budgetMax: "3200.00",
+      members: ["ava", "marcus"],
+    },
+    {
+      key: "raos",
+      name: "Priya & Dev",
+      budgetMax: "2600.00",
+      members: ["priya", "dev"],
+    },
+    { key: "tomas", name: "Tomás", budgetMax: "2000.00", members: ["tomas"] },
+  ],
+
+  attendees: [
+    { group: "kellys", name: "Ines Kelly", kind: "child", age: 9 },
+    { group: "kellys", name: "Rafa Kelly", kind: "child", age: 6 },
+    { group: "raos", name: "Meera Rao", kind: "child", age: 3 },
+    // A pet, so the "no age for a dog" case and the "pets are never a
+    // chargeable head" rule are both visible in the demo.
+    {
+      group: "tomas",
+      name: "Bruno",
+      kind: "pet",
+      notes: "Elderly, sleeps a lot, travels well.",
+    },
+  ],
+
   budget: [
     {
-      category: "accommodation",
-      description: "Quinta do Benagil — 10 nights, deposit paid",
-      amount: "4800.00",
-      paidBy: "marcus",
-      approved: true,
-      daysAgo: 2,
+      key: "per-family",
+      title: "A flat ceiling per family",
+      amount: "2400.00",
+      scope: "per_group",
+      covers:
+        "Accommodation, the hire car and the flights. Food and anything anyone books on the day is on top.",
+      proposedBy: "marcus",
+      createdDaysAgo: 12,
+      selected: true,
+      lockedBy: "ava",
+      lockedDaysAgo: 4,
+      votes: [
+        { person: "marcus", vote: "love", daysAgo: 12 },
+        { person: "ava", vote: "love", daysAgo: 11 },
+        { person: "priya", vote: "fine", daysAgo: 10, changedDaysAgo: 6 },
+        { person: "tomas", vote: "love", daysAgo: 9 },
+      ],
+      comments: [
+        {
+          person: "priya",
+          body: "Flat per family is rough on the ones bringing kids — we're four and Tomás is one. But it's simple and I'd rather have a number.",
+          daysAgo: 10,
+        },
+        {
+          person: "marcus",
+          body: "That's fair. It's why the per-head version is up there too — pick whichever the group prefers, but let's pick one.",
+          daysAgo: 10,
+        },
+      ],
     },
     {
-      category: "transport",
-      description: "Flights LGW → LIS ×4",
-      amount: "612.00",
-      paidBy: "ava",
-      approved: true,
-      daysAgo: 20,
+      key: "per-head",
+      title: "Per person instead, kids included",
+      amount: "620.00",
+      scope: "per_person",
+      covers: "The same list. Works out lower for Tomás and higher for us.",
+      proposedBy: "priya",
+      createdDaysAgo: 10,
+      votes: [
+        { person: "priya", vote: "love", daysAgo: 10 },
+        { person: "tomas", vote: "veto", daysAgo: 8 },
+      ],
     },
     {
-      category: "transport",
-      description: "Flights DUB → LIS ×2",
-      amount: "388.00",
-      paidBy: "hannah",
-      approved: true,
-      daysAgo: 19,
-    },
-    {
-      category: "transport",
-      description: "Hire car — 9 seater, 10 days",
-      amount: "540.00",
-      paidBy: "tomas",
-      approved: true,
-      daysAgo: 9,
-    },
-    {
-      category: "transport",
-      description: "Train Lisbon → Lagos, 7 singles",
-      amount: "168.00",
-      paidBy: "priya",
-      daysAgo: 7,
-    },
-    {
-      category: "food",
-      description: "Welcome dinner, Time Out Market — booked for 7",
-      amount: "210.00",
-      paidBy: "dev",
-      daysAgo: 6,
-    },
-    {
-      category: "food",
-      description: "First grocery shop (estimate)",
-      amount: "186.00",
-      paidBy: "ava",
-      daysAgo: 5,
-    },
-    {
-      category: "activities",
-      description: "Benagil cave kayak tour ×7",
-      amount: "245.00",
-      paidBy: "tomas",
-      approved: true,
-      daysAgo: 5,
-    },
-    {
-      category: "activities",
-      description: "Surf lessons ×4, Arrifana",
-      amount: "180.00",
-      paidBy: "tomas",
-      daysAgo: 4,
-    },
-    {
-      category: "activities",
-      description: "Fado night in Alfama — 6 seats",
-      amount: "154.00",
-      paidBy: "priya",
-      daysAgo: 3,
-    },
-    {
-      category: "other",
-      description: "Travel insurance top-up for the group policy",
-      amount: "96.00",
-      paidBy: "marcus",
-      splitType: "custom",
-      daysAgo: 3,
+      key: "shoestring",
+      title: "Shoestring — half board, no hire car",
+      amount: "9000.00",
+      scope: "trip_total",
+      covers: "Everything, if we take the train and cook most nights.",
+      proposedBy: "hannah",
+      createdDaysAgo: 15,
+      votes: [
+        { person: "hannah", vote: "love", daysAgo: 15 },
+        { person: "marcus", vote: "veto", daysAgo: 14 },
+        { person: "ava", vote: "fine", daysAgo: 13 },
+      ],
     },
   ],
 
@@ -1644,44 +1679,23 @@ const kyoto: DemoTrip = {
 
   budget: [
     {
-      category: "accommodation",
-      description: "Machiya near Nishiki — 8 nights",
-      amount: "2360.00",
-      paidBy: "yuki",
-      approved: true,
-      daysAgo: 290,
-    },
-    {
-      category: "transport",
-      description: "Flights ×4, LHR → KIX",
-      amount: "3120.00",
-      paidBy: "ava",
-      approved: true,
-      daysAgo: 300,
-    },
-    {
-      category: "transport",
-      description: "IC cards and local trains",
-      amount: "180.00",
-      paidBy: "ben",
-      approved: true,
-      daysAgo: 262,
-    },
-    {
-      category: "food",
-      description: "Everything, honestly — 9 days of it",
-      amount: "1410.00",
-      paidBy: "priya",
-      approved: true,
-      daysAgo: 260,
-    },
-    {
-      category: "activities",
-      description: "Temple entries, the tea house, one very good dinner",
-      amount: "390.00",
-      paidBy: "yuki",
-      approved: true,
-      daysAgo: 260,
+      key: "kyoto-agreed",
+      title: "The number we agreed and then beat",
+      amount: "2000.00",
+      scope: "per_person",
+      covers:
+        "Flights, the machiya, trains, temples, and food deliberately left generous.",
+      proposedBy: "yuki",
+      createdDaysAgo: 320,
+      selected: true,
+      lockedBy: "yuki",
+      lockedDaysAgo: 310,
+      votes: [
+        { person: "yuki", vote: "love", daysAgo: 320 },
+        { person: "ava", vote: "love", daysAgo: 319 },
+        { person: "ben", vote: "fine", daysAgo: 318 },
+        { person: "priya", vote: "love", daysAgo: 316 },
+      ],
     },
   ],
 

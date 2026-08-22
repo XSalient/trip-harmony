@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-type ProposalType = "date" | "destination" | "accommodation";
+type ProposalType = "date" | "destination" | "accommodation" | "budget";
 
 interface Props {
   proposalType: ProposalType;

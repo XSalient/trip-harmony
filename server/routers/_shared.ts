@@ -176,14 +176,21 @@ export function projectProposalsForRole<
 }
 
 /**
- * A watcher gets names and roles. No email, no budget ceiling, no record of who
- * invited whom.
+ * A watcher gets names, roles and which group somebody is in. No email, no
+ * budget ceiling, no record of who invited whom.
+ *
+ * `groupId` survives because a watcher following a trip of families should be
+ * able to see that it *is* a trip of families — the grouping is the shape of
+ * the trip, not a fact about a person. What the group can afford is not, and
+ * `budgetMax` is stripped from the group as well as from the member (see
+ * `projectGroupsForRole` in `groups.ts`).
  */
 export function projectMembersForRole<
   T extends {
     userId: number;
     role: TripRole;
     status: string;
+    groupId?: number | null;
     user?: { id: number; name: string | null; email?: string | null } | null;
   },
 >(members: T[], role: TripRole): T[] {
@@ -194,6 +201,7 @@ export function projectMembersForRole<
     userId: m.userId,
     role: m.role,
     status: m.status,
+    groupId: m.groupId ?? null,
     user: m.user ? { id: m.user.id, name: m.user.name } : null,
   })) as unknown as T[];
 }

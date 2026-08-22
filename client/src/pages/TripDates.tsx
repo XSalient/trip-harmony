@@ -138,10 +138,8 @@ export default function TripDates() {
     canContribute,
     isWatcher,
   } = useTripRole(tripId);
-  const memberCount = useMemo(
-    () => members?.filter((m: any) => m.status === "accepted").length || 0,
-    [members]
-  );
+  // See `VotedCount`: voters, not members, and derived server-side.
+  const voterCount = (trip as any)?.voterCount ?? 0;
   const selectedProposal = useMemo(
     () => proposals?.find((p: any) => p.selected),
     [proposals]
@@ -692,7 +690,7 @@ export default function TripDates() {
                         proposalType="date"
                         proposalId={p.id}
                         votedCount={totalVotes}
-                        memberCount={memberCount}
+                        voterCount={voterCount}
                         canSeeDetail={canContribute}
                       />
                     </div>
@@ -703,21 +701,23 @@ export default function TripDates() {
                           <div
                             className="bg-green-500"
                             style={{
-                              width: `${(available / memberCount) * 100}%`,
+                              width: `${(available / Math.max(1, voterCount)) * 100}%`,
                             }}
                           />
                         )}
                         {maybe > 0 && (
                           <div
                             className="bg-yellow-400"
-                            style={{ width: `${(maybe / memberCount) * 100}%` }}
+                            style={{
+                              width: `${(maybe / Math.max(1, voterCount)) * 100}%`,
+                            }}
                           />
                         )}
                         {unavailable > 0 && (
                           <div
                             className="bg-red-400"
                             style={{
-                              width: `${(unavailable / memberCount) * 100}%`,
+                              width: `${(unavailable / Math.max(1, voterCount)) * 100}%`,
                             }}
                           />
                         )}

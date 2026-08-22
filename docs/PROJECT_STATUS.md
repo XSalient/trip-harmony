@@ -3,17 +3,33 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-19
+- **Last updated:** 2026-08-22
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
 - **Stage:** feature-complete MVP, deployed to production on Vercel.
   The trip experience overhaul is **complete** — all eight epics, covering the
-  sixteen requested changes. See [product/](product/) for the specifications and
-  [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 575 tests ✅ · production build ✅ (2026-08-19) ·
+  sixteen requested changes. The **groups and budget** programme (E9–E12) is
+  complete too: a trip can be organised as families, everyone coming is counted
+  whether or not they use the app, a family casts one vote, and Budget is a
+  voting section rather than an expense journal. See [product/](product/) for
+  the specifications and [product/progress.md](product/progress.md) for the
+  story-by-story record.
+- **Health:** typecheck ✅ · 704 tests ✅ · production build ✅ (2026-08-22) ·
   dev server ✅
+  (2026-08-22, after E9–E12: walked in a real browser against a real Postgres
+  built by applying migrations 0000–0011 in order. Two members of one family
+  voted on one proposal and the family kept **one** vote; moving a member
+  between groups dropped 14 duplicate votes across all four proposal types and
+  recorded each as `vote.superseded`; a trip with no groups behaved exactly as
+  before. Budget figures were checked arithmetically — 620 per person × 11
+  people = 6,820 for the trip, and a family of five paid 3,100 of it, with the
+  two pets in the headcount and in no divisor. Finalising notified exactly the
+  one person over their cap. A watcher's `groups.list`, `groups.attendees`,
+  `trips.members`, `budget.list` and `budget.summary` payloads were inspected
+  rather than the rendering: no ages, no caps, no over-cap count, no proposer,
+  no vote authorship.)
   (2026-08-02, after E5, E7 and E8: the restructured trip page walked in a real
   browser against a real Postgres — section order, summary figures, collapse
   state surviving a reload, the empty-trip case, renaming a trip from the header,
@@ -24,6 +40,30 @@ finish a piece of work — the next person (or agent) starts here.
   no model call happens on an ordinary write). The **passkey** enrol → sign-out →
   passkey sign-in round trip was last verified on 2026-08-01 and has not been
   repeated since.
+- **A tripmate can invite a watcher** (2026-08-22). Inviting was admin-only,
+  which on a trip of families meant asking somebody else to add your own family.
+  `trips.sendInviteEmail` requires a tripmate, and an admin for any role but
+  `watcher`; the shared invite link stays admin-only because it makes tripmates.
+  This supersedes an E2 acceptance criterion — the story says so rather than the
+  box being quietly unticked. **If a watcher ever gains a vote, or is ever
+  counted in a vote denominator, this has to go back to admin-only in the same
+  commit**; `server/routers/invites.test.ts` asserts the rule and the properties
+  it rests on together, so that connection is not left to memory.
+
+- **Migrations 0008–0011 have not been applied to production yet** (2026-08-22).
+  0008 adds `trip_groups` and the trip's voting unit; 0009 adds `trip_attendees`
+  and **backfills one adult attendee per accepted member** (without it, an
+  existing trip reports a headcount of zero and every per-person budget figure
+  divides by nothing); 0010 adds `budget_proposals` and `budget_votes`.
+  **0011 drops `budget_items` and is destructive and irreversible** — every
+  logged expense goes with it. It is deliberately the last migration and the
+  only thing in it, so it can be held back for a release while the rest lands.
+  Take a backup first if any production row is worth keeping. All twelve
+  migrations were applied in order to a scratch Postgres 16 and the result was
+  diffed against `drizzle-kit push` of `schema.ts`: no column or type
+  disagreement, the only differences being the RLS statements and functional
+  indexes `push` never creates (as with `contacts` and `trip_invites` already).
+
 - **Migrations:** the first six are applied to the live Supabase database
   (`Trip Harmony`, `eqpqjivaubdbdmyrlczh`), with drizzle's tracking table
   baselined so `pnpm db:migrate` is correct against it. The role mapping landed

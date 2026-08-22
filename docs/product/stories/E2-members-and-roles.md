@@ -179,7 +179,9 @@ role into a projection function, and apply it in the router before returning.
 - [x] Joining via a bare invite link records `joinedVia: "link"`.
 - [x] Declining is recorded and shown; it does not delete the invite.
 - [x] Re-inviting the same address does not create a duplicate row.
-- [x] Only admins can invite.
+- [x] Only admins can invite. **Superseded 2026-08-22** — a tripmate may now
+      invite a **watcher**; inviting anyone who can vote is still admin-only,
+      and so is the shared invite link. See the note below.
 
 **Touches**
 
@@ -250,6 +252,24 @@ Both answered by the trip owner before implementation:
    card for a watcher. It is commentary on other people.
 2. **Do all existing members become tripmates?** **Yes** — `organizer → admin`,
    `member → tripmate`, nobody demoted to watcher.
+
+**Superseded, 2026-08-22 (after E9–E12)**
+
+"Only admins can invite" was right when a trip was a flat list of individuals.
+On a trip of families it is not: the person who knows who is in a household is
+the person in it, and making them ask an admin to add their own mother is the
+kind of friction that ends with her not being on the trip at all.
+
+`sendInviteEmail` now requires a **tripmate**, and requires an **admin** for any
+role other than `watcher`. The loosening is safe only because of what a watcher
+is — they change nothing and are in no vote denominator (`getTripVoterCount`),
+so a tripmate cannot grow the voting group behind an admin's back. The shared
+invite link is untouched and stays admin-only: it makes tripmates.
+
+If a watcher ever gains a vote, or is ever counted in a denominator, this rule
+has to go back to admin-only in the same commit.
+`server/routers/invites.test.ts` asserts both the rule and the properties it
+depends on, together, for that reason.
 
 **Found later, during E4**
 

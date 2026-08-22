@@ -78,6 +78,7 @@ const TRIP_ROUTERS: Record<string, Record<string, string>> = {
   "destinations.ts": {},
   "accommodations.ts": {},
   "budget.ts": {},
+  "groups.ts": {},
   "preferences.ts": {},
   "referee.ts": {},
   "comments.ts": {
@@ -98,7 +99,27 @@ const TRIP_ROUTERS: Record<string, Record<string, string>> = {
   },
 };
 
+/**
+ * Wrappers that stand in for a direct `requireTripRole` call, each asserted
+ * below to make one. The list is short on purpose: every entry is a place the
+ * sweep is reading a name instead of a check.
+ */
+const VERIFIED_WRAPPERS = ["requireGroupAccess("] as const;
+
 describe("every trip-scoped procedure states the role it needs", () => {
+  it("every wrapper the sweep trusts really does check a role", () => {
+    const groups = readRouter("groups.ts");
+    const wrapper = groups.slice(
+      groups.indexOf("async function requireGroupAccess(")
+    );
+    const body = wrapper.slice(0, wrapper.indexOf("\n}"));
+    // It must demand at least a tripmate, and it must refuse anyone acting on
+    // a group that is not theirs unless they are an admin.
+    expect(body).toContain('requireTripRole(tripId, userId, "tripmate")');
+    expect(body).toContain('member.role === "admin"');
+    expect(body).toContain("FORBIDDEN");
+  });
+
   it("knows about every router in the directory", () => {
     const onDisk = readdirSync(routerDir).filter(
       f => f.endsWith(".ts") && !f.endsWith(".test.ts")
@@ -135,7 +156,13 @@ describe("every trip-scoped procedure states the role it needs", () => {
           // …against a real role, not a typo that silently passes.
           (body.includes("tripRoleOf(") ||
             TRIP_ROLES.some(role => body.includes(`"${role}"`)));
-        expect(checks).toBe(true);
+        // A named wrapper counts, but only one this suite has verified calls
+        // `requireTripRole` itself — see the assertion below. A wrapper is
+        // otherwise exactly how a role check disappears while still reading
+        // like one at the call site.
+        expect(checks || VERIFIED_WRAPPERS.some(w => body.includes(w))).toBe(
+          true
+        );
       });
     }
   }

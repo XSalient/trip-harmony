@@ -270,12 +270,8 @@ export default function TripDestinations() {
     );
   }, [destinations]);
 
-  // Denominator for "x/x voted" — accepted members only, matching how the
-  // dashboard counts.
-  const memberCount = useMemo(
-    () => members?.filter((m: any) => m.status === "accepted").length || 0,
-    [members]
-  );
+  // See `VotedCount`: voters, not members, and derived server-side.
+  const voterCount = (trip as any)?.voterCount ?? 0;
 
   // A trip can finalise several suggestions at once. This was a `find()` back
   // when the database cleared every other row before setting one, which made
@@ -515,7 +511,7 @@ export default function TripDestinations() {
                         proposalType="destination"
                         proposalId={dest.id}
                         votedCount={dest.votes?.length || 0}
-                        memberCount={memberCount}
+                        voterCount={voterCount}
                         canSeeDetail={canContribute}
                       />
                     </div>

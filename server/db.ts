@@ -20,8 +20,14 @@ import {
   InsertAccommodation,
   accommodationVotes,
   InsertAccommodationVote,
-  budgetItems,
-  InsertBudgetItem,
+  budgetProposals,
+  InsertBudgetProposal,
+  budgetVotes,
+  InsertBudgetVote,
+  tripGroups,
+  InsertTripGroup,
+  tripAttendees,
+  InsertTripAttendee,
   refereeMessages,
   InsertRefereeMessage,
   notifications,
@@ -425,12 +431,14 @@ export async function updateTrip(id: number, data: Partial<InsertTrip>) {
  */
 export const TRIP_OWNED_TABLES = [
   "trip_members",
+  "trip_groups",
+  "trip_attendees",
   "trip_invites",
   "activity_events",
   "date_proposals",
   "destinations",
   "accommodations",
-  "budget_items",
+  "budget_proposals",
   "referee_messages",
   "notifications",
   "member_preferences",
@@ -451,7 +459,7 @@ export async function deleteTripCascade(tripId: number) {
   await db.transaction(async tx => {
     // Child rows keyed by proposal, not by trip. Collected before their
     // parents are deleted, or there is nothing left to match them against.
-    const [dateIds, destIds, accIds] = await Promise.all([
+    const [dateIds, destIds, accIds, budgetIds] = await Promise.all([
       tx
         .select({ id: dateProposals.id })
         .from(dateProposals)
@@ -464,6 +472,10 @@ export async function deleteTripCascade(tripId: number) {
         .select({ id: accommodations.id })
         .from(accommodations)
         .where(eq(accommodations.tripId, tripId)),
+      tx
+        .select({ id: budgetProposals.id })
+        .from(budgetProposals)
+        .where(eq(budgetProposals.tripId, tripId)),
     ]);
 
     const ids = (rows: { id: number }[]) => rows.map(r => r.id);
@@ -483,6 +495,10 @@ export async function deleteTripCascade(tripId: number) {
         .delete(accommodationAttributes)
         .where(inArray(accommodationAttributes.accommodationId, ids(accIds)));
     }
+    if (budgetIds.length)
+      await tx
+        .delete(budgetVotes)
+        .where(inArray(budgetVotes.proposalId, ids(budgetIds)));
 
     // Then everything that names the trip directly.
     await tx
@@ -491,7 +507,7 @@ export async function deleteTripCascade(tripId: number) {
     await tx.delete(dateProposals).where(eq(dateProposals.tripId, tripId));
     await tx.delete(destinations).where(eq(destinations.tripId, tripId));
     await tx.delete(accommodations).where(eq(accommodations.tripId, tripId));
-    await tx.delete(budgetItems).where(eq(budgetItems.tripId, tripId));
+    await tx.delete(budgetProposals).where(eq(budgetProposals.tripId, tripId));
     await tx.delete(refereeMessages).where(eq(refereeMessages.tripId, tripId));
     await tx.delete(notifications).where(eq(notifications.tripId, tripId));
     await tx
@@ -499,7 +515,11 @@ export async function deleteTripCascade(tripId: number) {
       .where(eq(memberPreferences.tripId, tripId));
     await tx.delete(activityEvents).where(eq(activityEvents.tripId, tripId));
     await tx.delete(tripInvites).where(eq(tripInvites.tripId, tripId));
+    await tx.delete(tripAttendees).where(eq(tripAttendees.tripId, tripId));
     await tx.delete(tripMembers).where(eq(tripMembers.tripId, tripId));
+    // After the members that point at them, so nothing is left holding a
+    // dangling groupId even for the instant the transaction is open.
+    await tx.delete(tripGroups).where(eq(tripGroups.tripId, tripId));
     await tx.delete(trips).where(eq(trips.id, tripId));
   });
 }
@@ -771,6 +791,464 @@ export async function countTripAdmins(tripId: number): Promise<number> {
   return rows.length;
 }
 
+// ---- Trip groups ----
+
+export async function getTripGroups(tripId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tripGroups)
+    .where(eq(tripGroups.tripId, tripId))
+    .orderBy(tripGroups.createdAt);
+}
+
+export async function getTripGroup(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(tripGroups)
+    .where(eq(tripGroups.id, id))
+    .limit(1);
+  return row || null;
+}
+
+/** Case-insensitive, because "the patels" and "The Patels" are one family. */
+export async function findTripGroupByName(tripId: number, name: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(tripGroups)
+    .where(
+      and(
+        eq(tripGroups.tripId, tripId),
+        sql`lower(${tripGroups.name}) = lower(${name})`
+      )
+    )
+    .limit(1);
+  return row || null;
+}
+
+export async function createTripGroup(data: InsertTripGroup) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db
+    .insert(tripGroups)
+    .values(data)
+    .returning({ id: tripGroups.id });
+  return result.id;
+}
+
+export async function updateTripGroup(
+  id: number,
+  data: Partial<InsertTripGroup>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(tripGroups).set(data).where(eq(tripGroups.id, id));
+}
+
+/**
+ * Removes a group and leaves everyone who was in it on the trip, ungrouped.
+ *
+ * Deleting a group is an organisational change, never a way to remove people —
+ * so the members and the attendees survive it and only their `groupId` clears.
+ */
+export async function deleteTripGroup(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(tripMembers)
+    .set({ groupId: null })
+    .where(eq(tripMembers.groupId, id));
+  await db
+    .update(tripAttendees)
+    .set({ groupId: null })
+    .where(eq(tripAttendees.groupId, id));
+  await db.delete(tripGroups).where(eq(tripGroups.id, id));
+}
+
+export async function setMemberGroup(
+  tripId: number,
+  userId: number,
+  groupId: number | null
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(tripMembers)
+    .set({ groupId })
+    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  // The member's own attendee row follows them, so headcount by group stays
+  // true without anyone having to move it by hand.
+  await db
+    .update(tripAttendees)
+    .set({ groupId })
+    .where(
+      and(
+        eq(tripAttendees.tripId, tripId),
+        eq(tripAttendees.memberUserId, userId)
+      )
+    );
+}
+
+// ---- Attendees ----
+
+export async function getTripAttendees(tripId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tripAttendees)
+    .where(eq(tripAttendees.tripId, tripId))
+    .orderBy(tripAttendees.createdAt);
+}
+
+export async function getTripAttendee(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(tripAttendees)
+    .where(eq(tripAttendees.id, id))
+    .limit(1);
+  return row || null;
+}
+
+export async function createTripAttendee(data: InsertTripAttendee) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db
+    .insert(tripAttendees)
+    .values(data)
+    .returning({ id: tripAttendees.id });
+  return result.id;
+}
+
+export async function updateTripAttendee(
+  id: number,
+  data: Partial<InsertTripAttendee>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.update(tripAttendees).set(data).where(eq(tripAttendees.id, id));
+}
+
+export async function deleteTripAttendee(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(tripAttendees).where(eq(tripAttendees.id, id));
+}
+
+/**
+ * The attendee row standing for a member's own account, if it exists.
+ *
+ * Members are attendees too — that is what keeps headcount one number instead
+ * of "members plus attendees, mind the overlap".
+ */
+export async function upsertMemberAttendee(
+  tripId: number,
+  userId: number,
+  name: string,
+  groupId: number | null
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [existing] = await db
+    .select()
+    .from(tripAttendees)
+    .where(
+      and(
+        eq(tripAttendees.tripId, tripId),
+        eq(tripAttendees.memberUserId, userId)
+      )
+    )
+    .limit(1);
+  if (existing) {
+    await db
+      .update(tripAttendees)
+      .set({ name, groupId })
+      .where(eq(tripAttendees.id, existing.id));
+    return existing.id;
+  }
+  return createTripAttendee({
+    tripId,
+    memberUserId: userId,
+    groupId,
+    name,
+    kind: "adult",
+  });
+}
+
+export async function deleteMemberAttendee(tripId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(tripAttendees)
+    .where(
+      and(
+        eq(tripAttendees.tripId, tripId),
+        eq(tripAttendees.memberUserId, userId)
+      )
+    );
+}
+
+/**
+ * How many people are coming, and what they are — **the only place headcount is
+ * computed.**
+ *
+ * `people` is adults plus children. A pet is never in it, and never in any
+ * divisor derived from it: a per-person figure that is a fifth too low still
+ * renders perfectly, so the defence against that bug has to be that only one
+ * function can make it.
+ *
+ * `groups` counts **charging** units — every group with somebody in it, plus
+ * each accepted member who is in none. That is what a "per family" figure is
+ * multiplied by.
+ *
+ * It deliberately differs from `getTripVoterCount`, which excludes watchers: a
+ * watcher is a role about permissions, not attendance. On a trip of families
+ * the watchers are family members who are coming and simply do not vote, so
+ * they are counted here and not there. The two numbers are not a
+ * contradiction to be tidied away — they answer different questions.
+ */
+export async function getTripHeadcount(tripId: number) {
+  const [attendees, members, groups] = await Promise.all([
+    getTripAttendees(tripId),
+    getTripMembers(tripId),
+    getTripGroups(tripId),
+  ]);
+
+  const blank = () => ({ adults: 0, children: 0, pets: 0, people: 0 });
+  const add = (acc: ReturnType<typeof blank>, kind: string) => {
+    if (kind === "adult") acc.adults++;
+    else if (kind === "child") acc.children++;
+    else acc.pets++;
+    acc.people = acc.adults + acc.children;
+    return acc;
+  };
+
+  const total = blank();
+  const byGroup: Record<string, ReturnType<typeof blank>> = {};
+  for (const g of groups) byGroup[String(g.id)] = blank();
+  byGroup.none = blank();
+
+  for (const a of attendees) {
+    add(total, a.kind);
+    const key = a.groupId != null ? String(a.groupId) : "none";
+    add((byGroup[key] ??= blank()), a.kind);
+  }
+
+  // A group that nobody is in charges nothing and votes on nothing, so it is
+  // not a unit. An accepted member in no group is one on their own.
+  const populated = new Set(
+    attendees.filter(a => a.groupId != null).map(a => String(a.groupId))
+  );
+  const ungrouped = members.filter(
+    m => m.status === "accepted" && m.groupId == null
+  ).length;
+
+  return { ...total, groups: populated.size + ungrouped, byGroup };
+}
+
+// ---- Group vote exclusivity ----
+
+const VOTE_TABLES = {
+  date: { table: dateVotes, proposal: dateVotes.proposalId },
+  destination: {
+    table: destinationVotes,
+    proposal: destinationVotes.destinationId,
+  },
+  accommodation: {
+    table: accommodationVotes,
+    proposal: accommodationVotes.accommodationId,
+  },
+  budget: { table: budgetVotes, proposal: budgetVotes.proposalId },
+} as const;
+
+export type VotableProposalType = keyof typeof VOTE_TABLES;
+
+/**
+ * One vote per group, enforced at the moment a vote is written.
+ *
+ * When the trip votes per group, a member's vote **replaces** any vote already
+ * cast on that proposal by another member of the same group: the siblings are
+ * deleted, then the caller upserts. Every tally downstream — `scoreVotes`, the
+ * `votes.length` in each page, the "x/y voted" counts — then works unchanged,
+ * because the rows are already one per group by the time anything reads them.
+ *
+ * The alternative was a `groupId` column on four vote tables and a tally
+ * rewrite on both sides, which puts one invariant in four places that drift.
+ * See docs/adr/0016-one-vote-per-group.md.
+ *
+ * A no-op when the trip votes per member, or when the voter is in no group.
+ */
+export async function applyGroupVoteExclusivity(
+  proposalType: VotableProposalType,
+  proposalId: number,
+  tripId: number,
+  userId: number
+): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const trip = await getTrip(tripId);
+  if (!trip || trip.votingUnit !== "group") return [];
+
+  const member = await getTripMember(tripId, userId);
+  if (!member?.groupId) return [];
+
+  const siblings = await db
+    .select({ userId: tripMembers.userId })
+    .from(tripMembers)
+    .where(
+      and(
+        eq(tripMembers.tripId, tripId),
+        eq(tripMembers.groupId, member.groupId)
+      )
+    );
+  const others = siblings.map(s => s.userId).filter(id => id !== userId);
+  if (others.length === 0) return [];
+
+  const { table, proposal } = VOTE_TABLES[proposalType];
+  const displaced = await db
+    .select({ userId: table.userId })
+    .from(table)
+    .where(and(eq(proposal, proposalId), inArray(table.userId, others)));
+  if (displaced.length === 0) return [];
+
+  await db
+    .delete(table)
+    .where(and(eq(proposal, proposalId), inArray(table.userId, others)));
+  return displaced.map(d => d.userId);
+}
+
+/**
+ * Re-applies one-vote-per-group across a whole trip after somebody moves group.
+ *
+ * Moving a member into a group that has already voted leaves that group holding
+ * two votes, and **nothing on screen says so**: the count is plausible, the
+ * score is plausible, and the only symptom is that one family quietly carries
+ * more weight than the others. The vote that survives is the most recently
+ * updated one; the caller records what was dropped.
+ */
+export async function reconcileGroupVotes(tripId: number): Promise<
+  Array<{
+    proposalType: VotableProposalType;
+    proposalId: number;
+    userId: number;
+  }>
+> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const trip = await getTrip(tripId);
+  if (!trip || trip.votingUnit !== "group") return [];
+
+  const members = await db
+    .select({ userId: tripMembers.userId, groupId: tripMembers.groupId })
+    .from(tripMembers)
+    .where(eq(tripMembers.tripId, tripId));
+  const groupOf = new Map(members.map(m => [m.userId, m.groupId]));
+
+  const [dateIds, destIds, accIds, budgetIds] = await Promise.all([
+    db
+      .select({ id: dateProposals.id })
+      .from(dateProposals)
+      .where(eq(dateProposals.tripId, tripId)),
+    db
+      .select({ id: destinations.id })
+      .from(destinations)
+      .where(eq(destinations.tripId, tripId)),
+    db
+      .select({ id: accommodations.id })
+      .from(accommodations)
+      .where(eq(accommodations.tripId, tripId)),
+    db
+      .select({ id: budgetProposals.id })
+      .from(budgetProposals)
+      .where(eq(budgetProposals.tripId, tripId)),
+  ]);
+
+  const work: Array<[VotableProposalType, number[]]> = [
+    ["date", dateIds.map(r => r.id)],
+    ["destination", destIds.map(r => r.id)],
+    ["accommodation", accIds.map(r => r.id)],
+    ["budget", budgetIds.map(r => r.id)],
+  ];
+
+  const dropped: Array<{
+    proposalType: VotableProposalType;
+    proposalId: number;
+    userId: number;
+  }> = [];
+
+  for (const [proposalType, proposalIds] of work) {
+    if (proposalIds.length === 0) continue;
+    const { table, proposal } = VOTE_TABLES[proposalType];
+    const rows = await db
+      .select()
+      .from(table)
+      .where(inArray(proposal, proposalIds));
+
+    // Keyed by proposal and group; ungrouped members are never in contention
+    // with anybody, so they are skipped entirely.
+    const keep = new Map<string, { id: number; at: number }>();
+    const losers: number[] = [];
+    for (const row of rows) {
+      const groupId = groupOf.get(row.userId);
+      if (groupId == null) continue;
+      const key = `${(row as { proposalId?: number; destinationId?: number; accommodationId?: number })[proposalType === "destination" ? "destinationId" : proposalType === "accommodation" ? "accommodationId" : "proposalId"]}:${groupId}`;
+      const at = new Date(row.updatedAt ?? row.createdAt).getTime();
+      const held = keep.get(key);
+      if (!held) {
+        keep.set(key, { id: row.id, at });
+        continue;
+      }
+      const loser = at > held.at ? held.id : row.id;
+      if (at > held.at) keep.set(key, { id: row.id, at });
+      losers.push(loser);
+      const lost = rows.find(r => r.id === loser);
+      if (lost)
+        dropped.push({
+          proposalType,
+          proposalId: Number(key.split(":")[0]),
+          userId: lost.userId,
+        });
+    }
+
+    if (losers.length) await db.delete(table).where(inArray(table.id, losers));
+  }
+
+  return dropped;
+}
+
+/**
+ * How many things can vote on this trip: groups that have somebody in them,
+ * plus accepted tripmates who are in none.
+ *
+ * Watchers are in neither mode's denominator — they cannot vote, so counting
+ * them makes "3/5 voted" unreachable forever. Computed here, once, and returned
+ * to the client rather than re-derived per screen: two derivations of one
+ * number is how one screen says "2/4" while the next says "2/3".
+ */
+export async function getTripVoterCount(tripId: number): Promise<number> {
+  const [trip, members] = await Promise.all([
+    getTrip(tripId),
+    getTripMembers(tripId),
+  ]);
+  const voters = members.filter(
+    m => m.status === "accepted" && m.role !== "watcher"
+  );
+  if (!trip || trip.votingUnit !== "group") return voters.length;
+  const groups = new Set(
+    voters.filter(m => m.groupId != null).map(m => String(m.groupId))
+  );
+  return groups.size + voters.filter(m => m.groupId == null).length;
+}
+
 /**
  * A member's existing vote, if any. Lets the activity trail distinguish a first
  * vote from a change of mind, which is the difference between "Sam voted" and
@@ -835,7 +1313,7 @@ export async function getMyAccommodationVote(
  * changed vote reports when it changed.
  */
 export async function getProposalVoters(
-  proposalType: "date" | "destination" | "accommodation",
+  proposalType: "date" | "destination" | "accommodation" | "budget",
   proposalId: number,
   tripId: number
 ) {
@@ -853,26 +1331,71 @@ export async function getProposalVoters(
             .select()
             .from(destinationVotes)
             .where(eq(destinationVotes.destinationId, proposalId))
-        : await db
-            .select()
-            .from(accommodationVotes)
-            .where(eq(accommodationVotes.accommodationId, proposalId));
+        : proposalType === "accommodation"
+          ? await db
+              .select()
+              .from(accommodationVotes)
+              .where(eq(accommodationVotes.accommodationId, proposalId))
+          : await db
+              .select()
+              .from(budgetVotes)
+              .where(eq(budgetVotes.proposalId, proposalId));
 
-  const members = await getTripMembers(tripId);
-  const accepted = members.filter(m => m.status === "accepted");
+  const [trip, members, groups] = await Promise.all([
+    getTrip(tripId),
+    getTripMembers(tripId),
+    getTripGroups(tripId),
+  ]);
+  const accepted = members.filter(
+    m => m.status === "accepted" && m.role !== "watcher"
+  );
+  const groupName = (groupId: number | null) =>
+    groupId == null ? null : (groups.find(g => g.id === groupId)?.name ?? null);
   const votedIds = new Set(rows.map(r => r.userId));
 
-  return {
-    voted: rows.map(r => ({
+  const voted = rows.map(r => {
+    const member = accepted.find(m => m.userId === r.userId);
+    return {
       userId: r.userId,
-      name: accepted.find(m => m.userId === r.userId)?.user?.name ?? null,
+      name: member?.user?.name ?? null,
+      group: groupName(member?.groupId ?? null),
       vote: r.vote as string,
       at: r.updatedAt ?? r.createdAt,
-    })),
-    notVoted: accepted
-      .filter(m => !votedIds.has(m.userId))
-      .map(m => ({ userId: m.userId, name: m.user?.name ?? null })),
-  };
+    };
+  });
+
+  // Who is holding this up. When the trip votes per group, a group that has
+  // voted has voted — chasing the other adult in it is chasing nobody, so a
+  // group with any vote in it is off the list entirely.
+  const byGroup = trip?.votingUnit === "group";
+  const groupsThatVoted = new Set(
+    accepted
+      .filter(m => votedIds.has(m.userId) && m.groupId != null)
+      .map(m => m.groupId)
+  );
+
+  const notVoted = accepted
+    .filter(m => {
+      if (votedIds.has(m.userId)) return false;
+      if (byGroup && m.groupId != null) return !groupsThatVoted.has(m.groupId);
+      return true;
+    })
+    .map(m => ({
+      userId: m.userId,
+      name: m.user?.name ?? null,
+      group: groupName(m.groupId),
+    }));
+
+  // In group mode the list is of groups, not people: naming both adults in one
+  // family as outstanding reads as two chases for one decision.
+  const dedupedNotVoted = byGroup
+    ? notVoted.filter(
+        (m, i) =>
+          m.group === null || notVoted.findIndex(o => o.group === m.group) === i
+      )
+    : notVoted;
+
+  return { voted, notVoted: dedupedNotVoted };
 }
 
 // ---- Activity trail ----
@@ -897,6 +1420,13 @@ export const ACTIVITY_ACTIONS = [
   "member.declined",
   "member.removed",
   "member.role_changed",
+  "group.created",
+  "group.renamed",
+  "group.deleted",
+  "group.member_assigned",
+  "attendee.added",
+  "attendee.removed",
+  "vote.superseded",
   "trip.edited",
   "trip.cloned",
   "preferences.saved",
@@ -1487,51 +2017,164 @@ export async function getAccommodation(id: number) {
   return result[0] || null;
 }
 
-// ---- Budget Items ----
-export async function createBudgetItem(data: InsertBudgetItem) {
+// ---- Budget proposals ----
+
+export async function createBudgetProposal(data: InsertBudgetProposal) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   const [result] = await db
-    .insert(budgetItems)
+    .insert(budgetProposals)
     .values(data)
-    .returning({ id: budgetItems.id });
+    .returning({ id: budgetProposals.id });
   return result.id;
 }
 
-export async function getBudgetItems(tripId: number) {
+/**
+ * Budget proposals with their votes, in the shape the proposal screens expect —
+ * `proposer`, and a `votes` array whose entries carry a name.
+ *
+ * Deliberately the same shape as `getDestinations`, so
+ * `projectProposalsForRole`, `scoreVotes` and `VotedCount` all work on a budget
+ * without a special case.
+ */
+export async function getBudgetProposals(tripId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db
+  const rows = await db
     .select()
-    .from(budgetItems)
-    .where(eq(budgetItems.tripId, tripId))
-    .orderBy(desc(budgetItems.createdAt));
+    .from(budgetProposals)
+    .where(eq(budgetProposals.tripId, tripId))
+    .orderBy(desc(budgetProposals.createdAt));
+  if (rows.length === 0) return [];
+
+  const votes = await db
+    .select()
+    .from(budgetVotes)
+    .where(
+      inArray(
+        budgetVotes.proposalId,
+        rows.map(r => r.id)
+      )
+    );
+
+  const names = await namesByUserId([
+    ...rows.map(r => r.proposedBy),
+    ...votes.map(v => v.userId),
+  ]);
+
+  return rows.map(r => ({
+    ...r,
+    proposer: names.get(r.proposedBy) ?? null,
+    votes: votes
+      .filter(v => v.proposalId === r.id)
+      .map(v => ({ ...v, user: names.get(v.userId) ?? null })),
+  }));
 }
 
-export async function getBudgetItem(id: number) {
+export async function getBudgetProposal(id: number) {
   const db = await getDb();
   if (!db) return null;
   const rows = await db
     .select()
-    .from(budgetItems)
-    .where(eq(budgetItems.id, id))
+    .from(budgetProposals)
+    .where(eq(budgetProposals.id, id))
     .limit(1);
   return rows[0] || null;
 }
 
-export async function updateBudgetItem(
+export async function updateBudgetProposal(
   id: number,
-  data: Partial<InsertBudgetItem>
+  data: Partial<InsertBudgetProposal>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.update(budgetItems).set(data).where(eq(budgetItems.id, id));
+  await db.update(budgetProposals).set(data).where(eq(budgetProposals.id, id));
 }
 
-export async function deleteBudgetItem(id: number) {
+export async function deleteBudgetProposal(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db.delete(budgetItems).where(eq(budgetItems.id, id));
+  await db.delete(budgetVotes).where(eq(budgetVotes.proposalId, id));
+  await db.delete(budgetProposals).where(eq(budgetProposals.id, id));
+}
+
+export async function voteBudgetProposal(data: InsertBudgetVote) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const existing = await db
+    .select()
+    .from(budgetVotes)
+    .where(
+      and(
+        eq(budgetVotes.proposalId, data.proposalId),
+        eq(budgetVotes.userId, data.userId)
+      )
+    )
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(budgetVotes)
+      .set({ vote: data.vote, updatedAt: new Date() })
+      .where(eq(budgetVotes.id, existing[0].id));
+    return;
+  }
+  await db.insert(budgetVotes).values(data);
+}
+
+export async function unvoteBudgetProposal(proposalId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(budgetVotes)
+    .where(
+      and(
+        eq(budgetVotes.proposalId, proposalId),
+        eq(budgetVotes.userId, userId)
+      )
+    );
+}
+
+export async function getMyBudgetVote(proposalId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const [row] = await db
+    .select()
+    .from(budgetVotes)
+    .where(
+      and(
+        eq(budgetVotes.proposalId, proposalId),
+        eq(budgetVotes.userId, userId)
+      )
+    )
+    .limit(1);
+  return row;
+}
+
+/**
+ * Finalise or un-finalise a budget. **Exactly one at a time.**
+ *
+ * Budget follows dates, not places: a trip has several destinations and several
+ * stays, but one answer to "how much are we spending". So this clears the trip
+ * before setting one row — the `lockDateProposal` shape, not the
+ * `setDestinationLock` one.
+ */
+export async function setBudgetLock(
+  tripId: number,
+  proposalId: number,
+  locked: boolean,
+  lockedBy: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(budgetProposals)
+    .set({ selected: false, lockedBy: null, lockedAt: null })
+    .where(eq(budgetProposals.tripId, tripId));
+  if (locked)
+    await db
+      .update(budgetProposals)
+      .set({ selected: true, lockedBy, lockedAt: new Date() })
+      .where(eq(budgetProposals.id, proposalId));
 }
 
 // ---- Referee Messages ----
@@ -1672,7 +2315,7 @@ export async function createComment(data: InsertProposalComment) {
  * another trip must not come back even if its proposal id is guessed right.
  */
 export async function getComments(
-  proposalType: "date" | "destination" | "accommodation",
+  proposalType: "date" | "destination" | "accommodation" | "budget",
   proposalId: number,
   tripId: number
 ) {

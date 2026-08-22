@@ -22,7 +22,12 @@ export const commentsRouter = router({
     .input(
       z.object({
         tripId: z.number(),
-        proposalType: z.enum(["date", "destination", "accommodation"]),
+        proposalType: z.enum([
+          "date",
+          "destination",
+          "accommodation",
+          "budget",
+        ]),
         proposalId: z.number(),
       })
     )
@@ -52,7 +57,12 @@ export const commentsRouter = router({
     .input(
       z.object({
         tripId: z.number(),
-        proposalType: z.enum(["date", "destination", "accommodation"]),
+        proposalType: z.enum([
+          "date",
+          "destination",
+          "accommodation",
+          "budget",
+        ]),
         proposalId: z.number(),
       })
     )
@@ -63,7 +73,12 @@ export const commentsRouter = router({
   add: protectedProcedure
     .input(
       z.object({
-        proposalType: z.enum(["date", "destination", "accommodation"]),
+        proposalType: z.enum([
+          "date",
+          "destination",
+          "accommodation",
+          "budget",
+        ]),
         proposalId: z.number(),
         tripId: z.number(),
         content: z.string().min(1).max(1000),

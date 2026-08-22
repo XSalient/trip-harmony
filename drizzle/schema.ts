@@ -13,6 +13,7 @@ export const proposalTypeEnum = pgEnum("proposal_type", [
   "date",
   "destination",
   "accommodation",
+  "budget",
 ]);
 
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
@@ -47,6 +48,23 @@ export const memberStatusEnum = pgEnum("member_status", [
   "accepted",
   "declined",
 ]);
+/**
+ * Whether a proposal carries one vote per person or one per group.
+ *
+ * `member` is the default and is what every trip did before groups existed: a
+ * trip that never creates a group behaves exactly as it always has.
+ */
+export const votingUnitEnum = pgEnum("voting_unit", ["member", "group"]);
+/**
+ * What an attendee is. A pet is deliberately one of these rather than a flag:
+ * every question the app asks about an attendee — is there an age, is this a
+ * chargeable head — is answered by the kind alone.
+ */
+export const attendeeKindEnum = pgEnum("attendee_kind", [
+  "adult",
+  "child",
+  "pet",
+]);
 /** How someone came to be on the trip — a shared link, an emailed invite, or creating it. */
 export const joinedViaEnum = pgEnum("joined_via", ["creator", "link", "email"]);
 export const inviteStatusEnum = pgEnum("invite_status", [
@@ -70,14 +88,18 @@ export const accommodationVoteEnum = pgEnum("accommodation_vote", [
   "fine",
   "veto",
 ]);
-export const budgetCategoryEnum = pgEnum("budget_category", [
-  "accommodation",
-  "transport",
-  "food",
-  "activities",
-  "other",
+/**
+ * What a budget proposal's amount means. Proposals written in different scopes
+ * are compared by normalising both to a trip total — see `shared/budget.ts`,
+ * which is the only place that arithmetic lives.
+ */
+export const budgetScopeEnum = pgEnum("budget_scope", [
+  "trip_total",
+  "per_person",
+  "per_adult",
+  "per_group",
 ]);
-export const splitTypeEnum = pgEnum("split_type", ["equal", "custom"]);
+export const budgetVoteEnum = pgEnum("budget_vote", ["love", "fine", "veto"]);
 export const refereeMessageTypeEnum = pgEnum("referee_message_type", [
   "nudge",
   "mediation",
@@ -137,6 +159,8 @@ export const trips = pgTable("trips", {
   endDate: timestamp("endDate"),
   currency: varchar("currency", { length: 3 }).default("USD").notNull(),
   totalBudget: decimal("totalBudget", { precision: 12, scale: 2 }),
+  /** One vote per person, or one per group. See `votingUnitEnum`. */
+  votingUnit: votingUnitEnum("votingUnit").default("member").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
@@ -153,6 +177,14 @@ export const tripMembers = pgTable("trip_members", {
   userId: integer("userId").notNull(),
   role: memberRoleEnum("role").default("tripmate").notNull(),
   status: memberStatusEnum("status").default("pending").notNull(),
+  /**
+   * The member's group, or null. **Null is a first-class state**, not a missing
+   * value: an ungrouped member is a group of one everywhere it matters. Nobody
+   * is auto-assigned a singleton group — that doubles the rows and makes the
+   * members page unreadable for the trips that never wanted groups.
+   */
+  groupId: integer("groupId"),
+  /** Personal spending ceiling. Superseded by the group's when the member is in one. */
   budgetMax: decimal("budgetMax", { precision: 12, scale: 2 }),
   /** Who invited them, when it is known. Null for the creator and for pre-invite rows. */
   invitedBy: integer("invitedBy"),
@@ -164,6 +196,62 @@ export const tripMembers = pgTable("trip_members", {
 
 export type TripMember = typeof tripMembers.$inferSelect;
 export type InsertTripMember = typeof tripMembers.$inferInsert;
+
+/**
+ * A family or household on a trip.
+ *
+ * The unit a trip of families actually plans in: one opinion, one wallet. A
+ * member belongs to at most one, and belonging to none is normal — see
+ * `tripMembers.groupId`.
+ *
+ * A case-insensitive unique index on `(tripId, lower(name))` is created in
+ * `0008_member_groups.sql`. Drizzle cannot express a functional index, so that
+ * migration is part of this table's definition — this file is not the whole story.
+ */
+export const tripGroups = pgTable("trip_groups", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  /** The group's shared ceiling. Supersedes `tripMembers.budgetMax` for anyone in it. */
+  budgetMax: decimal("budgetMax", { precision: 12, scale: 2 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TripGroup = typeof tripGroups.$inferSelect;
+export type InsertTripGroup = typeof tripGroups.$inferInsert;
+
+/**
+ * Everyone who is coming, whether or not they use the app.
+ *
+ * Members are attendees too — one row each, written when they accept — so
+ * headcount is one number rather than "members plus attendees, mind the
+ * overlap". Everyone else (children, a partner who will not install anything,
+ * the dog) exists only here: no login, no vote, no notifications.
+ */
+export const tripAttendees = pgTable("trip_attendees", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  /** Null means on the trip but in no group — the same first-class state as an ungrouped member. */
+  groupId: integer("groupId"),
+  /**
+   * The account this attendee is, when they have one. A partial unique index on
+   * `(tripId, memberUserId)` in `0009_trip_attendees.sql` is what stops a
+   * re-accepted invite from counting somebody twice.
+   */
+  memberUserId: integer("memberUserId"),
+  name: varchar("name", { length: 120 }).notNull(),
+  kind: attendeeKindEnum("kind").notNull(),
+  /**
+   * Years. Null for two different reasons that share a column: a pet has no
+   * meaningful one, and an adult need not give theirs.
+   */
+  age: integer("age"),
+  notes: varchar("notes", { length: 300 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type TripAttendee = typeof tripAttendees.$inferSelect;
+export type InsertTripAttendee = typeof tripAttendees.$inferInsert;
 
 /**
  * Invitations sent to an email address.
@@ -390,23 +478,54 @@ export type AccommodationVote = typeof accommodationVotes.$inferSelect;
 export type InsertAccommodationVote = typeof accommodationVotes.$inferInsert;
 
 /**
- * Budget items — individual expenses tracked per trip.
+ * Budget proposals — how much this trip costs, argued the same way as
+ * everything else.
+ *
+ * This replaced an append-only expense journal (`budget_items`), which recorded
+ * what had been spent on a trip that had not happened and could not express the
+ * question the group actually argues about. Shape follows `destinations`
+ * deliberately: propose, vote, an admin finalises.
+ *
+ * `scope` says what `amount` means. **Exactly one budget is finalised at a
+ * time** — budget follows dates, not places; see `setBudgetLock` in
+ * `server/db.ts`.
  */
-export const budgetItems = pgTable("budget_items", {
+export const budgetProposals = pgTable("budget_proposals", {
   id: serial("id").primaryKey(),
   tripId: integer("tripId").notNull(),
-  category: budgetCategoryEnum("category").notNull(),
-  description: varchar("description", { length: 500 }).notNull(),
+  proposedBy: integer("proposedBy").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   currency: varchar("currency", { length: 3 }).default("USD").notNull(),
-  paidBy: integer("paidBy"),
-  splitType: splitTypeEnum("splitType").default("equal").notNull(),
-  approved: boolean("approved").default(false).notNull(),
+  scope: budgetScopeEnum("scope").notNull(),
+  /** Free text: what this figure is meant to cover. */
+  covers: text("covers"),
+  selected: boolean("selected").default(false).notNull(),
+  lockedBy: integer("lockedBy"),
+  lockedAt: timestamp("lockedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export type BudgetItem = typeof budgetItems.$inferSelect;
-export type InsertBudgetItem = typeof budgetItems.$inferInsert;
+export type BudgetProposal = typeof budgetProposals.$inferSelect;
+export type InsertBudgetProposal = typeof budgetProposals.$inferInsert;
+
+/**
+ * Votes on a budget proposal. One row per member per proposal — and, when the
+ * trip votes per group, at most one row per *group*, which is enforced on write
+ * by `applyGroupVoteExclusivity` rather than by a column here.
+ */
+export const budgetVotes = pgTable("budget_votes", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposalId").notNull(),
+  userId: integer("userId").notNull(),
+  vote: budgetVoteEnum("vote").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  /** When the vote last changed; `createdAt` never moves. Same rule as `dateVotes`. */
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type BudgetVote = typeof budgetVotes.$inferSelect;
+export type InsertBudgetVote = typeof budgetVotes.$inferInsert;
 
 /**
  * Referee messages — AI mediator messages for conflict resolution.

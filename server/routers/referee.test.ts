@@ -23,7 +23,8 @@ const h = vi.hoisted(() => {
       getTrip: vi.fn(),
       getTripMembers: vi.fn(),
       getAllTripPreferences: vi.fn(),
-      getBudgetItems: vi.fn(),
+      getBudgetProposals: vi.fn(),
+      getTripHeadcount: vi.fn(),
       getDateProposals: vi.fn(),
       getDestinations: vi.fn(),
       getAccommodations: vi.fn(),
@@ -105,7 +106,18 @@ beforeEach(() => {
       }),
     },
   ]);
-  h.db.getBudgetItems.mockResolvedValue([]);
+  h.db.getBudgetProposals.mockResolvedValue([]);
+  // Sam and Priya, and nobody else coming. A stay's per-person share divides by
+  // this rather than by member count: the two are the same here only because
+  // neither of them brought anybody.
+  h.db.getTripHeadcount.mockResolvedValue({
+    adults: 2,
+    children: 0,
+    pets: 0,
+    people: 2,
+    groups: 2,
+    byGroup: {},
+  });
   h.db.getDateProposals.mockResolvedValue([]);
   h.db.getDestinations.mockResolvedValue([]);
   h.db.getAccommodations.mockResolvedValue([

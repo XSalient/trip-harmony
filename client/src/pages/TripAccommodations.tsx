@@ -250,12 +250,10 @@ export default function TripAccommodations() {
     pricePerNight: "",
   });
 
-  // Denominator for "x/x voted" — accepted members only, matching how the
-  // dashboard counts.
-  const memberCount = useMemo(
-    () => members?.filter((m: any) => m.status === "accepted").length || 0,
-    [members]
-  );
+  // Denominator for "x/x voted". The server derives it, because a trip that
+  // votes per group counts families rather than people and a watcher is not a
+  // voter in either mode — three facts four screens should not each re-invent.
+  const voterCount = (trip as any)?.voterCount ?? 0;
 
   // A two-stop trip books two places to sleep, so this is a list. It was a
   // `find()` while the database cleared every other row before setting one.
@@ -1448,7 +1446,7 @@ export default function TripAccommodations() {
                         proposalType="accommodation"
                         proposalId={acc.id}
                         votedCount={acc.votes?.length || 0}
-                        memberCount={memberCount}
+                        voterCount={voterCount}
                         canSeeDetail={canContribute}
                       />
                     </div>

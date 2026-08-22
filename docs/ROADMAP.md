@@ -11,6 +11,25 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 ## Shipped
 
 <details>
+<summary>Member groups and a budget that is decided — 2026-08-22</summary>
+
+Specified in [product/groups-and-budget-2026-08.md](product/groups-and-budget-2026-08.md),
+tracked story by story in [product/progress.md](product/progress.md).
+
+- [x] **E9 — Member groups.** Families and households on a trip, a per-trip
+      voting unit, and a group-level spending cap
+- [x] **E10 — Attendees.** Everyone who is coming — adults, children with ages,
+      pets — whether or not they use the app, and one headcount everything reads
+- [x] **E11 — One vote per group.** A family casts one vote; "x/y voted" counts
+      voters, not people, and never a watcher
+- [x] **E12 — Budget as a voting section.** Budget proposals with a scope
+      (trip total / per adult / per person / per family), voted and finalised
+      like any other proposal. **Removed the expense journal — `budget_items` is
+      dropped, destructively, by migration 0011**
+
+</details>
+
+<details>
 <summary>Core platform and MVP features (complete)</summary>
 
 - [x] Database schema — users, trips, membership, proposals, votes, budget, notifications
@@ -20,7 +39,7 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 - [x] Trip creation, shareable invite links, membership status and roles
 - [x] Planning phases — dates, suggestions, accommodations
 - [x] AI referee — conflict detection, compromise suggestions, nudges
-- [x] Budget guardian — per-person tracking, currency, comfort thresholds
+- [x] ~~Budget guardian — per-person expense tracking~~ (replaced 2026-08-22 by budget voting, E12)
 - [x] Voting — Love/Fine/Veto, weighting, optimistic UI with unvote
 - [x] Trip dashboard, notifications, comment threads
 - [x] ~~Vibe board and itinerary builder~~ (removed 2026-08-19)
