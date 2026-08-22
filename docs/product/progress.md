@@ -1,7 +1,8 @@
-# Progress — trip experience overhaul
+# Progress — trip experience overhaul, and groups & budget
 
-The tracker for [overhaul-2026-08.md](overhaul-2026-08.md). Every story in
-[stories/](stories/) has a row here.
+The tracker for [overhaul-2026-08.md](overhaul-2026-08.md) (E1–E8, complete) and
+[groups-and-budget-2026-08.md](groups-and-budget-2026-08.md) (E9–E12, specified).
+Every story in [stories/](stories/) has a row here.
 
 **Update this file in the same commit as the work.** A tracker nobody updates is
 worse than no tracker: it reads as authoritative and is wrong. When you finish a
@@ -15,11 +16,18 @@ Statuses: `Not started` · `In progress` · `Blocked` · `Done`
 
 ## Delivery order
 
-E1 → E2 → E4 → E6 → E3 → E5 → E7 → E8
+**Overhaul (done):** E1 → E2 → E4 → E6 → E3 → E5 → E7 → E8
 
 The order is not advisory. E2 builds the permission model that E3, E4, E6 and E7
 all check against, and E6 changes what "finalised" means before E5 counts it.
 Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
+
+**Groups & budget (next):** E9 → E10 → E11 → E12
+
+Also not advisory. E11 votes by the groups E9 creates, E12 charges by them and
+divides by the headcount E10 records, and E12 is the only epic that drops a
+table. Reasoning in
+[groups-and-budget-2026-08.md](groups-and-budget-2026-08.md#delivery-order).
 
 ## Epics
 
@@ -33,6 +41,15 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E6  | [Finalising proposals](stories/E6-finalising-proposals.md)                       | 9, 16         | Done   |
 | E7  | [Editing and preferences summary](stories/E7-editing-and-preferences-summary.md) | 12, 13        | Done   |
 | E8  | [Add-proposal flow](stories/E8-add-proposal-flow.md)                             | 15            | Done   |
+
+### Groups and budget
+
+| #   | Epic                                                                    | Items      | Status      |
+| --- | ----------------------------------------------------------------------- | ---------- | ----------- |
+| E9  | [Member groups](stories/E9-member-groups.md)                            | 17, 18     | Not started |
+| E10 | [Attendees](stories/E10-attendees.md)                                   | 19, 20     | Not started |
+| E11 | [One vote per group](stories/E11-one-vote-per-group.md)                 | 21         | Not started |
+| E12 | [Budget as a voting section](stories/E12-budget-as-a-voting-section.md) | 22, 23, 24 | Not started |
 
 ## Stories
 
@@ -68,18 +85,38 @@ Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 | E8.1 | Add navigates to the detail screen with the dialog open | Done   | `…kzsuz3` | 2026-08-02 |
 | E8.2 | One add form per proposal type                          | Done   | `…kzsuz3` | 2026-08-02 |
 
+### Groups and budget
+
+| ID    | Story                                             | Status      | Commit | Date |
+| ----- | ------------------------------------------------- | ----------- | ------ | ---- |
+| E9.1  | Group members into families                       | Not started |        |      |
+| E9.2  | Per-trip voting unit: per person or per family    | Not started |        |      |
+| E10.1 | Record everyone travelling, app or no app         | Not started |        |      |
+| E10.2 | Headcount: adults, children, pets                 | Not started |        |      |
+| E11.1 | A family casts one vote                           | Not started |        |      |
+| E11.2 | Moving between groups leaves the votes correct    | Not started |        |      |
+| E11.3 | "x/y voted" counts the things that vote           | Not started |        |      |
+| E12.1 | Budget proposals are voted like anything else     | Not started |        |      |
+| E12.2 | Amounts have a scope and are compared fairly      | Not started |        |      |
+| E12.3 | Caps are personal; the group is told, not the sum | Not started |        |      |
+| E12.4 | The expense journal is removed cleanly            | Not started |        |      |
+
 ## Open questions
 
 Answer these as they come up; they block the story named beside each.
 
-| #   | Question                                                          | Blocks | Answer                                  |
-| --- | ----------------------------------------------------------------- | ------ | --------------------------------------- |
-| Q1  | Do watchers see the AI Referee feed?                              | E2.3   | No — hidden entirely                    |
-| Q2  | Do all existing trip members become tripmates on migration?       | E2.2   | Yes — organizer→admin, member→tripmate  |
-| Q3  | What does a section header say when several proposals are locked? | E6.1   | "2 finalised"; dates keep "Decided"     |
-| Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   | No — declined at scoping                |
-| Q5  | Where does the activity trail surface in the UI?                  | E3.1   | Nowhere as a feed; quiet side info only |
-| Q6  | Do sections default to collapsed or expanded on first visit?      | E5.3   | Summary open; everything else closed    |
+| #   | Question                                                          | Blocks | Answer                                    |
+| --- | ----------------------------------------------------------------- | ------ | ----------------------------------------- |
+| Q1  | Do watchers see the AI Referee feed?                              | E2.3   | No — hidden entirely                      |
+| Q2  | Do all existing trip members become tripmates on migration?       | E2.2   | Yes — organizer→admin, member→tripmate    |
+| Q3  | What does a section header say when several proposals are locked? | E6.1   | "2 finalised"; dates keep "Decided"       |
+| Q4  | Is a hard numeric AI quota wanted, on top of the cooldown?        | E4.4   | No — declined at scoping                  |
+| Q5  | Where does the activity trail surface in the UI?                  | E3.1   | Nowhere as a feed; quiet side info only   |
+| Q6  | Do sections default to collapsed or expanded on first visit?      | E5.3   | Summary open; everything else closed      |
+| Q7  | Is one vote per family always on, or a setting?                   | E9.2   | A per-trip setting; per member by default |
+| Q8  | Does the expense journal survive beside budget voting?            | E12.1  | No — proposals only; the journal goes     |
+| Q9  | What unit is a budget amount in?                                  | E12.2  | Per-proposal scope, normalised to compare |
+| Q10 | How are children and pets recorded?                               | E10.1  | Attendees on a group; no age for a pet    |
 
 ## Notes for whoever picks this up
 

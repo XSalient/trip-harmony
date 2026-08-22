@@ -8,6 +8,25 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 
 ---
 
+## Next — member groups and a budget that is decided
+
+Specified in [product/groups-and-budget-2026-08.md](product/groups-and-budget-2026-08.md);
+tracked story by story in [product/progress.md](product/progress.md).
+Order is not advisory: E9 → E10 → E11 → E12.
+
+- [ ] **E9 — Member groups.** Families and households on a trip, a per-trip
+      voting unit, and a group-level spending cap
+- [ ] **E10 — Attendees.** Everyone who is coming — adults, children with ages,
+      pets — whether or not they use the app, and one headcount everything reads
+- [ ] **E11 — One vote per group.** A family casts one vote; "x/y voted" counts
+      voters, not people
+- [ ] **E12 — Budget as a voting section.** Budget proposals with a scope
+      (trip total / per adult / per person / per group), voted and finalised like
+      any other proposal. **Removes the expense journal — `budget_items` is
+      dropped, destructively**
+
+---
+
 ## Shipped
 
 <details>
