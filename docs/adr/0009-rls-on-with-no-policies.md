@@ -50,5 +50,27 @@ legitimate admin path.
   to write policies, and would have to move some authorisation into the database
   that currently lives in the router layer. Weigh that before adopting them.
 - Anyone restoring this database elsewhere, or creating a new environment, must
-  repeat this. It is a property of the deployment, not of `drizzle/schema.ts`,
-  so `pnpm db:push` against a fresh Supabase project will **not** reproduce it.
+  repeat this **for the tables that existed when this ADR was written**. It is a
+  property of the deployment, not of `drizzle/schema.ts`, so `pnpm db:push`
+  against a fresh Supabase project will **not** reproduce it.
+
+## Amended 2026-08-22 — new tables close themselves
+
+Tables added from migration `0008` onwards carry their own closure: the
+migration that creates a table also enables RLS on it and revokes from `anon`
+and `authenticated`. Leaving it to a remembered manual step meant every new
+table was open until somebody remembered, and four arrived at once.
+
+The revoke is **guarded on the roles existing**, because the same migration has
+to apply to three databases and only one of them is Supabase — CI's Postgres and
+any local scratch database have neither role, and an unguarded
+`REVOKE ... FROM anon` is a hard error there. The first version of 0008–0010
+was unguarded; it passed locally only because the roles had been created by hand
+in the scratch database, and turned CI red on the first push.
+
+Enabling RLS needs no guard and is portable, so it is a plain statement.
+
+`scripts/lib/migrationSql.test.mjs` asserts both halves across every migration:
+no bare `REVOKE` naming a role that may not exist, and RLS enabled on every
+table a migration creates. That test, not this paragraph, is what stops the next
+one.

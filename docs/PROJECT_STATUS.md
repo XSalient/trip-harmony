@@ -16,7 +16,7 @@ finish a piece of work — the next person (or agent) starts here.
   voting section rather than an expense journal. See [product/](product/) for
   the specifications and [product/progress.md](product/progress.md) for the
   story-by-story record.
-- **Health:** typecheck ✅ · 672 tests ✅ · production build ✅ (2026-08-22) ·
+- **Health:** typecheck ✅ · 704 tests ✅ · production build ✅ (2026-08-22) ·
   dev server ✅
   (2026-08-22, after E9–E12: walked in a real browser against a real Postgres
   built by applying migrations 0000–0011 in order. Two members of one family

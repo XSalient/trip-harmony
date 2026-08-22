@@ -36,12 +36,29 @@ CREATE TABLE IF NOT EXISTS "budget_votes" (
 );--> statement-breakpoint
 
 ALTER TABLE "budget_proposals" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-REVOKE ALL ON TABLE "budget_proposals" FROM anon, authenticated;--> statement-breakpoint
 ALTER TABLE "budget_votes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-REVOKE ALL ON TABLE "budget_votes" FROM anon, authenticated;--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS "budget_proposals_trip_idx" ON "budget_proposals" ("tripId");--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "budget_votes_proposal_user_idx"
 	ON "budget_votes" ("proposalId", "userId");--> statement-breakpoint
 
-ALTER TABLE "trip_groups" ADD COLUMN IF NOT EXISTS "budgetMax" numeric(12, 2);
+ALTER TABLE "trip_groups" ADD COLUMN IF NOT EXISTS "budgetMax" numeric(12, 2);--> statement-breakpoint
+
+-- Close the new table to Supabase's PostgREST roles, per ADR 0009.
+--
+-- Guarded on the roles existing: `anon` and `authenticated` are Supabase's, and
+-- a bare Postgres — CI's, and any local scratch database — has neither. An
+-- unguarded REVOKE fails there, which is how this first reached CI red.
+DO $$
+DECLARE
+  target text;
+  tbl text;
+BEGIN
+  FOREACH tbl IN ARRAY ARRAY['budget_proposals', 'budget_votes'] LOOP
+    FOREACH target IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = target) THEN
+        EXECUTE format('REVOKE ALL ON TABLE %I FROM %I', tbl, target);
+      END IF;
+    END LOOP;
+  END LOOP;
+END $$;
