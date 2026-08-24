@@ -37,6 +37,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import DraggableMemberChip, {
+  DROP_ATTR,
+  groupUnderPointer,
+} from "@/components/trip/DraggableMemberChip";
+import type { PanInfo } from "framer-motion";
 import { format } from "date-fns";
 import {
   Copy,
@@ -167,6 +172,18 @@ export default function TripMembers() {
   const removeAttendee = trpc.groups.removeAttendee.useMutation();
 
   const [newGroupName, setNewGroupName] = useState("");
+  // Creating your family and then not being in it is nobody's intent.
+  const [joinNewGroup, setJoinNewGroup] = useState(true);
+  const [addToGroup, setAddToGroup] = useState<number | null>(null);
+  // The plan returned by a preview, held until the person confirms it. Null
+  // means nothing is pending; the import writes nothing until this is acted on.
+  const [importPlan, setImportPlan] = useState<any | null>(null);
+  // Who is being dragged, and which card the pointer is over. Both are needed:
+  // the first to know what to move, the second only so the card can light up.
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null | undefined>(
+    undefined
+  );
   const [attendeeFor, setAttendeeFor] = useState<number | null | undefined>(
     undefined
   );
@@ -185,6 +202,12 @@ export default function TripMembers() {
   const revokeInvite = trpc.trips.revokeInvite.useMutation();
   const updateRole = trpc.trips.updateMemberRole.useMutation();
   const removeMember = trpc.trips.removeMember.useMutation();
+  const { data: contactGroups } = trpc.contacts.groups.useQuery(undefined, {
+    enabled: Boolean(user),
+  });
+  const saveGroupFromTrip = trpc.contacts.saveGroupFromTrip.useMutation();
+  const importGroup = trpc.contacts.importGroupToTrip.useMutation();
+  const removeContactGroup = trpc.contacts.removeGroup.useMutation();
   const addContact = trpc.contacts.add.useMutation();
   const addContactFromTrip = trpc.contacts.addFromTrip.useMutation();
   const removeContact = trpc.contacts.remove.useMutation();
@@ -224,6 +247,19 @@ export default function TripMembers() {
   /** Admins act on any group; a tripmate acts on their own and nobody else's. */
   const canAddTo = (groupId: number | null) =>
     isAdmin || (groupId != null && groupId === myGroupId);
+  /**
+   * Mirrors `mayAssign` on the server. The server is what enforces it — this
+   * only decides whether to draw the control.
+   */
+  const canMove = (m: { userId: number; groupId: number | null }) =>
+    isAdmin ||
+    m.userId === user?.id ||
+    (myGroupId != null && m.groupId === myGroupId);
+  /** Who this group could take: yourself, and anyone you may move. */
+  const movableInto = (groupId: number) =>
+    accepted.filter(
+      (m: any) => m.groupId !== groupId && canMove(m) && m.role !== "watcher"
+    );
   const pendingInvites =
     invites?.filter((i: any) => i.status === "pending") ?? [];
   const answeredInvites =
@@ -263,10 +299,16 @@ export default function TripMembers() {
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) return;
     try {
-      await createGroup.mutateAsync({ tripId, name: newGroupName.trim() });
+      await createGroup.mutateAsync({
+        tripId,
+        name: newGroupName.trim(),
+        joinMe: joinNewGroup,
+      });
       setNewGroupName("");
       refreshGroups();
-      toast.success("Group added");
+      toast.success(
+        joinNewGroup ? "Group added — you're in it" : "Group added"
+      );
     } catch (e: any) {
       toast.error(e?.message || "Couldn't add that group");
     }
@@ -290,6 +332,88 @@ export default function TripMembers() {
       toast.success("Group removed. Everyone in it is still on the trip.");
     } catch (e: any) {
       toast.error(e?.message || "Couldn't remove that group");
+    }
+  };
+
+  /**
+   * Drops a member onto whatever card the pointer was released over.
+   *
+   * A drop outside every card is a cancelled drag, not a move to nowhere —
+   * `undefined` from `groupUnderPointer` means no target, while `null` means
+   * the "Not in a group" card, which is a real destination.
+   */
+  const handleDrop = async (userId: number, info: PanInfo) => {
+    const target = groupUnderPointer(info);
+    setDragging(null);
+    setDragOver(undefined);
+    if (target === undefined) return;
+    const current =
+      accepted.find((m: any) => m.userId === userId)?.groupId ?? null;
+    if (current === target) return;
+    await handleAssign(userId, target);
+  };
+
+  const handleSaveGroup = async (groupId: number) => {
+    try {
+      const res = await saveGroupFromTrip.mutateAsync({ tripId, groupId });
+      await utils.contacts.groups.invalidate();
+      await utils.contacts.list.invalidate();
+      toast.success(
+        res.added > 0
+          ? `${res.name} saved — ${res.added} added${res.alreadyThere > 0 ? `, ${res.alreadyThere} already there` : ""}`
+          : `${res.name} was already saved, with everyone in it`
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't save that group");
+    }
+  };
+
+  /** Step one: ask what this would do. Writes nothing. */
+  const previewImport = async (contactGroupId: number) => {
+    try {
+      const plan = await importGroup.mutateAsync({
+        tripId,
+        contactGroupId,
+        role: isAdmin ? "tripmate" : "watcher",
+        confirm: false,
+      });
+      setContactPickerOpen(false);
+      setImportPlan({ ...plan, contactGroupId });
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't read that group");
+    }
+  };
+
+  /** Step two, once they have seen who it would move. */
+  const confirmImport = async () => {
+    if (!importPlan) return;
+    try {
+      const res = await importGroup.mutateAsync({
+        tripId,
+        contactGroupId: importPlan.contactGroupId,
+        role: isAdmin ? "tripmate" : "watcher",
+        confirm: true,
+      });
+      // The two modes return different shapes; this is the acting one.
+      if (!res.confirmed) return;
+      setImportPlan(null);
+      refreshGroups();
+      utils.trips.invites.invalidate({ tripId });
+      const parts = [];
+      if (res.moved) parts.push(`${res.moved} moved`);
+      if (res.invited) parts.push(`${res.invited} invited`);
+      if (res.attendeesAdded) parts.push(`${res.attendeesAdded} added`);
+      toast.success(`${res.groupName}: ${parts.join(", ") || "nothing to do"}`);
+      if (res.votesSuperseded > 0)
+        toast.info(
+          `${res.votesSuperseded} ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped: a group casts one vote, and regrouping means some of those were now duplicates.`
+        );
+      if (res.undelivered.length > 0)
+        toast.error(
+          `Couldn't email ${res.undelivered.join(", ")} — share the invite link with them instead.`
+        );
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't add that group");
     }
   };
 
@@ -413,7 +537,7 @@ export default function TripMembers() {
             Families and households
           </h2>
 
-          {isAdmin && (
+          {canContribute && (
             <Card className="border-border/50">
               <CardContent className="p-3 space-y-3">
                 <div className="flex gap-2">
@@ -434,50 +558,71 @@ export default function TripMembers() {
                   </Button>
                 </div>
 
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={joinNewGroup}
+                    onChange={e => setJoinNewGroup(e.target.checked)}
+                    className="rounded"
+                  />
+                  Put me in it
+                </label>
+
                 {/* The switch lives here, beside the groups, because it is a
                     statement about the people and this is where its effect
-                    can be seen. */}
-                <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/50">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">One vote per family</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {(trip as any)?.votingUnit === "group"
-                        ? "Each group casts one vote. Anyone in it can cast or change it."
-                        : "Everyone votes for themselves."}
-                    </p>
-                  </div>
-                  <Button
-                    variant={
-                      (trip as any)?.votingUnit === "group"
-                        ? "default"
-                        : "outline"
-                    }
-                    size="sm"
-                    className="rounded-lg shrink-0 text-xs h-8"
-                    onClick={() =>
-                      handleVotingUnit(
+                    can be seen. Admin-only even though the card is not: it
+                    changes every vote denominator on the trip. */}
+                {isAdmin && (
+                  <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">One vote per family</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {(trip as any)?.votingUnit === "group"
+                          ? "Each group casts one vote. Anyone in it can cast or change it."
+                          : "Everyone votes for themselves."}
+                      </p>
+                    </div>
+                    <Button
+                      variant={
                         (trip as any)?.votingUnit === "group"
-                          ? "member"
-                          : "group"
-                      )
-                    }
-                    disabled={setVotingUnit.isPending}
-                  >
-                    {(trip as any)?.votingUnit === "group" ? "On" : "Off"}
-                  </Button>
-                </div>
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      className="rounded-lg shrink-0 text-xs h-8"
+                      onClick={() =>
+                        handleVotingUnit(
+                          (trip as any)?.votingUnit === "group"
+                            ? "member"
+                            : "group"
+                        )
+                      }
+                      disabled={setVotingUnit.isPending}
+                    >
+                      {(trip as any)?.votingUnit === "group" ? "On" : "Off"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {(groups ?? []).length === 0 && !isAdmin && (
+          {(groups ?? []).length === 0 && !canContribute && (
             <p className="text-sm text-muted-foreground">
               Nobody is grouped on this trip.
             </p>
           )}
 
           {(groups ?? []).map((g: any) => (
-            <Card key={g.id} className="border-border/50">
+            <Card
+              key={g.id}
+              {...{ [DROP_ATTR]: String(g.id) }}
+              className={`transition-colors ${
+                dragOver === g.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border/50"
+              }`}
+            >
               <CardContent className="p-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-sm font-medium flex-1 truncate">
@@ -486,7 +631,7 @@ export default function TripMembers() {
                   <span className="text-[11px] text-muted-foreground shrink-0">
                     {headcountLabel(headcount, g.id)}
                   </span>
-                  {isAdmin && (
+                  {canAddTo(g.id) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
@@ -501,6 +646,13 @@ export default function TripMembers() {
                           Rename
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                          onClick={() => handleSaveGroup(g.id)}
+                          disabled={saveGroupFromTrip.isPending}
+                          className="text-xs gap-2"
+                        >
+                          <BookUser className="h-3 w-3" /> Save to my contacts
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
                           onClick={() => handleRemoveGroup(g.id)}
                           className="text-xs text-destructive focus:text-destructive gap-2"
                         >
@@ -511,9 +663,51 @@ export default function TripMembers() {
                   )}
                 </div>
 
+                {/* Who is in this family and has an account. Chips rather than
+                    drag-and-drop: this page is used on a phone, where a drag
+                    target this size is a coin toss and there is no keyboard
+                    path at all. */}
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {accepted
+                    .filter((m: any) => m.groupId === g.id)
+                    .map((m: any) => {
+                      const isMe = m.userId === user?.id;
+                      return (
+                        <DraggableMemberChip
+                          key={`m${m.userId}`}
+                          label={m.user?.name || "Member"}
+                          isMe={isMe}
+                          canMove={canMove(m)}
+                          removeLabel={
+                            isMe
+                              ? `Leave ${g.name}`
+                              : `Remove ${m.user?.name || "member"} from ${g.name}`
+                          }
+                          dragging={dragging === m.userId}
+                          onRemove={() => handleAssign(m.userId, null)}
+                          onDragStart={() => setDragging(m.userId)}
+                          onDrag={info => setDragOver(groupUnderPointer(info))}
+                          onDragEnd={info => handleDrop(m.userId, info)}
+                        />
+                      );
+                    })}
+
+                  {movableInto(g.id).length > 0 && (
+                    <button
+                      onClick={() => setAddToGroup(g.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {myGroupId === g.id ? "Add member" : "Join or add"}
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-1.5">
                   {(attendees ?? [])
-                    .filter((a: any) => a.groupId === g.id)
+                    .filter(
+                      (a: any) => a.groupId === g.id && a.memberUserId == null
+                    )
                     .map((a: any) => (
                       <span
                         key={a.id}
@@ -557,8 +751,20 @@ export default function TripMembers() {
 
         {/* Ungrouped is a normal state, not an error: a trip that never wanted
             families still has everybody here. */}
-        {(attendees ?? []).some((a: any) => a.groupId == null) && (
-          <Card className="border-border/50 border-dashed">
+        {/* Shown while a drag is in progress even when it is empty, or there
+            would be nowhere to drop somebody in order to take them out of a
+            family. */}
+        {((attendees ?? []).some((a: any) => a.groupId == null) ||
+          accepted.some((m: any) => m.groupId == null) ||
+          dragging !== null) && (
+          <Card
+            {...{ [DROP_ATTR]: "none" }}
+            className={`border-dashed transition-colors ${
+              dragOver === null && dragging !== null
+                ? "border-primary bg-primary/5"
+                : "border-border/50"
+            }`}
+          >
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-sm font-medium flex-1">
@@ -568,9 +774,41 @@ export default function TripMembers() {
                   {headcountLabel(headcount, null)}
                 </span>
               </div>
+
+              {/* Members first, then the people with no account — the same two
+                  rows every group card has. */}
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {accepted
+                  .filter((m: any) => m.groupId == null)
+                  .map((m: any) => (
+                    <DraggableMemberChip
+                      key={`m${m.userId}`}
+                      label={m.user?.name || "Member"}
+                      isMe={m.userId === user?.id}
+                      // Nothing to remove them from, so no cross — but they
+                      // can still be dragged into a family.
+                      canMove={canMove(m) && (groups ?? []).length > 0}
+                      removeLabel=""
+                      dragging={dragging === m.userId}
+                      onRemove={() => {}}
+                      onDragStart={() => setDragging(m.userId)}
+                      onDrag={info => setDragOver(groupUnderPointer(info))}
+                      onDragEnd={info => handleDrop(m.userId, info)}
+                    />
+                  ))}
+                {accepted.some((m: any) => m.groupId == null) &&
+                  (groups ?? []).length === 0 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      Add a family above to start grouping people.
+                    </span>
+                  )}
+              </div>
+
               <div className="flex flex-wrap gap-1.5">
                 {(attendees ?? [])
-                  .filter((a: any) => a.groupId == null)
+                  .filter(
+                    (a: any) => a.groupId == null && a.memberUserId == null
+                  )
                   .map((a: any) => (
                     <span
                       key={a.id}
@@ -659,77 +897,94 @@ export default function TripMembers() {
                       </>
                     )}
                   </div>
-                  {/* Tripmates get this menu too now, for the one entry they
-                      can use: saving someone they are travelling with. */}
-                  {canSeeDetails && !isMe && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {m.user?.email &&
-                          (savedEmails.has(
-                            String(m.user.email).toLowerCase()
-                          ) ? (
-                            <DropdownMenuItem
-                              disabled
-                              className="text-xs gap-2"
-                            >
-                              <BookUser className="h-3 w-3" /> In your contacts
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() => handleSaveMember(m.userId)}
-                              disabled={addContactFromTrip.isPending}
-                              className="text-xs gap-2"
-                            >
-                              <BookUser className="h-3 w-3" /> Save to my
-                              contacts
-                            </DropdownMenuItem>
-                          ))}
-                        {isAdmin && (
-                          <>
-                            {(groups ?? []).map((g: any) => (
+                  {/* Tripmates get this menu too, for saving someone they are
+                      travelling with — and now for their own row, because
+                      moving yourself into a group is the thing this page could
+                      not do at all. An empty menu is worse than no menu, so it
+                      only appears when it would hold something. */}
+                  {canSeeDetails &&
+                    ((!isMe && Boolean(m.user?.email)) ||
+                      (isAdmin && !isMe) ||
+                      (canMove(m) &&
+                        ((groups ?? []).length > 0 || m.groupId != null))) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {!isMe &&
+                            m.user?.email &&
+                            (savedEmails.has(
+                              String(m.user.email).toLowerCase()
+                            ) ? (
                               <DropdownMenuItem
-                                key={`g${g.id}`}
-                                disabled={m.groupId === g.id}
-                                onClick={() => handleAssign(m.userId, g.id)}
-                                className="text-xs"
+                                disabled
+                                className="text-xs gap-2"
                               >
-                                Move to {g.name}
+                                <BookUser className="h-3 w-3" /> In your
+                                contacts
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => handleSaveMember(m.userId)}
+                                disabled={addContactFromTrip.isPending}
+                                className="text-xs gap-2"
+                              >
+                                <BookUser className="h-3 w-3" /> Save to my
+                                contacts
                               </DropdownMenuItem>
                             ))}
-                            {m.groupId != null && (
+                          {canMove(m) && (
+                            <>
+                              {(groups ?? []).map((g: any) => (
+                                <DropdownMenuItem
+                                  key={`g${g.id}`}
+                                  disabled={m.groupId === g.id}
+                                  onClick={() => handleAssign(m.userId, g.id)}
+                                  className="text-xs"
+                                >
+                                  {isMe
+                                    ? `Join ${g.name}`
+                                    : `Move to ${g.name}`}
+                                </DropdownMenuItem>
+                              ))}
+                              {m.groupId != null && (
+                                <DropdownMenuItem
+                                  onClick={() => handleAssign(m.userId, null)}
+                                  className="text-xs"
+                                >
+                                  {isMe
+                                    ? "Leave my group"
+                                    : "Remove from group"}
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          )}
+                          {isAdmin && !isMe && (
+                            <>
+                              {TRIP_ROLES.map(r => (
+                                <DropdownMenuItem
+                                  key={r}
+                                  disabled={m.role === r}
+                                  onClick={() => handleRoleChange(m.userId, r)}
+                                  className="text-xs"
+                                >
+                                  Make {TRIP_ROLE_LABELS[r]}
+                                </DropdownMenuItem>
+                              ))}
                               <DropdownMenuItem
-                                onClick={() => handleAssign(m.userId, null)}
-                                className="text-xs"
+                                onClick={() => handleRemove(m.userId)}
+                                className="text-xs text-destructive focus:text-destructive gap-2"
                               >
-                                Remove from group
+                                <Trash2 className="h-3 w-3" /> Remove from trip
                               </DropdownMenuItem>
-                            )}
-                            {TRIP_ROLES.map(r => (
-                              <DropdownMenuItem
-                                key={r}
-                                disabled={m.role === r}
-                                onClick={() => handleRoleChange(m.userId, r)}
-                                className="text-xs"
-                              >
-                                Make {TRIP_ROLE_LABELS[r]}
-                              </DropdownMenuItem>
-                            ))}
-                            <DropdownMenuItem
-                              onClick={() => handleRemove(m.userId)}
-                              className="text-xs text-destructive focus:text-destructive gap-2"
-                            >
-                              <Trash2 className="h-3 w-3" /> Remove from trip
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                 </CardContent>
               </Card>
             );
@@ -927,11 +1182,54 @@ export default function TripMembers() {
           <DialogHeader>
             <DialogTitle>My contacts</DialogTitle>
           </DialogHeader>
+
+          {(contactGroups ?? []).length > 0 && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Saved families
+              </p>
+              {(contactGroups ?? []).map((cg: any) => (
+                <div
+                  key={cg.id}
+                  className="flex items-center gap-2 p-2 rounded-lg border border-border/50"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{cg.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {cg.members.length}{" "}
+                      {cg.members.length === 1 ? "person" : "people"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1 shrink-0"
+                    disabled={importGroup.isPending}
+                    onClick={() => previewImport(cg.id)}
+                  >
+                    <UserPlus className="h-3 w-3" /> Add to trip
+                  </Button>
+                  <button
+                    className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                    aria-label={`Forget ${cg.name}`}
+                    onClick={async () => {
+                      await removeContactGroup.mutateAsync({ id: cg.id });
+                      utils.contacts.groups.invalidate();
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <div className="border-t border-border/50 pt-1" />
+            </div>
+          )}
+
           {!contacts || contacts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
               No saved contacts yet. Invite someone by email with "Save to my
-              contacts" ticked, or save anyone already on this trip from the ⋮
-              menu beside their name.
+              contacts" ticked, or save anyone — or a whole family — already on
+              this trip from the ⋮ menu beside their name.
             </p>
           ) : (
             <div className="space-y-2 pt-1">
@@ -984,6 +1282,148 @@ export default function TripMembers() {
           )}
         </DialogContent>
       </Dialog>
+      {/* What adding a saved family would do, before it does any of it. The
+          conflicts are named rather than counted: "Sam is already in The
+          Patels" is the sentence somebody needs to make this decision. */}
+      <Dialog
+        open={importPlan !== null}
+        onOpenChange={open => !open && setImportPlan(null)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add {importPlan?.groupName} to this trip</DialogTitle>
+          </DialogHeader>
+          {importPlan && (
+            <div className="space-y-3 pt-1 text-sm">
+              {importPlan.conflicts.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
+                  <p className="font-medium text-amber-900 dark:text-amber-200">
+                    Already in another group
+                  </p>
+                  {importPlan.conflicts.map((c: any) => (
+                    <p
+                      key={c.userId}
+                      className="text-xs text-amber-900/80 dark:text-amber-200/80"
+                    >
+                      {c.name} is already on this trip in {c.currentGroupName}.
+                      Adding this group moves them into {importPlan.groupName}.
+                    </p>
+                  ))}
+                  <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                    A group casts one vote, so moving somebody can drop a vote
+                    that has become a duplicate.
+                  </p>
+                </div>
+              )}
+
+              <ul className="space-y-1 text-muted-foreground text-xs">
+                {!importPlan.groupExists && (
+                  <li>Creates the group "{importPlan.groupName}".</li>
+                )}
+                {importPlan.willMove.length > 0 && (
+                  <li>
+                    Moves{" "}
+                    {importPlan.willMove.map((m: any) => m.name).join(", ")}{" "}
+                    into it.
+                  </li>
+                )}
+                {importPlan.willInvite.length > 0 && (
+                  <li>
+                    Emails an invite to{" "}
+                    {importPlan.willInvite
+                      .map((i: any) => i.name || i.email)
+                      .join(", ")}
+                    {isAdmin ? " as tripmates." : " as watchers."}
+                  </li>
+                )}
+                {importPlan.willAddAttendees.length > 0 && (
+                  <li>
+                    Adds{" "}
+                    {importPlan.willAddAttendees
+                      .map((a: any) => a.name)
+                      .join(", ")}{" "}
+                    to the headcount — no login, no vote.
+                  </li>
+                )}
+                {importPlan.alreadyInThisGroup.length > 0 && (
+                  <li>
+                    Leaves{" "}
+                    {importPlan.alreadyInThisGroup
+                      .map((m: any) => m.name)
+                      .join(", ")}{" "}
+                    where they are — already in this group.
+                  </li>
+                )}
+              </ul>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-lg"
+                  onClick={() => setImportPlan(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 rounded-lg"
+                  onClick={confirmImport}
+                  disabled={importGroup.isPending}
+                >
+                  {importGroup.isPending ? "Adding…" : "Add them"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Move somebody into a group — yourself first, because putting your
+          own family together is the common case and used to be impossible. */}
+      <Dialog
+        open={addToGroup !== null}
+        onOpenChange={open => !open && setAddToGroup(null)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Add to {addToGroup != null ? groupName(addToGroup) : "group"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 pt-1">
+            {addToGroup != null &&
+              [...movableInto(addToGroup)]
+                .sort((a: any, b: any) =>
+                  a.userId === user?.id ? -1 : b.userId === user?.id ? 1 : 0
+                )
+                .map((m: any) => (
+                  <button
+                    key={m.userId}
+                    onClick={async () => {
+                      const to = addToGroup;
+                      setAddToGroup(null);
+                      await handleAssign(m.userId, to);
+                    }}
+                    className="w-full flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                  >
+                    <span className="flex-1 truncate">
+                      {m.userId === user?.id ? "You" : m.user?.name || "Member"}
+                    </span>
+                    {m.groupId != null && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {groupName(m.groupId)}
+                      </Badge>
+                    )}
+                  </button>
+                ))}
+            {addToGroup != null && movableInto(addToGroup).length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Nobody left that you can move. Ask an admin for the rest.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Add someone with no account: a child, a partner, the dog. */}
       <Dialog
         open={attendeeFor !== undefined}

@@ -36,13 +36,19 @@ import {
   proposalComments,
   InsertProposalComment,
   memberPreferences,
+  suggestionDismissals,
   webauthnCredentials,
   InsertWebauthnCredential,
   webauthnChallenges,
   tripInvites,
   InsertTripInvite,
   contacts,
+  contactGroups,
+  contactGroupMembers,
   InsertContact,
+  InsertSuggestionDismissal,
+  InsertContactGroup,
+  InsertContactGroupMember,
   activityEvents,
   accommodationAttributes,
 } from "../drizzle/schema.js";
@@ -443,6 +449,7 @@ export const TRIP_OWNED_TABLES = [
   "notifications",
   "member_preferences",
   "proposal_comments",
+  "suggestion_dismissals",
 ] as const;
 
 /**
@@ -513,6 +520,9 @@ export async function deleteTripCascade(tripId: number) {
     await tx
       .delete(memberPreferences)
       .where(eq(memberPreferences.tripId, tripId));
+    await tx
+      .delete(suggestionDismissals)
+      .where(eq(suggestionDismissals.tripId, tripId));
     await tx.delete(activityEvents).where(eq(activityEvents.tripId, tripId));
     await tx.delete(tripInvites).where(eq(tripInvites.tripId, tripId));
     await tx.delete(tripAttendees).where(eq(tripAttendees.tripId, tripId));
@@ -1306,6 +1316,43 @@ export async function getMyAccommodationVote(
 }
 
 /**
+ * Just the votes on one proposal, whatever kind it is.
+ *
+ * The single-row getters (`getDateProposal`, `getDestination`, …) return the
+ * proposal without its votes, and the finalise guard needs the votes and
+ * nothing else. Reading the whole list of proposals to find one row's votes
+ * was the alternative.
+ */
+export async function getProposalVotes(
+  proposalType: "date" | "destination" | "accommodation" | "budget",
+  proposalId: number
+): Promise<Array<{ userId: number; vote: string }>> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows =
+    proposalType === "date"
+      ? await db
+          .select()
+          .from(dateVotes)
+          .where(eq(dateVotes.proposalId, proposalId))
+      : proposalType === "destination"
+        ? await db
+            .select()
+            .from(destinationVotes)
+            .where(eq(destinationVotes.destinationId, proposalId))
+        : proposalType === "accommodation"
+          ? await db
+              .select()
+              .from(accommodationVotes)
+              .where(eq(accommodationVotes.accommodationId, proposalId))
+          : await db
+              .select()
+              .from(budgetVotes)
+              .where(eq(budgetVotes.proposalId, proposalId));
+  return rows.map(r => ({ userId: r.userId, vote: r.vote as string }));
+}
+
+/**
  * Who voted on a proposal, how, and when — plus who has not.
  *
  * "3/6 voted" answers how many; the question people actually have is which
@@ -1500,6 +1547,10 @@ export async function upsertTripInvite(data: InsertTripInvite) {
       .set({
         role: data.role,
         invitedBy: data.invitedBy,
+        // Re-inviting somebody as part of a family carries the group; an
+        // ordinary re-invite passes null and clears a stale one, which is
+        // right — the last invite is the one that describes the intent.
+        groupId: data.groupId ?? null,
         status: "pending",
         sentAt: new Date(),
         respondedAt: null,
@@ -1590,6 +1641,216 @@ export async function deleteContact(id: number, ownerUserId: number) {
   await db
     .delete(contacts)
     .where(and(eq(contacts.id, id), eq(contacts.ownerUserId, ownerUserId)));
+}
+
+// ---- Contact groups ----
+
+/**
+ * A saved family in this owner's book, matched case-insensitively.
+ *
+ * The same shape as `findTripGroupByName`, and for the same reason: "the
+ * Patels" and "The Patels" are one family, and letting both exist is how a
+ * book ends up with two of everyone.
+ */
+export async function findContactGroupByName(
+  ownerUserId: number,
+  name: string
+) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(contactGroups)
+    .where(
+      and(
+        eq(contactGroups.ownerUserId, ownerUserId),
+        sql`lower(${contactGroups.name}) = lower(${name.trim()})`
+      )
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function createContactGroup(data: InsertContactGroup) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .insert(contactGroups)
+    .values({ ...data, name: data.name.trim() })
+    .returning({ id: contactGroups.id });
+  return row.id;
+}
+
+/** Every saved family, each with its people. One query per table, not per group. */
+export async function getContactGroups(ownerUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const groups = await db
+    .select()
+    .from(contactGroups)
+    .where(eq(contactGroups.ownerUserId, ownerUserId))
+    .orderBy(contactGroups.name);
+  if (groups.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(contactGroupMembers)
+    .where(
+      inArray(
+        contactGroupMembers.groupId,
+        groups.map(g => g.id)
+      )
+    )
+    .orderBy(contactGroupMembers.name);
+  return groups.map(g => ({
+    ...g,
+    members: rows.filter(r => r.groupId === g.id),
+  }));
+}
+
+/**
+ * One saved family with its people — **or null when it is not this owner's**.
+ *
+ * The ownership check is in the query rather than left to the caller: this is
+ * reached with an id from the browser, and a version that returned somebody
+ * else's family would hand over their address book.
+ */
+export async function getContactGroupWithMembers(
+  id: number,
+  ownerUserId: number
+) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(contactGroups)
+    .where(
+      and(eq(contactGroups.id, id), eq(contactGroups.ownerUserId, ownerUserId))
+    )
+    .limit(1);
+  const group = rows[0];
+  if (!group) return null;
+  const members = await db
+    .select()
+    .from(contactGroupMembers)
+    .where(eq(contactGroupMembers.groupId, id))
+    .orderBy(contactGroupMembers.name);
+  return { ...group, members };
+}
+
+export async function renameContactGroup(
+  id: number,
+  ownerUserId: number,
+  name: string
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(contactGroups)
+    .set({ name: name.trim() })
+    .where(
+      and(eq(contactGroups.id, id), eq(contactGroups.ownerUserId, ownerUserId))
+    );
+}
+
+/**
+ * Removes the saved family. **The contacts themselves stay** — this is a label
+ * coming off, not people being deleted out of somebody's address book.
+ */
+export async function deleteContactGroup(id: number, ownerUserId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const owned = await db
+    .select({ id: contactGroups.id })
+    .from(contactGroups)
+    .where(
+      and(eq(contactGroups.id, id), eq(contactGroups.ownerUserId, ownerUserId))
+    )
+    .limit(1);
+  if (!owned[0]) return;
+  await db
+    .delete(contactGroupMembers)
+    .where(eq(contactGroupMembers.groupId, id));
+  await db.delete(contactGroups).where(eq(contactGroups.id, id));
+}
+
+/** Scoped through the group's owner, so an id alone reaches nobody else's book. */
+export async function removeContactGroupMember(
+  id: number,
+  ownerUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const rows = await db
+    .select({ id: contactGroupMembers.id })
+    .from(contactGroupMembers)
+    .innerJoin(contactGroups, eq(contactGroups.id, contactGroupMembers.groupId))
+    .where(
+      and(
+        eq(contactGroupMembers.id, id),
+        eq(contactGroups.ownerUserId, ownerUserId)
+      )
+    )
+    .limit(1);
+  if (!rows[0]) return;
+  await db.delete(contactGroupMembers).where(eq(contactGroupMembers.id, id));
+}
+
+/**
+ * Appends people to a saved family, skipping the ones already in it.
+ *
+ * `onConflictDoNothing` rather than a read-then-write, so saving the same
+ * family twice in quick succession cannot land two copies of anybody — the
+ * partial unique indexes in `0013_contact_groups.sql` are what it conflicts
+ * against. Returns how many were actually new, so the screen can say
+ * "3 added, 2 already saved" rather than claiming five.
+ */
+export async function addContactGroupMembers(
+  groupId: number,
+  rows: Array<Omit<InsertContactGroupMember, "groupId">>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  if (rows.length === 0) return 0;
+  const inserted = await db
+    .insert(contactGroupMembers)
+    .values(
+      rows.map(r => ({
+        ...r,
+        groupId,
+        email: r.email ? r.email.trim().toLowerCase() : null,
+      }))
+    )
+    .onConflictDoNothing()
+    .returning({ id: contactGroupMembers.id });
+  return inserted.length;
+}
+
+// ---- Suggestion dismissals ----
+
+/** The fingerprints this person has said no to on this trip. */
+export async function getDismissedSuggestions(
+  tripId: number,
+  userId: number
+): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({ fingerprint: suggestionDismissals.fingerprint })
+    .from(suggestionDismissals)
+    .where(
+      and(
+        eq(suggestionDismissals.tripId, tripId),
+        eq(suggestionDismissals.userId, userId)
+      )
+    );
+  return rows.map(r => r.fingerprint);
+}
+
+/** Idempotent, so dismissing twice is one row rather than two. */
+export async function dismissSuggestion(data: InsertSuggestionDismissal) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(suggestionDismissals).values(data).onConflictDoNothing();
 }
 
 // ---- Date Proposals ----

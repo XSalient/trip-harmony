@@ -33,6 +33,7 @@ import {
   tripTotalOf,
   type BudgetScope,
 } from "../../shared/budget.js";
+import { scoreVotes } from "../../shared/votes.js";
 
 /**
  * Identifies the prompt that produced a stored referee message.
@@ -305,7 +306,6 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
 
   // Normalised through the same module the screen and the server use, so the
   // referee cannot quote a figure back that disagrees with the one on the card.
-  const VOTE_WEIGHTS: Record<string, number> = { love: 2, fine: 1, veto: -3 };
   const budgetFacts = input.budgetProposals.map(p => {
     const amount = num(p.amount) ?? 0;
     const scope = (p.scope ?? "trip_total") as BudgetScope;
@@ -319,10 +319,7 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
         perPersonOf(tripTotal, { ...input.headcount, pets: 0 })
       ),
       scope,
-      score: (p.votes ?? []).reduce(
-        (t, v) => t + (VOTE_WEIGHTS[v.vote] ?? 0),
-        0
-      ),
+      score: scoreVotes(p.votes),
       finalised: Boolean(p.selected),
     };
   });

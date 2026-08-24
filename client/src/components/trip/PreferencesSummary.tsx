@@ -8,6 +8,11 @@
  * The budget cap is editable here because it is the one number a member is
  * asked for that lives on a different screen entirely — reading it back without
  * a way to change it would just move the problem.
+ *
+ * The cap stays **private**: it is what you are willing to spend, and the
+ * server never shows it to anybody else. Proposing a figure is the separate,
+ * public act, which is why it is a separate control saying so rather than a
+ * side effect of setting a cap.
  */
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
@@ -152,6 +157,13 @@ export default function PreferencesSummary({
             </button>
           )}
         </div>
+
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          Yours alone — nobody else on the trip sees it.
+          {budgetMax
+            ? " To put the figure to the group, propose it above."
+            : ""}
+        </p>
       </CardContent>
     </Card>
   );

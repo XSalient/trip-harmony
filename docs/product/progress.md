@@ -1,8 +1,9 @@
-# Progress — trip experience overhaul, and groups & budget
+# Progress — trip experience overhaul, groups & budget, and planning features
 
-The tracker for [overhaul-2026-08.md](overhaul-2026-08.md) (E1–E8, complete) and
-[groups-and-budget-2026-08.md](groups-and-budget-2026-08.md) (E9–E12, specified).
-Every story in [stories/](stories/) has a row here.
+The tracker for [overhaul-2026-08.md](overhaul-2026-08.md) (E1–E8, complete),
+[groups-and-budget-2026-08.md](groups-and-budget-2026-08.md) (E9–E12, complete)
+and [planning-features-2026-08.md](planning-features-2026-08.md) (E13–E16,
+complete). Every story in [stories/](stories/) has a row here.
 
 **Update this file in the same commit as the work.** A tracker nobody updates is
 worse than no tracker: it reads as authoritative and is wrong. When you finish a
@@ -22,7 +23,7 @@ The order is not advisory. E2 builds the permission model that E3, E4, E6 and E7
 all check against, and E6 changes what "finalised" means before E5 counts it.
 Reasoning in [overhaul-2026-08.md](overhaul-2026-08.md#delivery-order).
 
-**Groups & budget (next):** E9 → E10 → E11 → E12
+**Groups & budget (done):** E9 → E10 → E11 → E12
 
 Also not advisory. E11 votes by the groups E9 creates, E12 charges by them and
 divides by the headcount E10 records, and E12 is the only epic that drops a
@@ -50,6 +51,20 @@ table. Reasoning in
 | E10 | [Attendees](stories/E10-attendees.md)                                   | 19, 20     | Done   |
 | E11 | [One vote per group](stories/E11-one-vote-per-group.md)                 | 21         | Done   |
 | E12 | [Budget as a voting section](stories/E12-budget-as-a-voting-section.md) | 22, 23, 24 | Done   |
+
+### Planning features
+
+Delivery order: **E13 → E14 → E15 → E16.** E15 needs E14's assignment rules and
+its reconcile helper; E13 goes first because it carries the migration whose
+constraints are worth verifying alone. Reasoning in
+[planning-features-2026-08.md](planning-features-2026-08.md#delivery-order).
+
+| #   | Epic                                                                        | Status |
+| --- | --------------------------------------------------------------------------- | ------ |
+| E13 | [Going with the majority](stories/E13-going-with-the-majority.md)           | Done   |
+| E14 | [Groups are self-service](stories/E14-groups-are-self-service.md)           | Done   |
+| E15 | [Contact-book groups](stories/E15-contact-book-groups.md)                   | Done   |
+| E16 | [Preferences become proposals](stories/E16-preferences-become-proposals.md) | Done   |
 
 ## Stories
 
@@ -117,6 +132,30 @@ Answer these as they come up; they block the story named beside each.
 | Q8  | Does the expense journal survive beside budget voting?            | E12.1  | No — proposals only; the journal goes     |
 | Q9  | What unit is a budget amount in?                                  | E12.2  | Per-proposal scope, normalised to compare |
 | Q10 | How are children and pets recorded?                               | E10.1  | Attendees on a group; no age for a pet    |
+| Q11 | Does "go with the majority" follow the winning side?              | E13.1  | No — an abstention, shown separately      |
+| Q12 | What happens when everybody abstains?                             | E13.2  | Finalising is refused, server-side        |
+| Q13 | How far do group permissions open up?                             | E14.1  | Create, join, leave, and your own group   |
+| Q14 | Drag-and-drop for moving members?                                 | E14.2  | No — chips; mobile-first, keyboard-safe   |
+| Q15 | Does a preference become a proposal automatically?                | E16.1  | No — detected, then confirmed with a tap  |
+| Q16 | Are places detected from preference text?                         | E16.2  | No — budgets and dates only, for now      |
+
+### Planning features
+
+| ID    | Story                                             | Status | Commit     | Date       |
+| ----- | ------------------------------------------------- | ------ | ---------- | ---------- |
+| E13.1 | A vote for having no preference                   | Done   | `…a728978` | 2026-08-24 |
+| E13.2 | An all-abstained proposal cannot be finalised     | Done   | `…a728978` | 2026-08-24 |
+| E13.3 | One home for what a vote is worth                 | Done   | `…a728978` | 2026-08-24 |
+| E14.1 | A tripmate can put their own family together      | Done   | `…c4271cc` | 2026-08-24 |
+| E14.2 | Chips to join, leave and move, on a phone         | Done   | `…c4271cc` | 2026-08-24 |
+| E14.3 | Every mover reconciles the votes it disturbed     | Done   | `…c4271cc` | 2026-08-24 |
+| E15.1 | Save a family from a trip, appending if it exists | Done   | `…87ac663` | 2026-08-24 |
+| E15.2 | Import it, after saying what it disturbs          | Done   | `…87ac663` | 2026-08-24 |
+| E15.3 | An invite carries the family it came from         | Done   | `…87ac663` | 2026-08-24 |
+| E16.1 | What I wrote, offered back as a proposal          | Done   | `…0da0f00` | 2026-08-24 |
+| E16.2 | Free, and conservative about what it reads        | Done   | `…0da0f00` | 2026-08-24 |
+| E16.3 | A suggestion does not come back                   | Done   | `…0da0f00` | 2026-08-24 |
+| E16.4 | The budget cap stays private                      | Done   | `…0da0f00` | 2026-08-24 |
 
 ## Notes for whoever picks this up
 

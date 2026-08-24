@@ -23,7 +23,9 @@ import {
   type BudgetScope,
 } from "../../shared/budget.js";
 import { canSeeMemberDetails } from "../../shared/roles.js";
+import { PREFERENCE_VOTES, scoreVotes } from "../../shared/votes.js";
 import {
+  assertFinalisable,
   requireTripRole,
   tripRoleOf,
   projectProposalsForRole,
@@ -137,7 +139,7 @@ export const budgetRouter = router({
     .input(
       z.object({
         proposalId: z.number(),
-        vote: z.enum(["love", "fine", "veto"]),
+        vote: z.enum(PREFERENCE_VOTES),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -216,6 +218,11 @@ export const budgetRouter = router({
           message: "Budget not found.",
         });
       await requireTripRole(proposal.tripId, ctx.user.id, "admin");
+      // Only on the way in — see `destinations.setLock`.
+      if (input.locked)
+        assertFinalisable(
+          await db.getProposalVotes("budget", input.proposalId)
+        );
       await db.setBudgetLock(
         proposal.tripId,
         input.proposalId,
@@ -372,9 +379,7 @@ export const budgetRouter = router({
         db.getTripGroups(input.tripId),
       ]);
 
-      const WEIGHTS: Record<string, number> = { love: 2, fine: 1, veto: -3 };
-      const score = (p: (typeof proposals)[number]) =>
-        p.votes.reduce((t, v) => t + (WEIGHTS[v.vote] ?? 0), 0);
+      const score = (p: (typeof proposals)[number]) => scoreVotes(p.votes);
 
       type Proposal = (typeof proposals)[number];
       const finalised: Proposal | null =

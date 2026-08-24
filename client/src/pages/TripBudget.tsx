@@ -29,6 +29,12 @@ import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
+import AbstainButton from "@/components/trip/AbstainButton";
+import {
+  MAJORITY_VOTE,
+  finaliseBlockReason,
+  type PreferenceVote,
+} from "@shared/votes";
 import {
   BUDGET_SCOPES,
   BUDGET_SCOPE_LABELS,
@@ -221,7 +227,7 @@ export default function TripBudget() {
     }
   };
 
-  const handleVote = (proposalId: number, vote: "love" | "fine" | "veto") => {
+  const handleVote = (proposalId: number, vote: PreferenceVote) => {
     const currentVote = proposals
       ?.find((p: any) => p.id === proposalId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -459,6 +465,9 @@ export default function TripBudget() {
         ) : sorted.length > 0 ? (
           <div className="space-y-4">
             {sorted.map((p: any) => {
+              // Null unless everybody who voted abstained. The server
+              // refuses it either way; this only says why.
+              const blockReason = finaliseBlockReason(p.votes);
               const myVote = p.votes?.find(
                 (v: any) => v.userId === user?.id
               )?.vote;
@@ -620,45 +629,52 @@ export default function TripBudget() {
                         proposalId={p.id}
                         votedCount={p.votes?.length || 0}
                         voterCount={voterCount}
+                        votes={p.votes}
                         canSeeDetail={canContribute}
                       />
                     </div>
 
                     {canContribute && !p.selected && (
-                      <div className="flex gap-2">
-                        {[
-                          {
-                            vote: "love" as const,
-                            icon: Heart,
-                            label: "Yes",
-                            active:
-                              "bg-green-100 text-green-700 border-green-300",
-                          },
-                          {
-                            vote: "fine" as const,
-                            icon: HelpCircle,
-                            label: "Maybe",
-                            active:
-                              "bg-yellow-100 text-yellow-700 border-yellow-300",
-                          },
-                          {
-                            vote: "veto" as const,
-                            icon: Ban,
-                            label: "No",
-                            active: "bg-red-100 text-red-600 border-red-300",
-                          },
-                        ].map(btn => (
-                          <Button
-                            key={btn.vote}
-                            variant="outline"
-                            size="sm"
-                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                            onClick={() => handleVote(p.id, btn.vote)}
-                          >
-                            <btn.icon className="h-3.5 w-3.5 mr-1" />
-                            {btn.label}
-                          </Button>
-                        ))}
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          {[
+                            {
+                              vote: "love" as const,
+                              icon: Heart,
+                              label: "Yes",
+                              active:
+                                "bg-green-100 text-green-700 border-green-300",
+                            },
+                            {
+                              vote: "fine" as const,
+                              icon: HelpCircle,
+                              label: "Maybe",
+                              active:
+                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                            },
+                            {
+                              vote: "veto" as const,
+                              icon: Ban,
+                              label: "No",
+                              active: "bg-red-100 text-red-600 border-red-300",
+                            },
+                          ].map(btn => (
+                            <Button
+                              key={btn.vote}
+                              variant="outline"
+                              size="sm"
+                              className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
+                              onClick={() => handleVote(p.id, btn.vote)}
+                            >
+                              <btn.icon className="h-3.5 w-3.5 mr-1" />
+                              {btn.label}
+                            </Button>
+                          ))}
+                        </div>
+                        <AbstainButton
+                          active={myVote === MAJORITY_VOTE}
+                          onVote={() => handleVote(p.id, MAJORITY_VOTE)}
+                        />
                       </div>
                     )}
 
@@ -677,7 +693,13 @@ export default function TripBudget() {
                         size="sm"
                         className="w-full mt-2 text-primary text-xs"
                         onClick={() => handleToggleLock(p.id, !p.selected)}
-                        disabled={setLockMutation.isPending}
+                        disabled={
+                          setLockMutation.isPending ||
+                          (!p.selected && blockReason !== null)
+                        }
+                        title={
+                          p.selected ? undefined : (blockReason ?? undefined)
+                        }
                       >
                         {p.selected ? (
                           <>

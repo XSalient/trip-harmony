@@ -28,6 +28,9 @@ or operated. Skip it for routine feature work.
 | [0015](0015-demo-data-lives-in-its-own-namespace.md)             | Demo data lives in its own namespace                  | Accepted |
 | [0016](0016-one-vote-per-group.md)                               | One vote per group is enforced when a vote is written | Accepted |
 | [0017](0017-budget-is-a-proposal-not-a-ledger.md)                | Budget is a proposal type, not an expense ledger      | Accepted |
+| [0018](0018-going-with-the-majority-is-an-abstention.md)         | "Go with the majority" is an abstention               | Accepted |
+| [0019](0019-groups-are-self-service.md)                          | Grouping is a tripmate's job                          | Accepted |
+| [0020](0020-preferences-suggest-proposals.md)                    | A preference is offered as a proposal, never made one | Accepted |
 
 ## Template
 

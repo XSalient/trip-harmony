@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-22
+- **Last updated:** 2026-08-24
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -13,11 +13,48 @@ finish a piece of work — the next person (or agent) starts here.
   sixteen requested changes. The **groups and budget** programme (E9–E12) is
   complete too: a trip can be organised as families, everyone coming is counted
   whether or not they use the app, a family casts one vote, and Budget is a
-  voting section rather than an expense journal. See [product/](product/) for
-  the specifications and [product/progress.md](product/progress.md) for the
-  story-by-story record.
-- **Health:** typecheck ✅ · 704 tests ✅ · production build ✅ (2026-08-22) ·
+  voting section rather than an expense journal. The **planning features**
+  programme (E13–E16) is complete: a vote for having no preference and a refusal
+  to finalise on nothing but those, self-service groups, families saved in the
+  contact book, and preferences that offer themselves as proposals. See
+  [product/](product/) for the specifications and
+  [product/progress.md](product/progress.md) for the story-by-story record.
+- **Health:** typecheck ✅ · 803 tests ✅ · production build ✅ (2026-08-24) ·
   dev server ✅
+  (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
+  Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
+  **no column disagreement**, the only differences being the functional and
+  partial indexes `push` never creates. `ALTER TYPE … ADD VALUE` inside drizzle's
+  migration transaction was the risk worth proving and it applied cleanly, as
+  0010's did. Then walked through the tRPC caller against that database,
+  inspecting payloads rather than renderings: three abstentions on one suggestion
+  gave "3/3 voted" with a score of 0 and a `PRECONDITION_FAILED` on finalise,
+  which cleared the moment one person voted Yes, and un-finalising was never
+  refused; a tripmate created a group, was put in it, pulled a groupmate in, and
+  was refused a member of a third group; `voterCount` counted the family once; a
+  trip group saved to contacts appended nothing on a second save; importing it
+  into a second trip previewed the one conflict **by name and wrote nothing**,
+  then on confirmation moved them, added the child, invited the rest, and the
+  invited account accepted into the right group with its attendee row in the same
+  group and the pet in the headcount but not among the people; "about £1,200 a
+  family. Free 12-19 September." produced exactly two suggestions with the budget
+  at `per_group`, the £9,000 in the dealbreakers box produced none, accepting the
+  budget stopped it being offered and dismissing the date stopped that; and a
+  watcher's `groups.list`, `groups.attendees` and `trips.members` carried no
+  caps and no ages, with `suggestions.fromPreferences` refused outright.
+  Then walked in a real Chromium at phone width, which found the one bug the
+  payload checks could not: every accepted member has an attendee row, so the
+  new member chips rendered each person twice in their own group card. Fixed —
+  the attendee chips are now the people with no account. The abstain button,
+  the "1/1 voted · 1 going with the majority" line, the disabled Finalise, the
+  two preference suggestions with their scope picker, and the import
+  confirmation naming "Sam is already on this trip in The Shahs" were all
+  confirmed on screen. Dragging a member chip between families was then added
+  and verified the same way — under a Pixel 5 profile with synthesised touch
+  events, the chip drags, the target card highlights and the member lands in
+  it. Worth recording that the first implementation looked like it did not work
+  at all: the chip in hand is under the pointer for the whole gesture, so the
+  hit test resolved every drop back to where the drag started.)
   (2026-08-22, after E9–E12: walked in a real browser against a real Postgres
   built by applying migrations 0000–0011 in order. Two members of one family
   voted on one proposal and the family kept **one** vote; moving a member
@@ -49,6 +86,17 @@ finish a piece of work — the next person (or agent) starts here.
   counted in a vote denominator, this has to go back to admin-only in the same
   commit**; `server/routers/invites.test.ts` asserts the rule and the properties
   it rests on together, so that connection is not left to memory.
+
+- **Migrations 0012–0014 have not been applied to production yet** (2026-08-24).
+  All three are **additive**: nothing is dropped and no existing row changes, so
+  they can go out with or ahead of the code. 0012 adds `majority` to the four
+  vote enums and contains nothing else — Postgres will not let a value be _used_
+  in the transaction that added it, and drizzle may apply several pending
+  migrations in one, so **no migration after 0012 may reference `majority`**
+  (0013 and 0014 do not). 0013 adds `contact_groups`, `contact_group_members`
+  and `trip_invites.groupId`; without that column an imported family accepts
+  into ungrouped memberships and an empty group. 0014 adds
+  `suggestion_dismissals`.
 
 - **Migrations 0008–0011 have not been applied to production yet** (2026-08-22).
   0008 adds `trip_groups` and the trip's voting unit; 0009 adds `trip_attendees`

@@ -37,6 +37,7 @@ import {
   ChoiceProposalRow,
   DateProposalRow,
 } from "@/components/trip/ProposalRow";
+import type { DateVote, PreferenceVote } from "@shared/votes";
 
 export default function TripDashboard() {
   const { user } = useAuth({ redirectOnUnauthenticated: true });
@@ -289,10 +290,7 @@ export default function TripDashboard() {
   const lockedAccs = accommodations?.filter((a: any) => a.selected) ?? [];
   const lockedBudget = budgets?.find((b: any) => b.selected);
 
-  const handleBudgetVote = (
-    proposalId: number,
-    vote: "love" | "fine" | "veto"
-  ) => {
+  const handleBudgetVote = (proposalId: number, vote: PreferenceVote) => {
     const currentVote = budgets
       ?.find((b: any) => b.id === proposalId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -334,10 +332,7 @@ export default function TripDashboard() {
     }
   };
 
-  const handleDateVote = (
-    proposalId: number,
-    vote: "available" | "maybe" | "unavailable"
-  ) => {
+  const handleDateVote = (proposalId: number, vote: DateVote) => {
     const currentVote = dateProposals
       ?.find((p: any) => p.id === proposalId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -375,10 +370,7 @@ export default function TripDashboard() {
     }
   };
 
-  const handleDestVote = (
-    destinationId: number,
-    vote: "love" | "fine" | "veto"
-  ) => {
+  const handleDestVote = (destinationId: number, vote: PreferenceVote) => {
     const currentVote = destinations
       ?.find((d: any) => d.id === destinationId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -416,10 +408,7 @@ export default function TripDashboard() {
     }
   };
 
-  const handleAccVote = (
-    accommodationId: number,
-    vote: "love" | "fine" | "veto"
-  ) => {
+  const handleAccVote = (accommodationId: number, vote: PreferenceVote) => {
     const currentVote = accommodations
       ?.find((a: any) => a.id === accommodationId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -756,9 +745,7 @@ export default function TripDashboard() {
               onEdit={() => navigate(`/trips/${tripId}/budget?edit=${b.id}`)}
               onClone={() => navigate(`/trips/${tripId}/budget?add=1`)}
               onDelete={() => removeBudget(b.id)}
-              onVote={(vote: "love" | "fine" | "veto") =>
-                handleBudgetVote(b.id, vote)
-              }
+              onVote={(vote: PreferenceVote) => handleBudgetVote(b.id, vote)}
               tripTotalLabel={
                 budgetSummary?.leading && b.id === budgetSummary.leading.id
                   ? `${b.currency} ${Math.round(budgetSummary.leading.tripTotal).toLocaleString()} for the trip`

@@ -10,6 +10,7 @@ import {
   hasTripRole,
   type TripRole,
 } from "../../shared/roles.js";
+import { finaliseBlockReason } from "../../shared/votes.js";
 import * as db from "../db.js";
 
 /**
@@ -243,4 +244,25 @@ export async function verifyPassword(
       else resolve(derived.toString("hex") === key);
     });
   });
+}
+
+/**
+ * Refuses to finalise a proposal that everybody abstained on.
+ *
+ * "Go with the majority" is an abstention. When every cast vote is one, there
+ * is no majority to defer to — the group looks unanimous and has in fact said
+ * nothing. Picking a side on their behalf, or letting it lock silently, is how
+ * a decision nobody made ends up on the trip.
+ *
+ * Guard the **lock** only. Un-finalising must always be possible: something
+ * already locked in that state has to be reversible.
+ *
+ * A proposal with no votes at all is not blocked — an admin locking in the one
+ * stay anybody found is a real thing people do, and `finaliseBlockReason` says
+ * so.
+ */
+export function assertFinalisable(votes: Array<{ vote: string }>) {
+  const reason = finaliseBlockReason(votes);
+  if (reason)
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: reason });
 }

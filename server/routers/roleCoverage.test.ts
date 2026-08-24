@@ -84,10 +84,17 @@ const TRIP_ROUTERS: Record<string, Record<string, string>> = {
   "comments.ts": {
     delete: "Finds the comment first, then checks the role on its own trip.",
   },
+  "suggestions.ts": {},
   "contacts.ts": {
     list: "A user's own address book. Not trip-scoped.",
     add: "A user's own address book. Not trip-scoped.",
     remove: "A user's own address book, scoped by owner in the query.",
+    groups: "A user's own saved families. Not trip-scoped.",
+    createGroup: "A user's own address book. Not trip-scoped.",
+    renameGroup: "A user's own address book, scoped by owner in the query.",
+    removeGroup: "A user's own address book, scoped by owner in the query.",
+    removeGroupMember:
+      "A user's own address book, scoped by owner through the group.",
   },
   "trips.ts": {
     list: "The caller's own memberships.",

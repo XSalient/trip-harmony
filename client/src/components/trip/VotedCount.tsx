@@ -23,27 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { VOTE_LABELS, VOTE_TONE, countAbstentions } from "@shared/votes";
 
 type ProposalType = "date" | "destination" | "accommodation" | "budget";
-
-/** Vote values differ per proposal type; these are the words members saw. */
-const VOTE_LABELS: Record<string, string> = {
-  available: "Yes",
-  maybe: "Maybe",
-  unavailable: "No",
-  love: "Yes",
-  fine: "Maybe",
-  veto: "No",
-};
-
-const VOTE_TONE: Record<string, string> = {
-  available: "text-green-600",
-  love: "text-green-600",
-  maybe: "text-yellow-600",
-  fine: "text-yellow-600",
-  unavailable: "text-red-500",
-  veto: "text-red-500",
-};
 
 export default function VotedCount({
   tripId,
@@ -51,6 +33,7 @@ export default function VotedCount({
   proposalId,
   votedCount,
   voterCount,
+  votes,
   canSeeDetail,
   className = "",
 }: {
@@ -60,12 +43,21 @@ export default function VotedCount({
   votedCount: number;
   /** Groups plus ungrouped tripmates in group mode; accepted tripmates otherwise. */
   voterCount: number;
+  /**
+   * The cast votes, only so the abstentions can be named. They are never added
+   * to the Yes/Maybe/No counts: "go with the majority" states no preference,
+   * and folding it into whichever side is winning would put words in people's
+   * mouths.
+   */
+  votes?: { vote: string }[] | null;
   /** False for watchers — they see the tally, never who cast what. */
   canSeeDetail: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const abstained = countAbstentions(votes);
   const label = `${votedCount}/${voterCount} voted`;
+  const aside = abstained > 0 ? ` · ${abstained} going with the majority` : "";
 
   const { data, isLoading } = trpc.comments.voters.useQuery(
     { tripId, proposalType, proposalId },
@@ -74,7 +66,10 @@ export default function VotedCount({
 
   if (!canSeeDetail) {
     return (
-      <span className={`text-muted-foreground ${className}`}>{label}</span>
+      <span className={`text-muted-foreground ${className}`}>
+        {label}
+        {aside}
+      </span>
     );
   }
 
@@ -89,6 +84,7 @@ export default function VotedCount({
         className={`text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors ${className}`}
       >
         {label}
+        {aside}
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>

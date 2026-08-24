@@ -73,20 +73,26 @@ export const inviteStatusEnum = pgEnum("invite_status", [
   "declined",
   "revoked",
 ]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
 export const dateVoteEnum = pgEnum("date_vote", [
   "available",
   "maybe",
   "unavailable",
+  "majority",
 ]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
 export const destinationVoteEnum = pgEnum("destination_vote", [
   "love",
   "fine",
   "veto",
+  "majority",
 ]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
 export const accommodationVoteEnum = pgEnum("accommodation_vote", [
   "love",
   "fine",
   "veto",
+  "majority",
 ]);
 /**
  * What a budget proposal's amount means. Proposals written in different scopes
@@ -99,7 +105,13 @@ export const budgetScopeEnum = pgEnum("budget_scope", [
   "per_adult",
   "per_group",
 ]);
-export const budgetVoteEnum = pgEnum("budget_vote", ["love", "fine", "veto"]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
+export const budgetVoteEnum = pgEnum("budget_vote", [
+  "love",
+  "fine",
+  "veto",
+  "majority",
+]);
 export const refereeMessageTypeEnum = pgEnum("referee_message_type", [
   "nudge",
   "mediation",
@@ -273,6 +285,13 @@ export const tripInvites = pgTable("trip_invites", {
   invitedBy: integer("invitedBy").notNull(),
   /** Distinguishes "joined by email invite" from "followed the shared link". */
   token: varchar("token", { length: 64 }).notNull().unique(),
+  /**
+   * The group they join on acceptance, when the invite came from importing a
+   * family. Null for every ordinary invite. The invite is the only thing that
+   * survives between "add the Patels to this trip" and the moment a Patel
+   * accepts, so it is the only place that intent can be kept.
+   */
+  groupId: integer("groupId"),
   status: inviteStatusEnum("status").default("pending").notNull(),
   sentAt: timestamp("sentAt").defaultNow().notNull(),
   respondedAt: timestamp("respondedAt"),
@@ -302,6 +321,58 @@ export const contacts = pgTable("contacts", {
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = typeof contacts.$inferInsert;
+
+/**
+ * A family in somebody's address book.
+ *
+ * A saved label over `contacts`, not a copy of a trip's grouping: the people
+ * you travel with keep being the same people, and retyping the five Patels for
+ * every trip is the work this removes. It grants nothing — importing one into
+ * a trip still sends invites that still have to be accepted.
+ *
+ * A case-insensitive unique index on `(ownerUserId, lower(name))` is created in
+ * `0013_contact_groups.sql`. Drizzle cannot express a functional index, so that
+ * migration is part of this table's definition — this file is not the whole
+ * story.
+ */
+export const contactGroups = pgTable("contact_groups", {
+  id: serial("id").primaryKey(),
+  ownerUserId: integer("ownerUserId").notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ContactGroup = typeof contactGroups.$inferSelect;
+export type InsertContactGroup = typeof contactGroups.$inferInsert;
+
+/**
+ * Somebody in a saved family.
+ *
+ * `email` is nullable, and that is the point: a family is children and a dog as
+ * much as it is two adults with accounts. A row with an address links to a
+ * `contacts` row and becomes an invite on import; a row without one becomes a
+ * `trip_attendees` row — counted in the headcount, no login, no vote.
+ *
+ * Two partial unique indexes in `0013_contact_groups.sql` — on `lower(email)`
+ * where there is one, on `lower(name)` where there is not — are what make
+ * saving the same family twice an append rather than a duplicate, under a
+ * double-tap and not only when the code remembers to check.
+ */
+export const contactGroupMembers = pgTable("contact_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("groupId").notNull(),
+  /** The address-book row this is, when they have an email. */
+  contactId: integer("contactId"),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  kind: attendeeKindEnum("kind").default("adult").notNull(),
+  /** Years. Null for a pet, and for an adult who did not say. */
+  age: integer("age"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ContactGroupMember = typeof contactGroupMembers.$inferSelect;
+export type InsertContactGroupMember = typeof contactGroupMembers.$inferInsert;
 
 /**
  * Everything members do to a trip, kept whether or not anything displays it.
@@ -577,6 +648,33 @@ export const memberPreferences = pgTable("member_preferences", {
 
 export type MemberPreference = typeof memberPreferences.$inferSelect;
 export type InsertMemberPreference = typeof memberPreferences.$inferInsert;
+
+/**
+ * A suggestion somebody turned down.
+ *
+ * My Preferences offers to turn what you wrote — a figure, a set of dates —
+ * into a proposal the group can vote on. Accepting needs no row here: the
+ * proposal's own fingerprint then matches and the suggestion stops being
+ * offered. Declining leaves no trace at all without this, so the same card
+ * would return every time you pressed Save.
+ *
+ * `kind` is a plain varchar rather than an enum on purpose. It is an internal
+ * key, never rendered, and a new kind of suggestion should not need an
+ * `ALTER TYPE` and a migration that cannot share a transaction.
+ */
+export const suggestionDismissals = pgTable("suggestion_dismissals", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  userId: integer("userId").notNull(),
+  kind: varchar("kind", { length: 24 }).notNull(),
+  /** Stable identity of the suggestion — see `shared/suggestions.ts`. */
+  fingerprint: varchar("fingerprint", { length: 200 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SuggestionDismissal = typeof suggestionDismissals.$inferSelect;
+export type InsertSuggestionDismissal =
+  typeof suggestionDismissals.$inferInsert;
 
 /**
  * Magic link tokens — short-lived tokens for passwordless login.

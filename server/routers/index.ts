@@ -21,6 +21,7 @@ import { refereeRouter } from "./referee.js";
 import { notificationsRouter } from "./notifications.js";
 import { commentsRouter } from "./comments.js";
 import { preferencesRouter } from "./preferences.js";
+import { suggestionsRouter } from "./suggestions.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -38,6 +39,7 @@ export const appRouter = router({
   notifications: notificationsRouter,
   comments: commentsRouter,
   preferences: preferencesRouter,
+  suggestions: suggestionsRouter,
 });
 
 export type AppRouter = typeof appRouter;

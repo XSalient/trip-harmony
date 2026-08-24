@@ -18,6 +18,7 @@ import {
   Pencil,
   Trash2,
   X,
+  Users,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +26,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  MAJORITY_VOTE,
+  VOTE_LABELS,
+  finaliseBlockReason,
+  type DateVote,
+  type PreferenceVote,
+} from "@shared/votes";
 import LockToggle from "./LockToggle";
 import VotedCount from "./VotedCount";
 
@@ -84,6 +92,7 @@ function RowShell({
             locked={row.selected}
             canLock={isAdmin}
             busy={lockBusy}
+            disabledReason={finaliseBlockReason(row.votes)}
             onToggle={onToggleLock}
           />
           {commentCount > 0 && (
@@ -149,17 +158,33 @@ function VoteButtons<T extends string>({
   onVote: (vote: T) => void;
 }) {
   return (
-    <div className="flex gap-1.5">
-      {options.map(btn => (
-        <button
-          key={btn.vote}
-          onClick={() => onVote(btn.vote)}
-          className={`flex-1 flex items-center justify-center gap-1 py-1 rounded border text-[11px] transition-colors ${myVote === btn.vote ? btn.active : "border-border/60 text-muted-foreground hover:border-border"}`}
-        >
-          {btn.icon && <btn.icon className="h-3 w-3" />}
-          {btn.label}
-        </button>
-      ))}
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5">
+        {options.map(btn => (
+          <button
+            key={btn.vote}
+            onClick={() => onVote(btn.vote)}
+            className={`flex-1 flex items-center justify-center gap-1 py-1 rounded border text-[11px] transition-colors ${myVote === btn.vote ? btn.active : "border-border/60 text-muted-foreground hover:border-border"}`}
+          >
+            {btn.icon && <btn.icon className="h-3 w-3" />}
+            {btn.label}
+          </button>
+        ))}
+      </div>
+      {/* Its own row, not a fourth chip: it is a different kind of answer,
+          and four buttons across a phone read as none. */}
+      <button
+        onClick={() => onVote(MAJORITY_VOTE as T)}
+        aria-pressed={myVote === MAJORITY_VOTE}
+        className={`w-full flex items-center justify-center gap-1 py-1 rounded border text-[11px] transition-colors ${
+          myVote === MAJORITY_VOTE
+            ? "bg-muted text-foreground border-foreground/20"
+            : "border-border/60 text-muted-foreground hover:border-border"
+        }`}
+      >
+        <Users className="h-3 w-3" />
+        {VOTE_LABELS[MAJORITY_VOTE]}
+      </button>
     </div>
   );
 }
@@ -220,7 +245,7 @@ export function DateProposalRow({
   ...props
 }: CommonProps & {
   userId?: number;
-  onVote: (vote: "available" | "maybe" | "unavailable") => void;
+  onVote: (vote: DateVote) => void;
 }) {
   const { row, detailHref } = props;
   const myVote = row.votes?.find((v: any) => v.userId === userId)?.vote;
@@ -279,7 +304,7 @@ export function BudgetProposalRow({
   ...props
 }: CommonProps & {
   userId?: number;
-  onVote: (vote: "love" | "fine" | "veto") => void;
+  onVote: (vote: PreferenceVote) => void;
   /** The normalised trip total, e.g. "EUR 16,800 for the trip". */
   tripTotalLabel?: string;
 }) {
@@ -328,7 +353,7 @@ export function ChoiceProposalRow({
   ...props
 }: CommonProps & {
   userId?: number;
-  onVote: (vote: "love" | "fine" | "veto") => void;
+  onVote: (vote: PreferenceVote) => void;
   /** e.g. "£120/night". Accommodations only. */
   priceLabel?: string;
 }) {
