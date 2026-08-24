@@ -42,7 +42,14 @@ admin-only: it changes every denominator on the trip at once.
 - [x] The move entries appear on your own row in the members list; role changes
       and remove-from-trip stay admin-only and stay off your own row.
 - [x] An empty dropdown never renders.
-- [x] **Chips, not drag-and-drop** — see the ADR.
+- [x] **Drag a chip from one family onto another**, on touch as well as with a
+      mouse. The target card highlights while the pointer is over it, and the
+      ungrouped card stays visible during a drag so somebody can be pulled out
+      of a family. Verified with synthesised touch events under a phone
+      profile, not assumed.
+- [x] The chips keep working on their own — drag is an addition, since it has
+      no answer for a keyboard, a screen reader, or a card scrolled off the
+      screen.
 
 ### E14.3 — A move never leaves a family holding two votes
 
@@ -51,10 +58,12 @@ admin-only: it changes every denominator on the trip at once.
 - [x] The dropped votes reach the activity trail as `vote.superseded`, and the
       toast says so.
 
-**Touches** — `server/routers/groups.ts`, `client/src/pages/TripMembers.tsx`.
+**Touches** — `server/routers/groups.ts`, `client/src/pages/TripMembers.tsx`,
+`client/src/components/trip/DraggableMemberChip.tsx`.
 
 **Tests** — `groupAccess.test.ts` (fixtures over `mayAssign`, plus the role
-sweep), `groupVoting.test.ts` (every mover reconciles).
+sweep), `groupVoting.test.ts` (every mover reconciles), `dragDrop.test.ts` (the
+hit test skips the chip in hand, and the chips survive as a non-drag path).
 
 ## Test script
 
@@ -62,6 +71,8 @@ sweep), `groupVoting.test.ts` (every mover reconciles).
    shows your `groupId`.
 2. Pull a groupmate in from the `+` chip; try to move somebody in a third group
    → `FORBIDDEN`.
-3. With the voting unit on `group`, confirm `trips.get`'s `voterCount` counts the
-   family once, and that a regroup which would double a vote records
+3. Drag your own chip from "Not in a group" onto a family card — with a finger,
+   not only a mouse. The card highlights under the pointer and the member moves.
+4. With the voting unit on `group`, confirm `trips.get`'s `voterCount` counts
+   the family once, and that a regroup which would double a vote records
    `vote.superseded`.

@@ -19,7 +19,7 @@ finish a piece of work — the next person (or agent) starts here.
   contact book, and preferences that offer themselves as proposals. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 795 tests ✅ · production build ✅ (2026-08-24) ·
+- **Health:** typecheck ✅ · 803 tests ✅ · production build ✅ (2026-08-24) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -49,7 +49,12 @@ finish a piece of work — the next person (or agent) starts here.
   the "1/1 voted · 1 going with the majority" line, the disabled Finalise, the
   two preference suggestions with their scope picker, and the import
   confirmation naming "Sam is already on this trip in The Shahs" were all
-  confirmed on screen.)
+  confirmed on screen. Dragging a member chip between families was then added
+  and verified the same way — under a Pixel 5 profile with synthesised touch
+  events, the chip drags, the target card highlights and the member lands in
+  it. Worth recording that the first implementation looked like it did not work
+  at all: the chip in hand is under the pointer for the whole gesture, so the
+  hit test resolved every drop back to where the drag started.)
   (2026-08-22, after E9–E12: walked in a real browser against a real Postgres
   built by applying migrations 0000–0011 in order. Two members of one family
   voted on one proposal and the family kept **one** vote; moving a member

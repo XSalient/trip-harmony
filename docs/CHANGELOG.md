@@ -67,9 +67,12 @@ is built, run or deployed.
   the page filling with empty families nobody owns. The voting unit stays
   admin-only: it changes every denominator on the trip at once.
 
-  Plus and cross chips, not drag-and-drop, although drag-and-drop is what was
-  asked for — this page is used on a phone, where a drag target that size is a
-  coin toss, and drag has no keyboard path. [ADR 0019](adr/0019-groups-are-self-service.md).
+  **You can drag a member chip from one family onto another**, with a finger as
+  well as a mouse; the target card lights up under the pointer. The plus and
+  cross chips still do the same job, because drag has no answer for a keyboard,
+  a screen reader, or a card scrolled off a phone screen while your finger is
+  holding a chip. Both paths call the same procedure.
+  [ADR 0019](adr/0019-groups-are-self-service.md).
 
 - **The budget cap is labelled as private.** It always was; the preferences card
   now says so, and says that proposing the figure is the separate, public act.

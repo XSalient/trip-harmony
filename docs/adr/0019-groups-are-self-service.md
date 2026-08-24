@@ -55,10 +55,27 @@ guarantee used to be a paragraph repeated at each call site, and a fourth mover
 that forgot it would leave a family holding two votes with nothing on screen
 saying so. `groupVoting.test.ts` asserts each mover reaches the helper.
 
-**Plus and cross chips, not drag-and-drop**, although drag-and-drop is what was
-asked for. This page is used on a phone, where a drag target the size of a
-member chip is a coin toss; drag has no keyboard path, so a tap fallback would
-have to exist anyway; and Slack's channel members, Notion and Google Contacts
-labels all use tap-to-assign for this exact shape of problem. Desktop drag is a
-reasonable enhancement layered on top later — as an addition, never as the only
-way in.
+**Drag-and-drop, with plus and cross chips underneath it.**
+
+An earlier revision of this ADR said chips _instead_ of drag, on the grounds
+that drag is unreliable on a phone. That reasoning was wrong and is recorded
+here rather than quietly deleted, because it is the kind of wrong that sounds
+right. What is genuinely unusable on mobile is the **HTML5 drag-and-drop API**
+(`dragstart` / `drop`), which does not fire on touch at all. Drag built on
+**pointer events** — framer-motion here, dnd-kit elsewhere — works on touch
+exactly as it does with a mouse, and this one is verified doing so under a
+Pixel 5 profile with synthesised touch events, not assumed.
+
+framer-motion is already a dependency, so this adds none (AGENTS.md rule 8).
+
+The chips stay, as an addition and not an apology: drag has no answer for a
+keyboard or a screen reader, and none for a drop target that is scrolled off a
+phone screen while your finger is holding a chip. Both paths call the same
+`groups.assignMember`, so the server rule is identical either way.
+
+**One trap is worth knowing about**, because it makes the feature look broken
+rather than buggy: the chip being dragged is under the pointer for the whole
+gesture, so a hit test that reads the topmost element resolves every drop back
+to the card the drag started in. The drag animates, a card highlights, the drop
+is accepted, and nothing moves. `groupUnderPointer` skips the chip in hand, and
+`dragDrop.test.ts` exists to keep it doing so.

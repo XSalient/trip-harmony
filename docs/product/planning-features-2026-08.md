@@ -32,14 +32,18 @@ do not relitigate them mid-build.
 | Who may organise groups                     | A tripmate creates, joins and leaves, and manages the group they are in. Admin keeps the rest. |
 | A contact group clashing with a trip group  | Return the conflicts and change nothing; on confirmation, move them and reconcile the votes.   |
 
-Three departures from what was asked for, each argued in its ADR:
+Two departures from what was asked for, each argued in its ADR:
 
 - **"Go with the majority" is an abstention, not a proxy vote** — never folded
   into the Yes/Maybe/No counts ([ADR 0018](../adr/0018-going-with-the-majority-is-an-abstention.md)).
-- **Chips, not drag-and-drop**, which was the stated preference
-  ([ADR 0019](../adr/0019-groups-are-self-service.md)).
 - **Places are not detected from preference text**, only budgets and dates
   ([ADR 0020](../adr/0020-preferences-suggest-proposals.md)).
+
+Drag-and-drop was very nearly a third. It was scoped as chips-instead-of-drag on
+the grounds that drag is unreliable on a phone; that was wrong — it is the HTML5
+drag API that does not work on touch, not drag as an interaction — and it now
+ships as asked, with the chips kept underneath it as the keyboard path
+([ADR 0019](../adr/0019-groups-are-self-service.md)).
 
 ## The epics
 

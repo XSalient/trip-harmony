@@ -37,6 +37,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import DraggableMemberChip, {
+  DROP_ATTR,
+  groupUnderPointer,
+} from "@/components/trip/DraggableMemberChip";
+import type { PanInfo } from "framer-motion";
 import { format } from "date-fns";
 import {
   Copy,
@@ -173,6 +178,12 @@ export default function TripMembers() {
   // The plan returned by a preview, held until the person confirms it. Null
   // means nothing is pending; the import writes nothing until this is acted on.
   const [importPlan, setImportPlan] = useState<any | null>(null);
+  // Who is being dragged, and which card the pointer is over. Both are needed:
+  // the first to know what to move, the second only so the card can light up.
+  const [dragging, setDragging] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null | undefined>(
+    undefined
+  );
   const [attendeeFor, setAttendeeFor] = useState<number | null | undefined>(
     undefined
   );
@@ -322,6 +333,24 @@ export default function TripMembers() {
     } catch (e: any) {
       toast.error(e?.message || "Couldn't remove that group");
     }
+  };
+
+  /**
+   * Drops a member onto whatever card the pointer was released over.
+   *
+   * A drop outside every card is a cancelled drag, not a move to nowhere —
+   * `undefined` from `groupUnderPointer` means no target, while `null` means
+   * the "Not in a group" card, which is a real destination.
+   */
+  const handleDrop = async (userId: number, info: PanInfo) => {
+    const target = groupUnderPointer(info);
+    setDragging(null);
+    setDragOver(undefined);
+    if (target === undefined) return;
+    const current =
+      accepted.find((m: any) => m.userId === userId)?.groupId ?? null;
+    if (current === target) return;
+    await handleAssign(userId, target);
   };
 
   const handleSaveGroup = async (groupId: number) => {
@@ -585,7 +614,15 @@ export default function TripMembers() {
           )}
 
           {(groups ?? []).map((g: any) => (
-            <Card key={g.id} className="border-border/50">
+            <Card
+              key={g.id}
+              {...{ [DROP_ATTR]: String(g.id) }}
+              className={`transition-colors ${
+                dragOver === g.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border/50"
+              }`}
+            >
               <CardContent className="p-3">
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="text-sm font-medium flex-1 truncate">
@@ -636,32 +673,22 @@ export default function TripMembers() {
                     .map((m: any) => {
                       const isMe = m.userId === user?.id;
                       return (
-                        <span
+                        <DraggableMemberChip
                           key={`m${m.userId}`}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                          label={m.user?.name || "Member"}
+                          isMe={isMe}
+                          canMove={canMove(m)}
+                          removeLabel={
                             isMe
-                              ? "border-primary/40 bg-primary/5"
-                              : "border-border/60"
-                          }`}
-                        >
-                          {m.user?.name || "Member"}
-                          {isMe && (
-                            <span className="text-muted-foreground">(you)</span>
-                          )}
-                          {canMove(m) && (
-                            <button
-                              onClick={() => handleAssign(m.userId, null)}
-                              className="text-muted-foreground hover:text-destructive"
-                              aria-label={
-                                isMe
-                                  ? `Leave ${g.name}`
-                                  : `Remove ${m.user?.name || "member"} from ${g.name}`
-                              }
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </span>
+                              ? `Leave ${g.name}`
+                              : `Remove ${m.user?.name || "member"} from ${g.name}`
+                          }
+                          dragging={dragging === m.userId}
+                          onRemove={() => handleAssign(m.userId, null)}
+                          onDragStart={() => setDragging(m.userId)}
+                          onDrag={info => setDragOver(groupUnderPointer(info))}
+                          onDragEnd={info => handleDrop(m.userId, info)}
+                        />
                       );
                     })}
 
@@ -724,9 +751,20 @@ export default function TripMembers() {
 
         {/* Ungrouped is a normal state, not an error: a trip that never wanted
             families still has everybody here. */}
+        {/* Shown while a drag is in progress even when it is empty, or there
+            would be nowhere to drop somebody in order to take them out of a
+            family. */}
         {((attendees ?? []).some((a: any) => a.groupId == null) ||
-          accepted.some((m: any) => m.groupId == null)) && (
-          <Card className="border-border/50 border-dashed">
+          accepted.some((m: any) => m.groupId == null) ||
+          dragging !== null) && (
+          <Card
+            {...{ [DROP_ATTR]: "none" }}
+            className={`border-dashed transition-colors ${
+              dragOver === null && dragging !== null
+                ? "border-primary bg-primary/5"
+                : "border-border/50"
+            }`}
+          >
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="text-sm font-medium flex-1">
@@ -743,20 +781,27 @@ export default function TripMembers() {
                 {accepted
                   .filter((m: any) => m.groupId == null)
                   .map((m: any) => (
-                    <span
+                    <DraggableMemberChip
                       key={`m${m.userId}`}
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
-                        m.userId === user?.id
-                          ? "border-primary/40 bg-primary/5"
-                          : "border-border/60"
-                      }`}
-                    >
-                      {m.user?.name || "Member"}
-                      {m.userId === user?.id && (
-                        <span className="text-muted-foreground">(you)</span>
-                      )}
-                    </span>
+                      label={m.user?.name || "Member"}
+                      isMe={m.userId === user?.id}
+                      // Nothing to remove them from, so no cross — but they
+                      // can still be dragged into a family.
+                      canMove={canMove(m) && (groups ?? []).length > 0}
+                      removeLabel=""
+                      dragging={dragging === m.userId}
+                      onRemove={() => {}}
+                      onDragStart={() => setDragging(m.userId)}
+                      onDrag={info => setDragOver(groupUnderPointer(info))}
+                      onDragEnd={info => handleDrop(m.userId, info)}
+                    />
                   ))}
+                {accepted.some((m: any) => m.groupId == null) &&
+                  (groups ?? []).length === 0 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      Add a family above to start grouping people.
+                    </span>
+                  )}
               </div>
 
               <div className="flex flex-wrap gap-1.5">
