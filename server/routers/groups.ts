@@ -36,6 +36,36 @@ function projectGroupsForRole<T extends { budgetMax: string | null }>(
   return groups.map(g => ({ ...g, budgetMax: null }));
 }
 
+/**
+ * May this person move that person into that group?
+ *
+ * Pure, and separate from the procedure, because the rule is the interesting
+ * part and it has four cases that are easy to get subtly wrong:
+ *
+ * - an **admin** moves anyone anywhere;
+ * - anyone moves **themselves** into any group on the trip, or out of all of
+ *   them — this is the whole point of the change, and it used not to be
+ *   possible even for an admin, because the members page hid the control on
+ *   your own row;
+ * - a tripmate pulls someone **into the group they are in themselves**;
+ * - a tripmate pushes someone **out of the group they are in themselves**.
+ *
+ * Anything else — reorganising two families you are in neither of — is an
+ * admin's job. Being in no group grants nothing: `me.groupId == null` means
+ * the last two cases cannot apply, or every ungrouped member could shuffle
+ * every other ungrouped member around.
+ */
+export function mayAssign(
+  me: { role: string; userId: number; groupId: number | null },
+  target: { userId: number; groupId: number | null },
+  groupId: number | null
+): boolean {
+  if (me.role === "admin") return true;
+  if (target.userId === me.userId) return true;
+  if (me.groupId == null) return false;
+  return target.groupId === me.groupId || groupId === me.groupId;
+}
+
 /** The group a member may act on: their own, unless they are an admin. */
 async function requireGroupAccess(
   tripId: number,
@@ -49,6 +79,30 @@ async function requireGroupAccess(
     code: "FORBIDDEN",
     message: "You can only change your own group. Ask an admin for the rest.",
   });
+}
+
+/**
+ * Reconciles a trip's votes after somebody's group changed, and writes the
+ * trail for what it dropped.
+ *
+ * A move can leave a group holding two votes on proposals it had already voted
+ * on. Nothing on screen would say so, so it is reconciled in the same call that
+ * caused it — and every caller that moves somebody has to do it, which is why
+ * this is a function rather than a paragraph repeated three times.
+ */
+async function reconcileAfterRegroup(tripId: number, actorUserId: number) {
+  const dropped = await db.reconcileGroupVotes(tripId);
+  for (const d of dropped) {
+    await db.recordActivity({
+      tripId,
+      actorUserId,
+      action: "vote.superseded",
+      entityType: d.proposalType,
+      entityId: d.proposalId,
+      metadata: { userId: d.userId, reason: "regrouped" },
+    });
+  }
+  return dropped.length;
 }
 
 export const groupsRouter = router({
@@ -67,10 +121,23 @@ export const groupsRouter = router({
       return db.getTripHeadcount(input.tripId);
     }),
 
+  /**
+   * Adds a group. Any tripmate may — on a trip of families the person who
+   * knows who is in a household is the person in it, and having to ask an
+   * admin to name your own family is the friction that ends with nobody
+   * being grouped at all.
+   */
   create: protectedProcedure
-    .input(z.object({ tripId: z.number(), name: z.string().min(1).max(120) }))
+    .input(
+      z.object({
+        tripId: z.number(),
+        name: z.string().min(1).max(120),
+        /** Creating your family and then not being in it is nobody's intent. */
+        joinMe: z.boolean().default(true),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       const clash = await db.findTripGroupByName(input.tripId, input.name);
       if (clash)
         throw new TRPCError({
@@ -89,6 +156,21 @@ export const groupsRouter = router({
         entityId: id,
         metadata: { name: input.name },
       });
+
+      if (input.joinMe) {
+        await db.setMemberGroup(input.tripId, ctx.user.id, id);
+        await db.recordActivity({
+          tripId: input.tripId,
+          actorUserId: ctx.user.id,
+          action: "group.member_assigned",
+          entityType: "group",
+          entityId: id,
+          metadata: { userId: ctx.user.id, from: null },
+        });
+        // Joining a group is a regroup like any other: it can leave the group
+        // holding two votes on a proposal both of you had already voted on.
+        await reconcileAfterRegroup(input.tripId, ctx.user.id);
+      }
       return { id };
     }),
 
@@ -98,7 +180,8 @@ export const groupsRouter = router({
       const group = await db.getTripGroup(input.id);
       if (!group)
         throw new TRPCError({ code: "NOT_FOUND", message: "Group not found." });
-      await requireTripRole(group.tripId, ctx.user.id, "admin");
+      // Admin, or a tripmate in this group: naming your own family is yours.
+      await requireGroupAccess(group.tripId, ctx.user.id, group.id);
       const clash = await db.findTripGroupByName(group.tripId, input.name);
       if (clash && clash.id !== group.id)
         throw new TRPCError({
@@ -120,6 +203,13 @@ export const groupsRouter = router({
   /**
    * Removes the group. Everyone in it stays on the trip, ungrouped — deleting a
    * group is an organisational change, never a way to remove people.
+   *
+   * Admin, **or** a tripmate clearing a group nobody but them is in. Creating
+   * a group became a tripmate's job, and a tripmate who could create one but
+   * never clear it leaves the members page filling with empty families nobody
+   * owns. Deleting a *populated* group re-shapes other people's grouping and
+   * every vote denominator on the trip, so that stays an admin's call; a
+   * tripmate leaves a populated group by moving themselves out of it.
    */
   remove: protectedProcedure
     .input(z.object({ id: z.number() }))
@@ -127,7 +217,26 @@ export const groupsRouter = router({
       const group = await db.getTripGroup(input.id);
       if (!group)
         throw new TRPCError({ code: "NOT_FOUND", message: "Group not found." });
-      await requireTripRole(group.tripId, ctx.user.id, "admin");
+      const me = await requireTripRole(group.tripId, ctx.user.id, "tripmate");
+      if (me.role !== "admin") {
+        const [members, attendees] = await Promise.all([
+          db.getTripMembers(group.tripId),
+          db.getTripAttendees(group.tripId),
+        ]);
+        const others = members.filter(
+          m => m.groupId === group.id && m.userId !== ctx.user.id
+        );
+        // An attendee row stands for a member too, so exclude the caller's.
+        const guests = attendees.filter(
+          a => a.groupId === group.id && a.memberUserId !== ctx.user.id
+        );
+        if (others.length > 0 || guests.length > 0)
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Other people are in this group. Move yourself out of it, or ask an admin to remove it.",
+          });
+      }
       await db.deleteTripGroup(input.id);
       await db.recordActivity({
         tripId: group.tripId,
@@ -149,7 +258,7 @@ export const groupsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      const me = await requireTripRole(input.tripId, ctx.user.id, "tripmate");
       if (input.groupId != null) {
         const group = await db.getTripGroup(input.groupId);
         if (!group || group.tripId !== input.tripId)
@@ -164,6 +273,18 @@ export const groupsRouter = router({
           code: "NOT_FOUND",
           message: "That person is not on this trip.",
         });
+      if (
+        !mayAssign(
+          { role: me.role, userId: ctx.user.id, groupId: me.groupId },
+          { userId: input.userId, groupId: target.groupId },
+          input.groupId
+        )
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "You can move yourself, or people in your own group. Ask an admin for the rest.",
+        });
 
       await db.setMemberGroup(input.tripId, input.userId, input.groupId);
       await db.recordActivity({
@@ -175,21 +296,11 @@ export const groupsRouter = router({
         metadata: { userId: input.userId, from: target.groupId ?? null },
       });
 
-      // A move can leave a group holding two votes on proposals it had already
-      // voted on. Nothing on screen would say so, so it is reconciled here, in
-      // the same call that caused it.
-      const dropped = await db.reconcileGroupVotes(input.tripId);
-      for (const d of dropped) {
-        await db.recordActivity({
-          tripId: input.tripId,
-          actorUserId: ctx.user.id,
-          action: "vote.superseded",
-          entityType: d.proposalType,
-          entityId: d.proposalId,
-          metadata: { userId: d.userId, reason: "regrouped" },
-        });
-      }
-      return { success: true, votesSuperseded: dropped.length };
+      const votesSuperseded = await reconcileAfterRegroup(
+        input.tripId,
+        ctx.user.id
+      );
+      return { success: true, votesSuperseded };
     }),
 
   setVotingUnit: protectedProcedure

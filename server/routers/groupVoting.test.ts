@@ -98,9 +98,22 @@ describe("moving somebody between groups", () => {
 
   it("is run by the move itself, not left for the next vote", () => {
     const groups = router("groups.ts");
+    // Every procedure that moves somebody reconciles in the same call. They go
+    // through one helper rather than repeating the sweep, so this asserts the
+    // helper really does sweep and that each mover reaches it — a mover that
+    // quietly skips it leaves a family holding two votes and nothing on screen
+    // says so.
     expect(groups).toMatch(
-      /assignMember[\s\S]{0,2500}reconcileGroupVotes\(input\.tripId\)/
+      /async function reconcileAfterRegroup[\s\S]{0,600}reconcileGroupVotes\(tripId\)/
     );
+    for (const mover of ["create", "assignMember"]) {
+      const start = groups.indexOf(`  ${mover}: protectedProcedure`);
+      expect(start, `${mover} should exist`).toBeGreaterThan(-1);
+      const body = groups.slice(start, groups.indexOf("\n  }),", start));
+      expect(body, `${mover} should reconcile`).toContain(
+        "reconcileAfterRegroup("
+      );
+    }
   });
 
   it("keeps the most recent vote and drops the older one", () => {

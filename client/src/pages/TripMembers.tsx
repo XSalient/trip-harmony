@@ -167,6 +167,9 @@ export default function TripMembers() {
   const removeAttendee = trpc.groups.removeAttendee.useMutation();
 
   const [newGroupName, setNewGroupName] = useState("");
+  // Creating your family and then not being in it is nobody's intent.
+  const [joinNewGroup, setJoinNewGroup] = useState(true);
+  const [addToGroup, setAddToGroup] = useState<number | null>(null);
   const [attendeeFor, setAttendeeFor] = useState<number | null | undefined>(
     undefined
   );
@@ -224,6 +227,19 @@ export default function TripMembers() {
   /** Admins act on any group; a tripmate acts on their own and nobody else's. */
   const canAddTo = (groupId: number | null) =>
     isAdmin || (groupId != null && groupId === myGroupId);
+  /**
+   * Mirrors `mayAssign` on the server. The server is what enforces it — this
+   * only decides whether to draw the control.
+   */
+  const canMove = (m: { userId: number; groupId: number | null }) =>
+    isAdmin ||
+    m.userId === user?.id ||
+    (myGroupId != null && m.groupId === myGroupId);
+  /** Who this group could take: yourself, and anyone you may move. */
+  const movableInto = (groupId: number) =>
+    accepted.filter(
+      (m: any) => m.groupId !== groupId && canMove(m) && m.role !== "watcher"
+    );
   const pendingInvites =
     invites?.filter((i: any) => i.status === "pending") ?? [];
   const answeredInvites =
@@ -263,10 +279,16 @@ export default function TripMembers() {
   const handleCreateGroup = async () => {
     if (!newGroupName.trim()) return;
     try {
-      await createGroup.mutateAsync({ tripId, name: newGroupName.trim() });
+      await createGroup.mutateAsync({
+        tripId,
+        name: newGroupName.trim(),
+        joinMe: joinNewGroup,
+      });
       setNewGroupName("");
       refreshGroups();
-      toast.success("Group added");
+      toast.success(
+        joinNewGroup ? "Group added — you're in it" : "Group added"
+      );
     } catch (e: any) {
       toast.error(e?.message || "Couldn't add that group");
     }
@@ -413,7 +435,7 @@ export default function TripMembers() {
             Families and households
           </h2>
 
-          {isAdmin && (
+          {canContribute && (
             <Card className="border-border/50">
               <CardContent className="p-3 space-y-3">
                 <div className="flex gap-2">
@@ -434,43 +456,56 @@ export default function TripMembers() {
                   </Button>
                 </div>
 
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={joinNewGroup}
+                    onChange={e => setJoinNewGroup(e.target.checked)}
+                    className="rounded"
+                  />
+                  Put me in it
+                </label>
+
                 {/* The switch lives here, beside the groups, because it is a
                     statement about the people and this is where its effect
-                    can be seen. */}
-                <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/50">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">One vote per family</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {(trip as any)?.votingUnit === "group"
-                        ? "Each group casts one vote. Anyone in it can cast or change it."
-                        : "Everyone votes for themselves."}
-                    </p>
-                  </div>
-                  <Button
-                    variant={
-                      (trip as any)?.votingUnit === "group"
-                        ? "default"
-                        : "outline"
-                    }
-                    size="sm"
-                    className="rounded-lg shrink-0 text-xs h-8"
-                    onClick={() =>
-                      handleVotingUnit(
+                    can be seen. Admin-only even though the card is not: it
+                    changes every vote denominator on the trip. */}
+                {isAdmin && (
+                  <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">One vote per family</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {(trip as any)?.votingUnit === "group"
+                          ? "Each group casts one vote. Anyone in it can cast or change it."
+                          : "Everyone votes for themselves."}
+                      </p>
+                    </div>
+                    <Button
+                      variant={
                         (trip as any)?.votingUnit === "group"
-                          ? "member"
-                          : "group"
-                      )
-                    }
-                    disabled={setVotingUnit.isPending}
-                  >
-                    {(trip as any)?.votingUnit === "group" ? "On" : "Off"}
-                  </Button>
-                </div>
+                          ? "default"
+                          : "outline"
+                      }
+                      size="sm"
+                      className="rounded-lg shrink-0 text-xs h-8"
+                      onClick={() =>
+                        handleVotingUnit(
+                          (trip as any)?.votingUnit === "group"
+                            ? "member"
+                            : "group"
+                        )
+                      }
+                      disabled={setVotingUnit.isPending}
+                    >
+                      {(trip as any)?.votingUnit === "group" ? "On" : "Off"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {(groups ?? []).length === 0 && !isAdmin && (
+          {(groups ?? []).length === 0 && !canContribute && (
             <p className="text-sm text-muted-foreground">
               Nobody is grouped on this trip.
             </p>
@@ -486,7 +521,7 @@ export default function TripMembers() {
                   <span className="text-[11px] text-muted-foreground shrink-0">
                     {headcountLabel(headcount, g.id)}
                   </span>
-                  {isAdmin && (
+                  {canAddTo(g.id) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
@@ -508,6 +543,56 @@ export default function TripMembers() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                  )}
+                </div>
+
+                {/* Who is in this family and has an account. Chips rather than
+                    drag-and-drop: this page is used on a phone, where a drag
+                    target this size is a coin toss and there is no keyboard
+                    path at all. */}
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {accepted
+                    .filter((m: any) => m.groupId === g.id)
+                    .map((m: any) => {
+                      const isMe = m.userId === user?.id;
+                      return (
+                        <span
+                          key={`m${m.userId}`}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                            isMe
+                              ? "border-primary/40 bg-primary/5"
+                              : "border-border/60"
+                          }`}
+                        >
+                          {m.user?.name || "Member"}
+                          {isMe && (
+                            <span className="text-muted-foreground">(you)</span>
+                          )}
+                          {canMove(m) && (
+                            <button
+                              onClick={() => handleAssign(m.userId, null)}
+                              className="text-muted-foreground hover:text-destructive"
+                              aria-label={
+                                isMe
+                                  ? `Leave ${g.name}`
+                                  : `Remove ${m.user?.name || "member"} from ${g.name}`
+                              }
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+
+                  {movableInto(g.id).length > 0 && (
+                    <button
+                      onClick={() => setAddToGroup(g.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Plus className="h-3 w-3" />
+                      {myGroupId === g.id ? "Add member" : "Join or add"}
+                    </button>
                   )}
                 </div>
 
@@ -659,77 +744,94 @@ export default function TripMembers() {
                       </>
                     )}
                   </div>
-                  {/* Tripmates get this menu too now, for the one entry they
-                      can use: saving someone they are travelling with. */}
-                  {canSeeDetails && !isMe && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {m.user?.email &&
-                          (savedEmails.has(
-                            String(m.user.email).toLowerCase()
-                          ) ? (
-                            <DropdownMenuItem
-                              disabled
-                              className="text-xs gap-2"
-                            >
-                              <BookUser className="h-3 w-3" /> In your contacts
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() => handleSaveMember(m.userId)}
-                              disabled={addContactFromTrip.isPending}
-                              className="text-xs gap-2"
-                            >
-                              <BookUser className="h-3 w-3" /> Save to my
-                              contacts
-                            </DropdownMenuItem>
-                          ))}
-                        {isAdmin && (
-                          <>
-                            {(groups ?? []).map((g: any) => (
+                  {/* Tripmates get this menu too, for saving someone they are
+                      travelling with — and now for their own row, because
+                      moving yourself into a group is the thing this page could
+                      not do at all. An empty menu is worse than no menu, so it
+                      only appears when it would hold something. */}
+                  {canSeeDetails &&
+                    ((!isMe && Boolean(m.user?.email)) ||
+                      (isAdmin && !isMe) ||
+                      (canMove(m) &&
+                        ((groups ?? []).length > 0 || m.groupId != null))) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {!isMe &&
+                            m.user?.email &&
+                            (savedEmails.has(
+                              String(m.user.email).toLowerCase()
+                            ) ? (
                               <DropdownMenuItem
-                                key={`g${g.id}`}
-                                disabled={m.groupId === g.id}
-                                onClick={() => handleAssign(m.userId, g.id)}
-                                className="text-xs"
+                                disabled
+                                className="text-xs gap-2"
                               >
-                                Move to {g.name}
+                                <BookUser className="h-3 w-3" /> In your
+                                contacts
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => handleSaveMember(m.userId)}
+                                disabled={addContactFromTrip.isPending}
+                                className="text-xs gap-2"
+                              >
+                                <BookUser className="h-3 w-3" /> Save to my
+                                contacts
                               </DropdownMenuItem>
                             ))}
-                            {m.groupId != null && (
+                          {canMove(m) && (
+                            <>
+                              {(groups ?? []).map((g: any) => (
+                                <DropdownMenuItem
+                                  key={`g${g.id}`}
+                                  disabled={m.groupId === g.id}
+                                  onClick={() => handleAssign(m.userId, g.id)}
+                                  className="text-xs"
+                                >
+                                  {isMe
+                                    ? `Join ${g.name}`
+                                    : `Move to ${g.name}`}
+                                </DropdownMenuItem>
+                              ))}
+                              {m.groupId != null && (
+                                <DropdownMenuItem
+                                  onClick={() => handleAssign(m.userId, null)}
+                                  className="text-xs"
+                                >
+                                  {isMe
+                                    ? "Leave my group"
+                                    : "Remove from group"}
+                                </DropdownMenuItem>
+                              )}
+                            </>
+                          )}
+                          {isAdmin && !isMe && (
+                            <>
+                              {TRIP_ROLES.map(r => (
+                                <DropdownMenuItem
+                                  key={r}
+                                  disabled={m.role === r}
+                                  onClick={() => handleRoleChange(m.userId, r)}
+                                  className="text-xs"
+                                >
+                                  Make {TRIP_ROLE_LABELS[r]}
+                                </DropdownMenuItem>
+                              ))}
                               <DropdownMenuItem
-                                onClick={() => handleAssign(m.userId, null)}
-                                className="text-xs"
+                                onClick={() => handleRemove(m.userId)}
+                                className="text-xs text-destructive focus:text-destructive gap-2"
                               >
-                                Remove from group
+                                <Trash2 className="h-3 w-3" /> Remove from trip
                               </DropdownMenuItem>
-                            )}
-                            {TRIP_ROLES.map(r => (
-                              <DropdownMenuItem
-                                key={r}
-                                disabled={m.role === r}
-                                onClick={() => handleRoleChange(m.userId, r)}
-                                className="text-xs"
-                              >
-                                Make {TRIP_ROLE_LABELS[r]}
-                              </DropdownMenuItem>
-                            ))}
-                            <DropdownMenuItem
-                              onClick={() => handleRemove(m.userId)}
-                              className="text-xs text-destructive focus:text-destructive gap-2"
-                            >
-                              <Trash2 className="h-3 w-3" /> Remove from trip
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                 </CardContent>
               </Card>
             );
@@ -984,6 +1086,53 @@ export default function TripMembers() {
           )}
         </DialogContent>
       </Dialog>
+      {/* Move somebody into a group — yourself first, because putting your
+          own family together is the common case and used to be impossible. */}
+      <Dialog
+        open={addToGroup !== null}
+        onOpenChange={open => !open && setAddToGroup(null)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              Add to {addToGroup != null ? groupName(addToGroup) : "group"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 pt-1">
+            {addToGroup != null &&
+              [...movableInto(addToGroup)]
+                .sort((a: any, b: any) =>
+                  a.userId === user?.id ? -1 : b.userId === user?.id ? 1 : 0
+                )
+                .map((m: any) => (
+                  <button
+                    key={m.userId}
+                    onClick={async () => {
+                      const to = addToGroup;
+                      setAddToGroup(null);
+                      await handleAssign(m.userId, to);
+                    }}
+                    className="w-full flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+                  >
+                    <span className="flex-1 truncate">
+                      {m.userId === user?.id ? "You" : m.user?.name || "Member"}
+                    </span>
+                    {m.groupId != null && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {groupName(m.groupId)}
+                      </Badge>
+                    )}
+                  </button>
+                ))}
+            {addToGroup != null && movableInto(addToGroup).length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Nobody left that you can move. Ask an admin for the rest.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Add someone with no account: a child, a partner, the dog. */}
       <Dialog
         open={attendeeFor !== undefined}
