@@ -41,7 +41,15 @@ finish a piece of work — the next person (or agent) starts here.
   at `per_group`, the £9,000 in the dealbreakers box produced none, accepting the
   budget stopped it being offered and dismissing the date stopped that; and a
   watcher's `groups.list`, `groups.attendees` and `trips.members` carried no
-  caps and no ages, with `suggestions.fromPreferences` refused outright.)
+  caps and no ages, with `suggestions.fromPreferences` refused outright.
+  Then walked in a real Chromium at phone width, which found the one bug the
+  payload checks could not: every accepted member has an attendee row, so the
+  new member chips rendered each person twice in their own group card. Fixed —
+  the attendee chips are now the people with no account. The abstain button,
+  the "1/1 voted · 1 going with the majority" line, the disabled Finalise, the
+  two preference suggestions with their scope picker, and the import
+  confirmation naming "Sam is already on this trip in The Shahs" were all
+  confirmed on screen.)
   (2026-08-22, after E9–E12: walked in a real browser against a real Postgres
   built by applying migrations 0000–0011 in order. Two members of one family
   voted on one proposal and the family kept **one** vote; moving a member
