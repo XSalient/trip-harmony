@@ -36,6 +36,7 @@ import {
   proposalComments,
   InsertProposalComment,
   memberPreferences,
+  suggestionDismissals,
   webauthnCredentials,
   InsertWebauthnCredential,
   webauthnChallenges,
@@ -45,6 +46,7 @@ import {
   contactGroups,
   contactGroupMembers,
   InsertContact,
+  InsertSuggestionDismissal,
   InsertContactGroup,
   InsertContactGroupMember,
   activityEvents,
@@ -447,6 +449,7 @@ export const TRIP_OWNED_TABLES = [
   "notifications",
   "member_preferences",
   "proposal_comments",
+  "suggestion_dismissals",
 ] as const;
 
 /**
@@ -517,6 +520,9 @@ export async function deleteTripCascade(tripId: number) {
     await tx
       .delete(memberPreferences)
       .where(eq(memberPreferences.tripId, tripId));
+    await tx
+      .delete(suggestionDismissals)
+      .where(eq(suggestionDismissals.tripId, tripId));
     await tx.delete(activityEvents).where(eq(activityEvents.tripId, tripId));
     await tx.delete(tripInvites).where(eq(tripInvites.tripId, tripId));
     await tx.delete(tripAttendees).where(eq(tripAttendees.tripId, tripId));
@@ -1817,6 +1823,34 @@ export async function addContactGroupMembers(
     .onConflictDoNothing()
     .returning({ id: contactGroupMembers.id });
   return inserted.length;
+}
+
+// ---- Suggestion dismissals ----
+
+/** The fingerprints this person has said no to on this trip. */
+export async function getDismissedSuggestions(
+  tripId: number,
+  userId: number
+): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({ fingerprint: suggestionDismissals.fingerprint })
+    .from(suggestionDismissals)
+    .where(
+      and(
+        eq(suggestionDismissals.tripId, tripId),
+        eq(suggestionDismissals.userId, userId)
+      )
+    );
+  return rows.map(r => r.fingerprint);
+}
+
+/** Idempotent, so dismissing twice is one row rather than two. */
+export async function dismissSuggestion(data: InsertSuggestionDismissal) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(suggestionDismissals).values(data).onConflictDoNothing();
 }
 
 // ---- Date Proposals ----

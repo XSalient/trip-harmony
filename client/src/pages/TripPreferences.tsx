@@ -10,7 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import type { BudgetScope } from "@shared/budget";
+import type { Suggestion } from "@shared/suggestions";
 import PreferencesSummary from "@/components/trip/PreferencesSummary";
+import ProposalSuggestions from "@/components/trip/ProposalSuggestions";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import {
   CheckCircle2,
@@ -74,6 +77,11 @@ export default function TripPreferences() {
   const params = useParams<{ id: string }>();
   const tripId = parseInt(params.id || "0");
 
+  // A watcher has no requirements to state: they are not going on the trip,
+  // and `preferences.save` refuses them. The form is read-only rather than
+  // absent, so the page still explains what the group is being scored against.
+  const { canContribute, isWatcher } = useTripRole(tripId);
+
   const { data: trip } = trpc.trips.get.useQuery(
     { id: tripId },
     { enabled: tripId > 0 }
@@ -90,6 +98,12 @@ export default function TripPreferences() {
     { tripId },
     { enabled: tripId > 0 }
   );
+  // What you have written that the group could actually vote on. Read-only and
+  // free — no model runs here; see `server/routers/suggestions.ts`.
+  const { data: suggested } = trpc.suggestions.fromPreferences.useQuery(
+    { tripId },
+    { enabled: tripId > 0 && canContribute }
+  );
 
   const [form, setForm] = useState({
     mustHaves: "",
@@ -98,10 +112,6 @@ export default function TripPreferences() {
     openComments: "",
   });
   const [saved, setSaved] = useState(false);
-  // A watcher has no requirements to state: they are not going on the trip,
-  // and `preferences.save` refuses them. The form is read-only rather than
-  // absent, so the page still explains what the group is being scored against.
-  const { canContribute, isWatcher } = useTripRole(tripId);
 
   useEffect(() => {
     if (existing) {
@@ -114,10 +124,62 @@ export default function TripPreferences() {
     }
   }, [existing]);
 
+  const utils = trpc.useUtils();
+  const proposeDates = trpc.dates.propose.useMutation();
+  const proposeBudget = trpc.budget.create.useMutation();
+  const dismissSuggestion = trpc.suggestions.dismiss.useMutation();
+
+  /**
+   * Turns one suggestion into an ordinary proposal, through the same mutations
+   * the proposal screens use — so it arrives with the implicit vote and the
+   * notification those already handle, rather than by a second route in.
+   */
+  const handlePropose = async (s: Suggestion, scope?: BudgetScope) => {
+    try {
+      if (s.kind === "budget") {
+        await proposeBudget.mutateAsync({
+          tripId,
+          title: s.title,
+          amount: s.amount,
+          currency: s.currency,
+          scope: scope ?? s.scope,
+        });
+        utils.budget.list.invalidate({ tripId });
+        utils.budget.summary.invalidate({ tripId });
+      } else {
+        await proposeDates.mutateAsync({
+          tripId,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          label: s.label,
+        });
+        utils.dates.list.invalidate({ tripId });
+      }
+      // It is a proposal now, so its fingerprint matches one and it stops
+      // being offered — nothing needs recording for an accepted suggestion.
+      utils.suggestions.fromPreferences.invalidate({ tripId });
+      toast.success("Proposed — everyone can vote on it now");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't propose that");
+    }
+  };
+
+  const handleDismiss = async (s: Suggestion) => {
+    await dismissSuggestion.mutateAsync({
+      tripId,
+      kind: s.kind,
+      fingerprint: s.fingerprint,
+    });
+    utils.suggestions.fromPreferences.invalidate({ tripId });
+  };
+
   const saveMutation = trpc.preferences.save.useMutation({
     onSuccess: () => {
       setSaved(true);
       toast.success("Your preferences saved!");
+      // Re-read what is now proposable. This is what makes writing a figure
+      // and pressing Save offer to put it to the group.
+      utils.suggestions.fromPreferences.invalidate({ tripId });
       setTimeout(() => setSaved(false), 3000);
     },
     onError: () => toast.error("Failed to save preferences"),
@@ -164,6 +226,16 @@ export default function TripPreferences() {
           submittedCount={submittedCount}
           memberCount={acceptedCount}
         />
+
+        {canContribute && (
+          <ProposalSuggestions
+            suggestions={(suggested?.suggestions ?? []) as Suggestion[]}
+            currency={trip?.currency || ""}
+            busy={proposeBudget.isPending || proposeDates.isPending}
+            onPropose={handlePropose}
+            onDismiss={handleDismiss}
+          />
+        )}
 
         {isWatcher && (
           <WatcherNotice>

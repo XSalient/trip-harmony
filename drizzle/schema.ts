@@ -650,6 +650,33 @@ export type MemberPreference = typeof memberPreferences.$inferSelect;
 export type InsertMemberPreference = typeof memberPreferences.$inferInsert;
 
 /**
+ * A suggestion somebody turned down.
+ *
+ * My Preferences offers to turn what you wrote — a figure, a set of dates —
+ * into a proposal the group can vote on. Accepting needs no row here: the
+ * proposal's own fingerprint then matches and the suggestion stops being
+ * offered. Declining leaves no trace at all without this, so the same card
+ * would return every time you pressed Save.
+ *
+ * `kind` is a plain varchar rather than an enum on purpose. It is an internal
+ * key, never rendered, and a new kind of suggestion should not need an
+ * `ALTER TYPE` and a migration that cannot share a transaction.
+ */
+export const suggestionDismissals = pgTable("suggestion_dismissals", {
+  id: serial("id").primaryKey(),
+  tripId: integer("tripId").notNull(),
+  userId: integer("userId").notNull(),
+  kind: varchar("kind", { length: 24 }).notNull(),
+  /** Stable identity of the suggestion — see `shared/suggestions.ts`. */
+  fingerprint: varchar("fingerprint", { length: 200 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SuggestionDismissal = typeof suggestionDismissals.$inferSelect;
+export type InsertSuggestionDismissal =
+  typeof suggestionDismissals.$inferInsert;
+
+/**
  * Magic link tokens — short-lived tokens for passwordless login.
  */
 export const magicLinkTokens = pgTable("magic_link_tokens", {

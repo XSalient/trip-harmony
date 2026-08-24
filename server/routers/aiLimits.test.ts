@@ -75,6 +75,15 @@ describe("no AI runs as a side effect of an ordinary write", () => {
     expect(src).not.toContain("invokeLLM");
   });
 
+  it("offering to turn a preference into a proposal costs nothing", () => {
+    // The suggestions screen asks for this after every save. A model call here
+    // would be a paid request per keystroke-and-save, fired by a form rather
+    // than by anybody asking for AI — the exact thing E4 removed. Detection is
+    // deterministic; the model belongs behind an explicit button, and adding
+    // one means changing this test on purpose.
+    expect(read("suggestions.ts")).not.toContain("invokeLLM");
+  });
+
   it("only the two admin actions reach match analysis", () => {
     const src = read("accommodations.ts");
     // `refreshMatch` and `analyseAll`, and nothing else.

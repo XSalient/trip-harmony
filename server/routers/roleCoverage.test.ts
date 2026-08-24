@@ -84,6 +84,7 @@ const TRIP_ROUTERS: Record<string, Record<string, string>> = {
   "comments.ts": {
     delete: "Finds the comment first, then checks the role on its own trip.",
   },
+  "suggestions.ts": {},
   "contacts.ts": {
     list: "A user's own address book. Not trip-scoped.",
     add: "A user's own address book. Not trip-scoped.",
