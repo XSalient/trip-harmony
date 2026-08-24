@@ -678,7 +678,9 @@ export default function TripMembers() {
 
                 <div className="flex flex-wrap gap-1.5">
                   {(attendees ?? [])
-                    .filter((a: any) => a.groupId === g.id)
+                    .filter(
+                      (a: any) => a.groupId === g.id && a.memberUserId == null
+                    )
                     .map((a: any) => (
                       <span
                         key={a.id}
@@ -722,7 +724,8 @@ export default function TripMembers() {
 
         {/* Ungrouped is a normal state, not an error: a trip that never wanted
             families still has everybody here. */}
-        {(attendees ?? []).some((a: any) => a.groupId == null) && (
+        {((attendees ?? []).some((a: any) => a.groupId == null) ||
+          accepted.some((m: any) => m.groupId == null)) && (
           <Card className="border-border/50 border-dashed">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-1.5">
@@ -733,9 +736,34 @@ export default function TripMembers() {
                   {headcountLabel(headcount, null)}
                 </span>
               </div>
+
+              {/* Members first, then the people with no account — the same two
+                  rows every group card has. */}
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {accepted
+                  .filter((m: any) => m.groupId == null)
+                  .map((m: any) => (
+                    <span
+                      key={`m${m.userId}`}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                        m.userId === user?.id
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border/60"
+                      }`}
+                    >
+                      {m.user?.name || "Member"}
+                      {m.userId === user?.id && (
+                        <span className="text-muted-foreground">(you)</span>
+                      )}
+                    </span>
+                  ))}
+              </div>
+
               <div className="flex flex-wrap gap-1.5">
                 {(attendees ?? [])
-                  .filter((a: any) => a.groupId == null)
+                  .filter(
+                    (a: any) => a.groupId == null && a.memberUserId == null
+                  )
                   .map((a: any) => (
                     <span
                       key={a.id}
