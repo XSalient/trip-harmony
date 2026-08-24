@@ -39,28 +39,29 @@ is compiled and with no tsx on the path.
 
 ## `server/` — API
 
-| File                     | Lines | What it is                                                                           |
-| ------------------------ | ----: | ------------------------------------------------------------------------------------ |
-| `_core/app.ts`           |    78 | Builds the Express app. The only place middleware is registered.                     |
-| `_core/index.ts`         |    25 | Long-running server entrypoint (local, containers).                                  |
-| `_core/env.ts`           |   553 | **All** server configuration, Zod-validated. Start here for anything config-related. |
-| `_core/logger.ts`        |   170 | Structured logger, levels, secret redaction.                                         |
-| `_core/httpLogging.ts`   |    75 | Request-id middleware, error handler, crash handlers.                                |
-| `_core/trpc.ts`          |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.       |
-| `_core/context.ts`       |    38 | Per-request context: user, request id, bound logger.                                 |
-| `_core/sdk.ts`           |   300 | Session JWTs, cookie auth, OAuth client.                                             |
-| `_core/cookies.ts`       |    51 | Cookie options (secure/sameSite per environment).                                    |
-| `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                         |
-| `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                              |
-| `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                          |
-| `db.ts`                  |  1883 | Every database query. Large but flat — jump to the function you need.                |
-| `routers/`               |     — | The API surface, one file per domain (below).                                        |
-| `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                       |
-| `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).        |
-| `utils/listingSource.ts` |   180 | The import ladder in order: paste → page → scraper → place → url. Start here.        |
-| `utils/scraper/`         |     — | The optional unblocking-service rung. `providers.ts` is the vendor-as-config table.  |
-| `replit_integrations/`   |     — | **Legacy, unused.** Don't read or extend.                                            |
-| `prompts/referee.ts`     |   508 | The AI Referee's prompt, its version, and the facts it may reason about.             |
+| File                     | Lines | What it is                                                                                 |
+| ------------------------ | ----: | ------------------------------------------------------------------------------------------ |
+| `_core/app.ts`           |    78 | Builds the Express app. The only place middleware is registered.                           |
+| `_core/index.ts`         |    25 | Long-running server entrypoint (local, containers).                                        |
+| `_core/env.ts`           |   553 | **All** server configuration, Zod-validated. Start here for anything config-related.       |
+| `_core/logger.ts`        |   170 | Structured logger, levels, secret redaction.                                               |
+| `_core/httpLogging.ts`   |    75 | Request-id middleware, error handler, crash handlers.                                      |
+| `_core/trpc.ts`          |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.             |
+| `_core/context.ts`       |    38 | Per-request context: user, request id, bound logger.                                       |
+| `_core/sdk.ts`           |   300 | Session JWTs, cookie auth, OAuth client.                                                   |
+| `_core/cookies.ts`       |    51 | Cookie options (secure/sameSite per environment).                                          |
+| `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                               |
+| `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                                    |
+| `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                                |
+| `db.ts`                  |  1883 | Every database query. Large but flat — jump to the function you need.                      |
+| `routers/`               |     — | The API surface, one file per domain (below).                                              |
+| `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                             |
+| `utils/tripInvite.ts`    |     — | Recording and sending one invite. Both invite paths go through it; authorisation does not. |
+| `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).              |
+| `utils/listingSource.ts` |   180 | The import ladder in order: paste → page → scraper → place → url. Start here.              |
+| `utils/scraper/`         |     — | The optional unblocking-service rung. `providers.ts` is the vendor-as-config table.        |
+| `replit_integrations/`   |     — | **Legacy, unused.** Don't read or extend.                                                  |
+| `prompts/referee.ts`     |   508 | The AI Referee's prompt, its version, and the facts it may reason about.                   |
 
 ### `server/routers/`
 
@@ -75,7 +76,7 @@ open only its domain file.
 | `auth.ts`           |    86 | Register, login, magic link, logout, `me`                             |
 | `passkeys.ts`       |   386 | WebAuthn enrolment and usernameless passkey sign-in                   |
 | `trips.ts`          |   450 | Trips, membership, roles, invites, delete and clone                   |
-| `contacts.ts`       |    96 | A user's private address book, incl. saving a fellow traveller        |
+| `contacts.ts`       |     — | A user's private address book, and the families saved in it           |
 | `groups.ts`         |     — | Families/households, the trip's voting unit, and attendees            |
 | `dates.ts`          |   223 | Date proposals, votes, natural-language parsing                       |
 | `destinations.ts`   |   254 | Suggestions and votes — the UI calls the section "Suggestions"        |
@@ -83,25 +84,26 @@ open only its domain file.
 | `budget.ts`         |     — | Budget proposals, votes and the normalised figures                    |
 | `referee.ts`        |   183 | AI mediation. The prompt itself is in `server/prompts/referee.ts`     |
 | `preferences.ts`    |    36 | Per-trip member requirements                                          |
+| `suggestions.ts`    |     — | Turning what a member wrote into proposals they can put to the group  |
 | `comments.ts`       |    41 | Comment threads                                                       |
 | `notifications.ts`  |    23 | Notification feed                                                     |
 
 ## `client/` — SPA
 
-| Path                              | What it is                                                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `src/main.tsx`                    | Entry: tRPC client, React Query, providers                                                                          |
-| `src/App.tsx`                     | Route table, and `ScrollRestoration` — new screen to the top, back to where you were                                |
-| `src/pages/*.tsx`                 | One file per screen — the bulk of the UI                                                                            |
-| `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …)                                           |
-| `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**                                                |
-| `src/lib/trpc.ts`                 | Typed tRPC React client                                                                                             |
-| `src/pages/TripMembers.tsx`       | Members, roles, invites and the contact book picker                                                                 |
-| `src/components/trip/`            | Shared trip UI (`ScreenHeader`, `TripActionsMenu`, `FinalisedBy`, `AddedBy`, `VotedCount`) for the proposal screens |
-| `src/_core/hooks/useAuth.ts`      | Session hook, and `useSessionSwitch` — empties the cache when the tab changes who it is signed in as                |
-| `src/_core/hooks/useTripRole.ts`  | The caller's role on one trip, and what it lets them do. Every trip screen gates on this                            |
-| `src/contexts/ThemeContext.tsx`   | Dark mode                                                                                                           |
-| `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                                                              |
+| Path                              | What it is                                                                                                                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/main.tsx`                    | Entry: tRPC client, React Query, providers                                                                                                                  |
+| `src/App.tsx`                     | Route table, and `ScrollRestoration` — new screen to the top, back to where you were                                                                        |
+| `src/pages/*.tsx`                 | One file per screen — the bulk of the UI                                                                                                                    |
+| `src/components/`                 | App-specific components (`AppShell`, `AuthDialog`, `Map`, `AIChatBox`, …)                                                                                   |
+| `src/components/ui/`              | **shadcn/ui primitives — vendored, unmodified. Don't read or edit.**                                                                                        |
+| `src/lib/trpc.ts`                 | Typed tRPC React client                                                                                                                                     |
+| `src/pages/TripMembers.tsx`       | Members, roles, groups, invites, and the contact book picker with its saved families                                                                        |
+| `src/components/trip/`            | Shared trip UI (`ScreenHeader`, `TripActionsMenu`, `FinalisedBy`, `AddedBy`, `VotedCount`, `AbstainButton`, `ProposalSuggestions`) for the proposal screens |
+| `src/_core/hooks/useAuth.ts`      | Session hook, and `useSessionSwitch` — empties the cache when the tab changes who it is signed in as                                                        |
+| `src/_core/hooks/useTripRole.ts`  | The caller's role on one trip, and what it lets them do. Every trip screen gates on this                                                                    |
+| `src/contexts/ThemeContext.tsx`   | Dark mode                                                                                                                                                   |
+| `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                                                                                                      |
 
 Pages worth knowing: `TripDashboard.tsx` (691 lines — the hub),
 `TripAccommodations.tsx` (810 lines — the most complex screen) and
@@ -115,6 +117,8 @@ it. Don't add features there expecting anyone to see them.
 | File                     | What it is                                             |
 | ------------------------ | ------------------------------------------------------ |
 | `shared/const.ts`        | Cookie name, TTLs, shared error messages               |
+| `shared/votes.ts`        | Vote values, labels, weights, and the finalise rule    |
+| `shared/suggestions.ts`  | Reading a budget or dates out of preference text       |
 | `shared/budget.ts`       | Budget scopes and the arithmetic both sides share      |
 | `shared/roles.ts`        | Trip roles and their ordering — imported by both sides |
 | `shared/types.ts`        | Types used by both client and server                   |

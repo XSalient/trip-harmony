@@ -12,6 +12,7 @@ comments table.
 ```
 users ──┬── trips                      (as creator; `organizerId`)
         ├── contacts                   (private address book)
+        ├── contact_groups ── contact_group_members   (saved families)
         └── trip_members ── trips      (many-to-many, with role, status and group)
 
 trips ──── trip_invites                (email invites awaiting an answer)
@@ -25,6 +26,7 @@ trips ──┬── date_proposals      ── date_votes
         │                       └── accommodation_attributes
         ├── budget_proposals    ── budget_votes
         ├── member_preferences        (per member, per trip)
+        ├── suggestion_dismissals     (per member: suggestions turned down)
         ├── referee_messages          (AI output)
         └── notifications
 
@@ -39,16 +41,18 @@ webauthn_challenges                                  standalone, short-lived
 
 ### Identity
 
-| Table                                                | Purpose                                                                                                                                                                                                                                                                                                                                                               |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                                              | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                                                                                      |
-| `magic_link_tokens`                                  | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                                                                                                  |
-| `date_proposals` · `destinations` · `accommodations` | `selected` means finalised. **Dates allow exactly one per trip; suggestions and accommodations allow many** — the rule is enforced in `server/db.ts` (`lockDateProposal` clears the trip first, `setDestinationLock` and `setAccommodationLock` touch one row). `lockedBy` / `lockedAt` record who and when, and are null for anything finalised before that existed. |
-| `activity_events`                                    | Everything members do to a trip. Deliberately has no feed — see the E3 story in `docs/product/`. Fastest-growing table here, with no retention policy yet.                                                                                                                                                                                                            |
-| `trip_invites`                                       | An invitation to an email address. Separate from `trip_members` because that table's `userId` is NOT NULL and most invitees have no account yet. One live invite per address per trip, case-insensitively.                                                                                                                                                            |
-| `contacts`                                           | A user's own address book, so a friend's email is typed once. Grants nothing: an invite is still sent and still has to be accepted.                                                                                                                                                                                                                                   |
-| `webauthn_credentials`                               | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices.                                                                       |
-| `webauthn_challenges`                                | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                                                                                              |
+| Table                                                | Purpose                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `users`                                              | `openId` is the stable external identity (`email:…`, `magic:…`, or OAuth). `passwordHash` is scrypt with a per-user salt and **must never leave the server** — project through `toPublicUser()`.                                                                                                                                                                         |
+| `magic_link_tokens`                                  | Single-use sign-in tokens, 15-minute expiry, deleted on consumption.                                                                                                                                                                                                                                                                                                     |
+| `date_proposals` · `destinations` · `accommodations` | `selected` means finalised. **Dates allow exactly one per trip; suggestions and accommodations allow many** — the rule is enforced in `server/db.ts` (`lockDateProposal` clears the trip first, `setDestinationLock` and `setAccommodationLock` touch one row). `lockedBy` / `lockedAt` record who and when, and are null for anything finalised before that existed.    |
+| `activity_events`                                    | Everything members do to a trip. Deliberately has no feed — see the E3 story in `docs/product/`. Fastest-growing table here, with no retention policy yet.                                                                                                                                                                                                               |
+| `trip_invites`                                       | An invitation to an email address. Separate from `trip_members` because that table's `userId` is NOT NULL and most invitees have no account yet. One live invite per address per trip, case-insensitively. `groupId` is set when the invite came from importing a saved family — the invite is the only thing that survives until they accept, so it carries the intent. |
+| `contacts`                                           | A user's own address book, so a friend's email is typed once. Grants nothing: an invite is still sent and still has to be accepted.                                                                                                                                                                                                                                      |
+| `contact_groups` · `contact_group_members`           | A family saved in that book, owner-scoped and unique on `lower(name)`. A member row has an `email` **or not** — a child and a dog belong to a family too. With an address it becomes an invite on import; without one it becomes a `trip_attendees` row. Partial unique indexes make re-saving an append rather than a duplicate.                                        |
+| `suggestion_dismissals`                              | A proposal suggestion somebody turned down. Accepting one needs no row — the resulting proposal's own fingerprint suppresses it. `kind` is a plain varchar, not an enum: it is an internal key and a new kind should not need an `ALTER TYPE`. See [ADR 0020](../adr/0020-preferences-suggest-proposals.md).                                                             |
+| `webauthn_credentials`                               | One row per enrolled passkey. Holds a **public** key, so unlike `passwordHash` there is nothing here to protect — but the rows are still projected before they reach a client. `counter` detects a cloned authenticator; `deviceType` says whether the passkey syncs across the user's devices.                                                                          |
+| `webauthn_challenges`                                | Single-use WebAuthn challenges, 5-minute expiry, marked used on consumption. `userId` is null for sign-in, where the account is unknown until the authenticator answers. Pruned opportunistically on the next enrolment.                                                                                                                                                 |
 
 ### Trips
 
@@ -66,12 +70,19 @@ Each proposal type follows the same pattern: a proposal table (with `proposedBy`
 and an optional selected flag on the trip) and a votes table with one row per
 member per proposal.
 
-| Proposal           | Votes                 | Vote values                     |
-| ------------------ | --------------------- | ------------------------------- |
-| `date_proposals`   | `date_votes`          | available / maybe / unavailable |
-| `destinations`     | `destination_votes`   | love / fine / veto              |
-| `accommodations`   | `accommodation_votes` | love / fine / veto              |
-| `budget_proposals` | `budget_votes`        | love / fine / veto              |
+| Proposal           | Votes                 | Vote values                                |
+| ------------------ | --------------------- | ------------------------------------------ |
+| `date_proposals`   | `date_votes`          | available / maybe / unavailable / majority |
+| `destinations`     | `destination_votes`   | love / fine / veto / majority              |
+| `accommodations`   | `accommodation_votes` | love / fine / veto / majority              |
+| `budget_proposals` | `budget_votes`        | love / fine / veto / majority              |
+
+`majority` is **"go with the majority"** — an abstention, worth 0, counted as
+having voted and shown separately from the other three. A proposal on which
+every cast vote is one **cannot be finalised**; a proposal with no votes at all
+still can. The weights and the rule live in `shared/votes.ts`, the one place
+both sides read them from. See
+[ADR 0018](../adr/0018-going-with-the-majority-is-an-abstention.md).
 
 **One vote per group** is not a column. When `trips.votingUnit = "group"`, a
 vote replaces any vote by another member of the same group on that proposal —

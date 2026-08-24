@@ -11,6 +11,27 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 ## Shipped
 
 <details>
+<summary>Planning features — 2026-08-24</summary>
+
+Specified in [product/planning-features-2026-08.md](product/planning-features-2026-08.md),
+tracked story by story in [product/progress.md](product/progress.md).
+
+- [x] **E13 — Going with the majority.** A vote for having no preference, worth
+      nothing and shown separately; and a refusal to finalise anything every
+      voter abstained on
+- [x] **E14 — Groups are self-service.** A tripmate creates, joins and leaves a
+      group, and manages the one they are in. Nobody could add _themselves_ to a
+      group before, an admin included
+- [x] **E15 — Contact-book groups.** Save a family with the people in it,
+      children and pets included, and add it to the next trip — with the
+      conflicts named before anything moves
+- [x] **E16 — Preferences become proposals.** A budget or a set of dates written
+      in My Preferences is offered back as a proposal, deterministically detected
+      and never created without a tap
+
+</details>
+
+<details>
 <summary>Member groups and a budget that is decided — 2026-08-22</summary>
 
 Specified in [product/groups-and-budget-2026-08.md](product/groups-and-budget-2026-08.md),

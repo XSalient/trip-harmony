@@ -8,6 +8,104 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-24 — Say you have no preference, group yourself, save a family, propose what you wrote
+
+### Added
+
+- **"Go with the majority", a vote for having no preference.** Votes were Yes,
+  Maybe and No, so somebody who genuinely did not mind had to invent an opinion
+  or stay silent — and silence is worse, because "3/6 voted" is a chase list and
+  a person with no preference sits on it holding up a decision they do not care
+  about. The fourth option counts as having voted and is worth nothing in the
+  score. Abstentions are shown beside the tally ("2/5 voted · 3 going with the
+  majority") and **never folded into the Yes/Maybe/No counts**: counting somebody
+  as agreeing with a side they did not pick puts words in their mouth, which is
+  the whole reason they chose this option.
+
+  **Finalising is refused when every cast vote is an abstention**, on all four
+  proposal types, server-side. A full turnout with no opinions in it renders
+  identically to consensus, and locking it in would record a decision nobody
+  made. The rule guards the lock only — un-finalising is always possible — and a
+  proposal with _no_ votes is unaffected, because an admin locking in the one
+  stay anybody found is a real thing people do. [ADR 0018](adr/0018-going-with-the-majority-is-an-abstention.md).
+
+- **Families in the contact book.** A saved group holds the people with accounts
+  and the ones without — a child, a dog — because a family is both, and saving
+  one that already exists appends only who is new. Adding it to a trip happens in
+  two steps: the first writes nothing and shows what the second would do,
+  including anybody already on that trip in a different group, named rather than
+  counted ("Sam is already on this trip in The Patels"). Confirming moves them,
+  reconciles the votes a regroup makes duplicates of, adds the children as
+  attendees and invites the rest. Invites now carry the group, so an invited
+  family arrives as one instead of as five ungrouped people and an empty group.
+
+- **My Preferences offers to turn what you wrote into a proposal.** The four
+  boxes fed AI match scoring and nothing else, so somebody who wrote "we can do
+  about £1,200 a family" had stated the trip's most contested number where
+  nobody votes on it. Saving now offers it back as a proposal, quoting the
+  sentence it came from, and one tap makes it real through the existing create
+  mutations. Nothing reaches the group without that tap.
+
+  Detection is deterministic and costs nothing — no model runs when you press
+  Save, which is E4's rule and is now asserted for this code too. It is also
+  deliberately conservative: a figure counts as money only when the sentence
+  marks it as money, so "no more than 10 stairs" and "minimum 3 attached
+  bathrooms" produce nothing; the dealbreakers box is never read, because
+  "nothing over £2,000" is a limit and proposing it inverts what was said; and
+  place names are not detected at all, because prose does not yield them
+  reliably. [ADR 0020](adr/0020-preferences-suggest-proposals.md).
+
+### Changed
+
+- **A tripmate can put their own family together.** Grouping was admin-only, and
+  the members page hid the move control on your own row — so nobody could add
+  themselves to a group, an admin included. Any tripmate can now create a group
+  (and is put in it by default), join or leave one, and pull people into or out
+  of the group they are in themselves. Reorganising two families you are in
+  neither of is still an admin's job. Deleting is admin, or a tripmate clearing a
+  group only they are in, because creating without being able to clear leaves
+  the page filling with empty families nobody owns. The voting unit stays
+  admin-only: it changes every denominator on the trip at once.
+
+  Plus and cross chips, not drag-and-drop, although drag-and-drop is what was
+  asked for — this page is used on a phone, where a drag target that size is a
+  coin toss, and drag has no keyboard path. [ADR 0019](adr/0019-groups-are-self-service.md).
+
+- **The budget cap is labelled as private.** It always was; the preferences card
+  now says so, and says that proposing the figure is the separate, public act.
+
+### Internal
+
+- **The vote weights live in one place.** Three copies existed — the badge on a
+  card, the figure the server ranked by, the number the AI referee reasoned
+  about — so they were three implementations of one rule. `shared/votes.ts` is
+  now the only one.
+- **Recording and sending an invite lives in one place**
+  (`server/utils/tripInvite.ts`), called by `trips.sendInviteEmail` and by the
+  contact-group import. Authorisation stays in the routers. A second copy of the
+  token-bearing invite URL is how "joined by email" quietly stops being
+  distinguishable from "followed the link".
+- Every path that moves somebody between groups goes through one reconcile
+  helper, so none of them can skip the sweep that stops a family holding two
+  votes.
+
+### Migrations
+
+- **0012** adds `majority` to the four vote enums. It contains nothing else, on
+  purpose: Postgres will not let a value be used in the transaction that added
+  it, and drizzle may apply several pending migrations in one — so no later
+  migration references it either.
+- **0013** adds `contact_groups`, `contact_group_members` and
+  `trip_invites.groupId`.
+- **0014** adds `suggestion_dismissals`.
+
+All three are additive; nothing is dropped and no existing row changes. Applied
+`0000`→`0014` in order to a scratch Postgres 16 and diffed against
+`drizzle-kit push`: no column disagreement, the only differences being the
+functional and partial indexes `push` never creates.
+
+---
+
 ## 2026-08-22 — A tripmate can add their own family to watch
 
 ### Changed

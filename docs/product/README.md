@@ -13,7 +13,8 @@ written down here does not exist.
 | File                                                                   | What it is                                                                                                       |
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | [overhaul-2026-08.md](overhaul-2026-08.md)                             | The trip experience overhaul: 8 epics, complete                                                                  |
-| [groups-and-budget-2026-08.md](groups-and-budget-2026-08.md)           | The current programme: member groups, headcount, one vote per family, budget as a voting section                 |
+| [groups-and-budget-2026-08.md](groups-and-budget-2026-08.md)           | Member groups, headcount, one vote per family, budget as a voting section: 4 epics, complete                     |
+| [planning-features-2026-08.md](planning-features-2026-08.md)           | The most recent programme: abstaining, self-service groups, contact-book families, preferences that propose      |
 | [progress.md](progress.md)                                             | The tracker. One row per story. Update it as work lands                                                          |
 | [stories/](stories/)                                                   | One file per epic — the actual specification                                                                     |
 | [ai-rules.md](ai-rules.md)                                             | Why the per-tool AI rule files are thin pointers                                                                 |
