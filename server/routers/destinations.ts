@@ -8,7 +8,9 @@ import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import * as db from "../db.js";
+import { PREFERENCE_VOTES } from "../../shared/votes.js";
 import {
+  assertFinalisable,
   requireTripRole,
   tripRoleOf,
   projectProposalsForRole,
@@ -95,7 +97,7 @@ export const destinationsRouter = router({
     .input(
       z.object({
         destinationId: z.number(),
-        vote: z.enum(["love", "fine", "veto"]),
+        vote: z.enum(PREFERENCE_VOTES),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -175,6 +177,12 @@ export const destinationsRouter = router({
       if (!destination)
         throw new TRPCError({ code: "NOT_FOUND", message: "Place not found." });
       await requireTripRole(destination.tripId, ctx.user.id, "admin");
+      // Only on the way in: un-finalising something already locked must stay
+      // possible whatever the votes say.
+      if (input.locked)
+        assertFinalisable(
+          await db.getProposalVotes("destination", input.destinationId)
+        );
       await db.setDestinationLock(
         input.destinationId,
         input.locked,

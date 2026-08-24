@@ -7,7 +7,9 @@ import { logger } from "../_core/logger.js";
 import { TRPCError } from "@trpc/server";
 import { invokeLLM } from "../_core/llm.js";
 import * as db from "../db.js";
+import { DATE_VOTES } from "../../shared/votes.js";
 import {
+  assertFinalisable,
   extractLLMText,
   requireTripRole,
   tripRoleOf,
@@ -99,7 +101,7 @@ export const datesRouter = router({
     .input(
       z.object({
         proposalId: z.number(),
-        vote: z.enum(["available", "maybe", "unavailable"]),
+        vote: z.enum(DATE_VOTES),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -180,6 +182,7 @@ export const datesRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "admin");
+      assertFinalisable(await db.getProposalVotes("date", input.proposalId));
       await db.lockDateProposal(input.tripId, input.proposalId, ctx.user.id);
       await db.recordActivity({
         tripId: input.tripId,

@@ -14,6 +14,13 @@ import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
 import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
+import AbstainButton from "@/components/trip/AbstainButton";
+import {
+  DATE_VOTES,
+  MAJORITY_VOTE,
+  finaliseBlockReason,
+  type DateVote,
+} from "@shared/votes";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
@@ -176,10 +183,7 @@ export default function TripDates() {
     }
   };
 
-  const handleVote = (
-    proposalId: number,
-    vote: "available" | "maybe" | "unavailable"
-  ) => {
+  const handleVote = (proposalId: number, vote: DateVote) => {
     const currentVote = proposals
       ?.find((p: any) => p.id === proposalId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -573,7 +577,13 @@ export default function TripDates() {
               const unavailable =
                 p.votes?.filter((v: any) => v.vote === "unavailable").length ||
                 0;
+              const noPreference =
+                p.votes?.filter((v: any) => v.vote === MAJORITY_VOTE).length ||
+                0;
               const totalVotes = p.votes?.length || 0;
+              // Null unless everybody who voted abstained. The server refuses
+              // it either way; this is only so the button says why.
+              const blockReason = finaliseBlockReason(p.votes);
               const isOwner = p.proposedBy === user?.id;
               const canManage = canContribute && (isOwner || isAdmin);
               const nights = getNightsCount(
@@ -684,6 +694,11 @@ export default function TripDates() {
                       <span className="text-red-500 font-medium">
                         {unavailable} can't
                       </span>
+                      {noPreference > 0 && (
+                        <span className="text-muted-foreground">
+                          {noPreference} no preference
+                        </span>
+                      )}
                       <VotedCount
                         className="ml-auto"
                         tripId={tripId}
@@ -691,6 +706,7 @@ export default function TripDates() {
                         proposalId={p.id}
                         votedCount={totalVotes}
                         voterCount={voterCount}
+                        votes={p.votes}
                         canSeeDetail={canContribute}
                       />
                     </div>
@@ -721,44 +737,60 @@ export default function TripDates() {
                             }}
                           />
                         )}
+                        {/* Without this the bar stops summing to the votes
+                            cast, and an abstention reads as nobody voting. */}
+                        {noPreference > 0 && (
+                          <div
+                            className="bg-muted-foreground/40"
+                            style={{
+                              width: `${(noPreference / Math.max(1, voterCount)) * 100}%`,
+                            }}
+                          />
+                        )}
                       </div>
                     )}
 
                     {canContribute && !p.selected && (
-                      <div className="flex gap-2">
-                        {[
-                          {
-                            vote: "available" as const,
-                            icon: Check,
-                            label: "Yes",
-                            active:
-                              "bg-green-100 text-green-700 border-green-300",
-                          },
-                          {
-                            vote: "maybe" as const,
-                            icon: HelpCircle,
-                            label: "Maybe",
-                            active:
-                              "bg-yellow-100 text-yellow-700 border-yellow-300",
-                          },
-                          {
-                            vote: "unavailable" as const,
-                            icon: X,
-                            label: "No",
-                            active: "bg-red-100 text-red-600 border-red-300",
-                          },
-                        ].map(btn => (
-                          <Button
-                            key={btn.vote}
-                            variant="outline"
-                            size="sm"
-                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                            onClick={() => handleVote(p.id, btn.vote)}
-                          >
-                            <btn.icon className="h-3.5 w-3.5 mr-1" />
-                            {btn.label}
-                          </Button>
-                        ))}
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          {[
+                            {
+                              vote: "available" as const,
+                              icon: Check,
+                              label: "Yes",
+                              active:
+                                "bg-green-100 text-green-700 border-green-300",
+                            },
+                            {
+                              vote: "maybe" as const,
+                              icon: HelpCircle,
+                              label: "Maybe",
+                              active:
+                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                            },
+                            {
+                              vote: "unavailable" as const,
+                              icon: X,
+                              label: "No",
+                              active: "bg-red-100 text-red-600 border-red-300",
+                            },
+                          ].map(btn => (
+                            <Button
+                              key={btn.vote}
+                              variant="outline"
+                              size="sm"
+                              className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
+                              onClick={() => handleVote(p.id, btn.vote)}
+                            >
+                              <btn.icon className="h-3.5 w-3.5 mr-1" />
+                              {btn.label}
+                            </Button>
+                          ))}
+                        </div>
+                        <AbstainButton
+                          active={myVote === MAJORITY_VOTE}
+                          onVote={() => handleVote(p.id, MAJORITY_VOTE)}
+                        />
                       </div>
                     )}
 
@@ -772,15 +804,24 @@ export default function TripDates() {
                     </div>
 
                     {isAdmin && !p.selected && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full mt-2 text-primary text-xs"
-                        onClick={() => handleSelect(p.id)}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock these
-                        dates
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full mt-2 text-primary text-xs"
+                          onClick={() => handleSelect(p.id)}
+                          disabled={blockReason !== null}
+                          title={blockReason ?? undefined}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock
+                          these dates
+                        </Button>
+                        {blockReason && (
+                          <p className="mt-1 text-center text-[11px] text-muted-foreground">
+                            {blockReason}
+                          </p>
+                        )}
+                      </>
                     )}
 
                     <ProposalComments

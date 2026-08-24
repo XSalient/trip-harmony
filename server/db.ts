@@ -1306,6 +1306,43 @@ export async function getMyAccommodationVote(
 }
 
 /**
+ * Just the votes on one proposal, whatever kind it is.
+ *
+ * The single-row getters (`getDateProposal`, `getDestination`, …) return the
+ * proposal without its votes, and the finalise guard needs the votes and
+ * nothing else. Reading the whole list of proposals to find one row's votes
+ * was the alternative.
+ */
+export async function getProposalVotes(
+  proposalType: "date" | "destination" | "accommodation" | "budget",
+  proposalId: number
+): Promise<Array<{ userId: number; vote: string }>> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows =
+    proposalType === "date"
+      ? await db
+          .select()
+          .from(dateVotes)
+          .where(eq(dateVotes.proposalId, proposalId))
+      : proposalType === "destination"
+        ? await db
+            .select()
+            .from(destinationVotes)
+            .where(eq(destinationVotes.destinationId, proposalId))
+        : proposalType === "accommodation"
+          ? await db
+              .select()
+              .from(accommodationVotes)
+              .where(eq(accommodationVotes.accommodationId, proposalId))
+          : await db
+              .select()
+              .from(budgetVotes)
+              .where(eq(budgetVotes.proposalId, proposalId));
+  return rows.map(r => ({ userId: r.userId, vote: r.vote as string }));
+}
+
+/**
  * Who voted on a proposal, how, and when — plus who has not.
  *
  * "3/6 voted" answers how many; the question people actually have is which

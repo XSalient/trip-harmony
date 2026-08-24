@@ -73,20 +73,26 @@ export const inviteStatusEnum = pgEnum("invite_status", [
   "declined",
   "revoked",
 ]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
 export const dateVoteEnum = pgEnum("date_vote", [
   "available",
   "maybe",
   "unavailable",
+  "majority",
 ]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
 export const destinationVoteEnum = pgEnum("destination_vote", [
   "love",
   "fine",
   "veto",
+  "majority",
 ]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
 export const accommodationVoteEnum = pgEnum("accommodation_vote", [
   "love",
   "fine",
   "veto",
+  "majority",
 ]);
 /**
  * What a budget proposal's amount means. Proposals written in different scopes
@@ -99,7 +105,13 @@ export const budgetScopeEnum = pgEnum("budget_scope", [
   "per_adult",
   "per_group",
 ]);
-export const budgetVoteEnum = pgEnum("budget_vote", ["love", "fine", "veto"]);
+/** `majority` is an abstention worth nothing — see `shared/votes.ts`. */
+export const budgetVoteEnum = pgEnum("budget_vote", [
+  "love",
+  "fine",
+  "veto",
+  "majority",
+]);
 export const refereeMessageTypeEnum = pgEnum("referee_message_type", [
   "nudge",
   "mediation",

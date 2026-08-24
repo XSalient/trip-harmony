@@ -8,7 +8,9 @@ import { config } from "../_core/env.js";
 import { invokeLLM } from "../_core/llm.js";
 import { logger } from "../_core/logger.js";
 import * as db from "../db.js";
+import { PREFERENCE_VOTES } from "../../shared/votes.js";
 import {
+  assertFinalisable,
   extractLLMText,
   requireTripRole,
   tripRoleOf,
@@ -193,7 +195,7 @@ export const accommodationsRouter = router({
     .input(
       z.object({
         accommodationId: z.number(),
-        vote: z.enum(["love", "fine", "veto"]),
+        vote: z.enum(PREFERENCE_VOTES),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -281,6 +283,11 @@ export const accommodationsRouter = router({
           message: "Accommodation not found.",
         });
       await requireTripRole(accommodation.tripId, ctx.user.id, "admin");
+      // Only on the way in — see `destinations.setLock`.
+      if (input.locked)
+        assertFinalisable(
+          await db.getProposalVotes("accommodation", input.accommodationId)
+        );
       await db.setAccommodationLock(
         input.accommodationId,
         input.locked,

@@ -17,6 +17,12 @@ import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
+import AbstainButton from "@/components/trip/AbstainButton";
+import {
+  MAJORITY_VOTE,
+  finaliseBlockReason,
+  type PreferenceVote,
+} from "@shared/votes";
 import { useParams, Link, useSearch, useLocation } from "wouter";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
@@ -496,10 +502,7 @@ export default function TripAccommodations() {
     }
   };
 
-  const handleVote = (
-    accommodationId: number,
-    vote: "love" | "fine" | "veto"
-  ) => {
+  const handleVote = (accommodationId: number, vote: PreferenceVote) => {
     const currentVote = accommodations
       ?.find((a: any) => a.id === accommodationId)
       ?.votes?.find((v: any) => v.userId === user?.id)?.vote;
@@ -1025,6 +1028,9 @@ export default function TripAccommodations() {
         ) : sorted.length > 0 ? (
           <div className="space-y-4">
             {sorted.map((acc: any) => {
+              // Null unless everybody who voted abstained. The server
+              // refuses it either way; this only says why.
+              const blockReason = finaliseBlockReason(acc.votes);
               const myVote = acc.votes?.find(
                 (v: any) => v.userId === user?.id
               )?.vote;
@@ -1447,46 +1453,53 @@ export default function TripAccommodations() {
                         proposalId={acc.id}
                         votedCount={acc.votes?.length || 0}
                         voterCount={voterCount}
+                        votes={acc.votes}
                         canSeeDetail={canContribute}
                       />
                     </div>
 
                     {/* Vote buttons */}
                     {canContribute && !acc.selected && (
-                      <div className="flex gap-2">
-                        {[
-                          {
-                            vote: "love" as const,
-                            icon: Heart,
-                            label: "Yes",
-                            active:
-                              "bg-green-100 text-green-700 border-green-300",
-                          },
-                          {
-                            vote: "fine" as const,
-                            icon: HelpCircle,
-                            label: "Maybe",
-                            active:
-                              "bg-yellow-100 text-yellow-700 border-yellow-300",
-                          },
-                          {
-                            vote: "veto" as const,
-                            icon: Ban,
-                            label: "No",
-                            active: "bg-red-100 text-red-600 border-red-300",
-                          },
-                        ].map(btn => (
-                          <Button
-                            key={btn.vote}
-                            variant="outline"
-                            size="sm"
-                            className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                            onClick={() => handleVote(acc.id, btn.vote)}
-                          >
-                            <btn.icon className="h-3.5 w-3.5 mr-1" />
-                            {btn.label}
-                          </Button>
-                        ))}
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          {[
+                            {
+                              vote: "love" as const,
+                              icon: Heart,
+                              label: "Yes",
+                              active:
+                                "bg-green-100 text-green-700 border-green-300",
+                            },
+                            {
+                              vote: "fine" as const,
+                              icon: HelpCircle,
+                              label: "Maybe",
+                              active:
+                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                            },
+                            {
+                              vote: "veto" as const,
+                              icon: Ban,
+                              label: "No",
+                              active: "bg-red-100 text-red-600 border-red-300",
+                            },
+                          ].map(btn => (
+                            <Button
+                              key={btn.vote}
+                              variant="outline"
+                              size="sm"
+                              className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
+                              onClick={() => handleVote(acc.id, btn.vote)}
+                            >
+                              <btn.icon className="h-3.5 w-3.5 mr-1" />
+                              {btn.label}
+                            </Button>
+                          ))}
+                        </div>
+                        <AbstainButton
+                          active={myVote === MAJORITY_VOTE}
+                          onVote={() => handleVote(acc.id, MAJORITY_VOTE)}
+                        />
                       </div>
                     )}
 
@@ -1505,7 +1518,13 @@ export default function TripAccommodations() {
                         size="sm"
                         className="w-full mt-2 text-primary text-xs"
                         onClick={() => handleToggleLock(acc.id, !acc.selected)}
-                        disabled={setLockMutation.isPending}
+                        disabled={
+                          setLockMutation.isPending ||
+                          (!acc.selected && blockReason !== null)
+                        }
+                        title={
+                          acc.selected ? undefined : (blockReason ?? undefined)
+                        }
                       >
                         {acc.selected ? (
                           <>
