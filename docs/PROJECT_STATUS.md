@@ -19,7 +19,7 @@ finish a piece of work — the next person (or agent) starts here.
   contact book, and preferences that offer themselves as proposals. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 803 tests ✅ · production build ✅ (2026-08-24) ·
+- **Health:** typecheck ✅ · 813 tests ✅ · production build ✅ (2026-08-24) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -86,6 +86,24 @@ finish a piece of work — the next person (or agent) starts here.
   counted in a vote denominator, this has to go back to admin-only in the same
   commit**; `server/routers/invites.test.ts` asserts the rule and the properties
   it rests on together, so that connection is not left to memory.
+
+- **✅ The database pool is capped, after production ran out of pooler slots**
+  (2026-08-24). One visit to the demo trip produced 76 failed queries in 18
+  seconds — trips, members, sign-in and passkeys all 500ing on
+  `(EMAXCONNSESSION) max clients reached in session mode … pool_size: 15`.
+  The session pooler shares those 15 slots across every warm Vercel instance
+  and `server/db.ts` created its pool with no `max`, taking pg's default of 10;
+  a batched page load fans out eight procedures, which is enough to warm a
+  second instance and overrun the budget. The pool now caps at `DB_POOL_MAX`
+  (default 3), returns idle connections after 10s, and retries a refused
+  connection three times — safe, because the pooler refuses before any
+  statement is sent. **This does not change [ADR 0012](adr/0012-session-pooler-for-the-database-url.md):
+  the app stays on the session pooler at 5432.** If the retry warnings
+  (`pooler out of connection slots, retrying`) become common, the answer is a
+  smaller fanout or a bigger budget, not a bigger `DB_POOL_MAX` — raising it
+  only lets one instance crowd out the others. Verified by unit test and
+  typecheck; **not** exercised against the live pooler, which this environment
+  cannot reach.
 
 - **Migrations 0012–0014 have not been applied to production yet** (2026-08-24).
   All three are **additive**: nothing is dropped and no existing row changes, so

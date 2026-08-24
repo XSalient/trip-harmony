@@ -1,6 +1,6 @@
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import {
   InsertUser,
   users,
@@ -64,6 +64,125 @@ let _db: ReturnType<typeof drizzle> | null = null;
 const CONNECTION_TIMEOUT_MS = 5_000;
 const QUERY_TIMEOUT_MS = 15_000;
 
+/**
+ * Hand connections back to the pooler quickly. pg's default is 10s already, but
+ * being explicit matters here: on the session pooler an idle client still
+ * occupies one of the tenant's few slots (see `POOL_MAX` below), so the window
+ * where this instance holds a slot it is not using should be short.
+ */
+const IDLE_TIMEOUT_MS = 10_000;
+
+/**
+ * How many connections one process may hold.
+ *
+ * `DATABASE_URL` points at Supabase's *session* pooler, which allots the whole
+ * tenant a fixed number of client slots — 15 on this project — and rejects the
+ * next connection with `EMAXCONNSESSION` rather than queueing it
+ * ([ADR 0012](../docs/adr/0012-session-pooler-for-the-database-url.md)).
+ *
+ * That budget is shared by every warm Vercel instance at once, and pg's default
+ * of 10 per pool blows it with two instances. A batched page load fans out
+ * eight tRPC procedures in parallel, so a couple of instances is what an
+ * ordinary visit produces: on 2026-08-24 one visit to the demo trip turned into
+ * 76 failed queries in 18 seconds, every one of them this error.
+ *
+ * A low cap makes the surplus queue inside pg — where waiting is cheap and
+ * bounded by `CONNECTION_TIMEOUT_MS` — instead of being rejected by the pooler.
+ * Long-running servers that own their database can raise it with `DB_POOL_MAX`.
+ */
+const POOL_MAX = config.db.poolMax;
+
+/** Wait before retrying a connection the pooler turned away. */
+const SATURATION_RETRY_DELAYS_MS = [60, 180, 420];
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Did the *pooler* refuse this connection because the tenant is out of slots?
+ *
+ * Supabase's Supavisor reports it as `XX000` — Postgres' "internal error"
+ * catch-all — so the code alone is not enough to go on and the message has to
+ * be matched too. The refusal happens while the connection is being opened,
+ * before any statement is sent, which is what makes a retry safe: nothing ran.
+ */
+export function isPoolSaturationError(error: unknown): boolean {
+  for (let err = error, depth = 0; err && depth < 5; depth++) {
+    const { message, code, cause } = err as {
+      message?: unknown;
+      code?: unknown;
+      cause?: unknown;
+    };
+    if (typeof message === "string") {
+      if (/EMAXCONNSESSION/i.test(message)) return true;
+      if (code === "XX000" && /max clients reached/i.test(message)) return true;
+    }
+    err = cause;
+  }
+  return false;
+}
+
+/**
+ * Retry `acquire` while the pooler is out of slots.
+ *
+ * Our own cap keeps this instance inside its share, but the budget is shared
+ * with every other instance, so a burst can still find it spent. Waiting out
+ * the other instance's query — a few hundred milliseconds — beats turning a
+ * page load into a 500.
+ */
+export async function acquireWithRetry<T>(
+  acquire: () => Promise<T>,
+  { delays = SATURATION_RETRY_DELAYS_MS, wait = sleep } = {}
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await acquire();
+    } catch (error) {
+      if (attempt >= delays.length || !isPoolSaturationError(error))
+        throw error;
+      log.warn("pooler out of connection slots, retrying", {
+        attempt: attempt + 1,
+        delayMs: delays[attempt],
+      });
+      await wait(delays[attempt]);
+    }
+  }
+}
+
+/**
+ * A `pg.Pool` that retries connections the pooler turned away.
+ *
+ * Everything that reaches Postgres goes through `connect()` — `pool.query()`
+ * calls it internally, and so does every drizzle statement — so overriding this
+ * one method covers the whole surface. The callback form is the one pg itself
+ * uses; the promise form is what `db.transaction()` uses.
+ *
+ * Exported for `db.pool.test.ts`; the app only ever gets one, from `getDb()`.
+ */
+export class ResilientPool extends Pool {
+  override connect(): Promise<PoolClient>;
+  override connect(
+    callback: (
+      err: Error | undefined,
+      client: PoolClient | undefined,
+      done: (release?: boolean | Error) => void
+    ) => void
+  ): void;
+  override connect(
+    callback?: (
+      err: Error | undefined,
+      client: PoolClient | undefined,
+      done: (release?: boolean | Error) => void
+    ) => void
+  ): Promise<PoolClient> | void {
+    const acquired = acquireWithRetry(() => super.connect());
+    if (!callback) return acquired;
+    acquired.then(
+      client => callback(undefined, client, client.release.bind(client)),
+      (err: Error) => callback(err, undefined, () => {})
+    );
+  }
+}
+
 function isLocalUrl(url: string) {
   return /@(localhost|127\.0\.0\.1|\[::1\])[:/]/i.test(url);
 }
@@ -104,13 +223,17 @@ export async function getDb() {
       return null;
     }
     try {
-      log.info("connecting to database", { source: config.db.source });
-      const pool = new Pool({
+      log.info("connecting to database", {
+        source: config.db.source,
+        poolMax: POOL_MAX,
+      });
+      const pool = new ResilientPool({
         connectionString: withRelaxedSsl(config.db.url),
         connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
         query_timeout: QUERY_TIMEOUT_MS,
         statement_timeout: QUERY_TIMEOUT_MS,
-        idleTimeoutMillis: 30_000,
+        idleTimeoutMillis: IDLE_TIMEOUT_MS,
+        max: POOL_MAX,
       });
       // Without a listener an idle-client error crashes the process.
       pool.on("error", err => log.error("idle client error", { err }));

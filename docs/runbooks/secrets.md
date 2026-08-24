@@ -159,14 +159,15 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Runtime
 
-| Variable          | Default                        | Purpose                                                       |
-| ----------------- | ------------------------------ | ------------------------------------------------------------- |
-| `APP_ENV`         | derived                        | `development` \| `test` \| `preview` \| `production`          |
-| `PORT`            | `5000`                         | Ignored on Vercel                                             |
-| `LOG_LEVEL`       | `debug` local, `info` deployed | `debug`…`silent`                                              |
-| `PUBLIC_BASE_URL` | —                              | Origin for magic links, invites and the passkey relying party |
-| `VITE_APP_ID`     | `harmony`                      | Application identifier                                        |
-| `OWNER_OPEN_ID`   | —                              | This user is granted `admin` on sign-in                       |
+| Variable          | Default                        | Purpose                                                                                                                                                                                                                                     |
+| ----------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`         | derived                        | `development` \| `test` \| `preview` \| `production`                                                                                                                                                                                        |
+| `PORT`            | `5000`                         | Ignored on Vercel                                                                                                                                                                                                                           |
+| `LOG_LEVEL`       | `debug` local, `info` deployed | `debug`…`silent`                                                                                                                                                                                                                            |
+| `PUBLIC_BASE_URL` | —                              | Origin for magic links, invites and the passkey relying party                                                                                                                                                                               |
+| `VITE_APP_ID`     | `harmony`                      | Application identifier                                                                                                                                                                                                                      |
+| `OWNER_OPEN_ID`   | —                              | This user is granted `admin` on sign-in                                                                                                                                                                                                     |
+| `DB_POOL_MAX`     | `3`                            | Postgres connections one process may hold. Low on purpose: the session pooler's slot budget is shared by every warm instance, and overrunning it fails queries with `EMAXCONNSESSION`. Raise only against a database this app has to itself |
 
 ### Optional — the app runs without them
 
