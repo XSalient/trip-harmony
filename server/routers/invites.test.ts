@@ -19,7 +19,7 @@
  * not the result of one query.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
 const routerDir = import.meta.dirname;
@@ -60,13 +60,31 @@ describe("a tripmate may invite a watcher", () => {
   it("checks the role before it writes the invite or sends anything", () => {
     // An invite row written before the check is a record of something that was
     // not allowed, and an email sent before it cannot be recalled.
+    //
+    // The write and the send moved into `utils/tripInvite.ts` when importing a
+    // family became a second thing that invites people, so the ordering is
+    // asserted against the one call that does both.
     const tripmateCheck = body.indexOf('"tripmate"');
     const adminCheck = body.indexOf('"admin"');
-    const write = body.indexOf("upsertTripInvite");
-    const send = body.indexOf("sendTripInviteEmail");
+    const invite = body.indexOf("sendInvite({");
     expect(tripmateCheck).toBeGreaterThan(-1);
-    expect(adminCheck).toBeLessThan(write);
-    expect(adminCheck).toBeLessThan(send);
+    expect(invite).toBeGreaterThan(-1);
+    expect(adminCheck).toBeLessThan(invite);
+  });
+
+  it("nothing else writes an invite row or sends the email itself", () => {
+    // A second place doing it by hand is a second place for the role rule and
+    // the token-bearing URL to be got wrong.
+    const writers = readdirSync(routerDir)
+      .filter(f => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+      .filter(f => {
+        const src = readFileSync(join(routerDir, f), "utf8");
+        return (
+          src.includes("upsertTripInvite(") ||
+          src.includes("sendTripInviteEmail(")
+        );
+      });
+    expect(writers).toEqual([]);
   });
 });
 

@@ -170,6 +170,9 @@ export default function TripMembers() {
   // Creating your family and then not being in it is nobody's intent.
   const [joinNewGroup, setJoinNewGroup] = useState(true);
   const [addToGroup, setAddToGroup] = useState<number | null>(null);
+  // The plan returned by a preview, held until the person confirms it. Null
+  // means nothing is pending; the import writes nothing until this is acted on.
+  const [importPlan, setImportPlan] = useState<any | null>(null);
   const [attendeeFor, setAttendeeFor] = useState<number | null | undefined>(
     undefined
   );
@@ -188,6 +191,12 @@ export default function TripMembers() {
   const revokeInvite = trpc.trips.revokeInvite.useMutation();
   const updateRole = trpc.trips.updateMemberRole.useMutation();
   const removeMember = trpc.trips.removeMember.useMutation();
+  const { data: contactGroups } = trpc.contacts.groups.useQuery(undefined, {
+    enabled: Boolean(user),
+  });
+  const saveGroupFromTrip = trpc.contacts.saveGroupFromTrip.useMutation();
+  const importGroup = trpc.contacts.importGroupToTrip.useMutation();
+  const removeContactGroup = trpc.contacts.removeGroup.useMutation();
   const addContact = trpc.contacts.add.useMutation();
   const addContactFromTrip = trpc.contacts.addFromTrip.useMutation();
   const removeContact = trpc.contacts.remove.useMutation();
@@ -312,6 +321,70 @@ export default function TripMembers() {
       toast.success("Group removed. Everyone in it is still on the trip.");
     } catch (e: any) {
       toast.error(e?.message || "Couldn't remove that group");
+    }
+  };
+
+  const handleSaveGroup = async (groupId: number) => {
+    try {
+      const res = await saveGroupFromTrip.mutateAsync({ tripId, groupId });
+      await utils.contacts.groups.invalidate();
+      await utils.contacts.list.invalidate();
+      toast.success(
+        res.added > 0
+          ? `${res.name} saved — ${res.added} added${res.alreadyThere > 0 ? `, ${res.alreadyThere} already there` : ""}`
+          : `${res.name} was already saved, with everyone in it`
+      );
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't save that group");
+    }
+  };
+
+  /** Step one: ask what this would do. Writes nothing. */
+  const previewImport = async (contactGroupId: number) => {
+    try {
+      const plan = await importGroup.mutateAsync({
+        tripId,
+        contactGroupId,
+        role: isAdmin ? "tripmate" : "watcher",
+        confirm: false,
+      });
+      setContactPickerOpen(false);
+      setImportPlan({ ...plan, contactGroupId });
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't read that group");
+    }
+  };
+
+  /** Step two, once they have seen who it would move. */
+  const confirmImport = async () => {
+    if (!importPlan) return;
+    try {
+      const res = await importGroup.mutateAsync({
+        tripId,
+        contactGroupId: importPlan.contactGroupId,
+        role: isAdmin ? "tripmate" : "watcher",
+        confirm: true,
+      });
+      // The two modes return different shapes; this is the acting one.
+      if (!res.confirmed) return;
+      setImportPlan(null);
+      refreshGroups();
+      utils.trips.invites.invalidate({ tripId });
+      const parts = [];
+      if (res.moved) parts.push(`${res.moved} moved`);
+      if (res.invited) parts.push(`${res.invited} invited`);
+      if (res.attendeesAdded) parts.push(`${res.attendeesAdded} added`);
+      toast.success(`${res.groupName}: ${parts.join(", ") || "nothing to do"}`);
+      if (res.votesSuperseded > 0)
+        toast.info(
+          `${res.votesSuperseded} ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped: a group casts one vote, and regrouping means some of those were now duplicates.`
+        );
+      if (res.undelivered.length > 0)
+        toast.error(
+          `Couldn't email ${res.undelivered.join(", ")} — share the invite link with them instead.`
+        );
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't add that group");
     }
   };
 
@@ -534,6 +607,13 @@ export default function TripMembers() {
                           className="text-xs"
                         >
                           Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleSaveGroup(g.id)}
+                          disabled={saveGroupFromTrip.isPending}
+                          className="text-xs gap-2"
+                        >
+                          <BookUser className="h-3 w-3" /> Save to my contacts
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleRemoveGroup(g.id)}
@@ -1029,11 +1109,54 @@ export default function TripMembers() {
           <DialogHeader>
             <DialogTitle>My contacts</DialogTitle>
           </DialogHeader>
+
+          {(contactGroups ?? []).length > 0 && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Saved families
+              </p>
+              {(contactGroups ?? []).map((cg: any) => (
+                <div
+                  key={cg.id}
+                  className="flex items-center gap-2 p-2 rounded-lg border border-border/50"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{cg.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {cg.members.length}{" "}
+                      {cg.members.length === 1 ? "person" : "people"}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1 shrink-0"
+                    disabled={importGroup.isPending}
+                    onClick={() => previewImport(cg.id)}
+                  >
+                    <UserPlus className="h-3 w-3" /> Add to trip
+                  </Button>
+                  <button
+                    className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                    aria-label={`Forget ${cg.name}`}
+                    onClick={async () => {
+                      await removeContactGroup.mutateAsync({ id: cg.id });
+                      utils.contacts.groups.invalidate();
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <div className="border-t border-border/50 pt-1" />
+            </div>
+          )}
+
           {!contacts || contacts.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
               No saved contacts yet. Invite someone by email with "Save to my
-              contacts" ticked, or save anyone already on this trip from the ⋮
-              menu beside their name.
+              contacts" ticked, or save anyone — or a whole family — already on
+              this trip from the ⋮ menu beside their name.
             </p>
           ) : (
             <div className="space-y-2 pt-1">
@@ -1086,6 +1209,101 @@ export default function TripMembers() {
           )}
         </DialogContent>
       </Dialog>
+      {/* What adding a saved family would do, before it does any of it. The
+          conflicts are named rather than counted: "Sam is already in The
+          Patels" is the sentence somebody needs to make this decision. */}
+      <Dialog
+        open={importPlan !== null}
+        onOpenChange={open => !open && setImportPlan(null)}
+      >
+        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add {importPlan?.groupName} to this trip</DialogTitle>
+          </DialogHeader>
+          {importPlan && (
+            <div className="space-y-3 pt-1 text-sm">
+              {importPlan.conflicts.length > 0 && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
+                  <p className="font-medium text-amber-900 dark:text-amber-200">
+                    Already in another group
+                  </p>
+                  {importPlan.conflicts.map((c: any) => (
+                    <p
+                      key={c.userId}
+                      className="text-xs text-amber-900/80 dark:text-amber-200/80"
+                    >
+                      {c.name} is already on this trip in {c.currentGroupName}.
+                      Adding this group moves them into {importPlan.groupName}.
+                    </p>
+                  ))}
+                  <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                    A group casts one vote, so moving somebody can drop a vote
+                    that has become a duplicate.
+                  </p>
+                </div>
+              )}
+
+              <ul className="space-y-1 text-muted-foreground text-xs">
+                {!importPlan.groupExists && (
+                  <li>Creates the group "{importPlan.groupName}".</li>
+                )}
+                {importPlan.willMove.length > 0 && (
+                  <li>
+                    Moves{" "}
+                    {importPlan.willMove.map((m: any) => m.name).join(", ")}{" "}
+                    into it.
+                  </li>
+                )}
+                {importPlan.willInvite.length > 0 && (
+                  <li>
+                    Emails an invite to{" "}
+                    {importPlan.willInvite
+                      .map((i: any) => i.name || i.email)
+                      .join(", ")}
+                    {isAdmin ? " as tripmates." : " as watchers."}
+                  </li>
+                )}
+                {importPlan.willAddAttendees.length > 0 && (
+                  <li>
+                    Adds{" "}
+                    {importPlan.willAddAttendees
+                      .map((a: any) => a.name)
+                      .join(", ")}{" "}
+                    to the headcount — no login, no vote.
+                  </li>
+                )}
+                {importPlan.alreadyInThisGroup.length > 0 && (
+                  <li>
+                    Leaves{" "}
+                    {importPlan.alreadyInThisGroup
+                      .map((m: any) => m.name)
+                      .join(", ")}{" "}
+                    where they are — already in this group.
+                  </li>
+                )}
+              </ul>
+
+              <div className="flex gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-lg"
+                  onClick={() => setImportPlan(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 rounded-lg"
+                  onClick={confirmImport}
+                  disabled={importGroup.isPending}
+                >
+                  {importGroup.isPending ? "Adding…" : "Add them"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Move somebody into a group — yourself first, because putting your
           own family together is the common case and used to be impossible. */}
       <Dialog

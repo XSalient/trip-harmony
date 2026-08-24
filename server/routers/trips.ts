@@ -6,6 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import * as db from "../db.js";
+import { originOf, sendInvite } from "../utils/tripInvite.js";
 import { config } from "../_core/env.js";
 import { sendTripInviteEmail } from "../utils/mailer.js";
 import {
@@ -73,45 +74,13 @@ export const tripsRouter = router({
       if (!trip)
         throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
 
-      // Record the invite before sending, so a send that fails still leaves the
-      // members page able to say who was invited and to what address.
-      const invite = await db.upsertTripInvite({
-        tripId: input.tripId,
+      await sendInvite({
+        trip,
         email: input.email,
         role: input.role,
         invitedBy: ctx.user.id,
-        token: nanoid(32),
-      });
-
-      const proto = ctx.req.get("x-forwarded-proto") || ctx.req.protocol;
-      const origin = `${proto}://${ctx.req.get("host")}`;
-      // Carries the invite token, not just the trip's shared code — that is what
-      // makes "joined by email invite" distinguishable from "followed the link".
-      const inviteUrl = `${origin}/join/${trip.inviteCode}?invite=${invite.token}`;
-      const delivery = await sendTripInviteEmail(
-        input.email,
-        ctx.user.name || "Someone",
-        trip.name,
-        inviteUrl
-      );
-      // Outside production the link is in the log, so a failed send is
-      // recoverable; in production, say so rather than implying it arrived.
-      if (!delivery.delivered && config.isProduction) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message:
-            delivery.reason === "not_configured"
-              ? "We couldn't send the invite email. Email delivery isn't configured for this deployment yet — share the invite link directly for now."
-              : "We couldn't send the invite email to that address. Copy the invite link and share it directly instead.",
-        });
-      }
-      await db.recordActivity({
-        tripId: input.tripId,
-        actorUserId: ctx.user.id,
-        action: "member.invited",
-        entityType: "invite",
-        entityId: invite.id,
-        metadata: { email: input.email, role: input.role },
+        inviterName: ctx.user.name || "Someone",
+        origin: originOf(ctx.req),
       });
       return { success: true };
     }),
@@ -320,6 +289,9 @@ export const tripsRouter = router({
       let role: "watcher" | "tripmate" | "admin" = "tripmate";
       let joinedVia: "link" | "email" = "link";
       let invitedBy: number | null = null;
+      // Set when the invite came from importing a family, so somebody added as
+      // one of the Patels arrives as one rather than ungrouped.
+      let groupId: number | null = null;
 
       if (input.inviteToken) {
         const invite = await db.getTripInviteByToken(input.inviteToken);
@@ -331,6 +303,7 @@ export const tripsRouter = router({
           role = invite.role;
           joinedVia = "email";
           invitedBy = invite.invitedBy;
+          groupId = invite.groupId ?? null;
           await db.setInviteStatus(invite.id, "accepted");
         }
       }
@@ -342,6 +315,7 @@ export const tripsRouter = router({
         status: "accepted",
         joinedVia,
         invitedBy,
+        groupId,
         respondedAt: new Date(),
       });
       // Idempotent: a re-accepted invite must not count somebody twice, which
@@ -350,7 +324,7 @@ export const tripsRouter = router({
         trip.id,
         ctx.user.id,
         ctx.user.name || "Member",
-        null
+        groupId
       );
 
       await db.recordActivity({
