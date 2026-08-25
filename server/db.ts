@@ -771,23 +771,20 @@ export async function getUserTrips(userId: number) {
     );
   const tripIds = memberships.map(m => m.tripId);
   if (tripIds.length === 0) return [];
-  const results = [];
-  for (const tid of tripIds) {
-    const trip = await db
-      .select()
-      .from(trips)
-      .where(eq(trips.id, tid))
-      .limit(1);
-    if (trip[0])
-      results.push({
-        ...trip[0],
-        memberRole: memberships.find(m => m.tripId === tid)?.role,
-        memberStatus: memberships.find(m => m.tripId === tid)?.status,
-      });
-  }
-  return results.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  // One query rather than one per trip. This is the first screen anybody sees
+  // after signing in, so it was also the first thing that felt slow.
+  const rows = await db.select().from(trips).where(inArray(trips.id, tripIds));
+  const membershipOf = new Map(memberships.map(m => [m.tripId, m]));
+  return rows
+    .map(t => ({
+      ...t,
+      memberRole: membershipOf.get(t.id)?.role,
+      memberStatus: membershipOf.get(t.id)?.status,
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 }
 
 // ---- Trip Members ----
@@ -843,30 +840,36 @@ export async function getTripMembers(tripId: number) {
     .select()
     .from(tripMembers)
     .where(eq(tripMembers.tripId, tripId));
-  const enriched = [];
-  for (const m of members) {
-    const user = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        avatarUrl: users.avatarUrl,
-      })
-      .from(users)
-      .where(eq(users.id, m.userId))
-      .limit(1);
-    let invitedByName: string | null = null;
-    if (m.invitedBy) {
-      const inviter = await db
-        .select({ name: users.name })
-        .from(users)
-        .where(eq(users.id, m.invitedBy))
-        .limit(1);
-      invitedByName = inviter[0]?.name ?? null;
-    }
-    enriched.push({ ...m, user: user[0] || null, invitedByName });
-  }
-  return enriched;
+  if (members.length === 0) return [];
+
+  // One query for both roles a user id plays on this row — the member, and
+  // whoever invited them. This used to be two queries *per member*, awaited in
+  // sequence, and this function is reached five or six times over one page load
+  // (`getTripHeadcount` and `getTripVoterCount` both call it, as do four
+  // procedures directly). A ten-person trip was about 126 round trips for one
+  // screen, queued three at a time behind the pool cap in `POOL_MAX`.
+  const ids = Array.from(
+    new Set([
+      ...members.map(m => m.userId),
+      ...members.map(m => m.invitedBy).filter((id): id is number => id != null),
+    ])
+  );
+  const rows = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(users)
+    .where(inArray(users.id, ids));
+  const byId = new Map(rows.map(r => [r.id, r]));
+
+  return members.map(m => ({
+    ...m,
+    user: byId.get(m.userId) ?? null,
+    invitedByName: m.invitedBy ? (byId.get(m.invitedBy)?.name ?? null) : null,
+  }));
 }
 
 export async function updateMemberBudget(
@@ -1988,23 +1991,27 @@ export async function createDateProposal(data: InsertDateProposal) {
 }
 
 /**
- * Resolves a set of user ids to display names in one query.
+ * Resolves a set of user ids to the fields a byline needs, in one query.
  *
  * The three proposal listings used to run a query per vote to do this, plus one
  * per proposal — a trip with 20 proposals and 6 members each was well over a
  * hundred round trips for one screen. They now collect the ids first and call
  * this once.
+ *
+ * The avatar rides along for the comment threads, which draw one. Widening this
+ * beat a fourth near-copy of the same three lines; callers that only want the
+ * name are unaffected.
  */
-async function namesByUserId(
-  ids: number[]
-): Promise<Map<number, { id: number; name: string | null }>> {
+type Byline = { id: number; name: string | null; avatarUrl: string | null };
+
+async function namesByUserId(ids: number[]): Promise<Map<number, Byline>> {
   const unique = Array.from(new Set(ids.filter(Boolean)));
-  const byId = new Map<number, { id: number; name: string | null }>();
+  const byId = new Map<number, Byline>();
   if (unique.length === 0) return byId;
   const db = await getDb();
   if (!db) return byId;
   const rows = await db
-    .select({ id: users.id, name: users.name })
+    .select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl })
     .from(users)
     .where(inArray(users.id, unique));
   for (const r of rows) byId.set(r.id, r);
@@ -2716,16 +2723,10 @@ export async function getComments(
       )
     )
     .orderBy(proposalComments.createdAt);
-  const enriched = [];
-  for (const c of comments) {
-    const user = await db
-      .select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl })
-      .from(users)
-      .where(eq(users.id, c.userId))
-      .limit(1);
-    enriched.push({ ...c, user: user[0] || null });
-  }
-  return enriched;
+  if (comments.length === 0) return [];
+  // One query for the whole thread rather than one per comment.
+  const byId = await namesByUserId(comments.map(c => c.userId));
+  return comments.map(c => ({ ...c, user: byId.get(c.userId) ?? null }));
 }
 
 export async function deleteComment(id: number) {
