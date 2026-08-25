@@ -166,7 +166,83 @@ export default function TripMembers() {
   const createGroup = trpc.groups.create.useMutation();
   const renameGroup = trpc.groups.rename.useMutation();
   const removeGroup = trpc.groups.remove.useMutation();
-  const assignMember = trpc.groups.assignMember.useMutation();
+  /**
+   * Moving somebody is applied to the cache first and confirmed afterwards.
+   *
+   * Waiting for the server meant the chip could not appear in its new card
+   * until the mutation and a fistful of refetches had all landed, so the drag
+   * read as a drag that did nothing and people did it again. The authoritative
+   * answer still arrives — `onSettled` reconciles — but the person is not made
+   * to watch for it. See ADR 0021 for which caches are patched and why.
+   */
+  const assignMember = trpc.groups.assignMember.useMutation({
+    onMutate: async ({ userId, groupId }) => {
+      // Stop refetches already in flight from landing on top of the patch.
+      await Promise.all([
+        utils.trips.members.cancel({ tripId }),
+        utils.groups.attendees.cancel({ tripId }),
+      ]);
+
+      const previous = {
+        members: utils.trips.members.getData({ tripId }),
+        attendees: utils.groups.attendees.getData({ tripId }),
+      };
+
+      // The one that moves the chip. Everything below is so the rest of the
+      // card agrees with it.
+      utils.trips.members.setData({ tripId }, (old: any) =>
+        old?.map((m: any) => (m.userId === userId ? { ...m, groupId } : m))
+      );
+      // A member's own attendee row follows them on the server
+      // (`db.setMemberGroup`), so it follows them here too.
+      utils.groups.attendees.setData({ tripId }, (old: any) =>
+        old?.map((a: any) =>
+          a.memberUserId === userId ? { ...a, groupId } : a
+        )
+      );
+
+      return previous;
+    },
+
+    onSuccess: res => {
+      // Say it out loud. A vote disappearing from a proposal with no
+      // explanation is worse than the move itself.
+      if (res.votesSuperseded > 0)
+        toast.success(
+          `Moved. ${res.votesSuperseded} duplicate ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped, so each group holds one.`
+        );
+      else toast.success("Moved");
+    },
+
+    onError: (error, _vars, previous) => {
+      // Put it back. A patch without a rollback leaves the screen lying
+      // permanently, which is worse than the wait it replaced.
+      if (previous) {
+        utils.trips.members.setData({ tripId }, previous.members);
+        utils.groups.attendees.setData({ tripId }, previous.attendees);
+      }
+      toast.error(error.message || "Couldn't move them — put back");
+    },
+
+    onSettled: () => {
+      // Two, not the five `refreshGroups` fired. `groups.list` cannot have
+      // changed — it reads `trip_groups` alone, no members and no counts — and
+      // `trips.get` only moves when the trip votes by group, because the only
+      // field affected is the voter denominator.
+      utils.trips.members.invalidate({ tripId });
+      utils.groups.headcount.invalidate({ tripId });
+      if ((trip as any)?.votingUnit === "group")
+        utils.trips.get.invalidate({ id: tripId });
+    },
+  });
+  /**
+   * Who is mid-move. The chip is already in its new card by then — this only
+   * dims it, so a second drag before the server has answered is not offered.
+   */
+  const movingUserId = assignMember.isPending
+    ? (assignMember.variables?.userId ?? null)
+    : null;
+
   const setVotingUnit = trpc.groups.setVotingUnit.useMutation();
   const addAttendee = trpc.groups.addAttendee.useMutation();
   const removeAttendee = trpc.groups.removeAttendee.useMutation();
@@ -286,6 +362,12 @@ export default function TripMembers() {
     }
   };
 
+  /**
+   * For the paths that genuinely change the *list* of groups — creating,
+   * renaming, removing, importing, switching the voting unit. Assigning a
+   * member no longer comes through here: it patches the cache and reconciles
+   * two queries rather than five (see `assignMember` above).
+   */
   const refreshGroups = () => {
     utils.groups.list.invalidate({ tripId });
     utils.groups.attendees.invalidate({ tripId });
@@ -342,7 +424,9 @@ export default function TripMembers() {
    * `undefined` from `groupUnderPointer` means no target, while `null` means
    * the "Not in a group" card, which is a real destination.
    */
-  const handleDrop = async (userId: number, info: PanInfo) => {
+  const handleDrop = (userId: number, info: PanInfo) => {
+    // Read the target before clearing `dragging`: the hit test sees past this
+    // chip by looking for `DRAGGING_ATTR`, which this state still carries.
     const target = groupUnderPointer(info);
     setDragging(null);
     setDragOver(undefined);
@@ -350,7 +434,7 @@ export default function TripMembers() {
     const current =
       accepted.find((m: any) => m.userId === userId)?.groupId ?? null;
     if (current === target) return;
-    await handleAssign(userId, target);
+    handleAssign(userId, target);
   };
 
   const handleSaveGroup = async (groupId: number) => {
@@ -417,20 +501,14 @@ export default function TripMembers() {
     }
   };
 
-  const handleAssign = async (userId: number, groupId: number | null) => {
-    try {
-      const res = await assignMember.mutateAsync({ tripId, userId, groupId });
-      refreshGroups();
-      // Say it out loud. A vote disappearing from a proposal with no
-      // explanation is worse than the move itself.
-      if (res.votesSuperseded > 0)
-        toast.success(
-          `Moved. ${res.votesSuperseded} duplicate ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped, so each group holds one.`
-        );
-      else toast.success("Moved");
-    } catch (e: any) {
-      toast.error(e?.message || "Couldn't move them");
-    }
+  /**
+   * Fire-and-forget on purpose: the cache is patched synchronously inside
+   * `onMutate`, so there is nothing left for a caller to wait for. Both the
+   * outcomes worth reporting — the confirmation and the rollback — are the
+   * mutation's own business.
+   */
+  const handleAssign = (userId: number, groupId: number | null) => {
+    assignMember.mutate({ tripId, userId, groupId });
   };
 
   const handleVotingUnit = async (unit: "member" | "group") => {
@@ -684,6 +762,8 @@ export default function TripMembers() {
                               : `Remove ${m.user?.name || "member"} from ${g.name}`
                           }
                           dragging={dragging === m.userId}
+                          isPending={movingUserId === m.userId}
+                          layoutId={`member-chip-${m.userId}`}
                           onRemove={() => handleAssign(m.userId, null)}
                           onDragStart={() => setDragging(m.userId)}
                           onDrag={info => setDragOver(groupUnderPointer(info))}
@@ -790,6 +870,8 @@ export default function TripMembers() {
                       canMove={canMove(m) && (groups ?? []).length > 0}
                       removeLabel=""
                       dragging={dragging === m.userId}
+                      isPending={movingUserId === m.userId}
+                      layoutId={`member-chip-${m.userId}`}
                       onRemove={() => {}}
                       onDragStart={() => setDragging(m.userId)}
                       onDrag={info => setDragOver(groupUnderPointer(info))}

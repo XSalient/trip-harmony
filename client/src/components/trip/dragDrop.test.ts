@@ -78,3 +78,76 @@ describe("drag never becomes the only way", () => {
     expect(source).toContain("if (!canMove)");
   });
 });
+
+/**
+ * The second bug that looked exactly like the first one: the drop was accepted
+ * and the move was written, but the chip animated back to the card it came
+ * from and stayed there until a mutation and five refetches had landed. People
+ * re-dragged, which queued another round of the same work.
+ */
+// The component itself, without the header comment — which names the prop
+// below in order to explain why it is gone.
+const chip = source.slice(source.indexOf("export default function"));
+
+describe("a dropped chip does not rebound", () => {
+  it("never snaps the chip back to where the drag started", () => {
+    expect(chip).not.toContain("dragSnapToOrigin");
+  });
+
+  it("zeroes the drag transform on release instead of animating it home", () => {
+    expect(source).toContain("x.set(0)");
+    expect(source).toContain("y.set(0)");
+  });
+
+  it("carries the chip across when it is re-parented into another card", () => {
+    // A React `key` will not do this — it is scoped to one parent, so the chip
+    // would vanish from one card and appear in the other with no continuity.
+    expect(source).toContain("layoutId={layoutId}");
+  });
+});
+
+const page = readFileSync(
+  join(import.meta.dirname, "..", "..", "pages", "TripMembers.tsx"),
+  "utf8"
+);
+
+const assign = page.slice(
+  page.indexOf("const assignMember ="),
+  page.indexOf("const movingUserId")
+);
+
+describe("assigning a member is applied before the server answers", () => {
+  it("patches the query that positions the chip", () => {
+    expect(assign).toContain("onMutate");
+    expect(assign).toContain("utils.trips.members.setData");
+  });
+
+  it("moves the member's own attendee row with them, as the server does", () => {
+    expect(assign).toContain("utils.groups.attendees.setData");
+    expect(assign).toContain("a.memberUserId === userId");
+  });
+
+  it("cancels in-flight refetches before patching", () => {
+    // Otherwise a refetch that was already on its way lands on top of the
+    // patch and puts the chip back.
+    expect(assign).toContain("utils.trips.members.cancel");
+    expect(assign.indexOf("cancel")).toBeLessThan(assign.indexOf("setData"));
+  });
+
+  it("rolls the patch back when the move fails", () => {
+    // A patch with no rollback leaves the screen lying permanently, which is
+    // worse than the wait it replaced.
+    expect(assign).toContain("onError");
+    expect(assign).toContain("previous.members");
+    expect(assign).toContain("previous.attendees");
+  });
+
+  it("does not refetch the group list, which an assign cannot change", () => {
+    // `getTripGroups` reads `trip_groups` alone — no members, no counts.
+    expect(assign).not.toContain("groups.list.invalidate");
+  });
+
+  it("refetches the voter denominator only when the trip votes by group", () => {
+    expect(assign).toContain('votingUnit === "group"');
+  });
+});
