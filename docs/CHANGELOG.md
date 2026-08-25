@@ -8,6 +8,32 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-25 — The demo shows the last three features
+
+### Changed
+
+- **`pnpm seed:demo` is level with the schema again.** The fixture had not moved
+  since the family-grouping work, so a demo seeded today showed none of what
+  shipped after it: no abstention anywhere in 141 votes, an empty saved-families
+  picker, and a `suggestion_dismissals` table no run had ever written to. A demo
+  that has gone stale is what a prospect sees, and `pnpm verify` cannot catch it.
+
+  Now: Nina answers **go with the majority** on the Lisbon trip and Ben on the
+  only unblocked Chamonix range, so each of the four vote tables carries one
+  abstention and the referee's summary counts it as the nothing it is worth.
+  Ava's address book holds three saved families, one of which has been imported
+  into the Lisbon trip — which is why Joel's pending invite carries a group, and
+  why a seven-year-old with no email is already in the headcount. And Ava has
+  turned down one suggestion and left another standing, so the offer in My
+  Preferences demonstrates both halves rather than only the half that says yes.
+
+- **Two demo preferences reworded.** "Surgery in March" and "rather than in
+  September" each parsed as a bare month and offered to propose that entire
+  month to the group. The parser is behaving as designed — the demo copy was
+  handing it a month it did not mean, on the account a walkthrough signs in as.
+
+---
+
 ## 2026-08-24 — Say you have no preference, group yourself, save a family, propose what you wrote
 
 ### Added
