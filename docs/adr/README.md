@@ -31,6 +31,8 @@ or operated. Skip it for routine feature work.
 | [0018](0018-going-with-the-majority-is-an-abstention.md)         | "Go with the majority" is an abstention               | Accepted |
 | [0019](0019-groups-are-self-service.md)                          | Grouping is a tripmate's job                          | Accepted |
 | [0020](0020-preferences-suggest-proposals.md)                    | A preference is offered as a proposal, never made one | Accepted |
+| [0021](0021-optimistic-updates-for-drag-and-drop.md)             | A dragged member moves on the drop                    | Accepted |
+| [0022](0022-membership-is-read-once-per-request.md)              | A membership is read once per request                 | Accepted |
 
 ## Template
 
