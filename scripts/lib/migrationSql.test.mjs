@@ -99,3 +99,56 @@ describe("the guard is real, not decorative", () => {
     });
   }
 });
+
+/**
+ * Schema declarations and committed SQL have to say the same thing.
+ *
+ * `drizzle/schema.ts` is what the code reads and what a person editing the
+ * model looks at; the `.sql` files are what actually reaches a database. In
+ * this repository those two are kept in step by hand — `drizzle-kit generate`
+ * cannot be used, because `drizzle/meta/` stops at snapshot 0007 while the
+ * journal runs to 0015, so it would diff against a schema seven migrations
+ * stale. That drift is worth fixing on its own; until it is, this test is what
+ * stands in for the generator.
+ *
+ * AGENTS.md rule 9 says a column that ships without its migration takes
+ * production down, and that it already did once. An index is gentler — nothing
+ * breaks, it is merely slow, and nobody finds out for months.
+ */
+describe("every index declared in the schema is in a migration", () => {
+  const schema = readFileSync(join(drizzleDir, "schema.ts"), "utf8");
+  const allSql = files.map(sqlOf).join("\n");
+
+  const declared = [...schema.matchAll(/\bindex\("([^"]+)"\)/g)].map(m => m[1]);
+
+  it("the schema declares indexes at all", () => {
+    // It declared none until 0015, which is how every table from the original
+    // schema ended up unindexed.
+    expect(declared.length).toBeGreaterThan(0);
+  });
+
+  for (const name of declared) {
+    it(`${name} is created by a committed migration`, () => {
+      expect(allSql).toContain(`"${name}"`);
+    });
+  }
+});
+
+describe("the journal and the migration files agree", () => {
+  const journal = JSON.parse(
+    readFileSync(join(drizzleDir, "meta", "_journal.json"), "utf8")
+  );
+
+  it("every journal entry has a file, and every file an entry", () => {
+    const tags = journal.entries.map(e => e.tag).sort();
+    expect(tags).toEqual(files.map(f => f.replace(/\.sql$/, "")).sort());
+  });
+
+  it("runs strictly forwards, so nothing is skipped by the high-water mark", () => {
+    // `pendingSince` filters on `when`, so an entry out of order is a
+    // migration that silently never applies.
+    const whens = journal.entries.map(e => e.when);
+    expect(whens).toEqual([...whens].sort((a, b) => a - b));
+    expect(new Set(whens).size).toBe(whens.length);
+  });
+});
