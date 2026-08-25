@@ -31,6 +31,8 @@ import {
   budgetVotes,
   tripGroups,
   tripAttendees,
+  contactGroupMembers,
+  contactGroups,
   contacts,
   dateProposals,
   dateVotes,
@@ -40,6 +42,7 @@ import {
   notifications,
   proposalComments,
   refereeMessages,
+  suggestionDismissals,
   tripInvites,
   tripMembers,
   trips,
@@ -51,7 +54,9 @@ import {
   DEMO_OPEN_ID_PREFIX,
 } from "../../shared/demo.js";
 import { reconcileGroupVotes } from "../db.js";
+import { budgetFingerprint } from "../../shared/suggestions.js";
 import {
+  CONTACT_GROUPS,
   PEOPLE,
   PRIMARY_PERSON,
   TRIPS,
@@ -117,6 +122,24 @@ async function clean(drizzleDb: Drizzle): Promise<{
     await drizzleDb
       .delete(notifications)
       .where(inArray(notifications.userId, demoUserIds));
+
+    // Saved families. Their people go first: `contact_group_members` names its
+    // group and nothing else, so a group deleted first leaves rows no later
+    // run can find, in a table the reset does not otherwise look at.
+    const demoGroups = await drizzleDb
+      .select({ id: contactGroups.id })
+      .from(contactGroups)
+      .where(inArray(contactGroups.ownerUserId, demoUserIds));
+    const demoGroupIds = demoGroups.map(g => g.id);
+    if (demoGroupIds.length) {
+      await drizzleDb
+        .delete(contactGroupMembers)
+        .where(inArray(contactGroupMembers.groupId, demoGroupIds));
+      await drizzleDb
+        .delete(contactGroups)
+        .where(inArray(contactGroups.id, demoGroupIds));
+    }
+
     await drizzleDb.delete(users).where(inArray(users.id, demoUserIds));
   }
 
@@ -175,10 +198,13 @@ function idOf(people: People, key: string): number {
   return id;
 }
 
+/** Contact-book row ids, keyed by the person they are an entry for. */
+type Contacts = Map<string, number>;
+
 async function seedPeople(
   drizzleDb: Drizzle,
   passwordHash: string
-): Promise<People> {
+): Promise<{ people: People; contactIds: Contacts }> {
   const people: People = new Map();
 
   for (const [index, person] of PEOPLE.entries()) {
@@ -204,18 +230,83 @@ async function seedPeople(
   // An address book for the account a walkthrough signs in as, so the invite
   // picker on the members screen has something in it.
   const owner = idOf(people, PRIMARY_PERSON);
-  for (const key of ["marcus", "priya", "tomas", "hannah", "dev", "yuki"]) {
+  const contactIds: Contacts = new Map();
+  for (const key of [
+    "marcus",
+    "priya",
+    "tomas",
+    "hannah",
+    "dev",
+    "yuki",
+    "joel",
+  ]) {
     const person = PEOPLE.find(p => p.key === key)!;
-    await drizzleDb.insert(contacts).values({
-      ownerUserId: owner,
-      name: person.name,
-      email: emailFor(person.mailbox),
-      contactUserId: idOf(people, key),
-      createdAt: daysAgo(300),
-    });
+    const [row] = await drizzleDb
+      .insert(contacts)
+      .values({
+        ownerUserId: owner,
+        name: person.name,
+        email: emailFor(person.mailbox),
+        contactUserId: idOf(people, key),
+        createdAt: daysAgo(300),
+      })
+      .returning({ id: contacts.id });
+    contactIds.set(key, row.id);
   }
 
-  return people;
+  return { people, contactIds };
+}
+
+/**
+ * The saved families in the address book.
+ *
+ * A member with an address is the `contacts` row it was saved from, so the
+ * import screen can tell "already on this trip" from "needs an invite"; one
+ * without is a child or a dog, and becomes an attendee rather than an invite
+ * nobody could accept. That split is the whole shape of the feature, so the
+ * fixture has to carry both.
+ */
+async function seedContactGroups(
+  drizzleDb: Drizzle,
+  people: People,
+  contactIds: Contacts
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+
+  for (const group of CONTACT_GROUPS) {
+    const [row] = await drizzleDb
+      .insert(contactGroups)
+      .values({
+        ownerUserId: idOf(people, group.owner),
+        name: group.name,
+        createdAt: daysAgo(group.savedDaysAgo),
+      })
+      .returning({ id: contactGroups.id });
+    counts.savedFamilies = (counts.savedFamilies ?? 0) + 1;
+
+    for (const member of group.members) {
+      const person = member.person
+        ? PEOPLE.find(p => p.key === member.person)
+        : undefined;
+      if (member.person && !person) {
+        throw new Error(
+          `The saved family "${group.name}" references a person "${member.person}" who is not in PEOPLE.`
+        );
+      }
+      await drizzleDb.insert(contactGroupMembers).values({
+        groupId: row.id,
+        contactId: person ? (contactIds.get(person.key) ?? null) : null,
+        name: person ? person.name : member.name!,
+        email: person ? emailFor(person.mailbox) : null,
+        kind: member.kind ?? "adult",
+        age: member.kind === "pet" ? null : (member.age ?? null),
+        createdAt: daysAgo(group.savedDaysAgo),
+      });
+      counts.savedFamilyMembers = (counts.savedFamilyMembers ?? 0) + 1;
+    }
+  }
+
+  return counts;
 }
 
 /**
@@ -373,6 +464,9 @@ async function seedTrip(
       tripId,
       email: emailFor(invite.mailbox),
       role: invite.role,
+      // Set only for an invite that came from importing a saved family, which
+      // is the one case where the group is known before the answer is.
+      groupId: invite.group ? (groupIds.get(invite.group) ?? null) : null,
       invitedBy: idOf(people, invite.invitedBy),
       // Namespaced like everything else, and long enough to look like the real
       // nanoid tokens without being mistaken for one that works.
@@ -408,6 +502,24 @@ async function seedTrip(
       "preferences.saved",
       daysAgo(preference.savedDaysAgo)
     );
+  }
+
+  // A suggestion somebody was offered and turned down. Fingerprinted here with
+  // the same function the screen uses, so a dismissal in the fixture always
+  // suppresses the card it was written for rather than one that no longer
+  // exists.
+  for (const dismissal of trip.dismissedSuggestions ?? []) {
+    await drizzleDb.insert(suggestionDismissals).values({
+      tripId,
+      userId: idOf(people, dismissal.person),
+      kind: "budget",
+      fingerprint: budgetFingerprint(
+        dismissal.budget.amount,
+        dismissal.budget.scope
+      ),
+      createdAt: daysAgo(dismissal.daysAgo),
+    });
+    bump("dismissedSuggestions");
   }
 
   // --- Comments, shared by all three proposal types -------------------------
@@ -787,9 +899,11 @@ export async function runDemoSeed(options: {
   }
 
   const passwordHash = await hashPassword(options.password);
-  const people = await seedPeople(drizzleDb, passwordHash);
+  const { people, contactIds } = await seedPeople(drizzleDb, passwordHash);
 
-  const totals: Record<string, number> = {};
+  const totals: Record<string, number> = {
+    ...(await seedContactGroups(drizzleDb, people, contactIds)),
+  };
   const seeded: { name: string; id: number }[] = [];
   for (const trip of TRIPS) {
     const { tripId, counts } = await seedTrip(drizzleDb, people, trip);
