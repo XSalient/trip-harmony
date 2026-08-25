@@ -35,6 +35,7 @@ import {
   type PanInfo,
 } from "framer-motion";
 import { GripVertical, X } from "lucide-react";
+import { memo } from "react";
 
 /** Marks an element as somewhere a member can be dropped. */
 export const DROP_ATTR = "data-drop-group";
@@ -65,7 +66,8 @@ export function groupUnderPointer(info: PanInfo): number | null | undefined {
   return undefined;
 }
 
-export default function DraggableMemberChip({
+function DraggableMemberChip({
+  userId,
   label,
   isMe,
   canMove,
@@ -78,6 +80,12 @@ export default function DraggableMemberChip({
   onDrag,
   onDragEnd,
 }: {
+  /**
+   * Passed back to every callback, so the page can hand each chip the *same*
+   * four handlers instead of minting a closure per chip per render — which is
+   * what lets `memo` below do anything at all.
+   */
+  userId: number;
   label: string;
   isMe: boolean;
   /** False for somebody this caller may not reorganise — no drag, no cross. */
@@ -93,10 +101,10 @@ export default function DraggableMemberChip({
    * the page — a React `key` will not do, being scoped to one parent.
    */
   layoutId?: string;
-  onRemove: () => void;
-  onDragStart: () => void;
+  onRemove: (userId: number) => void;
+  onDragStart: (userId: number) => void;
   onDrag: (info: PanInfo) => void;
-  onDragEnd: (info: PanInfo) => void;
+  onDragEnd: (userId: number, info: PanInfo) => void;
 }) {
   const base = `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
     isMe ? "border-primary/40 bg-primary/5" : "border-border/60"
@@ -132,7 +140,7 @@ export default function DraggableMemberChip({
           : { type: "spring", stiffness: 500, damping: 40 }
       }
       whileDrag={{ scale: 1.08, zIndex: 50, cursor: "grabbing" }}
-      onDragStart={onDragStart}
+      onDragStart={() => onDragStart(userId)}
       onDrag={(_, info) => onDrag(info)}
       onDragEnd={(_, info) => {
         // Zero the transform rather than animating it home. The optimistic
@@ -141,7 +149,7 @@ export default function DraggableMemberChip({
         // the rebound that made a successful move look like a failed one.
         x.set(0);
         y.set(0);
-        onDragEnd(info);
+        onDragEnd(userId, info);
       }}
       {...(dragging ? { [DRAGGING_ATTR]: "true" } : {})}
       aria-busy={isPending || undefined}
@@ -154,7 +162,7 @@ export default function DraggableMemberChip({
       {isMe && <span className="text-muted-foreground">(you)</span>}
       <button
         onPointerDown={e => e.stopPropagation()}
-        onClick={onRemove}
+        onClick={() => onRemove(userId)}
         className="text-muted-foreground hover:text-destructive"
         aria-label={removeLabel}
       >
@@ -163,3 +171,12 @@ export default function DraggableMemberChip({
     </motion.span>
   );
 }
+
+/**
+ * Memoised because the page it lives on is one large component: a drag used to
+ * re-render every chip on the trip on every pointer frame. Every remaining prop
+ * is a primitive, so the shallow compare is the whole story — provided the
+ * caller's four handlers keep their identity, which is what `userId` above is
+ * for.
+ */
+export default memo(DraggableMemberChip);
