@@ -13,6 +13,7 @@ import { createServer, type Server } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers/index.js";
 import { createContext } from "./context.js";
+import { withRequestCache } from "./requestCache.js";
 import { config, describeConfig } from "./env.js";
 import { errorLogging, requestLogging } from "./httpLogging.js";
 import { registerOAuthRoutes } from "./oauth.js";
@@ -52,6 +53,14 @@ export async function createApp({
   });
 
   registerOAuthRoutes(app);
+
+  // Everything under here shares one membership cache, which is the point:
+  // the client batches, so a trip page arrives as eight or ten procedures in a
+  // single request, each of which used to ask `getTripMember` the same
+  // question. See `_core/requestCache.ts`.
+  app.use("/api/trpc", (_req, _res, next) => {
+    withRequestCache(async () => next());
+  });
 
   app.use(
     "/api/trpc",

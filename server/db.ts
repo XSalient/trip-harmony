@@ -54,6 +54,7 @@ import {
 } from "../drizzle/schema.js";
 import type { TripRole } from "../shared/roles.js";
 import { config, ENV } from "./_core/env.js";
+import { cachedTripMember, forgetMemberships } from "./_core/requestCache.js";
 import { logger } from "./_core/logger.js";
 
 const log = logger.child({ scope: "db" });
@@ -655,6 +656,7 @@ export async function deleteTripCascade(tripId: number) {
     await tx.delete(tripGroups).where(eq(tripGroups.tripId, tripId));
     await tx.delete(trips).where(eq(trips.id, tripId));
   });
+  forgetMemberships();
 }
 
 /**
@@ -806,6 +808,7 @@ export async function addTripMember(data: InsertTripMember) {
     .insert(tripMembers)
     .values(data)
     .returning({ id: tripMembers.id });
+  forgetMemberships();
   return { id: result.id, ...data };
 }
 
@@ -820,17 +823,24 @@ export async function updateMemberStatus(
     .update(tripMembers)
     .set({ status })
     .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  forgetMemberships();
 }
 
 export async function getTripMember(tripId: number, userId: number) {
-  const db = await getDb();
-  if (!db) return undefined;
-  const [row] = await db
-    .select()
-    .from(tripMembers)
-    .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)))
-    .limit(1);
-  return row;
+  // Once per HTTP request, not once per procedure in the batch. See
+  // `_core/requestCache.ts` for why the row is cached and the decision is not.
+  return cachedTripMember(tripId, userId, async () => {
+    const db = await getDb();
+    if (!db) return undefined;
+    const [row] = await db
+      .select()
+      .from(tripMembers)
+      .where(
+        and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId))
+      )
+      .limit(1);
+    return row;
+  });
 }
 
 export async function getTripMembers(tripId: number) {
@@ -883,6 +893,7 @@ export async function updateMemberBudget(
     .update(tripMembers)
     .set({ budgetMax })
     .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  forgetMemberships();
 }
 
 export async function updateMemberRole(
@@ -896,6 +907,7 @@ export async function updateMemberRole(
     .update(tripMembers)
     .set({ role })
     .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  forgetMemberships();
 }
 
 export async function removeTripMember(tripId: number, userId: number) {
@@ -904,6 +916,7 @@ export async function removeTripMember(tripId: number, userId: number) {
   await db
     .delete(tripMembers)
     .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
+  forgetMemberships();
 }
 
 /**
@@ -1004,6 +1017,7 @@ export async function deleteTripGroup(id: number) {
     .set({ groupId: null })
     .where(eq(tripAttendees.groupId, id));
   await db.delete(tripGroups).where(eq(tripGroups.id, id));
+  forgetMemberships();
 }
 
 export async function setMemberGroup(
@@ -1028,6 +1042,7 @@ export async function setMemberGroup(
         eq(tripAttendees.memberUserId, userId)
       )
     );
+  forgetMemberships();
 }
 
 // ---- Attendees ----
