@@ -77,6 +77,29 @@ is built, run or deployed.
 - **The budget cap is labelled as private.** It always was; the preferences card
   now says so, and says that proposing the figure is the separate, public act.
 
+### Fixed
+
+- **Loading a trip stopped failing under its own parallel queries.** Production
+  logged 76 failed queries in 18 seconds on 2026-08-24, every one of them the
+  session pooler refusing a connection:
+  `(EMAXCONNSESSION) max clients reached in session mode - max clients are
+limited to pool_size: 15`. Trips, members, sign-in and passkeys all returned
+  500s in the same burst, because they were all waiting on the same thing.
+
+  The pooler allots those 15 client slots to the whole project, shared across
+  every warm Vercel instance, and `server/db.ts` asked for a pool with no `max`
+  — pg's default of 10. Two instances overrun the budget on their own, and a
+  page that fans out eight tRPC procedures at once produces two instances
+  without anything unusual happening.
+
+  The pool is now capped (`DB_POOL_MAX`, default 3), so the surplus queues
+  inside pg instead of being rejected, and idle connections are handed back
+  after 10s rather than 30s. A connection the pooler still refuses is retried
+  three times before the query fails: the refusal happens before any statement
+  is sent, so nothing can run twice. Retries log at `warn` and `/api/health`
+  reports `databasePoolMax`; see
+  [runbooks/database.md](runbooks/database.md#connections).
+
 ### Internal
 
 - **The vote weights live in one place.** Three copies existed — the badge on a

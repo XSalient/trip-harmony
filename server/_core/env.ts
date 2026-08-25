@@ -129,6 +129,13 @@ const schema = z.object({
   DATABASE_URL: z.string().trim().default(""),
   POSTGRES_URL: z.string().trim().default(""),
   POSTGRES_URL_NON_POOLING: z.string().trim().default(""),
+  /**
+   * How many Postgres connections one process may hold. Small by default
+   * because the session pooler's slot budget is shared by every running
+   * instance; `server/db.ts` explains the arithmetic. Raise it only against a
+   * database this app has to itself.
+   */
+  DB_POOL_MAX: z.coerce.number().int().positive().max(100).default(3),
 
   // --- AI provider --------------------------------------------------------
   /**
@@ -333,6 +340,8 @@ export const config = {
 
   db: {
     url: database.url,
+    /** Per-process connection cap; see `server/db.ts`. */
+    poolMax: parsed.DB_POOL_MAX,
     /** Which variable the URL came from — worth logging, unlike the URL itself. */
     source: database.source,
     /** Variables that were set but ignored because they aren't Postgres URLs. */
@@ -603,6 +612,8 @@ export function describeConfig() {
     database: config.db.isConfigured ? "configured" : "missing",
     /** Which variable supplied the connection string — a name, never the value. */
     databaseSource: config.db.source || null,
+    /** The connection cap this instance runs with; the first thing to check on EMAXCONNSESSION. */
+    databasePoolMax: config.db.poolMax,
     /** Variables set but ignored for not being Postgres URLs; a common misconfiguration. */
     databaseIgnored: config.db.rejected.length ? config.db.rejected : undefined,
     // Same three-way distinction as the scraper: switched off on purpose,

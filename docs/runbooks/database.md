@@ -135,6 +135,27 @@ reuses it. Three behaviours worth knowing:
   The pooler also changes the username: `postgres.<project-ref>`, not
   `postgres`.
 
+- **The slot budget, and `EMAXCONNSESSION`.** The session pooler gives the whole
+  project a fixed number of client slots — 15 here — and refuses the next
+  connection outright rather than queueing it:
+
+  ```
+  (EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15
+  ```
+
+  Every warm instance draws on that one budget, so pg's default of 10
+  connections per pool overruns it as soon as two instances are warm. `DB_POOL_MAX`
+  caps it at 3 instead, which makes the surplus queue inside pg — cheap, and
+  bounded by the 5s connection timeout — rather than fail. A connection the
+  pooler still refuses is retried three times (60/180/420ms) before the query
+  gives up; the retry is safe because the refusal happens before any statement
+  is sent. `/api/health` reports `databasePoolMax`, and each retry logs
+  `pooler out of connection slots, retrying` at `warn`.
+
+  If those warnings become common, the fix is a lower fanout or a bigger budget
+  — not a bigger `DB_POOL_MAX`, which only makes one instance crowd out the
+  others.
+
 With no connection string configured, `getDb()` returns `null` and queries
 no-op instead of throwing, so the app still boots for frontend work. Callers
 handle the null case, and `/api/health` reports `"database": "missing"` — check
