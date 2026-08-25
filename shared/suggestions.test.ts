@@ -81,6 +81,65 @@ describe("money", () => {
     // "Nothing over £2,000" is a limit. Proposing it to the group inverts it.
     expect(detect({ avoids: "Nothing over £2,000 per family" })).toEqual([]);
   });
+
+  it("does not read a shouted three-letter word as a currency", () => {
+    // The failure this whole module is shaped around: a bare [A-Z]{3} beside a
+    // number made "WE ARE FREE IN MAY 2027" a budget of 2027 MAY, and a flight
+    // reference a budget of 1234 ABC — both offered to the group by name.
+    for (const text of [
+      "WE ARE FREE IN MAY 2027",
+      "Flight ref ABC 1234 is booked",
+      "Kids in ROW 12 please",
+    ])
+      expect(budgets(detect({ openComments: text })), text).toHaveLength(0);
+  });
+
+  it("reads the currency written after the figure, and written as a word", () => {
+    expect(
+      budgets(detect({ openComments: "around 1200 GBP per family" }))[0]
+    ).toMatchObject({ currency: "GBP", amount: "1200.00", scope: "per_group" });
+    expect(
+      budgets(detect({ openComments: "2000 euros per household" }))[0]
+    ).toMatchObject({ currency: "EUR", scope: "per_group" });
+    expect(
+      budgets(detect({ openComments: "1500 usd all in" }))[0]
+    ).toMatchObject({ currency: "USD", scope: "trip_total" });
+  });
+
+  it("reads pp stuck to the figure as per person", () => {
+    // "£1200pp" is how it is typed, and \bpp\b sees no boundary after a digit.
+    expect(budgets(detect({ openComments: "£1200pp" }))[0]).toMatchObject({
+      scope: "per_person",
+      amount: "1200.00",
+    });
+    expect(budgets(detect({ openComments: "1200pp works" }))[0]).toMatchObject({
+      scope: "per_person",
+    });
+  });
+
+  it("keeps a headcount next to the word budget out of it", () => {
+    expect(
+      budgets(detect({ openComments: "budget for 10 people, 3 nights" }))
+    ).toHaveLength(0);
+  });
+
+  it("leaves a nightly figure alone, having no scope to say it in", () => {
+    // There is no per-night scope, and calling £150 a night a trip total says
+    // something the person did not say.
+    for (const text of [
+      "keep it under $150 a night",
+      "budget of 90 per person per day",
+    ])
+      expect(budgets(detect({ openComments: text })), text).toHaveLength(0);
+  });
+
+  it("quotes the whole sentence, decimal point and all", () => {
+    const [b] = budgets(
+      detect({ openComments: "We could do £1,200.50 per family." })
+    );
+    expect(b.amount).toBe("1200.50");
+    expect(b.excerpt).toBe("We could do £1,200.50 per family");
+  });
 });
 
 describe("dates", () => {
@@ -118,6 +177,47 @@ describe("dates", () => {
   it("ignores a backwards or impossible range", () => {
     expect(dates(detect({ openComments: "19-12 September" }))).toHaveLength(0);
     expect(dates(detect({ openComments: "3-45 September" }))).toHaveLength(0);
+  });
+
+  it("reads the month written before the days, and ordinals", () => {
+    // Half of everybody writes it this way round, and "Sept" is not spelled out.
+    for (const text of [
+      "September 12-19 2026",
+      "Sept 12th–19th 2026",
+      "12th to 19th of September 2026",
+      "free 12 until 19 Sep 2026",
+    ]) {
+      const [d] = dates(detect({ openComments: text }));
+      expect(d, text).toMatchObject({
+        startDate: "2026-09-12",
+        endDate: "2026-09-19",
+      });
+    }
+  });
+
+  it("reads a month and a year with no preposition in front", () => {
+    const found = dates(detect({ openComments: "Free JUL 2027 or AUG 2027" }));
+    expect(found.map(d => d.startDate)).toEqual(["2027-07-01", "2027-08-01"]);
+  });
+
+  it("offers a range once, not also as the whole month it sits in", () => {
+    expect(
+      dates(detect({ openComments: "12-19 September 2027" }))
+    ).toHaveLength(1);
+  });
+
+  it("refuses a day the month does not have", () => {
+    expect(dates(detect({ openComments: "29-31 September" }))).toHaveLength(0);
+    expect(dates(detect({ openComments: "28-30 February 2027" }))).toHaveLength(
+      0
+    );
+  });
+
+  it("does not offer dates that have already been", () => {
+    // Nobody proposes last January, and the group cannot vote on it.
+    expect(dates(detect({ openComments: "2020-01-01 to 2020-01-08" }))).toEqual(
+      []
+    );
   });
 });
 

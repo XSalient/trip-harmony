@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-24
+- **Last updated:** 2026-08-25
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -16,10 +16,13 @@ finish a piece of work — the next person (or agent) starts here.
   voting section rather than an expense journal. The **planning features**
   programme (E13–E16) is complete: a vote for having no preference and a refusal
   to finalise on nothing but those, self-service groups, families saved in the
-  contact book, and preferences that offer themselves as proposals. See
+  contact book, and preferences that offer themselves as proposals — the last of
+  which had its parser corrected on 2026-08-25: a bare three-letter word beside a
+  number was being read as a currency code, and the forms people actually write
+  ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 813 tests ✅ · production build ✅ (2026-08-24) ·
+- **Health:** typecheck ✅ · 824 tests ✅ · production build ✅ (2026-08-25) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —

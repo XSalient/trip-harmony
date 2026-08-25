@@ -92,17 +92,29 @@ const MONTHS = [
  * Words near a figure that say what it is a figure *for*.
  *
  * Order matters: "per person" must be tested before "person", and "each" is
- * last because it is the weakest signal.
+ * last because it is the weakest signal. `pp` is tested with and without a
+ * space in front of it, because "£1200pp" is how it is actually typed and
+ * `\bpp\b` does not see a boundary between a digit and a letter.
  */
 function scopeFrom(text: string): BudgetScope {
   const t = text.toLowerCase();
   if (/\bper (family|household|group)\b|\ba (family|household)\b/.test(t))
     return "per_group";
   if (/\bper adult\b/.test(t)) return "per_adult";
-  if (/\bper (person|head)\b|\beach\b|\bpp\b|\ba head\b/.test(t))
+  if (/\bper (person|head)\b|\beach\b|\bpp\b|\d\s*pp\b|\ba head\b/.test(t))
     return "per_person";
   return "trip_total";
 }
+
+/**
+ * A figure the scope enum cannot hold.
+ *
+ * "£150 a night" is a real budget statement, and there is no nightly scope —
+ * proposing it as a trip total says something the person did not say, which is
+ * the one failure this module is shaped around avoiding. So it is dropped
+ * until there is a scope for it.
+ */
+const PER_PERIOD = /\b(?:per|a|each|\/)\s?(?:night|nite|day|week|month)\b/i;
 
 const CURRENCY_SIGNS: Record<string, string> = {
   "£": "GBP",
@@ -113,13 +125,107 @@ const CURRENCY_SIGNS: Record<string, string> = {
 };
 
 /**
+ * Currency codes, as a closed list.
+ *
+ * A bare `[A-Z]{3}` next to a number is not a currency code — it is any
+ * three-letter word somebody shouted. "WE ARE FREE IN MAY 2027" proposed a
+ * budget of 2027 MAY, and "flight ref ABC 1234" a budget of 1234 ABC. Both
+ * reach the whole group under the writer's name, so the token has to be a
+ * currency before the number beside it is money.
+ */
+const CURRENCY_CODES = new Set([
+  "AED",
+  "ARS",
+  "AUD",
+  "BGN",
+  "BRL",
+  "CAD",
+  "CHF",
+  "CLP",
+  "CNY",
+  "COP",
+  "CZK",
+  "DKK",
+  "EGP",
+  "EUR",
+  "GBP",
+  "HKD",
+  "HRK",
+  "HUF",
+  "IDR",
+  "ILS",
+  "INR",
+  "ISK",
+  "JPY",
+  "KRW",
+  "LKR",
+  "MAD",
+  "MXN",
+  "MYR",
+  "NOK",
+  "NZD",
+  "PEN",
+  "PHP",
+  "PKR",
+  "PLN",
+  "RON",
+  "SAR",
+  "SEK",
+  "SGD",
+  "THB",
+  "TRY",
+  "TWD",
+  "USD",
+  "VND",
+  "ZAR",
+]);
+
+/** What people write instead of a code. "1,200 euros" is not rare prose. */
+const CURRENCY_WORDS: Record<string, string> = {
+  pound: "GBP",
+  pounds: "GBP",
+  quid: "GBP",
+  sterling: "GBP",
+  gbp: "GBP",
+  euro: "EUR",
+  euros: "EUR",
+  dollar: "USD",
+  dollars: "USD",
+  bucks: "USD",
+  usd: "USD",
+  rupee: "INR",
+  rupees: "INR",
+  yen: "JPY",
+};
+
+/** The token beside a figure, as a currency — or nothing, and then it is not money. */
+function currencyOf(token: string | undefined): string | null {
+  if (!token) return null;
+  const upper = token.toUpperCase();
+  if (CURRENCY_CODES.has(upper)) return upper;
+  return CURRENCY_WORDS[token.toLowerCase()] ?? null;
+}
+
+/**
+ * Nouns a figure can be counted in that are not money.
+ *
+ * Only consulted for the keyword pass, where the figure carries no currency of
+ * its own: "budget for 10 people" is a headcount sitting next to the word
+ * budget, and proposing £10 to the group is the failure this module avoids.
+ */
+const NOT_MONEY_UNITS =
+  /^\s*(?:people|persons?|adults?|kids?|children|guests?|nights?|days?|weeks?|months?|years?|bedrooms?|bathrooms?|rooms?|beds?|stairs?|steps?|hours?|mins?|minutes?|miles?|km|kg)\b/i;
+
+const FIGURE = String.raw`\d[\d,]*(?:\.\d{1,2})?`;
+
+/**
  * Money in a sentence.
  *
- * A figure only counts as money when it is marked as money — a symbol, a
- * three-letter code, or an explicit "budget"/"spend" nearby. "No more than 10
- * stairs" and "minimum 3 bathrooms" are numbers in the same boxes, and turning
- * either into a budget proposal is exactly the wrong-suggestion cost this
- * whole module is shaped around avoiding.
+ * A figure only counts as money when it is marked as money — a symbol, a real
+ * currency code or word on either side of it, or an explicit "budget"/"spend"
+ * nearby. "No more than 10 stairs" and "minimum 3 bathrooms" are numbers in
+ * the same boxes, and turning either into a budget proposal is exactly the
+ * wrong-suggestion cost this whole module is shaped around avoiding.
  */
 function detectBudgets(
   field: PrefField,
@@ -129,32 +235,40 @@ function detectBudgets(
   const out: BudgetSuggestion[] = [];
   const seen = new Set<string>();
 
-  // Two passes rather than one alternation, because they need different
-  // flags: the currency code is case-sensitive (`EUR`, never `eur` — and a
-  // case-insensitive [A-Z]{3} matches "the 1500" and every other word), while
-  // the keyword that marks a bare figure as money is not ("Budget is around
-  // 1500" is how anybody actually writes it).
-  const marked =
-    /([£$€₹¥])\s?([\d,]+(?:\.\d{1,2})?)|\b([A-Z]{3})\s?([\d,]+(?:\.\d{1,2})?)\b/g;
-  const keyworded =
-    /\b(?:budget|spend|spending|cost|costs|pay|paying)\b[^.\n]{0,24}?\b([\d,]{3,}(?:\.\d{1,2})?)\b/gi;
+  // Four passes rather than one alternation, because a currency can sit before
+  // a figure, after it, or nowhere at all. Each is case-insensitive: the codes
+  // are checked against `CURRENCY_CODES`, so "eur 1500" is safe to read where
+  // a bare `[A-Z]{3}` was not.
+  const signed = new RegExp(String.raw`([£$€₹¥])\s?(${FIGURE})`, "g");
+  const codeBefore = new RegExp(
+    String.raw`\b([A-Za-z]{3,8})\s?(${FIGURE})\b`,
+    "gi"
+  );
+  const codeAfter = new RegExp(
+    String.raw`\b(${FIGURE})\s?([A-Za-z]{3,8})\b`,
+    "gi"
+  );
+  // A bare figure marked only by the scope glued to it: "1200pp", "1500 per
+  // person". Three digits at least, because "3 per family" is a count.
+  const scoped = new RegExp(
+    String.raw`\b(\d[\d,]{2,}(?:\.\d{1,2})?)\s?(?:pp\b|per\s+(?:person|head|adult|family|household)\b)`,
+    "gi"
+  );
+  const keyworded = new RegExp(
+    String.raw`\b(?:budget|budgets|spend|spending|cost|costs|pay|paying)\b[^.\n]{0,24}?\b(${FIGURE})\b`,
+    "gi"
+  );
 
-  const add = (
-    raw: string,
-    sign: string | undefined,
-    code: string | undefined,
-    at: number,
-    len: number
-  ) => {
+  const add = (raw: string, currency: string, at: number, len: number) => {
     const amount = Number(raw.replace(/,/g, ""));
     if (!Number.isFinite(amount) || amount <= 0) return;
-    const currency = sign
-      ? CURRENCY_SIGNS[sign]
-      : (code ?? (fallbackCurrency || "USD"));
 
     // The clause it sits in, so "per family" three words later still counts.
     const from = Math.max(0, at - 40);
+    const after = text.slice(at + len, at + len + 40);
     const clause = text.slice(from, at + len + 40);
+    // "£150 a night" has no scope to be proposed in — see `PER_PERIOD`.
+    if (PER_PERIOD.test(after)) return;
     const scope = scopeFrom(clause);
     const fingerprint = budgetFingerprint(amount.toFixed(2), scope);
     if (seen.has(fingerprint)) return;
@@ -172,27 +286,63 @@ function detectBudgets(
     });
   };
 
-  for (const m of text.matchAll(marked)) {
-    const raw = m[2] ?? m[4];
-    if (raw) add(raw, m[1], m[3], m.index!, m[0].length);
+  const fallback = fallbackCurrency || "USD";
+
+  for (const m of text.matchAll(signed)) {
+    add(m[2], CURRENCY_SIGNS[m[1]] ?? fallback, m.index!, m[0].length);
+  }
+  for (const m of text.matchAll(codeBefore)) {
+    const currency = currencyOf(m[1]);
+    if (currency) add(m[2], currency, m.index!, m[0].length);
+  }
+  for (const m of text.matchAll(codeAfter)) {
+    const currency = currencyOf(m[2]);
+    if (currency) add(m[1], currency, m.index!, m[0].length);
+  }
+  for (const m of text.matchAll(scoped)) {
+    add(m[1], fallback, m.index!, m[0].length);
   }
   for (const m of text.matchAll(keyworded)) {
-    if (m[1]) add(m[1], undefined, undefined, m.index!, m[0].length);
+    const digits = m[1].replace(/[^\d]/g, "");
+    const rest = text.slice(m.index! + m[0].length);
+    // A figure with no currency on it needs to be big enough to be a budget,
+    // or to say what it is a share of. "budget of 90 per person" is money;
+    // "budget for 10 people" is a headcount.
+    const scopedEnough = /^\s*(?:pp\b|per\s|each\b|a head\b)/i.test(rest);
+    if (digits.length < 3 && !scopedEnough) continue;
+    if (NOT_MONEY_UNITS.test(rest)) continue;
+    add(m[1], fallback, m.index!, m[0].length);
   }
 
   return out;
 }
 
-/** The sentence a match sits in, trimmed — what the card quotes back. */
+/**
+ * The sentence a match sits in, trimmed — what the card quotes back.
+ *
+ * A full stop only ends a sentence when it is not sitting between two digits:
+ * quoting "we could do £1,200" back at somebody who wrote "£1,200.50 a family"
+ * is a misquote, and the quote is the whole reason the card can be trusted.
+ */
 function sentenceAround(text: string, at: number): string {
-  const start = Math.max(
-    text.lastIndexOf(".", at) + 1,
-    text.lastIndexOf("\n", at) + 1
-  );
+  const isBreak = (i: number) =>
+    text[i] === "\n" ||
+    (text[i] === "." &&
+      !(/\d/.test(text[i - 1] ?? "") && /\d/.test(text[i + 1] ?? "")));
+
+  let start = 0;
+  for (let i = at - 1; i >= 0; i--) {
+    if (isBreak(i)) {
+      start = i + 1;
+      break;
+    }
+  }
   let end = text.length;
-  for (const stop of [".", "\n"]) {
-    const i = text.indexOf(stop, at);
-    if (i !== -1 && i < end) end = i;
+  for (let i = at; i < text.length; i++) {
+    if (isBreak(i)) {
+      end = i;
+      break;
+    }
   }
   const s = text.slice(start, end).trim();
   return s.length > 160 ? `${s.slice(0, 157)}…` : s;
@@ -205,11 +355,38 @@ function pad(n: number) {
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 
 /**
+ * Month names as people write them: full, or the three-letter short form with
+ * whatever they added to it ("Sep", "Sept", "Sept."). The three-letter prefix
+ * is what the match is resolved by.
+ */
+const MONTH_PATTERN = MONTHS.map(
+  m => `${m.slice(0, 3)}(?:${m.slice(3)}|t)?`
+).join("|");
+
+/** 1–12 from whatever form of the name was written, or 0 if it is not one. */
+function monthOf(written: string): number {
+  const key = written.toLowerCase().replace(/\.$/, "").slice(0, 3);
+  return MONTHS.findIndex(m => m.startsWith(key)) + 1;
+}
+
+/** Days in a month, so "31 September" is refused rather than rolled forward. */
+function daysIn(year: number, month: number) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+const ORDINAL = String.raw`(?:st|nd|rd|th)?`;
+const RANGE_SEP = String.raw`\s*(?:-|–|—|to|until|till|through|thru)\s*`;
+
+/**
  * Dates in a sentence — only where they are unambiguous.
  *
- * An explicit range ("12–19 September", "2027-03-01 to 2027-03-08") and a bare
- * month ("we're free in May") are the two forms people actually write in these
- * boxes. Anything vaguer belongs to the model, behind the button.
+ * An explicit range ("12–19 September", "Sept 12-19", "2027-03-01 to
+ * 2027-03-08") and a bare month ("we're free in May") are the forms people
+ * actually write in these boxes. Anything vaguer belongs to the model, behind
+ * the button.
+ *
+ * A range that has already been and gone is not offered: nobody proposes last
+ * March, and the group cannot vote on it.
  */
 function detectDates(
   field: PrefField,
@@ -218,12 +395,20 @@ function detectDates(
 ): DateSuggestion[] {
   const out: DateSuggestion[] = [];
   const seen = new Set<string>();
+  const todayIso = normalizeDate(today);
+  // Where an explicit range has already been read. "12–19 September 2027" is
+  // one answer, and offering "all of September" beside it is the same
+  // sentence read twice.
+  const consumed: Array<[number, number]> = [];
+  const inRange = (at: number) =>
+    consumed.some(([from, to]) => at >= from && at < to);
   const push = (
     startDate: string,
     endDate: string,
     label: string,
     at: number
   ) => {
+    if (endDate < todayIso) return;
     const fingerprint = dateFingerprint(startDate, endDate);
     if (seen.has(fingerprint)) return;
     seen.add(fingerprint);
@@ -238,48 +423,74 @@ function detectDates(
     });
   };
 
-  const monthNames = MONTHS.join("|");
-
-  // "12-19 September", "12 to 19 Sept 2027"
-  const dayRange = new RegExp(
-    `\\b(\\d{1,2})\\s*(?:-|–|—|to|until|till)\\s*(\\d{1,2})\\s+(${monthNames})[a-z]*\\.?\\s*(\\d{4})?`,
-    "gi"
-  );
-  for (const m of text.matchAll(dayRange)) {
-    const month = MONTHS.indexOf(m[3].toLowerCase()) + 1;
-    const year = m[4] ? Number(m[4]) : yearFor(month, today);
-    const d1 = Number(m[1]);
-    const d2 = Number(m[2]);
-    if (d1 < 1 || d2 < 1 || d1 > 31 || d2 > 31 || d2 < d1) continue;
+  /** One "d–d of month" reading, wherever the month sat in the sentence. */
+  const pushDayRange = (
+    written: string,
+    d1: number,
+    d2: number,
+    yearText: string | undefined,
+    at: number
+  ) => {
+    const month = monthOf(written);
+    if (month < 1) return;
+    const year = yearText ? Number(yearText) : yearFor(month, today);
+    if (d1 < 1 || d2 < 1 || d2 < d1 || d2 > daysIn(year, month)) return;
     push(
       iso(year, month, d1),
       iso(year, month, d2),
-      `${d1}–${d2} ${titleCase(m[3])}`,
-      m.index!
+      `${d1}–${d2} ${titleCase(MONTHS[month - 1])} ${year}`,
+      at
     );
+  };
+
+  // "12-19 September", "12th to 19th Sept 2027"
+  const dayFirst = new RegExp(
+    String.raw`\b(\d{1,2})${ORDINAL}${RANGE_SEP}(\d{1,2})${ORDINAL}\s+(?:of\s+)?(${MONTH_PATTERN})\.?\s*,?\s*(\d{4})?`,
+    "gi"
+  );
+  for (const m of text.matchAll(dayFirst)) {
+    consumed.push([m.index!, m.index! + m[0].length]);
+    pushDayRange(m[3], Number(m[1]), Number(m[2]), m[4], m.index!);
+  }
+
+  // "September 12-19", "Sept 12th–19th 2027" — the same range, written round
+  // the other way, which is how half of everybody writes it.
+  const monthFirst = new RegExp(
+    String.raw`\b(${MONTH_PATTERN})\.?\s+(\d{1,2})${ORDINAL}${RANGE_SEP}(\d{1,2})${ORDINAL}\s*,?\s*(\d{4})?`,
+    "gi"
+  );
+  for (const m of text.matchAll(monthFirst)) {
+    consumed.push([m.index!, m.index! + m[0].length]);
+    pushDayRange(m[1], Number(m[2]), Number(m[3]), m[4], m.index!);
   }
 
   // "2027-03-01 to 2027-03-08"
-  const isoRange =
-    /\b(\d{4}-\d{2}-\d{2})\s*(?:-|–|—|to|until|till)\s*(\d{4}-\d{2}-\d{2})\b/g;
+  const isoRange = new RegExp(
+    String.raw`\b(\d{4}-\d{2}-\d{2})${RANGE_SEP}(\d{4}-\d{2}-\d{2})\b`,
+    "g"
+  );
   for (const m of text.matchAll(isoRange)) {
     if (m[2] < m[1]) continue;
     push(m[1], m[2], `${m[1]} → ${m[2]}`, m.index!);
   }
 
-  // "free in May", "anytime in September 2027" — the whole month.
-  const bareMonth = new RegExp(
-    `\\b(?:in|during|over|for)\\s+(${monthNames})\\b\\s*(\\d{4})?`,
+  // "free in May", "anytime in September 2027", "July 2027" — the whole month.
+  //
+  // A preposition, or a year, has to mark it. A bare month name on its own is
+  // too often a word in a sentence ("we may drive") to read as an answer.
+  const wholeMonth = new RegExp(
+    String.raw`\b(?:(?:in|during|over|for|anytime in|sometime in)\s+(${MONTH_PATTERN})\b\.?\s*,?\s*(\d{4})?|(${MONTH_PATTERN})\.?\s*,?\s+(\d{4}))\b`,
     "gi"
   );
-  for (const m of text.matchAll(bareMonth)) {
-    const month = MONTHS.indexOf(m[1].toLowerCase()) + 1;
-    const year = m[2] ? Number(m[2]) : yearFor(month, today);
-    const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  for (const m of text.matchAll(wholeMonth)) {
+    if (inRange(m.index!)) continue;
+    const month = monthOf(m[1] ?? m[3]);
+    if (month < 1) continue;
+    const year = Number(m[2] ?? m[4]) || yearFor(month, today);
     push(
       iso(year, month, 1),
-      iso(year, month, last),
-      `All of ${titleCase(m[1])} ${year}`,
+      iso(year, month, daysIn(year, month)),
+      `All of ${titleCase(MONTHS[month - 1])} ${year}`,
       m.index!
     );
   }
