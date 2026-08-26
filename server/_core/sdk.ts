@@ -32,6 +32,43 @@ export type SessionPayload = {
   name: string;
 };
 
+/**
+ * How stale `lastSignedIn` is allowed to get.
+ *
+ * The write is fire-and-forget, so it never held a request up — but it happened
+ * on *every* request, and it still takes one of the three connections this
+ * process is allowed (see `POOL_MAX` in `db.ts`), competing with the reads
+ * somebody is actually waiting for. A batched page load and its unbatched
+ * `auth.me` are two requests, so a trip page paid for it twice.
+ *
+ * Ten minutes is well inside what this column is for — telling an admin roughly
+ * when somebody was last here.
+ */
+const SIGN_IN_RECORD_INTERVAL_MS = 10 * 60_000;
+
+/**
+ * When each user's `lastSignedIn` was last written by this process.
+ *
+ * Per-process and lost on restart, which is the right trade: the cost of
+ * forgetting is one extra write, and the alternative — a shared store — is
+ * another round trip to save a round trip.
+ */
+const signInRecordedAt = new Map<string, number>();
+
+/** Exported for the test. */
+export function shouldRecordSignIn(openId: string, now: number): boolean {
+  const last = signInRecordedAt.get(openId);
+  if (last !== undefined && now - last < SIGN_IN_RECORD_INTERVAL_MS)
+    return false;
+  signInRecordedAt.set(openId, now);
+  return true;
+}
+
+/** For tests that need a process which has recorded nothing yet. */
+export function forgetRecordedSignIns() {
+  signInRecordedAt.clear();
+}
+
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
 const GET_USER_INFO_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfo`;
 const GET_USER_INFO_WITH_JWT_PATH = `/webdev.v1.WebDevAuthPublicService/GetUserInfoWithJwt`;
@@ -300,15 +337,18 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
-    // Bookkeeping only — never let a slow write hold up an already-resolved session.
-    void db
-      .upsertUser({
-        openId: user.openId,
-        lastSignedIn: signedInAt,
-      })
-      .catch(error =>
-        log.warn("failed to record lastSignedIn", { err: error })
-      );
+    // Bookkeeping only — never let a slow write hold up an already-resolved
+    // session, and never spend a connection on it more than occasionally.
+    if (shouldRecordSignIn(user.openId, signedInAt.getTime())) {
+      void db
+        .upsertUser({
+          openId: user.openId,
+          lastSignedIn: signedInAt,
+        })
+        .catch(error =>
+          log.warn("failed to record lastSignedIn", { err: error })
+        );
+    }
 
     return user;
   }

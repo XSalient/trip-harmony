@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-24
+- **Last updated:** 2026-08-25
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -19,7 +19,7 @@ finish a piece of work — the next person (or agent) starts here.
   contact book, and preferences that offer themselves as proposals. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 813 tests ✅ · production build ✅ (2026-08-24) ·
+- **Health:** typecheck ✅ · 881 tests ✅ · production build ✅ (2026-08-25) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -86,6 +86,53 @@ finish a piece of work — the next person (or agent) starts here.
   counted in a vote denominator, this has to go back to admin-only in the same
   commit**; `server/routers/invites.test.ts` asserts the rule and the properties
   it rests on together, so that connection is not left to memory.
+
+- **✅ The app was slow everywhere, for three compounding reasons** (2026-08-25).
+  Reported as "dragging a member between families does nothing, so people drag
+  again", and that turned out to be two bugs sharing a symptom.
+
+  The **drag** one is `dragSnapToOrigin` returning the chip to its origin card on
+  pointer-up while `groups.assignMember` had no optimistic update, so nothing
+  could move the chip until the mutation and **five** cache invalidations had all
+  returned. The mutation now patches `trips.members` and `groups.attendees` in
+  `onMutate` and rolls both back on failure, the transform is zeroed rather than
+  animated home, and a `layoutId` carries the chip into its new card. Two
+  invalidations, and on a member-voting trip, one — `groups.list` cannot change
+  on an assign and `trips.get` only moves when the trip votes by group.
+  [ADR 0021](adr/0021-optimistic-updates-for-drag-and-drop.md).
+
+  The **everywhere** one is why that window was long enough to notice:
+  - `getTripMembers` queried twice per member, sequentially, and is reached five
+    or six times per page load via `getTripHeadcount`, `getTripVoterCount` and
+    four procedures directly — ~126 round trips for one screen, queued three at a
+    time. Now two queries. `getUserTrips` and `getComments` had the same shape.
+  - **`drizzle/schema.ts` declared no indexes at all**, so nothing from the
+    original schema had one — including `trip_members (tripId, userId)`, which
+    `requireTripRole` runs on every trip-scoped procedure. Migration
+    `0015_hot_path_indexes.sql` adds eleven.
+  - `requireTripRole` did that lookup once per procedure, and the client batches
+    eight to ten into one request. Now once per request, via an
+    `AsyncLocalStorage` cache that never outlives the request and never caches
+    the _decision_. [ADR 0022](adr/0022-membership-is-read-once-per-request.md).
+  - `new QueryClient()` had no `staleTime`, and wouter unmounts pages, so every
+    navigation refetched the destination's whole query set. Thirty seconds now.
+  - All fifteen pages were imported statically: entry chunk 1,917 kB → 561 kB
+    (gzip 560 → 172 kB).
+  - `lastSignedIn` was written on every request; now at most once per ten minutes
+    per user.
+
+  **`DB_POOL_MAX` is deliberately unchanged.** It is the budget these paths had
+  to be made to fit inside, not the problem — see the note below, which stands.
+  If page loads feel slow again, count the queries before touching it.
+
+  Verified by `pnpm verify` — typecheck, 881 tests, production build — and by the
+  chunk report. **Not** walked in a browser, and **migration 0015 has not been
+  applied to any database**: this environment cannot reach the pooler, as it
+  could not for the pool cap below. The migration is additive, every statement is
+  `IF NOT EXISTS`, and it touches no data. Two new tests stand in for the
+  generator that cannot run here: every index declared in `schema.ts` must appear
+  in a committed migration, and the journal and the `.sql` files must name the
+  same set in a strictly forward order.
 
 - **✅ The database pool is capped, after production ran out of pooler slots**
   (2026-08-24). One visit to the demo trip produced 76 failed queries in 18

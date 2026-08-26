@@ -19,9 +19,23 @@
  * The chip being dragged is skipped during that hit test. It is directly under
  * the pointer for the whole gesture, so without that every drop resolves to the
  * card the chip started in — which looks exactly like a drag that did nothing.
+ *
+ * **The chip must not animate back to where it came from.** It used to, via
+ * `dragSnapToOrigin`, and that rebound was read as "the drag failed" — people
+ * dragged the same person three or four times because the only honest signal
+ * arrived a network round trip later. The drag transform is now driven by motion
+ * values that are zeroed the instant the pointer lifts, and `layoutId` carries
+ * the chip from wherever it was released into whichever card the optimistic
+ * update just re-parented it into. See ADR 0021.
  */
-import { motion, type PanInfo } from "framer-motion";
+import {
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  type PanInfo,
+} from "framer-motion";
 import { GripVertical, X } from "lucide-react";
+import { memo } from "react";
 
 /** Marks an element as somewhere a member can be dropped. */
 export const DROP_ATTR = "data-drop-group";
@@ -52,17 +66,26 @@ export function groupUnderPointer(info: PanInfo): number | null | undefined {
   return undefined;
 }
 
-export default function DraggableMemberChip({
+function DraggableMemberChip({
+  userId,
   label,
   isMe,
   canMove,
   removeLabel,
   onRemove,
   dragging,
+  isPending,
+  layoutId,
   onDragStart,
   onDrag,
   onDragEnd,
 }: {
+  /**
+   * Passed back to every callback, so the page can hand each chip the *same*
+   * four handlers instead of minting a closure per chip per render — which is
+   * what lets `memo` below do anything at all.
+   */
+  userId: number;
   label: string;
   isMe: boolean;
   /** False for somebody this caller may not reorganise — no drag, no cross. */
@@ -70,14 +93,28 @@ export default function DraggableMemberChip({
   removeLabel: string;
   /** True while this chip is the one in hand. */
   dragging: boolean;
-  onRemove: () => void;
-  onDragStart: () => void;
+  /** True while this member's move is still in flight with the server. */
+  isPending?: boolean;
+  /**
+   * Identity that survives being re-parented into another card, so the chip
+   * animates across rather than vanishing and reappearing. Must be unique on
+   * the page — a React `key` will not do, being scoped to one parent.
+   */
+  layoutId?: string;
+  onRemove: (userId: number) => void;
+  onDragStart: (userId: number) => void;
   onDrag: (info: PanInfo) => void;
-  onDragEnd: (info: PanInfo) => void;
+  onDragEnd: (userId: number, info: PanInfo) => void;
 }) {
   const base = `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
     isMe ? "border-primary/40 bg-primary/5" : "border-border/60"
   }`;
+
+  // Hooks before the early return: a chip can go from movable to not (a role
+  // changes under you), and React does not allow the hook count to change.
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const reduceMotion = useReducedMotion();
 
   if (!canMove) {
     return (
@@ -91,24 +128,41 @@ export default function DraggableMemberChip({
   return (
     <motion.span
       drag
-      dragSnapToOrigin
       dragMomentum={false}
-      // A short hold before the drag takes over, so a tap on the × is a tap
-      // and a scroll past the chip is a scroll.
       dragElastic={0.2}
+      style={{ x, y }}
+      layoutId={layoutId}
+      // Instant when the reader asked for that: the chip still lands in the
+      // right card, it just gets there without the flight.
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 500, damping: 40 }
+      }
       whileDrag={{ scale: 1.08, zIndex: 50, cursor: "grabbing" }}
-      onDragStart={onDragStart}
+      onDragStart={() => onDragStart(userId)}
       onDrag={(_, info) => onDrag(info)}
-      onDragEnd={(_, info) => onDragEnd(info)}
+      onDragEnd={(_, info) => {
+        // Zero the transform rather than animating it home. The optimistic
+        // update re-parents this chip in the same commit, so `layoutId` takes
+        // it from here to its new card; animating back to the origin first is
+        // the rebound that made a successful move look like a failed one.
+        x.set(0);
+        y.set(0);
+        onDragEnd(userId, info);
+      }}
       {...(dragging ? { [DRAGGING_ATTR]: "true" } : {})}
-      className={`${base} relative cursor-grab touch-none select-none active:cursor-grabbing`}
+      aria-busy={isPending || undefined}
+      className={`${base} relative cursor-grab touch-none select-none active:cursor-grabbing ${
+        isPending ? "pointer-events-none opacity-60" : ""
+      }`}
     >
       <GripVertical className="h-3 w-3 text-muted-foreground/60" />
       {label}
       {isMe && <span className="text-muted-foreground">(you)</span>}
       <button
         onPointerDown={e => e.stopPropagation()}
-        onClick={onRemove}
+        onClick={() => onRemove(userId)}
         className="text-muted-foreground hover:text-destructive"
         aria-label={removeLabel}
       >
@@ -117,3 +171,12 @@ export default function DraggableMemberChip({
     </motion.span>
   );
 }
+
+/**
+ * Memoised because the page it lives on is one large component: a drag used to
+ * re-render every chip on the trip on every pointer frame. Every remaining prop
+ * is a primitive, so the shallow compare is the whole story — provided the
+ * caller's four handlers keep their identity, which is what `userId` above is
+ * for.
+ */
+export default memo(DraggableMemberChip);
