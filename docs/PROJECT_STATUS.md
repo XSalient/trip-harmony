@@ -477,8 +477,9 @@ Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Showing it to someone
 
-`pnpm seed:demo` fills a database with three trips, eleven people and 150
-votes — enough that every screen has something on it worth photographing. See
+`pnpm seed:demo` fills a database with three trips, eleven people, three saved
+families and 125 votes — enough that every screen has something on it worth
+photographing. See
 [runbooks/demo.md](runbooks/demo.md) for sign-in details and the shots worth
 taking, and [ADR-0015](adr/0015-demo-data-lives-in-its-own-namespace.md) for
 why it cannot delete anything it did not create.
@@ -491,6 +492,15 @@ on camera will overwrite the seeded copy if a key is configured. And the
 photographs are hotlinked from Wikimedia Commons, which serves only thumbnail
 widths it has already rendered; the seeded URLs use `960px-`, and an invented
 width answers HTTP 400.
+
+The fixture was brought back level with the schema on 2026-08-25: it had been
+written before the abstention vote, saved families and preference-derived
+proposals shipped, so the demo showed none of them. It now carries a
+`majority` vote in each of the four vote tables, three saved families in Ava's
+address book (one of them imported into the Lisbon trip, which is why an invite
+there carries a group), and one dismissed suggestion. Verified by seeding a
+real Postgres and reading the rows back through the app's own
+`suggestions.fromPreferences` and `planImport` — not in a browser.
 
 ## Verifying the current state yourself
 

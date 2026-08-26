@@ -35,6 +35,11 @@ export interface DemoPerson {
 
 export interface DemoVote<V extends string> {
   person: string;
+  /**
+   * `majority` is "I don't mind — go with the group", and is worth nothing in
+   * the tally (`shared/votes.ts`). At least one proposal has to carry one, or
+   * the demo cannot show what an abstention looks like next to a real vote.
+   */
   vote: V;
   /** When it was cast. Defaults to a deterministic spread after the proposal. */
   daysAgo?: number;
@@ -78,7 +83,7 @@ export interface DemoDateProposal {
   selected?: boolean;
   lockedBy?: string;
   lockedDaysAgo?: number;
-  votes: DemoVote<"available" | "maybe" | "unavailable">[];
+  votes: DemoVote<"available" | "maybe" | "unavailable" | "majority">[];
   comments?: DemoComment[];
 }
 
@@ -93,7 +98,7 @@ export interface DemoDestination {
   selected?: boolean;
   lockedBy?: string;
   lockedDaysAgo?: number;
-  votes: DemoVote<"love" | "fine" | "veto">[];
+  votes: DemoVote<"love" | "fine" | "veto" | "majority">[];
   comments?: DemoComment[];
 }
 
@@ -140,7 +145,7 @@ export interface DemoAccommodation {
   /** Left out on purpose for at least one stay, so the "not analysed yet" state shows. */
   match?: DemoMatchAnalysis;
   matchAnalysedDaysAgo?: number;
-  votes: DemoVote<"love" | "fine" | "veto">[];
+  votes: DemoVote<"love" | "fine" | "veto" | "majority">[];
   comments?: DemoComment[];
 }
 
@@ -155,8 +160,22 @@ export interface DemoBudgetProposal {
   selected?: boolean;
   lockedBy?: string;
   lockedDaysAgo?: number;
-  votes: DemoVote<"love" | "fine" | "veto">[];
+  votes: DemoVote<"love" | "fine" | "veto" | "majority">[];
   comments?: DemoComment[];
+}
+
+/**
+ * A suggestion somebody was offered in My Preferences and turned down.
+ *
+ * Described the way the app describes it — an amount and a scope — rather than
+ * as the fingerprint string that ends up in the row. The seeder builds that
+ * with `budgetFingerprint`, the same function the screen uses, so a fixture
+ * dismissal always matches the card it is meant to suppress.
+ */
+export interface DemoDismissal {
+  person: string;
+  budget: { amount: string; scope: DemoBudgetProposal["scope"] };
+  daysAgo: number;
 }
 
 /** A family or household on the trip. */
@@ -230,6 +249,12 @@ export interface DemoTrip {
     role: "watcher" | "tripmate" | "admin";
     invitedBy: string;
     daysAgo: number;
+    /**
+     * The trip group they join on acceptance — set only when the invite came
+     * from importing a saved family, which is the one thing that knows the
+     * group before the person has answered.
+     */
+    group?: string;
   }[];
   preferences?: DemoPreference[];
   dateProposals?: DemoDateProposal[];
@@ -239,6 +264,7 @@ export interface DemoTrip {
   groups?: DemoGroup[];
   attendees?: DemoAttendee[];
   budget?: DemoBudgetProposal[];
+  dismissedSuggestions?: DemoDismissal[];
   referee?: DemoRefereeMessage[];
   notifications?: DemoNotification[];
 }
@@ -313,6 +339,74 @@ export const PEOPLE: DemoPerson[] = [
 
 /** The account a walkthrough should sign in as. */
 export const PRIMARY_PERSON = "ava";
+
+/**
+ * A family saved in somebody's address book, ready to drop onto the next trip.
+ *
+ * Deliberately not the same shape as `DemoGroup`: a saved family is a label
+ * over contacts and grants nothing, while a trip group holds a budget and a
+ * vote. The overlap is the point of the feature — the Abaras below are saved
+ * here and imported into the Lisbon trip, which is why Joel has a pending
+ * invite that already knows which family he lands in.
+ */
+export interface DemoContactGroupMember {
+  /** A demo person, when they have an account and an address-book entry. */
+  person?: string;
+  /** Everyone else: a child, a partner without an account, the dog. */
+  name?: string;
+  kind?: "adult" | "child" | "pet";
+  /** Years. Never set for a pet. */
+  age?: number;
+}
+
+export interface DemoContactGroup {
+  key: string;
+  /** Whose address book this is. */
+  owner: string;
+  name: string;
+  savedDaysAgo: number;
+  members: DemoContactGroupMember[];
+}
+
+/**
+ * Ava's saved families.
+ *
+ * Three, because the screen has three states worth photographing: two that are
+ * already groups on the Lisbon trip (Priya & Dev, Tomás & Bruno) and one just
+ * imported and still waiting on an acceptance (the Abaras).
+ */
+export const CONTACT_GROUPS: DemoContactGroup[] = [
+  {
+    key: "raos",
+    owner: "ava",
+    name: "Priya & Dev",
+    savedDaysAgo: 240,
+    members: [
+      { person: "priya" },
+      { person: "dev" },
+      // No address of her own — she is three. On import she becomes an
+      // attendee in the headcount rather than an invite nobody can accept.
+      { name: "Meera Rao", kind: "child", age: 3 },
+    ],
+  },
+  {
+    key: "ferreiras",
+    owner: "ava",
+    name: "Tomás & Bruno",
+    savedDaysAgo: 180,
+    members: [{ person: "tomas" }, { name: "Bruno", kind: "pet" }],
+  },
+  {
+    key: "abaras",
+    owner: "ava",
+    name: "The Abaras",
+    savedDaysAgo: 96,
+    members: [
+      { person: "joel" },
+      { name: "Esme Abara", kind: "child", age: 7 },
+    ],
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Trip 1 — the hero. Mid-argument, which is the point.
@@ -406,19 +500,27 @@ const lisbon: DemoTrip = {
   ],
 
   pendingInvites: [
-    { mailbox: "joel", role: "tripmate", invitedBy: "ava", daysAgo: 5 },
+    // From importing "The Abaras" out of Ava's address book: the invite knows
+    // the group before Joel has answered, and Esme is already in the headcount.
+    {
+      mailbox: "joel",
+      role: "tripmate",
+      invitedBy: "ava",
+      daysAgo: 5,
+      group: "abaras",
+    },
   ],
 
   preferences: [
     {
       person: "ava",
       mustHaves:
-        "Step-free entry, or one flight at most — my knee is still not right after the surgery in March. A kitchen with a table everyone can actually sit at.",
+        "Step-free entry, or one flight at most — my knee is still not right after the surgery in the spring. A kitchen with a table everyone can actually sit at.",
       strongPreferences:
         "Walking distance to somewhere I can get a coffee before anyone else is awake.",
       avoids: "Anywhere that needs a car for every single thing.",
       openComments:
-        "Happy to cook two of the nights if the oven is a real oven.",
+        "Happy to cook two of the nights if the oven is a real oven. I can do €1,400 each all in and not resent it — say now if that is low.",
       savedDaysAgo: 21,
     },
     {
@@ -455,7 +557,7 @@ const lisbon: DemoTrip = {
       strongPreferences: "Twin beds rather than a double — sharing with Nina.",
       avoids: "Resorts. Anything with a lanyard.",
       openComments:
-        "If it goes over I'm out, and I'd rather say that now than in September.",
+        "If it goes over I'm out, and I'd rather say that now than the week before we fly.",
       savedDaysAgo: 18,
     },
     {
@@ -609,6 +711,7 @@ const lisbon: DemoTrip = {
         { person: "dev", vote: "fine" },
         { person: "hannah", vote: "fine" },
         { person: "tomas", vote: "veto" },
+        { person: "nina", vote: "majority" },
       ],
       comments: [
         {
@@ -977,6 +1080,17 @@ const lisbon: DemoTrip = {
         { person: "tomas", vote: "fine" },
         { person: "dev", vote: "fine" },
         { person: "marcus", vote: "fine" },
+        // Nina states nothing anywhere on this trip, and says so rather than
+        // leaving the row blank — which is a different thing, and looks
+        // different on the card.
+        { person: "nina", vote: "majority" },
+      ],
+      comments: [
+        {
+          person: "nina",
+          body: "I genuinely don't mind. Marking it as go-with-the-majority rather than pretending I have a view.",
+          daysAgo: 6,
+        },
       ],
     },
     {
@@ -1134,6 +1248,9 @@ const lisbon: DemoTrip = {
       members: ["priya", "dev"],
     },
     { key: "tomas", name: "Tomás", budgetMax: "2000.00", members: ["tomas"] },
+    // No members yet, and no ceiling: the group an import creates exists from
+    // the moment the invites go out, which is before anybody has accepted one.
+    { key: "abaras", name: "The Abaras", members: [] },
   ],
 
   attendees: [
@@ -1148,6 +1265,9 @@ const lisbon: DemoTrip = {
       kind: "pet",
       notes: "Elderly, sleeps a lot, travels well.",
     },
+    // Came in with the import, without an invite: a seven-year-old has no
+    // address, and the headcount should not wait on one.
+    { group: "abaras", name: "Esme Abara", kind: "child", age: 7 },
   ],
 
   budget: [
@@ -1193,6 +1313,7 @@ const lisbon: DemoTrip = {
       votes: [
         { person: "priya", vote: "love", daysAgo: 10 },
         { person: "tomas", vote: "veto", daysAgo: 8 },
+        { person: "nina", vote: "majority", daysAgo: 7 },
       ],
     },
     {
@@ -1208,6 +1329,19 @@ const lisbon: DemoTrip = {
         { person: "marcus", vote: "veto", daysAgo: 14 },
         { person: "ava", vote: "fine", daysAgo: 13 },
       ],
+    },
+  ],
+
+  // Ava was offered her own budget cap as a proposal and said no thanks; the
+  // €1,400 she wrote in My Preferences is still on the table. One dismissal is
+  // what makes the offer credible — a card you cannot turn down is an advert.
+  dismissedSuggestions: [
+    // Her cap is €1,500 and she is in a family group, which is what the screen
+    // fingerprints it as. See `capSuggestion` in `shared/suggestions.ts`.
+    {
+      person: "ava",
+      budget: { amount: "1500.00", scope: "per_group" },
+      daysAgo: 12,
     },
   ],
 
@@ -1238,7 +1372,7 @@ const lisbon: DemoTrip = {
       messageType: "mediation",
       daysAgo: 6,
       content:
-        "There is a real conflict here and it is worth naming plainly.\n\n**Alfama Terrace House** is the group's favourite on location and the cheapest by €240 a head. It is four floors with no lift. Ava's stated requirement is step-free or one flight, following surgery in March. That is a hard constraint, not a preference, and no amount of enthusiasm from the rest of the group makes those stairs shorter.\n\n**Quinta do Benagil** clears every hard constraint in the group — ground-floor bedroom, air conditioning, 250 Mbps, board storage, parking — and costs €686 a head against Hannah's €900 ceiling.\n\nThe gap between them is €243 per person. That is the actual decision: whether the group is willing to spend €243 each so that one member is not on the stairs six times a day for ten days.\n\n**Suggestion:** put Benagil to a vote and treat the price as the thing being debated, rather than re-running the argument about the house.",
+        "There is a real conflict here and it is worth naming plainly.\n\n**Alfama Terrace House** is the group's favourite on location and the cheapest by €240 a head. It is four floors with no lift. Ava's stated requirement is step-free or one flight, following surgery in the spring. That is a hard constraint, not a preference, and no amount of enthusiasm from the rest of the group makes those stairs shorter.\n\n**Quinta do Benagil** clears every hard constraint in the group — ground-floor bedroom, air conditioning, 250 Mbps, board storage, parking — and costs €686 a head against Hannah's €900 ceiling.\n\nThe gap between them is €243 per person. That is the actual decision: whether the group is willing to spend €243 each so that one member is not on the stairs six times a day for ten days.\n\n**Suggestion:** put Benagil to a vote and treat the price as the thing being debated, rather than re-running the argument about the house.",
     },
     {
       phase: "accommodation",
@@ -1439,6 +1573,9 @@ const chamonix: DemoTrip = {
         { person: "sofia", vote: "available" },
         { person: "ava", vote: "available" },
         { person: "marcus", vote: "maybe" },
+        // The abstention that matters: it looks like a fourth vote on the
+        // card and counts for nothing in the tally.
+        { person: "ben", vote: "majority", daysAgo: 3 },
       ],
     },
   ],
@@ -1514,7 +1651,7 @@ const chamonix: DemoTrip = {
       messageType: "summary",
       daysAgo: 2,
       content:
-        "Where this actually stands:\n\n- **First week of March** — 2 available, 1 maybe, 1 unavailable (Marcus, work)\n- **Mid March** — 2 available, 1 maybe, 1 unavailable (Sofia, immovable)\n- **Last weekend in March** — 2 available, 1 maybe, nobody blocked\n\nTwo of the three are blocked by something that has already been described as fixed. The third is short a couple of votes rather than short of agreement, which is a different and much easier problem.",
+        "Where this actually stands:\n\n- **First week of March** — 2 available, 1 maybe, 1 unavailable (Marcus, work)\n- **Mid March** — 2 available, 1 maybe, 1 unavailable (Sofia, immovable)\n- **Last weekend in March** — 2 available, 1 maybe, 1 going with the majority, nobody blocked\n\nTwo of the three are blocked by something that has already been described as fixed. The third is short a couple of votes rather than short of agreement, which is a different and much easier problem.\n\nOne note on Ben: **go with the majority** is counted as nothing, not as a yes. Four people have answered the last weekend in March and three of them stated a preference — enough to decide on, as long as nobody reads it as unanimous.",
     },
   ],
 
