@@ -13,7 +13,31 @@ import App from "./App";
 import { trackNavigationDepth } from "./lib/navigationDepth";
 import "./index.css";
 
-const queryClient = new QueryClient();
+/**
+ * Defaults, because React Query's own are wrong for this app.
+ *
+ * `staleTime: 0` plus a router that unmounts the page on every navigation means
+ * every screen refetches its entire query set from scratch each time you reach
+ * it — a trip page is eight or ten procedures, and moving between its tabs
+ * re-asked all of them for answers React Query already held. That is most of
+ * what "the app feels slow" was.
+ *
+ * Thirty seconds is safe here because every mutation already invalidates what
+ * it changed, so the window only covers *other people's* edits, which were
+ * never live anyway. `retry` stays low: `auth.me` travels on its own link with
+ * its own timeout below, and the whole app is gated on it.
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      retry: 1,
+    },
+  },
+});
 
 const LOGIN_PATH = "/";
 

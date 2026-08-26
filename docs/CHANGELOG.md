@@ -47,6 +47,94 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-25 — The app stops making you wait for it
+
+### Fixed
+
+- **A member you drag between families moves when you drop them.** It looked
+  like the drag did nothing: the chip animated back to the card it came from the
+  instant you let go, and could not appear in its new card until a mutation and
+  five separate refetches had returned — a second or more on an ordinary
+  connection, during which the screen actively said nothing had happened. So
+  people dragged the same person again, and each re-drag queued another round of
+  the same work. The move is now applied the moment you drop, and put back with
+  an explanation if the server refuses it. The "Moved" message no longer arrives
+  before the move is visible. [ADR 0021](adr/0021-optimistic-updates-for-drag-and-drop.md).
+
+- **Opening a trip, and moving around inside one, are much faster.** Three
+  things were compounding, and the drag was only where they were most obvious:
+  - The list of members was fetched one member at a time — two queries each, one
+    after another — and it is read five or six times over a single page load. A
+    ten-person trip came to roughly 126 round trips for one screen, three of
+    which could run at once. It is now two queries. The trip list on the home
+    screen and the comments on a proposal had the same shape and got the same
+    fix.
+  - **No table from the original schema had an index**, including the membership
+    lookup that runs on every single request. Eleven have been added.
+  - Every navigation refetched everything, because the pages are unmounted as you
+    move between them and nothing was considered fresh for even a moment. A trip's
+    tabs now reuse what was fetched in the last thirty seconds.
+
+  The database connection cap that was introduced on 2026-08-24 stays exactly
+  where it is. It is the budget these pages have to fit inside, not the problem —
+  raising it would trade a fixable query count for the outage it was added to
+  stop.
+
+- **The app opens faster.** Every page was downloaded before any page could be
+  shown, so the sign-in screen carried the charting, markdown and calendar
+  libraries it has no use for. Pages are now fetched when you go to them: the
+  initial download is 561 kB rather than 1.9 MB, and 172 kB rather than 560 kB
+  over the wire.
+
+- **Dragging is smooth.** The drop-target test ran on every pointer event and
+  re-rendered the whole page each time, whether or not anything had changed. It
+  now runs at most once a frame, and redraws only when the card under the pointer
+  is a different one.
+
+- **The unread badge stops polling a tab nobody is looking at**, and asks once a
+  minute rather than twice.
+
+### Changed
+
+- **A membership is read once per request instead of once per procedure.** The
+  permission check in front of every trip endpoint did its own lookup, and the
+  browser sends eight to ten of them in one request, so the same question was
+  asked ten times. The row is now shared within the request — never across
+  requests, and never the permission _decision_, which is still worked out every
+  time. [ADR 0022](adr/0022-membership-is-read-once-per-request.md).
+
+- **`lastSignedIn` is recorded at most once every ten minutes per person**
+  rather than on every request. It is bookkeeping, and it was spending one of
+  three database connections on every page view.
+
+---
+
+## 2026-08-25 — The demo shows the last three features
+
+### Changed
+
+- **`pnpm seed:demo` is level with the schema again.** The fixture had not moved
+  since the family-grouping work, so a demo seeded today showed none of what
+  shipped after it: no abstention anywhere in 141 votes, an empty saved-families
+  picker, and a `suggestion_dismissals` table no run had ever written to. A demo
+  that has gone stale is what a prospect sees, and `pnpm verify` cannot catch it.
+
+  Now: Nina answers **go with the majority** on the Lisbon trip and Ben on the
+  only unblocked Chamonix range, so each of the four vote tables carries one
+  abstention and the referee's summary counts it as the nothing it is worth.
+  Ava's address book holds three saved families, one of which has been imported
+  into the Lisbon trip — which is why Joel's pending invite carries a group, and
+  why a seven-year-old with no email is already in the headcount. And Ava has
+  turned down one suggestion and left another standing, so the offer in My
+  Preferences demonstrates both halves rather than only the half that says yes.
+
+- **Two demo preferences reworded.** "Surgery in March" and "rather than in
+  September" each parsed as a bare month and offered to propose that entire
+  month to the group. The parser is behaving as designed — the demo copy was
+  handing it a month it did not mean, on the account a walkthrough signs in as.
+
+---
+
 ## 2026-08-24 — Say you have no preference, group yourself, save a family, propose what you wrote
 
 ### Added

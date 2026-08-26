@@ -1,4 +1,5 @@
 import {
+  index,
   pgEnum,
   pgTable,
   serial,
@@ -183,28 +184,48 @@ export type InsertTrip = typeof trips.$inferInsert;
 /**
  * Trip members — who is in each trip and their role.
  */
-export const tripMembers = pgTable("trip_members", {
-  id: serial("id").primaryKey(),
-  tripId: integer("tripId").notNull(),
-  userId: integer("userId").notNull(),
-  role: memberRoleEnum("role").default("tripmate").notNull(),
-  status: memberStatusEnum("status").default("pending").notNull(),
-  /**
-   * The member's group, or null. **Null is a first-class state**, not a missing
-   * value: an ungrouped member is a group of one everywhere it matters. Nobody
-   * is auto-assigned a singleton group — that doubles the rows and makes the
-   * members page unreadable for the trips that never wanted groups.
-   */
-  groupId: integer("groupId"),
-  /** Personal spending ceiling. Superseded by the group's when the member is in one. */
-  budgetMax: decimal("budgetMax", { precision: 12, scale: 2 }),
-  /** Who invited them, when it is known. Null for the creator and for pre-invite rows. */
-  invitedBy: integer("invitedBy"),
-  joinedVia: joinedViaEnum("joinedVia"),
-  /** When they accepted or declined — distinct from `joinedAt`, which is when the row appeared. */
-  respondedAt: timestamp("respondedAt"),
-  joinedAt: timestamp("joinedAt").defaultNow().notNull(),
-});
+export const tripMembers = pgTable(
+  "trip_members",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("tripId").notNull(),
+    userId: integer("userId").notNull(),
+    role: memberRoleEnum("role").default("tripmate").notNull(),
+    status: memberStatusEnum("status").default("pending").notNull(),
+    /**
+     * The member's group, or null. **Null is a first-class state**, not a
+     * missing value: an ungrouped member is a group of one everywhere it
+     * matters. Nobody is auto-assigned a singleton group — that doubles the
+     * rows and makes the members page unreadable for the trips that never
+     * wanted groups.
+     */
+    groupId: integer("groupId"),
+    /** Personal spending ceiling. Superseded by the group's when the member is in one. */
+    budgetMax: decimal("budgetMax", { precision: 12, scale: 2 }),
+    /** Who invited them, when it is known. Null for the creator and for pre-invite rows. */
+    invitedBy: integer("invitedBy"),
+    joinedVia: joinedViaEnum("joinedVia"),
+    /** When they accepted or declined — distinct from `joinedAt`, which is when the row appeared. */
+    respondedAt: timestamp("respondedAt"),
+    joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+  },
+  t => [
+    /**
+     * The most-executed lookup in the app. `requireTripRole` runs it on every
+     * trip-scoped procedure, and `getTripMember`, `setMemberGroup` and every
+     * membership check go through the same pair. It was a sequential scan.
+     *
+     * Not unique, though it morally is: a unique index that fails to build
+     * takes the deploy down, and this table has never been checked for
+     * duplicate pairs. Making it unique is a migration of its own, after that
+     * check.
+     */
+    index("trip_members_trip_user_idx").on(t.tripId, t.userId),
+    /** `getUserTrips` — the first screen after signing in. */
+    index("trip_members_user_status_idx").on(t.userId, t.status),
+    // `(tripId)` alone needs nothing: it leads the composite above.
+  ]
+);
 
 export type TripMember = typeof tripMembers.$inferSelect;
 export type InsertTripMember = typeof tripMembers.$inferInsert;
@@ -404,23 +425,27 @@ export type InsertActivityEvent = typeof activityEvents.$inferInsert;
 /**
  * Date proposals — suggested date ranges for a trip.
  */
-export const dateProposals = pgTable("date_proposals", {
-  id: serial("id").primaryKey(),
-  tripId: integer("tripId").notNull(),
-  proposedBy: integer("proposedBy").notNull(),
-  startDate: timestamp("startDate").notNull(),
-  endDate: timestamp("endDate").notNull(),
-  label: varchar("label", { length: 255 }),
-  /**
-   * Finalised. Dates allow exactly one per trip; suggestions and accommodations
-   * allow many — see `selectDateProposal` vs `setDestinationLock` in
-   * `server/db.ts`, which is where that difference is enforced.
-   */
-  selected: boolean("selected").default(false).notNull(),
-  lockedBy: integer("lockedBy"),
-  lockedAt: timestamp("lockedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const dateProposals = pgTable(
+  "date_proposals",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("tripId").notNull(),
+    proposedBy: integer("proposedBy").notNull(),
+    startDate: timestamp("startDate").notNull(),
+    endDate: timestamp("endDate").notNull(),
+    label: varchar("label", { length: 255 }),
+    /**
+     * Finalised. Dates allow exactly one per trip; suggestions and accommodations
+     * allow many — see `selectDateProposal` vs `setDestinationLock` in
+     * `server/db.ts`, which is where that difference is enforced.
+     */
+    selected: boolean("selected").default(false).notNull(),
+    lockedBy: integer("lockedBy"),
+    lockedAt: timestamp("lockedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [index("date_proposals_trip_idx").on(t.tripId)]
+);
 
 export type DateProposal = typeof dateProposals.$inferSelect;
 export type InsertDateProposal = typeof dateProposals.$inferInsert;
@@ -428,19 +453,23 @@ export type InsertDateProposal = typeof dateProposals.$inferInsert;
 /**
  * Date votes — member availability votes on date proposals.
  */
-export const dateVotes = pgTable("date_votes", {
-  id: serial("id").primaryKey(),
-  proposalId: integer("proposalId").notNull(),
-  userId: integer("userId").notNull(),
-  vote: dateVoteEnum("vote").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  /**
-   * When the vote last changed. `createdAt` records the first vote and is never
-   * touched again, so it cannot answer "when did they decide this?" for anyone
-   * who changed their mind.
-   */
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
+export const dateVotes = pgTable(
+  "date_votes",
+  {
+    id: serial("id").primaryKey(),
+    proposalId: integer("proposalId").notNull(),
+    userId: integer("userId").notNull(),
+    vote: dateVoteEnum("vote").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    /**
+     * When the vote last changed. `createdAt` records the first vote and is never
+     * touched again, so it cannot answer "when did they decide this?" for anyone
+     * who changed their mind.
+     */
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  t => [index("date_votes_proposal_idx").on(t.proposalId)]
+);
 
 export type DateVote = typeof dateVotes.$inferSelect;
 export type InsertDateVote = typeof dateVotes.$inferInsert;
@@ -452,20 +481,24 @@ export type InsertDateVote = typeof dateVotes.$inferInsert;
  * the section "Suggestions". Renaming the table would cost a data migration
  * for no behaviour, so the two names live side by side deliberately.
  */
-export const destinations = pgTable("destinations", {
-  id: serial("id").primaryKey(),
-  tripId: integer("tripId").notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  imageUrl: text("imageUrl"),
-  estimatedCost: decimal("estimatedCost", { precision: 12, scale: 2 }),
-  proposedBy: integer("proposedBy").notNull(),
-  /** Finalised. A trip can finalise several suggestions. */
-  selected: boolean("selected").default(false).notNull(),
-  lockedBy: integer("lockedBy"),
-  lockedAt: timestamp("lockedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const destinations = pgTable(
+  "destinations",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("tripId").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    imageUrl: text("imageUrl"),
+    estimatedCost: decimal("estimatedCost", { precision: 12, scale: 2 }),
+    proposedBy: integer("proposedBy").notNull(),
+    /** Finalised. A trip can finalise several suggestions. */
+    selected: boolean("selected").default(false).notNull(),
+    lockedBy: integer("lockedBy"),
+    lockedAt: timestamp("lockedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [index("destinations_trip_idx").on(t.tripId)]
+);
 
 export type Destination = typeof destinations.$inferSelect;
 export type InsertDestination = typeof destinations.$inferInsert;
@@ -473,19 +506,23 @@ export type InsertDestination = typeof destinations.$inferInsert;
 /**
  * Destination votes — Love / Fine / Veto voting on destinations.
  */
-export const destinationVotes = pgTable("destination_votes", {
-  id: serial("id").primaryKey(),
-  destinationId: integer("destinationId").notNull(),
-  userId: integer("userId").notNull(),
-  vote: destinationVoteEnum("vote").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  /**
-   * When the vote last changed. `createdAt` records the first vote and is never
-   * touched again, so it cannot answer "when did they decide this?" for anyone
-   * who changed their mind.
-   */
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
+export const destinationVotes = pgTable(
+  "destination_votes",
+  {
+    id: serial("id").primaryKey(),
+    destinationId: integer("destinationId").notNull(),
+    userId: integer("userId").notNull(),
+    vote: destinationVoteEnum("vote").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    /**
+     * When the vote last changed. `createdAt` records the first vote and is never
+     * touched again, so it cannot answer "when did they decide this?" for anyone
+     * who changed their mind.
+     */
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  t => [index("destination_votes_destination_idx").on(t.destinationId)]
+);
 
 export type DestinationVote = typeof destinationVotes.$inferSelect;
 export type InsertDestinationVote = typeof destinationVotes.$inferInsert;
@@ -493,37 +530,41 @@ export type InsertDestinationVote = typeof destinationVotes.$inferInsert;
 /**
  * Accommodations — options for the accommodation hub.
  */
-export const accommodations = pgTable("accommodations", {
-  id: serial("id").primaryKey(),
-  tripId: integer("tripId").notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  description: text("description"),
-  imageUrl: text("imageUrl"),
-  pricePerNight: decimal("pricePerNight", { precision: 12, scale: 2 }),
-  totalPrice: decimal("totalPrice", { precision: 12, scale: 2 }),
-  perPersonCost: decimal("perPersonCost", { precision: 12, scale: 2 }),
-  bedrooms: integer("bedrooms"),
-  bathrooms: integer("bathrooms"),
-  singleBeds: integer("singleBeds"),
-  doubleBeds: integer("doubleBeds"),
-  toilets: integer("toilets"),
-  ensuites: integer("ensuites"),
-  freeParking: boolean("freeParking").default(false),
-  camperParking: boolean("camperParking").default(false),
-  amenities: text("amenities"),
-  preferences: text("preferences"),
-  location: varchar("location", { length: 500 }),
-  link: text("link"),
-  comfortScore: decimal("comfortScore", { precision: 3, scale: 1 }),
-  matchAnalysis: text("matchAnalysis"),
-  matchAnalysedAt: timestamp("matchAnalysedAt"),
-  proposedBy: integer("proposedBy").notNull(),
-  /** Finalised. A trip can finalise several accommodations. */
-  selected: boolean("selected").default(false).notNull(),
-  lockedBy: integer("lockedBy"),
-  lockedAt: timestamp("lockedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const accommodations = pgTable(
+  "accommodations",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("tripId").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
+    imageUrl: text("imageUrl"),
+    pricePerNight: decimal("pricePerNight", { precision: 12, scale: 2 }),
+    totalPrice: decimal("totalPrice", { precision: 12, scale: 2 }),
+    perPersonCost: decimal("perPersonCost", { precision: 12, scale: 2 }),
+    bedrooms: integer("bedrooms"),
+    bathrooms: integer("bathrooms"),
+    singleBeds: integer("singleBeds"),
+    doubleBeds: integer("doubleBeds"),
+    toilets: integer("toilets"),
+    ensuites: integer("ensuites"),
+    freeParking: boolean("freeParking").default(false),
+    camperParking: boolean("camperParking").default(false),
+    amenities: text("amenities"),
+    preferences: text("preferences"),
+    location: varchar("location", { length: 500 }),
+    link: text("link"),
+    comfortScore: decimal("comfortScore", { precision: 3, scale: 1 }),
+    matchAnalysis: text("matchAnalysis"),
+    matchAnalysedAt: timestamp("matchAnalysedAt"),
+    proposedBy: integer("proposedBy").notNull(),
+    /** Finalised. A trip can finalise several accommodations. */
+    selected: boolean("selected").default(false).notNull(),
+    lockedBy: integer("lockedBy"),
+    lockedAt: timestamp("lockedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [index("accommodations_trip_idx").on(t.tripId)]
+);
 
 export type Accommodation = typeof accommodations.$inferSelect;
 export type InsertAccommodation = typeof accommodations.$inferInsert;
@@ -531,19 +572,23 @@ export type InsertAccommodation = typeof accommodations.$inferInsert;
 /**
  * Accommodation votes — Love / Fine / Veto voting on accommodations.
  */
-export const accommodationVotes = pgTable("accommodation_votes", {
-  id: serial("id").primaryKey(),
-  accommodationId: integer("accommodationId").notNull(),
-  userId: integer("userId").notNull(),
-  vote: accommodationVoteEnum("vote").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  /**
-   * When the vote last changed. `createdAt` records the first vote and is never
-   * touched again, so it cannot answer "when did they decide this?" for anyone
-   * who changed their mind.
-   */
-  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
-});
+export const accommodationVotes = pgTable(
+  "accommodation_votes",
+  {
+    id: serial("id").primaryKey(),
+    accommodationId: integer("accommodationId").notNull(),
+    userId: integer("userId").notNull(),
+    vote: accommodationVoteEnum("vote").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    /**
+     * When the vote last changed. `createdAt` records the first vote and is never
+     * touched again, so it cannot answer "when did they decide this?" for anyone
+     * who changed their mind.
+     */
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  t => [index("accommodation_votes_accommodation_idx").on(t.accommodationId)]
+);
 
 export type AccommodationVote = typeof accommodationVotes.$inferSelect;
 export type InsertAccommodationVote = typeof accommodationVotes.$inferInsert;
@@ -617,17 +662,21 @@ export type InsertRefereeMessage = typeof refereeMessages.$inferInsert;
 /**
  * Notifications — alerts for users about trip events.
  */
-export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  tripId: integer("tripId"),
-  type: notificationTypeEnum("type").notNull(),
-  title: varchar("title", { length: 255 }).notNull(),
-  message: text("message").notNull(),
-  read: boolean("read").default(false).notNull(),
-  actionUrl: text("actionUrl"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    tripId: integer("tripId"),
+    type: notificationTypeEnum("type").notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    message: text("message").notNull(),
+    read: boolean("read").default(false).notNull(),
+    actionUrl: text("actionUrl"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [index("notifications_user_read_idx").on(t.userId, t.read)]
+);
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
@@ -762,15 +811,22 @@ export type InsertAccommodationAttribute =
 /**
  * Proposal comments — member comments on any proposal type.
  */
-export const proposalComments = pgTable("proposal_comments", {
-  id: serial("id").primaryKey(),
-  proposalType: proposalTypeEnum("proposalType").notNull(),
-  proposalId: integer("proposalId").notNull(),
-  tripId: integer("tripId").notNull(),
-  userId: integer("userId").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const proposalComments = pgTable(
+  "proposal_comments",
+  {
+    id: serial("id").primaryKey(),
+    proposalType: proposalTypeEnum("proposalType").notNull(),
+    proposalId: integer("proposalId").notNull(),
+    tripId: integer("tripId").notNull(),
+    userId: integer("userId").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [
+    index("proposal_comments_lookup_idx").on(t.proposalType, t.proposalId),
+    index("proposal_comments_trip_idx").on(t.tripId),
+  ]
+);
 
 export type ProposalComment = typeof proposalComments.$inferSelect;
 export type InsertProposalComment = typeof proposalComments.$inferInsert;

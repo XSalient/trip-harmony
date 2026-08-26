@@ -100,10 +100,18 @@ Still works, for a seat the picker does not offer — `marcus@`, `tomas@`,
 
 **Lisbon & the Algarve** — the hero. Seven people, mid-argument, in the
 accommodation phase. Dates decided, two suggestions finalised, one stay booked.
+Nina, who has stated no preferences at all, has voted **go with the majority**
+on two of the proposals — worth nothing in the tally, and visible as an answer
+rather than as a blank row. An eighth person, Joel, has a pending invite that
+came from importing a saved family, so the trip already carries an **Abaras**
+group with his seven-year-old in the headcount and nobody in it who has
+accepted yet.
 
 **Chamonix, before the season ends** — five people, nine days old, still
 picking dates. Nobody is free in the same week. One declined invite, two
-pending. This is what a new group actually looks like.
+pending. Ben has abstained on the only unblocked range, and the referee's
+summary says out loud that an abstention is not a yes. This is what a new group
+actually looks like.
 
 **Kyoto in the autumn** — finished and archived. Everything finalised, budget
 settled €135 a head under. Use it to demo cloning a trip.
@@ -117,10 +125,11 @@ Ordered by how well they sell the product.
 | **AI Referee**      | `/trips/<lisbon>/referee`        | Five messages: a nudge, two mediations, a compromise, a celebration. The accommodation mediation is the best of them. |
 | **Accommodations**  | `/trips/<lisbon>/accommodations` | Five stays scored 86, 79, 64, 41 and one deliberately un-analysed. Two flagged high resentment risk.                  |
 | **Budget Guardian** | `/trips/<lisbon>/budget`         | €7,579 across five categories, and a live "1 member over their budget limit" alert.                                   |
-| **Members**         | `/trips/<lisbon>/members`        | Three roles, join provenance, a pending invite, the contact picker, the share link.                                   |
+| **Members**         | `/trips/<lisbon>/members`        | Three roles, three saved families, an invite carrying the group it imported into, the share link.                     |
 | **Dates**           | `/trips/<lisbon>/dates`          | Three ranges, one decided; a vote someone changed their mind on.                                                      |
 | **Suggestions**     | `/trips/<lisbon>/suggestions`    | Two finalised, one vetoed four times, one argued into a compromise.                                                   |
 | **Trip dashboard**  | `/trips/<lisbon>`                | Everything summarised, including "1 unvoted proposal" and "6/7 members submitted".                                    |
+| **My Preferences**  | `/trips/<lisbon>/preferences`    | Ava's four boxes, and the €1,400 she wrote in them offered straight back as a proposal she can put to the group.      |
 | **Home**            | `/`                              | All three trips with their phase badges: Picking Dates, Finding Accommodations, All Set.                              |
 
 The seeder prints each trip's id and path when it finishes.

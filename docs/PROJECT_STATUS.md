@@ -22,7 +22,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 824 tests ✅ · production build ✅ (2026-08-25) ·
+- **Health:** typecheck ✅ · 892 tests ✅ · production build ✅ (2026-08-25) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -89,6 +89,53 @@ finish a piece of work — the next person (or agent) starts here.
   counted in a vote denominator, this has to go back to admin-only in the same
   commit**; `server/routers/invites.test.ts` asserts the rule and the properties
   it rests on together, so that connection is not left to memory.
+
+- **✅ The app was slow everywhere, for three compounding reasons** (2026-08-25).
+  Reported as "dragging a member between families does nothing, so people drag
+  again", and that turned out to be two bugs sharing a symptom.
+
+  The **drag** one is `dragSnapToOrigin` returning the chip to its origin card on
+  pointer-up while `groups.assignMember` had no optimistic update, so nothing
+  could move the chip until the mutation and **five** cache invalidations had all
+  returned. The mutation now patches `trips.members` and `groups.attendees` in
+  `onMutate` and rolls both back on failure, the transform is zeroed rather than
+  animated home, and a `layoutId` carries the chip into its new card. Two
+  invalidations, and on a member-voting trip, one — `groups.list` cannot change
+  on an assign and `trips.get` only moves when the trip votes by group.
+  [ADR 0021](adr/0021-optimistic-updates-for-drag-and-drop.md).
+
+  The **everywhere** one is why that window was long enough to notice:
+  - `getTripMembers` queried twice per member, sequentially, and is reached five
+    or six times per page load via `getTripHeadcount`, `getTripVoterCount` and
+    four procedures directly — ~126 round trips for one screen, queued three at a
+    time. Now two queries. `getUserTrips` and `getComments` had the same shape.
+  - **`drizzle/schema.ts` declared no indexes at all**, so nothing from the
+    original schema had one — including `trip_members (tripId, userId)`, which
+    `requireTripRole` runs on every trip-scoped procedure. Migration
+    `0015_hot_path_indexes.sql` adds eleven.
+  - `requireTripRole` did that lookup once per procedure, and the client batches
+    eight to ten into one request. Now once per request, via an
+    `AsyncLocalStorage` cache that never outlives the request and never caches
+    the _decision_. [ADR 0022](adr/0022-membership-is-read-once-per-request.md).
+  - `new QueryClient()` had no `staleTime`, and wouter unmounts pages, so every
+    navigation refetched the destination's whole query set. Thirty seconds now.
+  - All fifteen pages were imported statically: entry chunk 1,917 kB → 561 kB
+    (gzip 560 → 172 kB).
+  - `lastSignedIn` was written on every request; now at most once per ten minutes
+    per user.
+
+  **`DB_POOL_MAX` is deliberately unchanged.** It is the budget these paths had
+  to be made to fit inside, not the problem — see the note below, which stands.
+  If page loads feel slow again, count the queries before touching it.
+
+  Verified by `pnpm verify` — typecheck, 881 tests, production build — and by the
+  chunk report. **Not** walked in a browser, and **migration 0015 has not been
+  applied to any database**: this environment cannot reach the pooler, as it
+  could not for the pool cap below. The migration is additive, every statement is
+  `IF NOT EXISTS`, and it touches no data. Two new tests stand in for the
+  generator that cannot run here: every index declared in `schema.ts` must appear
+  in a committed migration, and the journal and the `.sql` files must name the
+  same set in a strictly forward order.
 
 - **✅ The database pool is capped, after production ran out of pooler slots**
   (2026-08-24). One visit to the demo trip produced 76 failed queries in 18
@@ -433,8 +480,9 @@ Ordered by how much they'd hurt. Also tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Showing it to someone
 
-`pnpm seed:demo` fills a database with three trips, eleven people and 150
-votes — enough that every screen has something on it worth photographing. See
+`pnpm seed:demo` fills a database with three trips, eleven people, three saved
+families and 125 votes — enough that every screen has something on it worth
+photographing. See
 [runbooks/demo.md](runbooks/demo.md) for sign-in details and the shots worth
 taking, and [ADR-0015](adr/0015-demo-data-lives-in-its-own-namespace.md) for
 why it cannot delete anything it did not create.
@@ -447,6 +495,15 @@ on camera will overwrite the seeded copy if a key is configured. And the
 photographs are hotlinked from Wikimedia Commons, which serves only thumbnail
 widths it has already rendered; the seeded URLs use `960px-`, and an invented
 width answers HTTP 400.
+
+The fixture was brought back level with the schema on 2026-08-25: it had been
+written before the abstention vote, saved families and preference-derived
+proposals shipped, so the demo showed none of them. It now carries a
+`majority` vote in each of the four vote tables, three saved families in Ava's
+address book (one of them imported into the Lisbon trip, which is why an invite
+there carries a group), and one dismissed suggestion. Verified by seeding a
+real Postgres and reading the rows back through the app's own
+`suggestions.fromPreferences` and `planImport` — not in a browser.
 
 ## Verifying the current state yourself
 

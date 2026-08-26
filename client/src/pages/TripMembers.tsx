@@ -5,8 +5,9 @@
  * Replaces the invite dialog that used to hang off the trip header, which could
  * send a link but could not tell you whether anyone had accepted it.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useParams } from "wouter";
+import { usePersistFn } from "@/hooks/usePersistFn";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
@@ -107,6 +108,13 @@ function JoinedVia({
   return <span className="text-muted-foreground/70">Not recorded</span>;
 }
 
+/**
+ * For the ungrouped chips, which have no family to be removed from and so draw
+ * no cross. Module-level so it is the same function on every render — an inline
+ * `() => {}` would defeat the chip's `memo` on its own.
+ */
+const noop = () => {};
+
 /** "2 adults · 2 children" for one group, from the single headcount source. */
 function headcountLabel(headcount: any, groupId: number | null): string {
   const h = headcount?.byGroup?.[groupId == null ? "none" : String(groupId)];
@@ -166,7 +174,83 @@ export default function TripMembers() {
   const createGroup = trpc.groups.create.useMutation();
   const renameGroup = trpc.groups.rename.useMutation();
   const removeGroup = trpc.groups.remove.useMutation();
-  const assignMember = trpc.groups.assignMember.useMutation();
+  /**
+   * Moving somebody is applied to the cache first and confirmed afterwards.
+   *
+   * Waiting for the server meant the chip could not appear in its new card
+   * until the mutation and a fistful of refetches had all landed, so the drag
+   * read as a drag that did nothing and people did it again. The authoritative
+   * answer still arrives — `onSettled` reconciles — but the person is not made
+   * to watch for it. See ADR 0021 for which caches are patched and why.
+   */
+  const assignMember = trpc.groups.assignMember.useMutation({
+    onMutate: async ({ userId, groupId }) => {
+      // Stop refetches already in flight from landing on top of the patch.
+      await Promise.all([
+        utils.trips.members.cancel({ tripId }),
+        utils.groups.attendees.cancel({ tripId }),
+      ]);
+
+      const previous = {
+        members: utils.trips.members.getData({ tripId }),
+        attendees: utils.groups.attendees.getData({ tripId }),
+      };
+
+      // The one that moves the chip. Everything below is so the rest of the
+      // card agrees with it.
+      utils.trips.members.setData({ tripId }, (old: any) =>
+        old?.map((m: any) => (m.userId === userId ? { ...m, groupId } : m))
+      );
+      // A member's own attendee row follows them on the server
+      // (`db.setMemberGroup`), so it follows them here too.
+      utils.groups.attendees.setData({ tripId }, (old: any) =>
+        old?.map((a: any) =>
+          a.memberUserId === userId ? { ...a, groupId } : a
+        )
+      );
+
+      return previous;
+    },
+
+    onSuccess: res => {
+      // Say it out loud. A vote disappearing from a proposal with no
+      // explanation is worse than the move itself.
+      if (res.votesSuperseded > 0)
+        toast.success(
+          `Moved. ${res.votesSuperseded} duplicate ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped, so each group holds one.`
+        );
+      else toast.success("Moved");
+    },
+
+    onError: (error, _vars, previous) => {
+      // Put it back. A patch without a rollback leaves the screen lying
+      // permanently, which is worse than the wait it replaced.
+      if (previous) {
+        utils.trips.members.setData({ tripId }, previous.members);
+        utils.groups.attendees.setData({ tripId }, previous.attendees);
+      }
+      toast.error(error.message || "Couldn't move them — put back");
+    },
+
+    onSettled: () => {
+      // Two, not the five `refreshGroups` fired. `groups.list` cannot have
+      // changed — it reads `trip_groups` alone, no members and no counts — and
+      // `trips.get` only moves when the trip votes by group, because the only
+      // field affected is the voter denominator.
+      utils.trips.members.invalidate({ tripId });
+      utils.groups.headcount.invalidate({ tripId });
+      if ((trip as any)?.votingUnit === "group")
+        utils.trips.get.invalidate({ id: tripId });
+    },
+  });
+  /**
+   * Who is mid-move. The chip is already in its new card by then — this only
+   * dims it, so a second drag before the server has answered is not offered.
+   */
+  const movingUserId = assignMember.isPending
+    ? (assignMember.variables?.userId ?? null)
+    : null;
+
   const setVotingUnit = trpc.groups.setVotingUnit.useMutation();
   const addAttendee = trpc.groups.addAttendee.useMutation();
   const removeAttendee = trpc.groups.removeAttendee.useMutation();
@@ -239,31 +323,119 @@ export default function TripMembers() {
     [trip?.inviteCode]
   );
 
-  const accepted = members?.filter((m: any) => m.status === "accepted") ?? [];
-  const myGroupId =
-    accepted.find((m: any) => m.userId === user?.id)?.groupId ?? null;
-  const groupName = (id: number) =>
-    (groups ?? []).find((g: any) => g.id === id)?.name ?? "Group";
+  const accepted = useMemo(
+    () => members?.filter((m: any) => m.status === "accepted") ?? [],
+    [members]
+  );
+  const myGroupId = useMemo(
+    () => accepted.find((m: any) => m.userId === user?.id)?.groupId ?? null,
+    [accepted, user?.id]
+  );
+
+  const groupName = usePersistFn(
+    (id: number) =>
+      (groups ?? []).find((g: any) => g.id === id)?.name ?? "Group"
+  );
   /** Admins act on any group; a tripmate acts on their own and nobody else's. */
-  const canAddTo = (groupId: number | null) =>
-    isAdmin || (groupId != null && groupId === myGroupId);
+  const canAddTo = usePersistFn(
+    (groupId: number | null) =>
+      isAdmin || (groupId != null && groupId === myGroupId)
+  );
   /**
    * Mirrors `mayAssign` on the server. The server is what enforces it — this
    * only decides whether to draw the control.
    */
-  const canMove = (m: { userId: number; groupId: number | null }) =>
-    isAdmin ||
-    m.userId === user?.id ||
-    (myGroupId != null && m.groupId === myGroupId);
+  const canMove = usePersistFn(
+    (m: { userId: number; groupId: number | null }) =>
+      isAdmin ||
+      m.userId === user?.id ||
+      (myGroupId != null && m.groupId === myGroupId)
+  );
   /** Who this group could take: yourself, and anyone you may move. */
-  const movableInto = (groupId: number) =>
+  const movableInto = usePersistFn((groupId: number) =>
     accepted.filter(
       (m: any) => m.groupId !== groupId && canMove(m) && m.role !== "watcher"
-    );
-  const pendingInvites =
-    invites?.filter((i: any) => i.status === "pending") ?? [];
-  const answeredInvites =
-    invites?.filter((i: any) => i.status !== "pending") ?? [];
+    )
+  );
+
+  /**
+   * Everything the cards need, bucketed once instead of filtered per card.
+   *
+   * Each of these used to be a fresh pass over the whole trip inside the render
+   * of every group card, and `movableInto` was a pass per card on top of that —
+   * so a page with six families did O(families × members) work on every render,
+   * and a drag re-rendered on every pointer frame. The keys are strings because
+   * "not in a group" is a real bucket here, and `null` is not a usable Map key
+   * alongside numeric ids.
+   */
+  const bucketKey = (groupId: number | null) =>
+    groupId == null ? "none" : String(groupId);
+
+  const membersByGroup = useMemo(() => {
+    const by = new Map<string, any[]>();
+    for (const m of accepted) {
+      const key = bucketKey(m.groupId);
+      const bucket = by.get(key);
+      if (bucket) bucket.push(m);
+      else by.set(key, [m]);
+    }
+    return by;
+  }, [accepted]);
+
+  /** Only the people with no account — a member's own row is drawn as a chip. */
+  const attendeesByGroup = useMemo(() => {
+    const by = new Map<string, any[]>();
+    for (const a of attendees ?? []) {
+      if (a.memberUserId != null) continue;
+      const key = bucketKey(a.groupId);
+      const bucket = by.get(key);
+      if (bucket) bucket.push(a);
+      else by.set(key, [a]);
+    }
+    return by;
+  }, [attendees]);
+
+  const someoneIsUngrouped = useMemo(
+    () =>
+      accepted.some((m: any) => m.groupId == null) ||
+      (attendees ?? []).some((a: any) => a.groupId == null),
+    [accepted, attendees]
+  );
+
+  /**
+   * How many people each card could take. Only ever compared against zero, so
+   * the count is all that is kept — the list itself is built on demand, by the
+   * dialog that actually shows it.
+   */
+  const movableCountByGroup = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const g of groups ?? []) counts.set(g.id, 0);
+    for (const m of accepted) {
+      if (m.role === "watcher" || !canMove(m)) continue;
+      for (const g of groups ?? [])
+        if (m.groupId !== g.id) counts.set(g.id, (counts.get(g.id) ?? 0) + 1);
+    }
+    return counts;
+    // `canMove` is stable; what it reads is not, so those are the dependencies.
+  }, [accepted, groups, canMove, isAdmin, user?.id, myGroupId]);
+
+  /** "2 adults · 2 children" per card, built once from the one headcount source. */
+  const headcountLabels = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const g of groups ?? [])
+      labels.set(String(g.id), headcountLabel(headcount, g.id));
+    labels.set("none", headcountLabel(headcount, null));
+    return labels;
+  }, [headcount, groups]);
+
+  const pendingInvites = useMemo(
+    () => invites?.filter((i: any) => i.status === "pending") ?? [],
+    [invites]
+  );
+  const answeredInvites = useMemo(
+    () => invites?.filter((i: any) => i.status !== "pending") ?? [],
+    [invites]
+  );
 
   const handleInvite = async (email: string, name?: string) => {
     if (!email) return;
@@ -286,6 +458,12 @@ export default function TripMembers() {
     }
   };
 
+  /**
+   * For the paths that genuinely change the *list* of groups — creating,
+   * renaming, removing, importing, switching the voting unit. Assigning a
+   * member no longer comes through here: it patches the cache and reconciles
+   * two queries rather than five (see `assignMember` above).
+   */
   const refreshGroups = () => {
     utils.groups.list.invalidate({ tripId });
     utils.groups.attendees.invalidate({ tripId });
@@ -336,22 +514,67 @@ export default function TripMembers() {
   };
 
   /**
+   * Which card the pointer is over, recomputed at most once a frame and only
+   * set when the answer actually changes.
+   *
+   * Both halves matter. `groupUnderPointer` calls `elementsFromPoint`, which
+   * forces layout, and this ran on every pointer event — several times a frame
+   * on a trackpad. And the old handler set state unconditionally, so a drag
+   * that never left one card still re-rendered the whole page a few hundred
+   * times over the gesture.
+   *
+   * `Object.is` rather than `===` because `null` — the "Not in a group" card —
+   * and `undefined` — no target at all — are different answers here, and the
+   * difference is what makes dragging somebody out of a family possible.
+   */
+  const dragOverRef = useRef<number | null | undefined>(undefined);
+  const hitTestQueued = useRef(false);
+
+  const handleDragOver = usePersistFn((info: PanInfo) => {
+    if (hitTestQueued.current) return;
+    hitTestQueued.current = true;
+    // Read the coordinates now: framer reuses the `PanInfo` object between
+    // events, so by the next frame this one describes a later position.
+    const point = { x: info.point.x, y: info.point.y };
+    requestAnimationFrame(() => {
+      hitTestQueued.current = false;
+      const next = groupUnderPointer({ point } as PanInfo);
+      if (Object.is(dragOverRef.current, next)) return;
+      dragOverRef.current = next;
+      setDragOver(next);
+    });
+  });
+
+  const handleDragStart = usePersistFn((userId: number) => {
+    dragOverRef.current = undefined;
+    setDragging(userId);
+  });
+
+  /** The `×` on a chip: out of whichever family they are in, not into another. */
+  const handleRemoveFromGroup = usePersistFn((userId: number) =>
+    handleAssign(userId, null)
+  );
+
+  /**
    * Drops a member onto whatever card the pointer was released over.
    *
    * A drop outside every card is a cancelled drag, not a move to nowhere —
    * `undefined` from `groupUnderPointer` means no target, while `null` means
    * the "Not in a group" card, which is a real destination.
    */
-  const handleDrop = async (userId: number, info: PanInfo) => {
+  const handleDrop = usePersistFn((userId: number, info: PanInfo) => {
+    // Read the target before clearing `dragging`: the hit test sees past this
+    // chip by looking for `DRAGGING_ATTR`, which this state still carries.
     const target = groupUnderPointer(info);
     setDragging(null);
+    dragOverRef.current = undefined;
     setDragOver(undefined);
     if (target === undefined) return;
     const current =
       accepted.find((m: any) => m.userId === userId)?.groupId ?? null;
     if (current === target) return;
-    await handleAssign(userId, target);
-  };
+    handleAssign(userId, target);
+  });
 
   const handleSaveGroup = async (groupId: number) => {
     try {
@@ -417,20 +640,14 @@ export default function TripMembers() {
     }
   };
 
-  const handleAssign = async (userId: number, groupId: number | null) => {
-    try {
-      const res = await assignMember.mutateAsync({ tripId, userId, groupId });
-      refreshGroups();
-      // Say it out loud. A vote disappearing from a proposal with no
-      // explanation is worse than the move itself.
-      if (res.votesSuperseded > 0)
-        toast.success(
-          `Moved. ${res.votesSuperseded} duplicate ${res.votesSuperseded === 1 ? "vote was" : "votes were"} dropped, so each group holds one.`
-        );
-      else toast.success("Moved");
-    } catch (e: any) {
-      toast.error(e?.message || "Couldn't move them");
-    }
+  /**
+   * Fire-and-forget on purpose: the cache is patched synchronously inside
+   * `onMutate`, so there is nothing left for a caller to wait for. Both the
+   * outcomes worth reporting — the confirmation and the rollback — are the
+   * mutation's own business.
+   */
+  const handleAssign = (userId: number, groupId: number | null) => {
+    assignMember.mutate({ tripId, userId, groupId });
   };
 
   const handleVotingUnit = async (unit: "member" | "group") => {
@@ -629,7 +846,7 @@ export default function TripMembers() {
                     {g.name}
                   </span>
                   <span className="text-[11px] text-muted-foreground shrink-0">
-                    {headcountLabel(headcount, g.id)}
+                    {headcountLabels.get(String(g.id))}
                   </span>
                   {canAddTo(g.id) && (
                     <DropdownMenu>
@@ -668,31 +885,32 @@ export default function TripMembers() {
                     target this size is a coin toss and there is no keyboard
                     path at all. */}
                 <div className="flex flex-wrap gap-1.5 mb-1.5">
-                  {accepted
-                    .filter((m: any) => m.groupId === g.id)
-                    .map((m: any) => {
-                      const isMe = m.userId === user?.id;
-                      return (
-                        <DraggableMemberChip
-                          key={`m${m.userId}`}
-                          label={m.user?.name || "Member"}
-                          isMe={isMe}
-                          canMove={canMove(m)}
-                          removeLabel={
-                            isMe
-                              ? `Leave ${g.name}`
-                              : `Remove ${m.user?.name || "member"} from ${g.name}`
-                          }
-                          dragging={dragging === m.userId}
-                          onRemove={() => handleAssign(m.userId, null)}
-                          onDragStart={() => setDragging(m.userId)}
-                          onDrag={info => setDragOver(groupUnderPointer(info))}
-                          onDragEnd={info => handleDrop(m.userId, info)}
-                        />
-                      );
-                    })}
+                  {(membersByGroup.get(String(g.id)) ?? []).map((m: any) => {
+                    const isMe = m.userId === user?.id;
+                    return (
+                      <DraggableMemberChip
+                        key={`m${m.userId}`}
+                        userId={m.userId}
+                        label={m.user?.name || "Member"}
+                        isMe={isMe}
+                        canMove={canMove(m)}
+                        removeLabel={
+                          isMe
+                            ? `Leave ${g.name}`
+                            : `Remove ${m.user?.name || "member"} from ${g.name}`
+                        }
+                        dragging={dragging === m.userId}
+                        isPending={movingUserId === m.userId}
+                        layoutId={`member-chip-${m.userId}`}
+                        onRemove={handleRemoveFromGroup}
+                        onDragStart={handleDragStart}
+                        onDrag={handleDragOver}
+                        onDragEnd={handleDrop}
+                      />
+                    );
+                  })}
 
-                  {movableInto(g.id).length > 0 && (
+                  {(movableCountByGroup.get(g.id) ?? 0) > 0 && (
                     <button
                       onClick={() => setAddToGroup(g.id)}
                       className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
@@ -704,37 +922,33 @@ export default function TripMembers() {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
-                  {(attendees ?? [])
-                    .filter(
-                      (a: any) => a.groupId === g.id && a.memberUserId == null
-                    )
-                    .map((a: any) => (
-                      <span
-                        key={a.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
-                      >
-                        {a.kind === "pet" ? (
-                          <PawPrint className="h-3 w-3 text-muted-foreground" />
-                        ) : a.kind === "child" ? (
-                          <Baby className="h-3 w-3 text-muted-foreground" />
-                        ) : null}
-                        {a.name}
-                        {/* Never for a pet, and never to a watcher — the
+                  {(attendeesByGroup.get(String(g.id)) ?? []).map((a: any) => (
+                    <span
+                      key={a.id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
+                    >
+                      {a.kind === "pet" ? (
+                        <PawPrint className="h-3 w-3 text-muted-foreground" />
+                      ) : a.kind === "child" ? (
+                        <Baby className="h-3 w-3 text-muted-foreground" />
+                      ) : null}
+                      {a.name}
+                      {/* Never for a pet, and never to a watcher — the
                             server strips it either way. */}
-                        {a.age != null && (
-                          <span className="text-muted-foreground">{a.age}</span>
-                        )}
-                        {canAddTo(g.id) && a.memberUserId == null && (
-                          <button
-                            onClick={() => handleRemoveAttendee(a.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                            aria-label={`Remove ${a.name}`}
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </span>
-                    ))}
+                      {a.age != null && (
+                        <span className="text-muted-foreground">{a.age}</span>
+                      )}
+                      {canAddTo(g.id) && a.memberUserId == null && (
+                        <button
+                          onClick={() => handleRemoveAttendee(a.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`Remove ${a.name}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
                   {canAddTo(g.id) && (
                     <button
                       onClick={() => setAttendeeFor(g.id)}
@@ -754,9 +968,7 @@ export default function TripMembers() {
         {/* Shown while a drag is in progress even when it is empty, or there
             would be nowhere to drop somebody in order to take them out of a
             family. */}
-        {((attendees ?? []).some((a: any) => a.groupId == null) ||
-          accepted.some((m: any) => m.groupId == null) ||
-          dragging !== null) && (
+        {(someoneIsUngrouped || dragging !== null) && (
           <Card
             {...{ [DROP_ATTR]: "none" }}
             className={`border-dashed transition-colors ${
@@ -771,32 +983,33 @@ export default function TripMembers() {
                   Not in a group
                 </span>
                 <span className="text-[11px] text-muted-foreground">
-                  {headcountLabel(headcount, null)}
+                  {headcountLabels.get("none")}
                 </span>
               </div>
 
               {/* Members first, then the people with no account — the same two
                   rows every group card has. */}
               <div className="flex flex-wrap gap-1.5 mb-1.5">
-                {accepted
-                  .filter((m: any) => m.groupId == null)
-                  .map((m: any) => (
-                    <DraggableMemberChip
-                      key={`m${m.userId}`}
-                      label={m.user?.name || "Member"}
-                      isMe={m.userId === user?.id}
-                      // Nothing to remove them from, so no cross — but they
-                      // can still be dragged into a family.
-                      canMove={canMove(m) && (groups ?? []).length > 0}
-                      removeLabel=""
-                      dragging={dragging === m.userId}
-                      onRemove={() => {}}
-                      onDragStart={() => setDragging(m.userId)}
-                      onDrag={info => setDragOver(groupUnderPointer(info))}
-                      onDragEnd={info => handleDrop(m.userId, info)}
-                    />
-                  ))}
-                {accepted.some((m: any) => m.groupId == null) &&
+                {(membersByGroup.get("none") ?? []).map((m: any) => (
+                  <DraggableMemberChip
+                    key={`m${m.userId}`}
+                    userId={m.userId}
+                    label={m.user?.name || "Member"}
+                    isMe={m.userId === user?.id}
+                    // Nothing to remove them from, so no cross — but they
+                    // can still be dragged into a family.
+                    canMove={canMove(m) && (groups ?? []).length > 0}
+                    removeLabel=""
+                    dragging={dragging === m.userId}
+                    isPending={movingUserId === m.userId}
+                    layoutId={`member-chip-${m.userId}`}
+                    onRemove={noop}
+                    onDragStart={handleDragStart}
+                    onDrag={handleDragOver}
+                    onDragEnd={handleDrop}
+                  />
+                ))}
+                {(membersByGroup.get("none") ?? []).length > 0 &&
                   (groups ?? []).length === 0 && (
                     <span className="text-[11px] text-muted-foreground">
                       Add a family above to start grouping people.
@@ -805,35 +1018,31 @@ export default function TripMembers() {
               </div>
 
               <div className="flex flex-wrap gap-1.5">
-                {(attendees ?? [])
-                  .filter(
-                    (a: any) => a.groupId == null && a.memberUserId == null
-                  )
-                  .map((a: any) => (
-                    <span
-                      key={a.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
-                    >
-                      {a.kind === "pet" ? (
-                        <PawPrint className="h-3 w-3 text-muted-foreground" />
-                      ) : a.kind === "child" ? (
-                        <Baby className="h-3 w-3 text-muted-foreground" />
-                      ) : null}
-                      {a.name}
-                      {a.age != null && (
-                        <span className="text-muted-foreground">{a.age}</span>
-                      )}
-                      {isAdmin && a.memberUserId == null && (
-                        <button
-                          onClick={() => handleRemoveAttendee(a.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label={`Remove ${a.name}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </span>
-                  ))}
+                {(attendeesByGroup.get("none") ?? []).map((a: any) => (
+                  <span
+                    key={a.id}
+                    className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
+                  >
+                    {a.kind === "pet" ? (
+                      <PawPrint className="h-3 w-3 text-muted-foreground" />
+                    ) : a.kind === "child" ? (
+                      <Baby className="h-3 w-3 text-muted-foreground" />
+                    ) : null}
+                    {a.name}
+                    {a.age != null && (
+                      <span className="text-muted-foreground">{a.age}</span>
+                    )}
+                    {isAdmin && a.memberUserId == null && (
+                      <button
+                        onClick={() => handleRemoveAttendee(a.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                        aria-label={`Remove ${a.name}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </span>
+                ))}
                 {isAdmin && (
                   <button
                     onClick={() => setAttendeeFor(null)}

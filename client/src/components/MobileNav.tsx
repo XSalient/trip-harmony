@@ -6,11 +6,17 @@ import { useAuth } from "@/_core/hooks/useAuth";
 export default function MobileNav() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
+  // This bar is on every authenticated screen, so its poll is the app's steady
+  // background load — and it competes for the same few database connections as
+  // whatever the person is actually waiting for. A minute is soon enough for a
+  // badge, and a tab nobody is looking at does not need one at all.
   const { data: unreadCount } = trpc.notifications.unreadCount.useQuery(
     undefined,
     {
       enabled: isAuthenticated,
-      refetchInterval: 30000,
+      refetchInterval: 60_000,
+      refetchIntervalInBackground: false,
+      staleTime: 30_000,
     }
   );
 

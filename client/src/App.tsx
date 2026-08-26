@@ -1,25 +1,50 @@
 import { Toaster } from "@/components/ui/sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
+import { lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ScrollRestoration from "./components/ScrollRestoration";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
-import CreateTrip from "./pages/CreateTrip";
-import JoinTrip from "./pages/JoinTrip";
-import TripDashboard from "./pages/TripDashboard";
-import TripDates from "./pages/TripDates";
-import TripDestinations from "./pages/TripDestinations";
-import TripAccommodations from "./pages/TripAccommodations";
-import TripBudget from "./pages/TripBudget";
-import TripReferee from "./pages/TripReferee";
-import TripPreferences from "./pages/TripPreferences";
-import TripMembers from "./pages/TripMembers";
-import Notifications from "./pages/Notifications";
-import MagicLinkVerify from "./pages/MagicLinkVerify";
-import Admin from "@/pages/Admin";
-import Profile from "./pages/Profile";
+
+/**
+ * Every page but the first two is fetched when somebody goes to it.
+ *
+ * All fifteen used to be imported here, so the first load carried recharts,
+ * streamdown, framer-motion, embla and react-day-picker whichever page you had
+ * actually asked for — including the sign-in screen, which uses none of them.
+ *
+ * `Home` and `NotFound` stay eager: the first is what an unauthenticated visitor
+ * lands on, so splitting it only adds a round trip before anything is drawn, and
+ * the second is the fallback, which should never itself fail to load.
+ */
+const CreateTrip = lazy(() => import("./pages/CreateTrip"));
+const JoinTrip = lazy(() => import("./pages/JoinTrip"));
+const TripDashboard = lazy(() => import("./pages/TripDashboard"));
+const TripDates = lazy(() => import("./pages/TripDates"));
+const TripDestinations = lazy(() => import("./pages/TripDestinations"));
+const TripAccommodations = lazy(() => import("./pages/TripAccommodations"));
+const TripBudget = lazy(() => import("./pages/TripBudget"));
+const TripReferee = lazy(() => import("./pages/TripReferee"));
+const TripPreferences = lazy(() => import("./pages/TripPreferences"));
+const TripMembers = lazy(() => import("./pages/TripMembers"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const Profile = lazy(() => import("./pages/Profile"));
+
+/** Shown while a page's chunk is on its way. */
+function PageLoading() {
+  return (
+    <div className="p-4 space-y-3">
+      <Skeleton className="h-8 w-1/3" />
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
+    </div>
+  );
+}
 
 function Router() {
   return (
@@ -52,7 +77,12 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <ScrollRestoration />
-          <Router />
+          {/* Inside the boundary on purpose: a chunk that fails to load — a
+              stale deploy, a flaky connection — is an error to be shown, not a
+              white screen. */}
+          <Suspense fallback={<PageLoading />}>
+            <Router />
+          </Suspense>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

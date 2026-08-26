@@ -123,9 +123,53 @@ LLM, so new requirements never need a schema change.
 - Foreign keys cascade from `trips`: deleting a trip removes its proposals, votes
   and comments.
 
+## Indexes
+
+Read this before adding one — the table already has more than it looks like it
+does, and a duplicate costs every write and buys nothing.
+
+They live in three places, for reasons that are historical rather than good:
+
+- **`drizzle/schema.ts`**, as `index()` on the table. This is where a new one
+  should go. It declared none at all until `0015_hot_path_indexes.sql`, which is
+  how every table from the original schema — memberships, votes, proposals,
+  notifications, comments — spent its life being sequentially scanned.
+- **Hand-written SQL**, in migrations `0005` and `0008`–`0013`, for the tables
+  those migrations added: `trip_groups`, `trip_members (groupId)`,
+  `trip_attendees`, `budget_proposals`, `budget_votes`, `activity_events`,
+  `contacts`, `contact_group*`, `trip_invites`, `suggestion_dismissals`.
+- **Functional and partial unique indexes** — `lower(email)` on contacts and
+  invites, the partial ones on contact group members — which stay in SQL because
+  drizzle cannot express them. `schema.ts` says so at each of those tables.
+
+`scripts/lib/migrationSql.test.mjs` asserts that every index declared in
+`schema.ts` appears in a committed migration, so the first two cannot drift.
+
+Hot lookups worth knowing about: `trip_members (tripId, userId)` is the most
+executed query in the app — `requireTripRole` runs it on every trip-scoped
+procedure — and `(tripId)` alone needs nothing of its own, being the leading
+column of that composite. It is not a _unique_ index, though it morally is: this
+table has never been checked for duplicate pairs, and a unique index that fails
+to build takes the deploy down. Tightening it is a migration of its own, after
+that check.
+
 ## Changing the schema
 
-Edit `drizzle/schema.ts`, then follow [../runbooks/database.md](../runbooks/database.md).
-Note the open gap recorded there: the project currently uses `drizzle-kit push`
-rather than versioned migrations, so schema changes are not yet reviewable or
-reversible in production.
+Edit `drizzle/schema.ts`, add the matching migration, and follow
+[../runbooks/database.md](../runbooks/database.md). Both go in the **same
+commit** — a column that ships without its migration takes production down, and
+it already did once (AGENTS.md rule 9).
+
+**`pnpm db:generate` does not work in this repository, and running it will
+propose something wrong.** `drizzle/meta/` stops at snapshot `0007` while the
+journal runs to `0015`: migrations `0008` onwards were hand-written without
+regenerating snapshots, so `drizzle-kit generate` diffs `schema.ts` against a
+schema seven migrations stale and offers to recreate everything since. Write the
+migration by hand, in the shape of `0014` or `0015`, and add its entry to
+`drizzle/meta/_journal.json` — `scripts/db-migrate.mjs` reads the journal, not
+the folder, so a file with no entry never applies.
+
+That drift is worth fixing on its own: replaying the snapshots up to `0015`
+would make the generator usable again. Until somebody does, the pair of tests in
+`scripts/lib/migrationSql.test.mjs` — schema declarations against committed SQL,
+and the journal against the files — is what stands in for it.
