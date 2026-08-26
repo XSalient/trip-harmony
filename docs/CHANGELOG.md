@@ -8,6 +8,45 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-25 — What you wrote is read properly, and the budget screen offers it too
+
+### Fixed
+
+- **A shouted three-letter word is no longer a currency.** The money parser read
+  any `[A-Z]{3}` beside a number as a currency code, so "WE ARE FREE IN MAY 2027"
+  offered a budget of _2027 MAY_ and "flight ref ABC 1234" one of _1234 ABC_ —
+  and `budget.create` accepts any three letters, so a tap put it in front of the
+  whole group under the writer's name. Codes are now checked against a closed
+  list. This was the exact failure [ADR 0020](adr/0020-preferences-suggest-proposals.md)
+  is built around: a wrong suggestion costs the trust that makes anybody read the
+  next one.
+
+- **The forms people actually write are now read.** A currency after the figure
+  or spelled out ("1200 GBP", "2000 euros"), `pp` stuck to the number ("£1200pp"
+  — `\bpp\b` sees no boundary after a digit, so it had been reading as a trip
+  total), the month before the days ("Sept 12–19"), short month names, ordinals
+  ("12th to 19th September"), and a month with a year and no preposition ("free
+  JUL 2027"). A range and the month it sits in are one suggestion, not two.
+
+- **Figures and dates that cannot be proposed are left alone.** A nightly figure
+  ("$150 a night") has no scope in the enum to be said in, and calling it a trip
+  total states something the writer did not; a headcount beside the word budget
+  ("budget for 10 people") is not £10; a day the month does not have
+  ("31 September", "30 February") and a range that has already been are refused.
+
+- **The quoted sentence is no longer cut at a decimal point.** "£1,200.50 per
+  family" was quoted back as "we could do £1,200". The quote is the reason the
+  card can be checked at a glance, so a misquote defeats the card.
+
+### Added
+
+- **The budget screen offers the same proposals.** The private cap is set there,
+  and it is the figure most likely to stay private by accident — so the card that
+  offers to put it to the group now appears beside the proposals, budget ones
+  only, and refreshes the moment a cap is saved.
+
+---
+
 ## 2026-08-25 — The app stops making you wait for it
 
 ### Fixed

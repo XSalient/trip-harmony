@@ -30,6 +30,8 @@ import VotedCount from "@/components/trip/VotedCount";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
 import AbstainButton from "@/components/trip/AbstainButton";
+import ProposalSuggestions from "@/components/trip/ProposalSuggestions";
+import type { Suggestion } from "@shared/suggestions";
 import {
   MAJORITY_VOTE,
   finaliseBlockReason,
@@ -265,6 +267,56 @@ export default function TripBudget() {
     else voteMutation.mutate({ proposalId, vote }, done);
   };
 
+  // A figure somebody has already stated — the private cap they set, or a
+  // sentence from My Preferences — offered here as something to put on the
+  // table. The cap is set on this screen, and it is the number most likely to
+  // stay private by accident. Budget only: the dates it also finds belong on
+  // the dates screen, and this one asks a single question.
+  const { data: suggested } = trpc.suggestions.fromPreferences.useQuery(
+    { tripId },
+    { enabled: tripId > 0 && canContribute }
+  );
+  const budgetSuggestions = useMemo(
+    () =>
+      ((suggested?.suggestions ?? []) as Suggestion[]).filter(
+        s => s.kind === "budget"
+      ),
+    [suggested]
+  );
+  const dismissSuggestion = trpc.suggestions.dismiss.useMutation();
+
+  /** Through `budget.create`, so it arrives as an ordinary proposal. */
+  const handleProposeSuggestion = async (
+    s: Suggestion,
+    picked?: BudgetScope
+  ) => {
+    if (s.kind !== "budget") return;
+    try {
+      await createMutation.mutateAsync({
+        tripId,
+        title: s.title,
+        amount: s.amount,
+        currency: s.currency,
+        scope: picked ?? s.scope,
+      });
+      utils.budget.list.invalidate({ tripId });
+      utils.budget.summary.invalidate({ tripId });
+      utils.suggestions.fromPreferences.invalidate({ tripId });
+      toast.success("Proposed — everyone can vote on it now");
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't propose that");
+    }
+  };
+
+  const handleDismissSuggestion = async (s: Suggestion) => {
+    await dismissSuggestion.mutateAsync({
+      tripId,
+      kind: s.kind,
+      fingerprint: s.fingerprint,
+    });
+    utils.suggestions.fromPreferences.invalidate({ tripId });
+  };
+
   const handleToggleLock = async (proposalId: number, locked: boolean) => {
     try {
       await setLockMutation.mutateAsync({ proposalId, locked });
@@ -293,6 +345,8 @@ export default function TripBudget() {
     try {
       await capMutation.mutateAsync({ tripId, budgetMax: cap });
       utils.budget.summary.invalidate({ tripId });
+      // The figure they just set privately is now offerable as a proposal.
+      utils.suggestions.fromPreferences.invalidate({ tripId });
       setCapOpen(false);
       toast.success(
         summary?.myCapIsGroup
@@ -420,6 +474,16 @@ export default function TripBudget() {
             You're following this trip. The budgets on the table and the tally
             are here; proposing and voting are for tripmates.
           </WatcherNotice>
+        )}
+
+        {canContribute && (
+          <ProposalSuggestions
+            suggestions={budgetSuggestions}
+            currency={currency}
+            busy={createMutation.isPending}
+            onPropose={handleProposeSuggestion}
+            onDismiss={handleDismissSuggestion}
+          />
         )}
 
         {/* Who is being charged. Pets are counted and shown, but never divided by. */}

@@ -58,11 +58,33 @@ mutations, so a converted preference is an ordinary proposal.
 - [x] The cap is offered as a proposal to its owner alone, and the summary card
       says in a line that the cap is theirs and a proposal is the group's.
 
+### E16.5 — It reads what people actually write (2026-08-25)
+
+The first parser was conservative in intent and wrong in fact: it read a bare
+`[A-Z]{3}` beside a number as a currency, and missed most real phrasings.
+
+- [x] A currency code is checked against a closed list. "WE ARE FREE IN MAY 2027"
+      and "flight ref ABC 1234" no longer propose a budget — `budget.create`
+      takes any three letters, so this reached the group.
+- [x] The currency may sit after the figure or be spelled out: "1200 GBP",
+      "2000 euros", "1500 usd".
+- [x] `pp` glued to a figure is per person, and marks the figure as money on its
+      own: "£1200pp", "1200pp".
+- [x] Dates: the month before the days ("Sept 12–19"), short month names,
+      ordinals, and a month with a year and no preposition ("free JUL 2027"). A
+      range and the month containing it are one suggestion.
+- [x] Refused: a nightly figure (no scope can hold it), a headcount beside the
+      word budget, a day the month does not have, and a range already past.
+- [x] The quoted sentence is not cut at a decimal point.
+- [x] The budget screen shows the budget suggestions too, and refreshes when a
+      cap is saved there — that screen is where the cap is set.
+
 **Touches** — `shared/suggestions.ts` (new), `server/routers/suggestions.ts`
 (new) plus one line in `routers/index.ts`,
 `drizzle/0014_suggestion_dismissals.sql` (new), `drizzle/schema.ts`,
 `server/db.ts`, `client/src/components/trip/ProposalSuggestions.tsx` (new),
-`client/src/pages/TripPreferences.tsx`, `PreferencesSummary.tsx`.
+`client/src/pages/TripPreferences.tsx`, `PreferencesSummary.tsx`,
+`client/src/pages/TripBudget.tsx`.
 
 **Tests** — `shared/suggestions.test.ts` (fixtures, including the numbers that
 must _not_ be read as money), `aiLimits.test.ts`.
