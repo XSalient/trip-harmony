@@ -1613,6 +1613,7 @@ export const ACTIVITY_ACTIONS = [
   "group.deleted",
   "group.member_assigned",
   "attendee.added",
+  "attendee.moved",
   "attendee.removed",
   "vote.superseded",
   "trip.edited",

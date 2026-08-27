@@ -8,6 +8,30 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-27 — Somebody without an account can be corrected, and moved
+
+### Fixed
+
+- **A guest added to the wrong family can now be moved out of it.** Members drag
+  between family cards; the people with no account — a child, a partner, the dog
+  — could only ever be added and removed, because no procedure moved one:
+  `editAttendee` took a name, a kind and an age, and no `groupId`. Fixing a
+  mis-placed guest meant deleting the row and typing it again. `assignAttendee`
+  moves them now, under the same rule that governs moving a member.
+
+- **Their name and age can be corrected at all.** `editAttendee` had existed
+  since E10 with nothing on any screen calling it. Clicking a guest's pill opens
+  the dialog that added them, now able to fix the name, the kind, the age and
+  the group.
+
+### Changed
+
+- **The two `+` buttons on a group card say what they do.** "Join or add" moved
+  an existing member and created nobody; "Add someone" created a person with no
+  account. They now read **"Add a member"** and **"Add without an account"**.
+
+---
+
 ## 2026-08-25 — What you wrote is read properly, and the budget screen offers it too
 
 ### Fixed

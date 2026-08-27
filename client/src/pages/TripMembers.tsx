@@ -42,6 +42,7 @@ import DraggableMemberChip, {
   DROP_ATTR,
   groupUnderPointer,
 } from "@/components/trip/DraggableMemberChip";
+import AttendeePill from "@/components/trip/AttendeePill";
 import type { PanInfo } from "framer-motion";
 import { format } from "date-fns";
 import {
@@ -57,8 +58,6 @@ import {
   Check,
   X,
   Users,
-  PawPrint,
-  Baby,
   Plus,
 } from "lucide-react";
 import {
@@ -253,6 +252,8 @@ export default function TripMembers() {
 
   const setVotingUnit = trpc.groups.setVotingUnit.useMutation();
   const addAttendee = trpc.groups.addAttendee.useMutation();
+  const editAttendee = trpc.groups.editAttendee.useMutation();
+  const assignAttendee = trpc.groups.assignAttendee.useMutation();
   const removeAttendee = trpc.groups.removeAttendee.useMutation();
 
   const [newGroupName, setNewGroupName] = useState("");
@@ -268,9 +269,18 @@ export default function TripMembers() {
   const [dragOver, setDragOver] = useState<number | null | undefined>(
     undefined
   );
+  /**
+   * The dialog's destination group, in both of its modes: which group a new
+   * person is being added to, and which one the person being edited should end
+   * up in. `undefined` is the third state and means the dialog is closed —
+   * `null`, the ungrouped bucket, is a real answer here as everywhere else on
+   * this page.
+   */
   const [attendeeFor, setAttendeeFor] = useState<number | null | undefined>(
     undefined
   );
+  /** The row being edited, or null when the dialog is adding somebody new. */
+  const [attendeeEdit, setAttendeeEdit] = useState<any | null>(null);
   const [attendeeName, setAttendeeName] = useState("");
   const [attendeeKind, setAttendeeKind] = useState<"adult" | "child" | "pet">(
     "child"
@@ -664,35 +674,100 @@ export default function TripMembers() {
     }
   };
 
-  const handleAddAttendee = async () => {
+  /** Opens the dialog empty, to add somebody new to `groupId`. */
+  const openAddAttendee = (groupId: number | null) => {
+    setAttendeeEdit(null);
+    setAttendeeName("");
+    setAttendeeKind("child");
+    setAttendeeAge("");
+    setAttendeeFor(groupId);
+  };
+
+  /**
+   * Opens the same dialog on somebody who is already here.
+   *
+   * `attendeeFor` is seeded with the group they are in, so the picker starts
+   * on the truth and "Save" without touching it moves nobody.
+   */
+  const openEditAttendee = usePersistFn((a: any) => {
+    setAttendeeEdit(a);
+    setAttendeeName(a.name ?? "");
+    setAttendeeKind(a.kind ?? "adult");
+    setAttendeeAge(a.age == null ? "" : String(a.age));
+    setAttendeeFor(a.groupId ?? null);
+  });
+
+  const closeAttendeeDialog = () => {
+    setAttendeeFor(undefined);
+    setAttendeeEdit(null);
+    setAttendeeName("");
+    setAttendeeAge("");
+  };
+
+  /**
+   * One button for both modes.
+   *
+   * Editing is two calls rather than one because the server keeps them apart:
+   * `editAttendee` corrects a name or an age, `assignAttendee` reorganises —
+   * a different permission rule, and a different line in the activity trail.
+   * The move goes second, so a rejected move does not silently discard the
+   * rename that was accepted.
+   */
+  const handleSaveAttendee = async () => {
     if (!attendeeName.trim()) return toast.error("A name is needed");
+    const age =
+      attendeeKind === "pet" || !attendeeAge ? null : Number(attendeeAge);
     try {
+      if (attendeeEdit) {
+        await editAttendee.mutateAsync({
+          id: attendeeEdit.id,
+          name: attendeeName.trim(),
+          kind: attendeeKind,
+          age,
+        });
+        const to = attendeeFor ?? null;
+        const moved = to !== (attendeeEdit.groupId ?? null);
+        if (moved)
+          await assignAttendee.mutateAsync({
+            id: attendeeEdit.id,
+            groupId: to,
+          });
+        closeAttendeeDialog();
+        refreshGroups();
+        toast.success(
+          moved
+            ? `Moved to ${to == null ? "no group" : groupName(to)}`
+            : "Saved"
+        );
+        return;
+      }
       await addAttendee.mutateAsync({
         tripId,
         groupId: attendeeFor ?? null,
         name: attendeeName.trim(),
         kind: attendeeKind,
-        age:
-          attendeeKind === "pet" || !attendeeAge ? null : Number(attendeeAge),
+        age,
       });
-      setAttendeeName("");
-      setAttendeeAge("");
-      setAttendeeFor(undefined);
+      closeAttendeeDialog();
       refreshGroups();
       toast.success("Added to the trip");
     } catch (e: any) {
-      toast.error(e?.message || "Couldn't add them");
+      // Whatever landed before the failure is on screen either way.
+      refreshGroups();
+      toast.error(e?.message || "Couldn't save that");
     }
   };
 
-  const handleRemoveAttendee = async (id: number) => {
+  // Persisted for the same reason the drag handlers are: `AttendeePill` is
+  // memoised, and a fresh closure per render would make that memo do nothing.
+  const handleRemoveAttendee = usePersistFn(async (id: number) => {
     try {
       await removeAttendee.mutateAsync({ id });
       refreshGroups();
     } catch (e: any) {
       toast.error(e?.message || "Couldn't remove them");
     }
-  };
+  });
 
   const handleRoleChange = async (userId: number, role: TripRole) => {
     try {
@@ -915,46 +990,27 @@ export default function TripMembers() {
                       onClick={() => setAddToGroup(g.id)}
                       className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
                     >
-                      <Plus className="h-3 w-3" />
-                      {myGroupId === g.id ? "Add member" : "Join or add"}
+                      <Plus className="h-3 w-3" /> Add a member
                     </button>
                   )}
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
                   {(attendeesByGroup.get(String(g.id)) ?? []).map((a: any) => (
-                    <span
+                    <AttendeePill
                       key={a.id}
-                      className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
-                    >
-                      {a.kind === "pet" ? (
-                        <PawPrint className="h-3 w-3 text-muted-foreground" />
-                      ) : a.kind === "child" ? (
-                        <Baby className="h-3 w-3 text-muted-foreground" />
-                      ) : null}
-                      {a.name}
-                      {/* Never for a pet, and never to a watcher — the
-                            server strips it either way. */}
-                      {a.age != null && (
-                        <span className="text-muted-foreground">{a.age}</span>
-                      )}
-                      {canAddTo(g.id) && a.memberUserId == null && (
-                        <button
-                          onClick={() => handleRemoveAttendee(a.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                          aria-label={`Remove ${a.name}`}
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
-                    </span>
+                      attendee={a}
+                      canEdit={canAddTo(g.id)}
+                      onEdit={openEditAttendee}
+                      onRemove={handleRemoveAttendee}
+                    />
                   ))}
                   {canAddTo(g.id) && (
                     <button
-                      onClick={() => setAttendeeFor(g.id)}
+                      onClick={() => openAddAttendee(g.id)}
                       className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
                     >
-                      <Plus className="h-3 w-3" /> Add someone
+                      <Plus className="h-3 w-3" /> Add without an account
                     </button>
                   )}
                 </div>
@@ -1019,36 +1075,20 @@ export default function TripMembers() {
 
               <div className="flex flex-wrap gap-1.5">
                 {(attendeesByGroup.get("none") ?? []).map((a: any) => (
-                  <span
+                  <AttendeePill
                     key={a.id}
-                    className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]"
-                  >
-                    {a.kind === "pet" ? (
-                      <PawPrint className="h-3 w-3 text-muted-foreground" />
-                    ) : a.kind === "child" ? (
-                      <Baby className="h-3 w-3 text-muted-foreground" />
-                    ) : null}
-                    {a.name}
-                    {a.age != null && (
-                      <span className="text-muted-foreground">{a.age}</span>
-                    )}
-                    {isAdmin && a.memberUserId == null && (
-                      <button
-                        onClick={() => handleRemoveAttendee(a.id)}
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label={`Remove ${a.name}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </span>
+                    attendee={a}
+                    canEdit={isAdmin}
+                    onEdit={openEditAttendee}
+                    onRemove={handleRemoveAttendee}
+                  />
                 ))}
                 {isAdmin && (
                   <button
-                    onClick={() => setAttendeeFor(null)}
+                    onClick={() => openAddAttendee(null)}
                     className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
                   >
-                    <Plus className="h-3 w-3" /> Add someone
+                    <Plus className="h-3 w-3" /> Add without an account
                   </button>
                 )}
               </div>
@@ -1633,14 +1673,21 @@ export default function TripMembers() {
         </DialogContent>
       </Dialog>
 
-      {/* Add someone with no account: a child, a partner, the dog. */}
+      {/* Somebody with no account: a child, a partner, the dog. The same
+          dialog adds them and, afterwards, corrects them — a name typed wrong
+          or a group picked wrong used to mean removing them and starting
+          again. */}
       <Dialog
         open={attendeeFor !== undefined}
-        onOpenChange={open => !open && setAttendeeFor(undefined)}
+        onOpenChange={open => !open && closeAttendeeDialog()}
       >
         <DialogContent className="sm:max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Add someone to the trip</DialogTitle>
+            <DialogTitle>
+              {attendeeEdit
+                ? `Edit ${attendeeEdit.name}`
+                : "Add someone without an account"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-1">
             <p className="text-sm text-muted-foreground">
@@ -1688,12 +1735,46 @@ export default function TripMembers() {
                 />
               </div>
             )}
+            {/* Only when editing: which family they are in. Adding already
+                knows, because the `+` that opened this belongs to a card.
+                Every destination is offered and the server is the authority —
+                the same rule that governs moving a member, `mayMoveBetween`. */}
+            {attendeeEdit && (groups ?? []).length > 0 && (
+              <div>
+                <Label className="text-xs">Which group?</Label>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {[...(groups ?? []).map((g: any) => g), null].map(
+                    (g: any, i: number) => {
+                      const id = g ? g.id : null;
+                      return (
+                        <button
+                          key={g ? `g${g.id}` : `none${i}`}
+                          type="button"
+                          onClick={() => setAttendeeFor(id)}
+                          className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
+                            (attendeeFor ?? null) === id
+                              ? "border-primary bg-primary/10 text-primary font-medium"
+                              : "border-border/60 text-muted-foreground hover:border-border"
+                          }`}
+                        >
+                          {g ? g.name : "Not in a group"}
+                        </button>
+                      );
+                    }
+                  )}
+                </div>
+              </div>
+            )}
             <Button
-              onClick={handleAddAttendee}
+              onClick={handleSaveAttendee}
               className="w-full rounded-lg"
-              disabled={addAttendee.isPending}
+              disabled={
+                addAttendee.isPending ||
+                editAttendee.isPending ||
+                assignAttendee.isPending
+              }
             >
-              Add them
+              {attendeeEdit ? "Save" : "Add them"}
             </Button>
           </div>
         </DialogContent>

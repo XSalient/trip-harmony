@@ -37,16 +37,12 @@ function projectGroupsForRole<T extends { budgetMax: string | null }>(
 }
 
 /**
- * May this person move that person into that group?
+ * May this person move somebody out of `from` and into `to`?
  *
- * Pure, and separate from the procedure, because the rule is the interesting
- * part and it has four cases that are easy to get subtly wrong:
+ * The half of the rule that is about groups alone, so it holds for a member
+ * and for an attendee who has no account to be:
  *
  * - an **admin** moves anyone anywhere;
- * - anyone moves **themselves** into any group on the trip, or out of all of
- *   them — this is the whole point of the change, and it used not to be
- *   possible even for an admin, because the members page hid the control on
- *   your own row;
  * - a tripmate pulls someone **into the group they are in themselves**;
  * - a tripmate pushes someone **out of the group they are in themselves**.
  *
@@ -55,15 +51,32 @@ function projectGroupsForRole<T extends { budgetMax: string | null }>(
  * the last two cases cannot apply, or every ungrouped member could shuffle
  * every other ungrouped member around.
  */
+export function mayMoveBetween(
+  me: { role: string; groupId: number | null },
+  from: number | null,
+  to: number | null
+): boolean {
+  if (me.role === "admin") return true;
+  if (me.groupId == null) return false;
+  return from === me.groupId || to === me.groupId;
+}
+
+/**
+ * May this person move that **member** into that group?
+ *
+ * `mayMoveBetween` plus the one case that only applies to somebody with an
+ * account: anyone moves **themselves** into any group on the trip, or out of
+ * all of them — this is the whole point of the change, and it used not to be
+ * possible even for an admin, because the members page hid the control on
+ * your own row.
+ */
 export function mayAssign(
   me: { role: string; userId: number; groupId: number | null },
   target: { userId: number; groupId: number | null },
   groupId: number | null
 ): boolean {
-  if (me.role === "admin") return true;
   if (target.userId === me.userId) return true;
-  if (me.groupId == null) return false;
-  return target.groupId === me.groupId || groupId === me.groupId;
+  return mayMoveBetween(me, target.groupId, groupId);
 }
 
 /** The group a member may act on: their own, unless they are an admin. */
@@ -400,6 +413,59 @@ export const groupsRouter = router({
       await db.updateTripAttendee(id, {
         ...data,
         age: kind === "pet" ? null : (data.age ?? attendee.age),
+      });
+      return { success: true };
+    }),
+
+  /**
+   * Moves an attendee into another group, or out of all of them.
+   *
+   * `editAttendee` deliberately does not take a `groupId`: which family
+   * somebody is in is a reorganisation, governed by `mayMoveBetween`, not a
+   * correction to their name or age. Without this procedure the only way to
+   * fix a guest added to the wrong group was to remove them and add them
+   * again, which loses the row and everything hanging off it.
+   *
+   * No `reconcileAfterRegroup` — an attendee casts no vote, so moving one
+   * cannot leave a group holding two of them.
+   */
+  assignAttendee: protectedProcedure
+    .input(z.object({ id: z.number(), groupId: z.number().nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const attendee = await db.getTripAttendee(input.id);
+      if (!attendee)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "That person is not on this trip.",
+        });
+      // A member's own attendee row follows the member (`db.setMemberGroup`).
+      // Moving it on its own would put somebody's headcount in one family and
+      // their vote in another.
+      if (attendee.memberUserId != null)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "This person has an account on the trip. Move them from the members list instead.",
+        });
+      const me = await requireTripRole(
+        attendee.tripId,
+        ctx.user.id,
+        "tripmate"
+      );
+      if (!mayMoveBetween(me, attendee.groupId, input.groupId))
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "You can only move people in your own group. Ask an admin for the rest.",
+        });
+      await db.updateTripAttendee(input.id, { groupId: input.groupId });
+      await db.recordActivity({
+        tripId: attendee.tripId,
+        actorUserId: ctx.user.id,
+        action: "attendee.moved",
+        entityType: "attendee",
+        entityId: input.id,
+        metadata: { from: attendee.groupId ?? null, to: input.groupId ?? null },
       });
       return { success: true };
     }),

@@ -14,7 +14,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { mayAssign } from "./groups.js";
+import { mayAssign, mayMoveBetween } from "./groups.js";
 
 const source = readFileSync(join(import.meta.dirname, "groups.ts"), "utf8");
 
@@ -71,6 +71,31 @@ describe("mayAssign", () => {
   });
 });
 
+describe("mayMoveBetween — the half that has no account in it", () => {
+  it("lets an admin move anything anywhere", () => {
+    expect(mayMoveBetween(admin, 20, 10)).toBe(true);
+    expect(mayMoveBetween(admin, 20, null)).toBe(true);
+  });
+
+  it("lets a tripmate pull somebody into their own group", () => {
+    expect(mayMoveBetween(patelAdult, 20, 10)).toBe(true);
+  });
+
+  it("lets a tripmate push somebody out of their own group", () => {
+    expect(mayMoveBetween(patelAdult, 10, null)).toBe(true);
+  });
+
+  it("refuses a tripmate reorganising two families they are in neither of", () => {
+    expect(mayMoveBetween(patelAdult, 20, 30)).toBe(false);
+  });
+
+  it("grants an ungrouped tripmate nothing — including over the ungrouped", () => {
+    // `null === null` would otherwise read as "their own group".
+    expect(mayMoveBetween(ungrouped, null, 10)).toBe(false);
+    expect(mayMoveBetween(ungrouped, 20, null)).toBe(false);
+  });
+});
+
 describe("the procedures ask the right role", () => {
   it("a tripmate may create a group, and is put in it by default", () => {
     const body = procedure("create");
@@ -101,6 +126,25 @@ describe("the procedures ask the right role", () => {
     // It has to look at both, or a group holding only children deletes freely.
     expect(body).toContain("getTripMembers(");
     expect(body).toContain("getTripAttendees(");
+  });
+
+  it("assignAttendee asks mayMoveBetween, and only that", () => {
+    const body = procedure("assignAttendee");
+    expect(body).toMatch(
+      /requireTripRole\(\s*attendee\.tripId,\s*ctx\.user\.id,\s*"tripmate"/
+    );
+    expect(body).toContain("mayMoveBetween(");
+    expect(body).toContain("FORBIDDEN");
+    // An attendee casts no vote, so a move cannot leave a group holding two.
+    expect(body).not.toContain("reconcileAfterRegroup");
+  });
+
+  it("refuses to move a member's own attendee row on its own", () => {
+    // It follows the member. Moving it alone puts somebody's headcount in one
+    // family and their vote in another.
+    expect(procedure("assignAttendee")).toMatch(
+      /memberUserId != null[\s\S]{0,200}BAD_REQUEST/
+    );
   });
 
   it("the voting unit stays admin-only — it changes every denominator", () => {
