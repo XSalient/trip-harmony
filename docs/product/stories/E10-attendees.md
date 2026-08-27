@@ -34,7 +34,12 @@ in headcount, not in a budget split, not in the summary's "per person".
 - [x] I can add an adult, a child with an age, and a pet to my group.
 - [x] The form offers no age field for a pet, and the row saves with `age = null`.
 - [x] I can edit and remove attendees in **my own** group; an admin can do it for
-      any group.
+      any group. Clicking the pill opens the dialog that added them.
+- [x] I can **move** an attendee into another group, or out of all of them,
+      under the same rule that governs moving a member (`mayMoveBetween`). A
+      guest added to the wrong family is a correction, not a remove-and-re-add.
+- [x] A member's own attendee row cannot be moved on its own — it follows the
+      member, or their headcount and their vote end up in different families.
 - [x] A tripmate cannot add or edit attendees in someone else's group; a watcher
       cannot add any.
 - [x] Deleting a group leaves its attendees on the trip, ungrouped — the same
@@ -51,9 +56,15 @@ in headcount, not in a budget split, not in the summary's "per person".
   `(tripId, memberUserId) where memberUserId is not null`, and a **backfill of
   one adult attendee per accepted member** so an existing trip's headcount is
   right the moment the migration lands.
-- `server/routers/groups.ts` — `attendees.list` / `add` / `edit` / `remove`.
-  Attendees are group content, not their own domain, so they go in the groups
-  router rather than a fourth file.
+- `server/routers/groups.ts` — `attendees.list` / `add` / `edit` / `assign` /
+  `remove`. Attendees are group content, not their own domain, so they go in the
+  groups router rather than a fourth file. `assignAttendee` is separate from
+  `editAttendee` because which family somebody is in is a reorganisation with
+  its own permission rule (`mayMoveBetween`, shared with `mayAssign`), not a
+  correction to their name.
+- `client/src/components/trip/AttendeePill.tsx` — the chip, and the way into
+  the edit dialog. Not draggable: members drag, attendees are moved from the
+  dialog, which is the path a keyboard and a phone can both take.
 - `server/db.ts` — `getTripAttendees`, `createTripAttendee`,
   `updateTripAttendee`, `deleteTripAttendee`; the clone and delete sets
   (`:433`, `:494`).
