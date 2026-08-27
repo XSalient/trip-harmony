@@ -38,6 +38,9 @@ in headcount, not in a budget split, not in the summary's "per person".
 - [x] I can **move** an attendee into another group, or out of all of them,
       under the same rule that governs moving a member (`mayMoveBetween`). A
       guest added to the wrong family is a correction, not a remove-and-re-add.
+- [x] I can do it by dragging the pill onto another card, exactly as with a
+      member, or from the dialog when a drag is no use — on a keyboard, or onto
+      a card scrolled off the screen.
 - [x] A member's own attendee row cannot be moved on its own — it follows the
       member, or their headcount and their vote end up in different families.
 - [x] A tripmate cannot add or edit attendees in someone else's group; a watcher
@@ -62,9 +65,11 @@ in headcount, not in a budget split, not in the summary's "per person".
   `editAttendee` because which family somebody is in is a reorganisation with
   its own permission rule (`mayMoveBetween`, shared with `mayAssign`), not a
   correction to their name.
-- `client/src/components/trip/AttendeePill.tsx` — the chip, and the way into
-  the edit dialog. Not draggable: members drag, attendees are moved from the
-  dialog, which is the path a keyboard and a phone can both take.
+- `client/src/components/trip/DraggableChip.tsx` — the drag, shared with
+  `DraggableMemberChip`; `AttendeePill.tsx` — what is specific to somebody
+  with no account: the kind icon, and the body that opens the edit dialog.
+  A chip that both drags and opens something has to swallow the click that
+  ends a drag, or every drop opens the dialog too.
 - `server/db.ts` — `getTripAttendees`, `createTripAttendee`,
   `updateTripAttendee`, `deleteTripAttendee`; the clone and delete sets
   (`:433`, `:494`).

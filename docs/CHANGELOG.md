@@ -12,6 +12,13 @@ is built, run or deployed.
 
 ### Fixed
 
+- **A guest can be dragged between families, like anybody else.** The chip and
+  the pill sat on the same card and only one of them moved under a finger,
+  which is the kind of difference people report as a broken feature rather than
+  a missing one. The drag mechanics now live in one `DraggableChip` that both
+  use, keyed by kind and id — a member's `userId` and an attendee's row `id`
+  overlap, so a bare number would light up two different people at once.
+
 - **A guest added to the wrong family can now be moved out of it.** Members drag
   between family cards; the people with no account — a child, a partner, the dog
   — could only ever be added and removed, because no procedure moved one:
