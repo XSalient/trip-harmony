@@ -41,6 +41,8 @@ import { toast } from "sonner";
 import DraggableMemberChip, {
   DROP_ATTR,
   groupUnderPointer,
+  dragIdFor,
+  parseDragId,
 } from "@/components/trip/DraggableMemberChip";
 import AttendeePill from "@/components/trip/AttendeePill";
 import type { PanInfo } from "framer-motion";
@@ -242,19 +244,52 @@ export default function TripMembers() {
         utils.trips.get.invalidate({ id: tripId });
     },
   });
+  const setVotingUnit = trpc.groups.setVotingUnit.useMutation();
+  const addAttendee = trpc.groups.addAttendee.useMutation();
+  const editAttendee = trpc.groups.editAttendee.useMutation();
+  /**
+   * The same optimistic treatment `assignMember` gets, and for the same reason
+   * (ADR 0021): a dragged pill has to be in its new card in the commit that
+   * ends the drag, or the gesture reads as one that did nothing.
+   *
+   * One query rather than two — an attendee has no member row to follow, and
+   * no vote, so nothing about `trips.members` moves with them.
+   */
+  const assignAttendee = trpc.groups.assignAttendee.useMutation({
+    onMutate: async ({ id, groupId }) => {
+      await utils.groups.attendees.cancel({ tripId });
+      const previous = utils.groups.attendees.getData({ tripId });
+      utils.groups.attendees.setData({ tripId }, (old: any) =>
+        old?.map((a: any) => (a.id === id ? { ...a, groupId } : a))
+      );
+      return previous;
+    },
+    onSuccess: (_res, { groupId }) =>
+      toast.success(
+        `Moved to ${groupId == null ? "no group" : groupName(groupId)}`
+      ),
+    onError: (error, _vars, previous) => {
+      // A patch with no rollback leaves the screen lying permanently.
+      if (previous) utils.groups.attendees.setData({ tripId }, previous);
+      toast.error(error.message || "Couldn't move them — put back");
+    },
+    onSettled: () => {
+      utils.groups.attendees.invalidate({ tripId });
+      // The only other thing a move changes: how many people each card holds.
+      utils.groups.headcount.invalidate({ tripId });
+    },
+  });
+  const removeAttendee = trpc.groups.removeAttendee.useMutation();
+
   /**
    * Who is mid-move. The chip is already in its new card by then — this only
    * dims it, so a second drag before the server has answered is not offered.
    */
-  const movingUserId = assignMember.isPending
-    ? (assignMember.variables?.userId ?? null)
-    : null;
-
-  const setVotingUnit = trpc.groups.setVotingUnit.useMutation();
-  const addAttendee = trpc.groups.addAttendee.useMutation();
-  const editAttendee = trpc.groups.editAttendee.useMutation();
-  const assignAttendee = trpc.groups.assignAttendee.useMutation();
-  const removeAttendee = trpc.groups.removeAttendee.useMutation();
+  const movingDragId = assignMember.isPending
+    ? dragIdFor("member", assignMember.variables?.userId ?? -1)
+    : assignAttendee.isPending
+      ? dragIdFor("attendee", assignAttendee.variables?.id ?? -1)
+      : null;
 
   const [newGroupName, setNewGroupName] = useState("");
   // Creating your family and then not being in it is nobody's intent.
@@ -265,7 +300,7 @@ export default function TripMembers() {
   const [importPlan, setImportPlan] = useState<any | null>(null);
   // Who is being dragged, and which card the pointer is over. Both are needed:
   // the first to know what to move, the second only so the card can light up.
-  const [dragging, setDragging] = useState<number | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<number | null | undefined>(
     undefined
   );
@@ -555,9 +590,9 @@ export default function TripMembers() {
     });
   });
 
-  const handleDragStart = usePersistFn((userId: number) => {
+  const handleDragStart = usePersistFn((dragId: string) => {
     dragOverRef.current = undefined;
-    setDragging(userId);
+    setDragging(dragId);
   });
 
   /** The `×` on a chip: out of whichever family they are in, not into another. */
@@ -572,7 +607,7 @@ export default function TripMembers() {
    * `undefined` from `groupUnderPointer` means no target, while `null` means
    * the "Not in a group" card, which is a real destination.
    */
-  const handleDrop = usePersistFn((userId: number, info: PanInfo) => {
+  const handleDrop = usePersistFn((dragId: string, info: PanInfo) => {
     // Read the target before clearing `dragging`: the hit test sees past this
     // chip by looking for `DRAGGING_ATTR`, which this state still carries.
     const target = groupUnderPointer(info);
@@ -580,10 +615,16 @@ export default function TripMembers() {
     dragOverRef.current = undefined;
     setDragOver(undefined);
     if (target === undefined) return;
+    const { kind, id } = parseDragId(dragId);
+    // Two different rows, two different procedures — but one gesture, and one
+    // "you dropped them where they already were" check.
     const current =
-      accepted.find((m: any) => m.userId === userId)?.groupId ?? null;
+      kind === "member"
+        ? (accepted.find((m: any) => m.userId === id)?.groupId ?? null)
+        : ((attendees ?? []).find((a: any) => a.id === id)?.groupId ?? null);
     if (current === target) return;
-    handleAssign(userId, target);
+    if (kind === "member") handleAssign(id, target);
+    else assignAttendee.mutate({ id, groupId: target });
   });
 
   const handleSaveGroup = async (groupId: number) => {
@@ -726,19 +767,15 @@ export default function TripMembers() {
           age,
         });
         const to = attendeeFor ?? null;
-        const moved = to !== (attendeeEdit.groupId ?? null);
-        if (moved)
+        // The move is its own mutation, and says so itself on success.
+        if (to !== (attendeeEdit.groupId ?? null))
           await assignAttendee.mutateAsync({
             id: attendeeEdit.id,
             groupId: to,
           });
+        else toast.success("Saved");
         closeAttendeeDialog();
         refreshGroups();
-        toast.success(
-          moved
-            ? `Moved to ${to == null ? "no group" : groupName(to)}`
-            : "Saved"
-        );
         return;
       }
       await addAttendee.mutateAsync({
@@ -974,8 +1011,10 @@ export default function TripMembers() {
                             ? `Leave ${g.name}`
                             : `Remove ${m.user?.name || "member"} from ${g.name}`
                         }
-                        dragging={dragging === m.userId}
-                        isPending={movingUserId === m.userId}
+                        dragging={dragging === dragIdFor("member", m.userId)}
+                        isPending={
+                          movingDragId === dragIdFor("member", m.userId)
+                        }
                         layoutId={`member-chip-${m.userId}`}
                         onRemove={handleRemoveFromGroup}
                         onDragStart={handleDragStart}
@@ -1001,8 +1040,14 @@ export default function TripMembers() {
                       key={a.id}
                       attendee={a}
                       canEdit={canAddTo(g.id)}
+                      dragging={dragging === dragIdFor("attendee", a.id)}
+                      isPending={movingDragId === dragIdFor("attendee", a.id)}
+                      layoutId={`attendee-chip-${a.id}`}
                       onEdit={openEditAttendee}
                       onRemove={handleRemoveAttendee}
+                      onDragStart={handleDragStart}
+                      onDrag={handleDragOver}
+                      onDragEnd={handleDrop}
                     />
                   ))}
                   {canAddTo(g.id) && (
@@ -1056,8 +1101,8 @@ export default function TripMembers() {
                     // can still be dragged into a family.
                     canMove={canMove(m) && (groups ?? []).length > 0}
                     removeLabel=""
-                    dragging={dragging === m.userId}
-                    isPending={movingUserId === m.userId}
+                    dragging={dragging === dragIdFor("member", m.userId)}
+                    isPending={movingDragId === dragIdFor("member", m.userId)}
                     layoutId={`member-chip-${m.userId}`}
                     onRemove={noop}
                     onDragStart={handleDragStart}
@@ -1079,8 +1124,14 @@ export default function TripMembers() {
                     key={a.id}
                     attendee={a}
                     canEdit={isAdmin}
+                    dragging={dragging === dragIdFor("attendee", a.id)}
+                    isPending={movingDragId === dragIdFor("attendee", a.id)}
+                    layoutId={`attendee-chip-${a.id}`}
                     onEdit={openEditAttendee}
                     onRemove={handleRemoveAttendee}
+                    onDragStart={handleDragStart}
+                    onDrag={handleDragOver}
+                    onDragEnd={handleDrop}
                   />
                 ))}
                 {isAdmin && (

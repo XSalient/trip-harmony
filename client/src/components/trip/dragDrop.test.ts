@@ -16,14 +16,25 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+/** The drag mechanics, shared by the member chip and the attendee pill. */
 const source = readFileSync(
+  join(import.meta.dirname, "DraggableChip.tsx"),
+  "utf8"
+);
+/** What is specific to a member: "(you)", and what the `\u00d7` means. */
+const member = readFileSync(
   join(import.meta.dirname, "DraggableMemberChip.tsx"),
+  "utf8"
+);
+/** And to somebody with no account: the kind icon, and the edit dialog. */
+const attendee = readFileSync(
+  join(import.meta.dirname, "AttendeePill.tsx"),
   "utf8"
 );
 
 const fn = source.slice(
   source.indexOf("export function groupUnderPointer"),
-  source.indexOf("function DraggableMemberChip")
+  source.indexOf("export default function DraggableChip")
 );
 
 describe("groupUnderPointer", () => {
@@ -65,23 +76,47 @@ describe("drag never becomes the only way", () => {
   it("keeps a button on every chip that can be moved", () => {
     // Drag has no answer for a keyboard, a screen reader, or a drop target
     // scrolled off the screen.
-    expect(source).toContain("aria-label={removeLabel}");
-    expect(source).toContain("onRemove(userId)");
+    expect(member).toContain("aria-label={removeLabel}");
+    expect(member).toContain("onRemove(userId)");
+    expect(attendee).toContain("aria-label={`Remove ${attendee.name}`}");
+    // The pill's own way in, which is also the one that can move them.
+    expect(attendee).toContain("onEdit(attendee)");
   });
 
   it("does not let the remove button start a drag", () => {
-    expect(source).toContain("onPointerDown={e => e.stopPropagation()}");
+    expect(member).toContain("onPointerDown={e => e.stopPropagation()}");
+    expect(attendee).toContain("onPointerDown={e => e.stopPropagation()}");
   });
 
   it("renders a plain chip for somebody the caller may not move", () => {
     expect(fn.length).toBeGreaterThan(0);
-    expect(source).toContain("if (!canMove)");
+    expect(member).toContain("if (!canMove)");
+    expect(attendee).toContain("if (!canEdit)");
+  });
+});
+
+describe("one drag, two kinds of row", () => {
+  it("keys a drag by kind and id, which a bare number cannot do", () => {
+    // User 5 and attendee 5 are different people; `dragging === 5` would
+    // light up both.
+    expect(source).toContain('export type DragKind = "member" | "attendee"');
+    expect(source).toContain("dragIdFor");
+    expect(member).toContain('dragIdFor("member", userId)');
+    expect(attendee).toContain('dragIdFor("attendee", attendee.id)');
+  });
+
+  it("swallows the click that ends a drag on a chip that also opens something", () => {
+    // Without this, every drop of an attendee would also open their dialog.
+    expect(source).toContain("dragged.current = true");
+    expect(source).toContain("if (dragged.current) return;");
   });
 });
 
 // The component itself, without the file's header comment — which names the
 // prop below in order to explain why it is gone.
-const chip = source.slice(source.indexOf("function DraggableMemberChip"));
+const chip = source.slice(
+  source.indexOf("export default function DraggableChip")
+);
 
 /**
  * The second bug that looked exactly like the first one: the drop was accepted
@@ -113,7 +148,7 @@ const page = readFileSync(
 
 const assign = page.slice(
   page.indexOf("const assignMember ="),
-  page.indexOf("const movingUserId")
+  page.indexOf("const setVotingUnit")
 );
 
 describe("assigning a member is applied before the server answers", () => {
@@ -152,6 +187,38 @@ describe("assigning a member is applied before the server answers", () => {
   });
 });
 
+const assignGuest = page.slice(
+  page.indexOf("const assignAttendee ="),
+  page.indexOf("const removeAttendee =")
+);
+
+describe("moving somebody with no account is applied before the server answers", () => {
+  it("patches the query that positions the pill", () => {
+    expect(assignGuest).toContain("onMutate");
+    expect(assignGuest).toContain("utils.groups.attendees.setData");
+  });
+
+  it("cancels in-flight refetches before patching", () => {
+    expect(assignGuest).toContain("utils.groups.attendees.cancel");
+    expect(assignGuest.indexOf("cancel")).toBeLessThan(
+      assignGuest.indexOf("setData")
+    );
+  });
+
+  it("rolls the patch back when the move fails", () => {
+    expect(assignGuest).toContain("onError");
+    expect(assignGuest).toContain("setData({ tripId }, previous)");
+  });
+
+  it("refetches the headcount, which is the other thing a move changes", () => {
+    expect(assignGuest).toContain("utils.groups.headcount.invalidate");
+  });
+
+  it("does not touch the member list — an attendee has no member row", () => {
+    expect(assignGuest).not.toContain("trips.members");
+  });
+});
+
 const dragOver = page.slice(
   page.indexOf("const handleDragOver"),
   page.indexOf("const handleDragStart")
@@ -184,7 +251,8 @@ describe("a drag does not re-render the page on every pointer frame", () => {
   });
 
   it("memoises the chip, and hands it handlers that keep their identity", () => {
-    expect(source).toContain("memo(DraggableMemberChip)");
+    expect(member).toContain("memo(DraggableMemberChip)");
+    expect(attendee).toContain("memo(AttendeePill)");
     // Inline arrows on these four would make the memo above do nothing.
     expect(page).toContain("onDragStart={handleDragStart}");
     expect(page).toContain("onDrag={handleDragOver}");
