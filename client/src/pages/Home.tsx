@@ -246,7 +246,7 @@ function TripCard({ trip }: { trip: any }) {
   };
 
   return (
-    <Link href={`/trips/${trip.id}`}>
+    <Link href={`/trips/${trip.id}`} className="block">
       <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-3">

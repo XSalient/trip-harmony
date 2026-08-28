@@ -8,6 +8,24 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — The trip list sits evenly again
+
+### Fixed
+
+- **The trips on the home screen are evenly spaced.** The list is a `space-y-3`
+  container, which Tailwind implements as a `margin-top` on every child but the
+  first. Each child is a wouter `<Link>`, which renders a bare `<a>` — and an
+  anchor is `display: inline`, so vertical margin does nothing to it. The
+  `<Card>` inside is a block, so each anchor was wrapped in anonymous block
+  boxes and the gaps came out ragged rather than simply absent. The loading
+  skeletons in the same container are `div`s, which is why they always looked
+  right and the real list never did. Both anchors are `block` now.
+
+  The same shape sat in `TripSummary`'s rows, where the gap is 6px and it read
+  as slightly-off rather than broken. Fixed alongside.
+
+---
+
 ## 2026-08-27 — Somebody without an account can be corrected, and moved
 
 ### Fixed
