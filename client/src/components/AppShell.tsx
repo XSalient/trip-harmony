@@ -47,8 +47,11 @@ export default function AppShell({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* `safe-area-top` keeps the title clear of the notch: the WebView draws
+          under the status bar, so without it the header sits behind the clock.
+          Zero on the web and on a phone without one. */}
       {title && (
-        <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border">
+        <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border safe-area-top">
           <div className="mx-auto flex h-14 max-w-2xl items-center px-4 sm:px-5">
             {showBack && (
               <Button

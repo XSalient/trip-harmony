@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { lazy, Suspense } from "react";
-import { Route, Switch } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
+import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ScrollRestoration from "./components/ScrollRestoration";
+import { startNativeBridge } from "./lib/nativeBridge";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
 
@@ -76,6 +77,20 @@ function Router() {
   );
 }
 
+/**
+ * Wires the WebView's own behaviours up — deep links, the Android back button,
+ * the status bar, the keyboard, the splash screen.
+ *
+ * A no-op on the web, where the browser does all of it. Inside `Router` rather
+ * than around it because it needs wouter's `navigate`, which only exists under
+ * the router.
+ */
+function NativeBridge() {
+  const [, navigate] = useLocation();
+  useEffect(() => startNativeBridge(navigate), [navigate]);
+  return null;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -86,6 +101,7 @@ function App() {
           {/* Inside the boundary on purpose: a chunk that fails to load — a
               stale deploy, a flaky connection — is an error to be shown, not a
               white screen. */}
+          <NativeBridge />
           <Suspense fallback={<PageLoading />}>
             <Router />
           </Suspense>

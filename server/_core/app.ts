@@ -17,6 +17,7 @@ import { withRequestCache } from "./requestCache.js";
 import { config, describeConfig } from "./env.js";
 import { errorLogging, requestLogging } from "./httpLogging.js";
 import { handleRevenueCatWebhook } from "../utils/revenueCatWebhook.js";
+import { registerWellKnownRoutes } from "./wellKnown.js";
 import { registerOAuthRoutes } from "./oauth.js";
 import { logTrpcError } from "./trpcErrors.js";
 
@@ -52,6 +53,16 @@ export async function createApp({
       commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
   });
+
+  /**
+   * The files Apple and Google fetch to believe a link belongs to this app.
+   *
+   * Registered before the SPA fallback and reached through an explicit rewrite
+   * in `vercel.json`, because the catch-all there would otherwise serve them
+   * the HTML shell — with a 200, to a fetcher expecting JSON, which is the
+   * silent version of this being broken.
+   */
+  registerWellKnownRoutes(app);
 
   /**
    * RevenueCat's webhook — the only thing that records a purchase.

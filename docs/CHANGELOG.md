@@ -8,6 +8,47 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — Deep links, the WebView's own behaviours, and a real purchase sheet
+
+### Added
+
+- **`/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`**,
+  built from the four native identifiers. Served by Express rather than as
+  static files, because `vercel.json` rewrites everything that is not `/api/`
+  to `/index.html` — a file in `client/public/` would have been served the HTML
+  shell, with a 200, to a fetcher expecting JSON. Confirmed against the previous
+  build, which does exactly that. They answer 404 while the identifiers are
+  unset: both platforms cache what they fetch, and a well-formed file naming an
+  app that does not exist is worse than an absent one.
+
+- **Deep links.** A universal link now routes inside the app instead of opening
+  the landing page. `pathFromDeepLink` takes the path and refuses everything
+  else — a protocol-relative `//evil.example` would navigate off-site, and the
+  value goes to `history.pushState`, so it is not somewhere to trust a JSON file
+  on a CDN.
+
+- **The behaviours a WebView does not get for free**: the Android hardware back
+  button walks history and exits only at the root, the status bar is styled, the
+  keyboard resizes the view instead of covering the field, and the splash screen
+  hides after the first paint rather than on a timer racing it.
+
+- **The purchase sheet.** The paywall's stub is gone: it configures RevenueCat
+  with the signed-in account's numeric id — an anonymous id would reach the
+  webhook as `$RCAnonymousID:…` with no account to attach to — opens the store's
+  sheet, and offers **restore purchases**, which Apple requires and rejects for
+  omitting. Both paths refetch `billing.status` rather than believing the
+  client: entitlement arrives by webhook and can be a second behind.
+
+### Fixed
+
+- **The bottom navigation sat under the home indicator.** `MobileNav` has
+  referenced a `safe-area-bottom` class since it was written and **the class did
+  not exist**. Defining it was not enough either — `env(safe-area-inset-*)` is
+  zero on iOS until `viewport-fit=cover` is on the viewport meta, which it now
+  is. The header gained the matching top inset, so the title clears the notch.
+
+---
+
 ## 2026-08-28 — The native shell, and a session that survives it
 
 ### Added
