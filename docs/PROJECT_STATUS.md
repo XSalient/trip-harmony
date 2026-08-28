@@ -3,11 +3,22 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-25
+- **Last updated:** 2026-08-28
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
+- **In flight — shipping to the app stores.** The web app is being wrapped with
+  Capacitor rather than rewritten in React Native: the 21k lines of client UI
+  are Radix, Tailwind and DOM throughout, none of which survives a rewrite and
+  all of which runs unchanged in a WebView. The server does not change. The
+  critical path is store compliance, not Capacitor — account deletion (**done**,
+  2026-08-28), UGC moderation under Apple guideline 1.2, and privacy/terms
+  routes, none of which existed. Then billing (digital features mean mandatory
+  IAP at 15–30%; real-world booking commission would not), then the wrap itself:
+  the session cookie is `SameSite=None` and iOS drops it in a WebView, so the
+  session JWT has to travel as a bearer token, and `passkeys.ts` derives `rpID`
+  from the request Host, which is `localhost` there.
 - **Stage:** feature-complete MVP, deployed to production on Vercel.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. The **groups and budget** programme (E9–E12) is
@@ -22,7 +33,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 892 tests ✅ · production build ✅ (2026-08-25) ·
+- **Health:** typecheck ✅ · 920 tests ✅ · production build ✅ (2026-08-28) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —

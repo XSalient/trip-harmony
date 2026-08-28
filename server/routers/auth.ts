@@ -293,6 +293,80 @@ export const authRouter = router({
       await db.setUserPassword(user.id, await hashPassword(input.newPassword));
       return { success: true };
     }),
+  /**
+   * What deleting this account would do, without doing it.
+   *
+   * The dialog needs to say "2 trips will be deleted" before the button is
+   * live, not after. Shares `planAccountDeletion` with the mutation, so the
+   * warning and the work cannot drift apart.
+   */
+  deletionImpact: protectedProcedure.query(async ({ ctx }) => {
+    const { handovers, abandoned } = await db.planAccountDeletion(ctx.user.id);
+    return {
+      tripsHandedOver: handovers.length,
+      tripsDeleted: abandoned.length,
+    };
+  }),
+
+  /**
+   * Delete the signed-in account, for good.
+   *
+   * Apple has required this to be reachable from inside the app since 2022, and
+   * it is checked in review — a link to a support form does not pass. The
+   * cascade, and why a deleted account keeps an anonymised row, is documented
+   * on `db.deleteUserCascade`.
+   *
+   * An account with a password must re-enter it. That is not friction for its
+   * own sake: a session cookie is a long-lived bearer token on a device that
+   * may be borrowed or stolen, and this is the one action nothing can undo.
+   * Magic-link accounts have no password to prove, so for them the session is
+   * the authorisation — the same rule `setPassword` already applies.
+   */
+  deleteAccount: protectedProcedure
+    .input(
+      z.object({
+        /** Typed by hand in the dialog, so the button alone cannot do this. */
+        confirm: z.literal("DELETE"),
+        password: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await db.getUserById(ctx.user.id);
+      if (!user)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Account not found.",
+        });
+
+      if (user.passwordHash) {
+        if (!input.password)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Enter your password to confirm.",
+          });
+        const valid = await verifyPassword(input.password, user.passwordHash);
+        if (!valid)
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "That password is incorrect.",
+          });
+      }
+
+      const outcome = await db.deleteUserCascade(user.id);
+
+      // The only record that will exist afterwards. Deliberately no email and
+      // no name — the point of the operation is that those are gone.
+      ctx.log.info("account deleted", {
+        userId: user.id,
+        tripsHandedOver: outcome.tripsHandedOver,
+        tripsDeleted: outcome.tripsDeleted,
+      });
+
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true, ...outcome };
+    }),
+
   verifyMagicLink: publicProcedure
     .input(
       z.object({

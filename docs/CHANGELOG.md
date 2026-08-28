@@ -8,6 +8,40 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — You can delete your account
+
+### Added
+
+- **Delete your account, from inside the app.** Profile → "Delete my account".
+  Apple has required this since 2022 and checks it in review; there was no way
+  to do it at all, from any screen. The dialog says what will happen before the
+  button is live — how many trips will be handed on, how many deleted — and an
+  account with a password must re-enter it, because a session cookie is a
+  long-lived bearer token and this is the one action nothing undoes.
+
+- **A trip outlives the person who organised it.** Deleting an organiser's
+  account hands each of their trips to its most capable remaining member, and
+  among equals to whoever joined first; that member becomes an admin, because
+  `organizerId` without the role is an owner who cannot invite or finalise. Only
+  a trip with nobody else accepted into it is deleted, through the existing
+  `deleteTripCascade`.
+
+- **A deleted account keeps a nameless row.** `users.deletedAt` marks it. The
+  email, name, password hash, avatar and login method are cleared and `openId`
+  is replaced, so there is no address to reach, no credential to present and no
+  session token that still resolves. What survives is the integer other rows
+  point at: this schema declares no foreign keys and `proposedBy` is NOT NULL,
+  so deleting the row outright would leave proposals the group is still voting
+  on pointing at nothing, with nothing in the database to catch it. Votes are
+  removed; comments and proposals stay, attributed to "A former member".
+
+  `accountDeletion.test.ts` reads `drizzle/schema.ts` and asserts every table
+  with a `userId` column is classified as deleted or anonymised. A table added
+  later that is neither fails that test rather than quietly surviving somebody's
+  deletion.
+
+---
+
 ## 2026-08-28 — The trip list sits evenly again
 
 ### Fixed

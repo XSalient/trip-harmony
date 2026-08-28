@@ -11,12 +11,13 @@ import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
 import { PasskeySection } from "@/components/PasskeySection";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { KeyRound, LogOut, Shield } from "lucide-react";
+import { KeyRound, LogOut, Shield, Trash2 } from "lucide-react";
 
 function ProfileHeader() {
   const { user } = useAuth();
@@ -114,6 +115,7 @@ export default function Profile() {
     redirectOnUnauthenticated: true,
   });
   const [, navigate] = useLocation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (loading) {
     return (
@@ -152,7 +154,22 @@ export default function Profile() {
         >
           <LogOut className="h-4 w-4" /> Sign out
         </Button>
+
+        {/* Last, and visually quietest — reachable without hunting for it,
+            which is what review checks, but not sitting next to "Sign out"
+            waiting to be hit by mistake. */}
+        <div className="pt-2 border-t">
+          <button
+            type="button"
+            className="w-full text-center text-xs text-muted-foreground hover:text-destructive transition-colors py-2 inline-flex items-center justify-center gap-1.5"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete my account
+          </button>
+        </div>
       </div>
+
+      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
     </AppShell>
   );
 }

@@ -151,6 +151,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  /**
+   * When this account was deleted by the person who owned it, or null.
+   *
+   * A deleted account keeps its row and loses everything that identifies it:
+   * `email`, `name`, `passwordHash` and `avatarUrl` are cleared and `openId` is
+   * replaced with a fresh `deleted:` value, so there is nothing left to sign in
+   * with and nothing left to recognise. What survives is an integer other
+   * people's rows already point at — `proposedBy` on a proposal the group is
+   * still voting on, `addedBy` on an accommodation somebody booked.
+   *
+   * Deleting the row instead would take those with it, or leave them dangling:
+   * `proposedBy` is NOT NULL and this schema declares no foreign keys, so
+   * nothing would stop a proposal outliving its proposer and nothing would
+   * catch it when it did. The tombstone is what lets one person leave without
+   * deleting everyone else's trip.
+   */
+  deletedAt: timestamp("deletedAt"),
 });
 
 export type User = typeof users.$inferSelect;
