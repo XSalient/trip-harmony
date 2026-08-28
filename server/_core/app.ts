@@ -16,6 +16,7 @@ import { createContext } from "./context.js";
 import { withRequestCache } from "./requestCache.js";
 import { config, describeConfig } from "./env.js";
 import { errorLogging, requestLogging } from "./httpLogging.js";
+import { handleRevenueCatWebhook } from "../utils/revenueCatWebhook.js";
 import { registerOAuthRoutes } from "./oauth.js";
 import { logTrpcError } from "./trpcErrors.js";
 
@@ -51,6 +52,16 @@ export async function createApp({
       commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
   });
+
+  /**
+   * RevenueCat's webhook — the only thing that records a purchase.
+   *
+   * A plain Express route because RevenueCat posts JSON to a URL and knows
+   * nothing about tRPC, and outside the `/api/trpc` mount for the same reason.
+   * It authenticates with a shared secret rather than a session: the caller is
+   * a server, not a signed-in person.
+   */
+  app.post("/api/billing/webhook", handleRevenueCatWebhook);
 
   registerOAuthRoutes(app);
 

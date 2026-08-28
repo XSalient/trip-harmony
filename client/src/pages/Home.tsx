@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { PaywallDialog } from "@/components/PaywallDialog";
 import { AuthDialog } from "@/components/AuthDialog";
 import { Link, useLocation } from "wouter";
 import {
@@ -295,6 +296,10 @@ function Dashboard() {
   const { user, logout } = useAuth();
   const { data: trips, isLoading } = trpc.trips.list.useQuery();
   const [, navigate] = useLocation();
+  // Asked before the button is pressed, so somebody at the limit meets the
+  // paywall instead of the create form and a refusal at the end of it.
+  const { data: billing } = trpc.billing.status.useQuery();
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   return (
     <AppShell
@@ -315,7 +320,9 @@ function Dashboard() {
         <Button
           variant="default"
           className="h-auto w-full py-4 flex-col gap-2 rounded-xl shadow-sm"
-          onClick={() => navigate("/trips/new")}
+          onClick={() =>
+            billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+          }
         >
           <Plus className="h-5 w-5" />
           <span className="text-sm font-medium">New Trip</span>
@@ -350,6 +357,8 @@ function Dashboard() {
           )}
         </div>
       </div>
+
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} />
     </AppShell>
   );
 }

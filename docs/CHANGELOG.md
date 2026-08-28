@@ -8,6 +8,55 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — Subscriptions, through the stores' own in-app purchase
+
+### Added
+
+- **A free account organises one trip at a time.** Being _invited_ to a trip is
+  free and unlimited, and always will be: a paying organiser must never drag
+  their friends into paying. Finishing a trip frees the slot, because the cap is
+  on how much somebody is planning at once, not on how much they have ever
+  planned.
+
+  Enforced in `requireTripAllowance`, called from both `trips.create` and
+  `trips.clone` — gating only the first would have made the limit one click to
+  bypass. On clone the trip role is checked first, so somebody who cannot clone
+  a trip is told that rather than shown a paywall for something they could not
+  do anyway.
+
+- **Purchases go through Apple's and Google's IAP**, which is mandatory for
+  digital goods. **No money moves through this server and no card details reach
+  it.** RevenueCat's webhook at `/api/billing/webhook` is the only thing that
+  writes `subscriptions`, and `billing.test.ts` asserts the billing router
+  exposes no mutation at all — a client that could say "I bought it" could grant
+  itself the product, so "there is no such procedure" is the security property
+  and it is tested rather than commented.
+
+  The webhook verifies its shared secret with `timingSafeEqual`, answers 401
+  when it fails so a misconfigured secret shows up in RevenueCat's delivery log,
+  and acknowledges rather than rejects event types it does not act on — a 4xx
+  would make RevenueCat retry an unknown event forever.
+
+- **A billing issue still entitles.** The store is retrying a card that will
+  probably work, and locking somebody out of a half-planned trip over a
+  temporary decline is worse than a few days of unpaid access. The expiry date
+  is checked as well as the status, so a webhook that never arrived cannot
+  entitle somebody indefinitely.
+
+- **Two deliberate ways past the gate**, distinguished on `/api/health`:
+  `BILLING_ENABLED=false` is a paused product, and no RevenueCat key is a
+  deployment that has not set billing up. Both charge nobody. An account with no
+  subscription row is free, which is the failing-closed direction.
+
+### Fixed
+
+- **"Failed to create trip" no longer swallows what actually went wrong.**
+  `CreateTrip` replaced every server error with that one sentence, including the
+  content filter naming the word it objected to. It shows the server's own
+  message now, and opens the paywall on the trip limit.
+
+---
+
 ## 2026-08-28 — A privacy policy and terms, reachable without an account
 
 ### Added

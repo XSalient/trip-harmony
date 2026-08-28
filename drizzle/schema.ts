@@ -957,3 +957,66 @@ export const userBlocks = pgTable(
 
 export type UserBlock = typeof userBlocks.$inferSelect;
 export type InsertUserBlock = typeof userBlocks.$inferInsert;
+
+/**
+ * What a store reports about a subscription, narrowed to what this app acts on.
+ *
+ * `billing_issue` is deliberately separate from `expired`: the store is
+ * retrying a card that will probably work, and it still entitles. See
+ * `isEntitled` in `shared/billing.ts`.
+ */
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "in_grace_period",
+  "billing_issue",
+  "expired",
+]);
+
+export const subscriptionStoreEnum = pgEnum("subscription_store", [
+  "app_store",
+  "play_store",
+  /** RevenueCat's sandbox and its dashboard's manual grants. */
+  "promotional",
+]);
+
+/**
+ * One row per subscriber, written only by RevenueCat's webhook.
+ *
+ * **Never written from a client.** A purchase is a fact the store owns; this
+ * table is a cache of what the store last told us, which is why every column
+ * here comes from a webhook payload and none from a tRPC input. A client that
+ * could write it could grant itself the product.
+ *
+ * Absent means free, which is also what an unconfigured deployment produces —
+ * the gate fails closed.
+ */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    /** RevenueCat's identifier for this subscriber, for support lookups. */
+    revenueCatId: varchar("revenueCatId", { length: 128 }),
+    /** The store product, e.g. `btt_pro_monthly`. */
+    productId: varchar("productId", { length: 128 }).notNull(),
+    store: subscriptionStoreEnum("store").notNull(),
+    status: subscriptionStatusEnum("status").notNull(),
+    /**
+     * When access lapses if nothing renews it. Null for a lifetime grant.
+     * Checked as well as `status`, so a webhook we never received cannot keep
+     * somebody entitled forever.
+     */
+    expiresAt: timestamp("expiresAt"),
+    /** Set when the subscriber has asked the store not to renew. */
+    cancelledAt: timestamp("cancelledAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  t => [
+    /** One subscription per account: the webhook upserts on this. */
+    uniqueIndex("subscriptions_user_idx").on(t.userId),
+  ]
+);
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;

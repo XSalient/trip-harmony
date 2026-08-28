@@ -60,7 +60,19 @@ Nobody but the account holder can do these.
 - The paid applications agreement, plus banking and tax details, in App Store
   Connect. This can take days to clear and blocks any paid release.
 
-### 4. Answer the questionnaires honestly
+### 4. Set up the subscription products
+
+In App Store Connect and the Play Console, then in RevenueCat: create the
+product, attach it to an entitlement, and point the webhook at
+`https://<your-domain>/api/billing/webhook` with `REVENUECAT_WEBHOOK_SECRET` as
+its Authorization header. `/api/health` reports `billing: "configured"` once the
+secret key is set.
+
+Under the Small Business Program the commission is 15% while you are below $1M
+a year, on both stores. It is not automatic on Apple's side — you have to
+enrol.
+
+### 5. Answer the questionnaires honestly
 
 - **Privacy nutrition labels / Data safety.** Declare the third parties the
   privacy policy names: Google Gemini, the email provider, the optional
@@ -81,6 +93,10 @@ Nobody but the account holder can do these.
   handover it implies.
 - Guideline 1.2's four requirements: a submission-time content filter, a report
   mechanism, blocking, and a contact address once `SUPPORT_EMAIL` is set.
+- Billing: a free account organises one trip at a time, sold through Apple's and
+  Google's in-app purchase. The purchase sheet itself is wired when the
+  Capacitor wrap lands — there is no in-app purchase on the web — so until then
+  the paywall explains the limit and points at the apps.
 - A privacy policy and terms at `/privacy` and `/terms`, reachable **without an
   account** — a reviewer opening that URL is signed out, which is why those
   pages never call `useAuth` and a test enforces it.
@@ -89,10 +105,6 @@ Nobody but the account holder can do these.
 
 ## Still to build
 
-- **Billing.** Digital features mean Apple IAP and Play Billing are mandatory
-  (15% under the Small Business Program, 30% above $1M/yr). Commission on a
-  real-world booking would be exempt and could go through Stripe at ~3% — worth
-  settling before the schema is written, because it changes it.
 - **The Capacitor wrap.** Two things in this repository need changing for it:
   `server/_core/cookies.ts` issues a `SameSite=None` session cookie that iOS
   drops in a WebView, so the session JWT has to travel as a bearer token

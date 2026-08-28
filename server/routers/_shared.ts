@@ -11,7 +11,44 @@ import {
   type TripRole,
 } from "../../shared/roles.js";
 import { finaliseBlockReason } from "../../shared/votes.js";
+import {
+  FREE_ACTIVE_TRIP_LIMIT,
+  isEntitled,
+  TRIP_LIMIT_ERR_MSG,
+} from "../../shared/billing.js";
+import { config } from "../_core/env.js";
 import * as db from "../db.js";
+
+/**
+ * Refuse a new trip when a free account is already organising one.
+ *
+ * The only paywall in the app, and it sits on **creating** a trip. Being
+ * invited to one is free and unlimited: a paying organiser must never drag
+ * their friends into paying, both because it would stall the group and because
+ * the person who started the trip is the one who chose to spend anything.
+ *
+ * Two ways this lets somebody through, both deliberate:
+ *
+ * - `BILLING_ENABLED=false` — a paused product, not a broken one. Everybody
+ *   gets everything rather than nobody being able to plan.
+ * - No RevenueCat key configured — a development database, or a deployment that
+ *   has not set billing up. Charging nobody is right; refusing everybody is not.
+ *
+ * With billing on and configured, an account with no subscription row is free,
+ * which is the failing-closed direction: the row is written only by the
+ * webhook, so an absent one means no purchase was confirmed.
+ */
+export async function requireTripAllowance(userId: number) {
+  if (!config.billing.enabled || !config.billing.isConfigured) return;
+
+  const subscription = await db.getSubscription(userId);
+  if (isEntitled(subscription)) return;
+
+  const active = await db.countActiveOrganisedTrips(userId);
+  if (active < FREE_ACTIVE_TRIP_LIMIT) return;
+
+  throw new TRPCError({ code: "FORBIDDEN", message: TRIP_LIMIT_ERR_MSG });
+}
 
 /**
  * The user fields that are safe to send to a browser.

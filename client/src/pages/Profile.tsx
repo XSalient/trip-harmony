@@ -13,6 +13,8 @@ import { PasskeySection } from "@/components/PasskeySection";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { BlockedSection } from "@/components/BlockedSection";
+import { PlanSection } from "@/components/PlanSection";
+import { PaywallDialog } from "@/components/PaywallDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -117,6 +119,7 @@ export default function Profile() {
   });
   const [, navigate] = useLocation();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   if (loading) {
     return (
@@ -134,6 +137,7 @@ export default function Profile() {
     <AppShell title="Profile" showBack backHref="/">
       <div className="px-4 py-4 space-y-6">
         <ProfileHeader />
+        <PlanSection onUpgrade={() => setPaywallOpen(true)} />
         <SignInMethods />
         <BlockedSection />
 
@@ -181,6 +185,7 @@ export default function Profile() {
       </div>
 
       <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} />
     </AppShell>
   );
 }

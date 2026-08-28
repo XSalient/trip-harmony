@@ -55,8 +55,11 @@ import {
   contentReports,
   InsertContentReport,
   userBlocks,
+  subscriptions,
+  InsertSubscription,
 } from "../drizzle/schema.js";
 import { TRIP_ROLE_RANK, type TripRole } from "../shared/roles.js";
+import { ACTIVE_TRIP_STATUSES } from "../shared/billing.js";
 import { config, ENV } from "./_core/env.js";
 import { cachedTripMember, forgetMemberships } from "./_core/requestCache.js";
 import { logger } from "./_core/logger.js";
@@ -539,6 +542,7 @@ export const USER_ROWS_DELETED = [
   "contact_groups",
   "content_reports",
   "user_blocks",
+  "subscriptions",
 ] as const;
 
 /**
@@ -737,6 +741,11 @@ export async function deleteUserCascade(userId: number) {
           )
         )
       );
+
+    // The store's record of what they bought. Deleting it does not cancel the
+    // subscription — only the store can do that, from the account that owns it,
+    // which is why the deletion dialog says so.
+    await tx.delete(subscriptions).where(eq(subscriptions.userId, userId));
 
     // Membership itself, in the trips they are only a guest of.
     await tx.delete(tripMembers).where(eq(tripMembers.userId, userId));
@@ -3373,4 +3382,72 @@ export async function isBlockedEitherWay(a: number, b: number) {
     )
     .limit(1);
   return Boolean(row);
+}
+
+// ---- Billing ----
+
+/**
+ * What the store last told us about this account, or null for a free one.
+ *
+ * Null is the honest answer for "never subscribed" and for "this deployment has
+ * no billing configured" alike, and both should behave the same way: free.
+ */
+export async function getSubscription(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Record what a webhook reported.
+ *
+ * Upserts on `userId`, because RevenueCat retries deliveries deliberately and
+ * the same event arriving twice must be one row with the later state, not two
+ * rows racing to be read.
+ */
+export async function upsertSubscription(data: InsertSubscription) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .insert(subscriptions)
+    .values(data)
+    .onConflictDoUpdate({
+      target: subscriptions.userId,
+      set: {
+        revenueCatId: data.revenueCatId ?? null,
+        productId: data.productId,
+        store: data.store,
+        status: data.status,
+        expiresAt: data.expiresAt ?? null,
+        cancelledAt: data.cancelledAt ?? null,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * How many trips this account is organising that are still being planned.
+ *
+ * Organising, not belonging to: being invited is free and unlimited. Finished
+ * and abandoned trips do not count — the cap is on how much somebody is
+ * planning at once, not on how much they have ever planned.
+ */
+export async function countActiveOrganisedTrips(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(trips)
+    .where(
+      and(
+        eq(trips.organizerId, userId),
+        inArray(trips.status, [...ACTIVE_TRIP_STATUSES])
+      )
+    );
+  return row?.count ?? 0;
 }

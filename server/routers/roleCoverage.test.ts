@@ -62,6 +62,10 @@ const NOT_TRIP_SCOPED: Record<string, string> = {
   "admin.ts": "App admins, held by the person not the membership.",
   "auth.ts": "Sessions. There is no trip yet.",
   "passkeys.ts": "Credentials on an account.",
+  "billing.ts":
+    "What an account is allowed and what it has bought. The trip *allowance* " +
+    "is enforced in `trips.create` and `trips.clone` via `requireTripAllowance`, " +
+    "which is where the trip is, rather than here.",
   "notifications.ts": "A user's own feed, scoped by user id in every query.",
   "moderation.ts":
     "Reports and blocks belong to a person, not a trip: blocking, the block " +
