@@ -12,9 +12,10 @@ finish a piece of work — the next person (or agent) starts here.
   Capacitor rather than rewritten in React Native: the 21k lines of client UI
   are Radix, Tailwind and DOM throughout, none of which survives a rewrite and
   all of which runs unchanged in a WebView. The server does not change. The
-  critical path is store compliance, not Capacitor — account deletion and UGC
-  moderation (both **done**, 2026-08-28) and privacy/terms routes, none of which
-  existed. Then billing (digital features mean mandatory
+  critical path is store compliance, not Capacitor — account deletion, UGC
+  moderation and privacy/terms routes — **all three done** (2026-08-28), none of
+  which existed. What remains before a submission is not code: see
+  [runbooks/launch.md](runbooks/launch.md). Then billing (digital features mean mandatory
   IAP at 15–30%; real-world booking commission would not), then the wrap itself:
   the session cookie is `SameSite=None` and iOS drops it in a WebView, so the
   session JWT has to travel as a bearer token, and `passkeys.ts` derives `rpID`
@@ -33,7 +34,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 951 tests ✅ · production build ✅ (2026-08-28) ·
+- **Health:** typecheck ✅ · 957 tests ✅ · production build ✅ (2026-08-28) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —

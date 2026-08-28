@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { config } from "./env.js";
 import { notifyOwner } from "./notification.js";
 import { adminProcedure, publicProcedure, router } from "./trpc.js";
 
@@ -12,6 +13,19 @@ export const systemRouter = router({
     .query(() => ({
       ok: true,
     })),
+
+  /**
+   * The published contact address, or null where this deployment has not set
+   * one.
+   *
+   * Public because the pages that show it are: Apple requires a privacy policy
+   * reachable without an account, and a reviewer fetching that URL is not
+   * signed in. Null rather than an empty string so the page can say support is
+   * unavailable instead of rendering a `mailto:` that goes nowhere.
+   */
+  support: publicProcedure.query(() => ({
+    email: config.supportEmail || null,
+  })),
 
   notifyOwner: adminProcedure
     .input(

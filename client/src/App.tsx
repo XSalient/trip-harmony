@@ -34,6 +34,10 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const Profile = lazy(() => import("./pages/Profile"));
+// Reachable without an account, and that is the requirement: a store reviewer
+// opens the privacy URL signed out. See `components/LegalPage.tsx`.
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
 
 /** Shown while a page's chunk is on its way. */
 function PageLoading() {
@@ -64,6 +68,8 @@ function Router() {
       <Route path="/notifications" component={Notifications} />
       <Route path="/profile" component={Profile} />
       <Route path="/admin" component={Admin} />
+      <Route path="/privacy" component={Privacy} />
+      <Route path="/terms" component={Terms} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

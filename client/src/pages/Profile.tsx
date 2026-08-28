@@ -5,7 +5,7 @@
  * by magic link.
  */
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
@@ -156,6 +156,15 @@ export default function Profile() {
         >
           <LogOut className="h-4 w-4" /> Sign out
         </Button>
+
+        <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+        </div>
 
         {/* Last, and visually quietest — reachable without hunting for it,
             which is what review checks, but not sitting next to "Sign out"

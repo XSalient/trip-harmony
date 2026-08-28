@@ -223,6 +223,18 @@ function LandingPage() {
           ))}
         </div>
       </div>
+
+      {/* The landing page is the only screen a signed-out visitor sees, so it
+          is where the policy links have to be: a store reviewer opening the app
+          without an account still has to be able to reach them. */}
+      <footer className="px-6 pb-10 max-w-lg mx-auto flex justify-center gap-4 text-xs text-muted-foreground">
+        <Link href="/privacy" className="hover:text-foreground">
+          Privacy
+        </Link>
+        <Link href="/terms" className="hover:text-foreground">
+          Terms
+        </Link>
+      </footer>
     </div>
   );
 }

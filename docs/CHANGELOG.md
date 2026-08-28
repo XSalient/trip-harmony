@@ -8,6 +8,40 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — A privacy policy and terms, reachable without an account
+
+### Added
+
+- **`/privacy` and `/terms`.** Both render signed out, which is the actual
+  requirement rather than a nicety: a store reviewer opening the privacy URL has
+  no account. They are the only screens here that never call `useAuth` and never
+  use `AppShell`, and `legal.test.ts` fails if either creeps back in — a
+  redirect would fail a submission for a reason invisible in the code.
+
+- **A policy written from the code, not a template.** Every claim traces to a
+  table in `drizzle/schema.ts` or a call in `server/`. Including the awkward
+  ones: member names, recorded preferences and budget caps reach Google's Gemini
+  API, because that is what `server/prompts/referee.ts` builds its prompt from;
+  `activity_events` has no retention policy, so the page says so rather than
+  implying a schedule; and the app stores ages for attendees who are children
+  and cannot consent for themselves.
+
+- **`system.support`**, a public procedure serving `SUPPORT_EMAIL`. Public for
+  the same reason the pages are. Null rather than empty where a deployment has
+  not set one, so the page says support is unavailable instead of rendering a
+  `mailto:` that goes nowhere.
+
+- **[docs/runbooks/launch.md](runbooks/launch.md)** — what is still blocking a
+  store submission and who can do each part. The operator's details (`LEGAL` in
+  `LegalPage.tsx`) ship as visible placeholders and are top of that list; a test
+  keeps them in one file so the scattered one cannot ship still saying
+  `[JURISDICTION]`.
+
+  **The pages are a draft, not legal advice.** Somebody qualified should read
+  them before they are published.
+
+---
+
 ## 2026-08-28 — Report, block, and a filter on what gets submitted
 
 ### Added
