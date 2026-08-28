@@ -105,12 +105,44 @@ enrol.
 
 ## Still to build
 
-- **The Capacitor wrap.** Two things in this repository need changing for it:
-  `server/_core/cookies.ts` issues a `SameSite=None` session cookie that iOS
-  drops in a WebView, so the session JWT has to travel as a bearer token
-  instead; and `server/routers/passkeys.ts` derives `rpID` from the request
-  `Host`, which is `localhost` there, so passkeys need a native plugin plus
-  association files.
+Nothing. The code side is complete — see **Building the apps** below.
+
+## Building the apps
+
+`ios/` and `android/` are not in this repository: generating them needs Xcode
+and the Android SDK. On a Mac with both:
+
+```bash
+pnpm build
+npx cap add ios && npx cap add android   # once
+npx cap sync                             # after every pnpm build
+npx cap open ios                         # or: npx cap open android
+```
+
+**Commit `ios/` and `android/` once they exist.** They carry the icons, the
+splash screens and the signing configuration, and regenerating them loses all
+three.
+
+Two things need doing by hand in the native projects, because they are Xcode and
+Gradle settings rather than code:
+
+- **iOS**: add the Associated Domains capability with
+  `applinks:<your-domain>` and `webcredentials:<your-domain>`. Without the
+  second, passkeys created in the app are not offered on the website.
+- **Android**: add the `intent-filter` for `<your-domain>` with
+  `android:autoVerify="true"` in `AndroidManifest.xml`.
+
+### Passkeys in the native builds
+
+The server already expects both origins: the web's, and Android's
+`android:apk-key-hash:…` derived from `ANDROID_CERT_FINGERPRINT`. iOS needs
+nothing extra — an app associated through `webcredentials` presents the domain's
+own origin.
+
+What the _client_ needs is a native WebAuthn bridge:
+`@simplewebauthn/browser` calls the WebView's own API, whose origin is
+`capacitor://localhost` and will not match. Sign-in by password and magic link
+works regardless, so this can follow the first release rather than block it.
 
 ## Values needed before the wrap can be finished
 

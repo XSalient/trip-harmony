@@ -35,7 +35,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 999 tests ✅ · production build ✅ (2026-08-28) ·
+- **Health:** typecheck ✅ · 1006 tests ✅ · production build ✅ (2026-08-28) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —

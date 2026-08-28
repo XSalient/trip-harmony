@@ -57,6 +57,51 @@ export function resolveRelyingParty(
   return { origin: url.origin, rpID: url.hostname };
 }
 
+/**
+ * Android's origin for a passkey, derived from the app's signing certificate.
+ *
+ * A passkey assertion from an Android app does not carry an `https://` origin.
+ * It carries `android:apk-key-hash:<base64url of the SHA-256 certificate
+ * digest>` — the same certificate `assetlinks.json` publishes as colon-hex, in
+ * a different encoding. Both describe the app; only this form appears in an
+ * assertion.
+ *
+ * Returns null when there is no fingerprint configured, or when it is not the
+ * 32 bytes a SHA-256 digest has. Null means "do not expect this origin", which
+ * is the safe direction: an origin allow-list built from a malformed value
+ * would either reject every Android assertion or, worse, accept a shorter one.
+ *
+ * iOS needs no equivalent. An app associated with the domain through
+ * `webcredentials` in the AASA presents the domain's own `https://` origin, so
+ * it already matches the web's.
+ */
+export function androidPasskeyOrigin(fingerprint: string): string | null {
+  const hex = fingerprint.replace(/[^0-9a-fA-F]/g, "");
+  if (hex.length !== 64) return null;
+  const bytes = Buffer.from(hex, "hex");
+  if (bytes.length !== 32) return null;
+  return `android:apk-key-hash:${bytes.toString("base64url")}`;
+}
+
+/**
+ * Every origin an assertion for this deployment may legitimately carry.
+ *
+ * The web's, always. Android's, when the signing certificate is configured.
+ *
+ * Widening this is the one change the native builds need, and it is worth being
+ * precise about *why* it is safe: `expectedRPID` still pins the assertion to
+ * this domain, and the Android entry is derived from a certificate only the
+ * holder of the signing key can produce. It is not "accept more origins" — it
+ * is "this one app, on a second platform".
+ */
+export function expectedPasskeyOrigins(
+  webOrigin: string,
+  androidFingerprint: string
+): string[] {
+  const android = androidPasskeyOrigin(androidFingerprint);
+  return android ? [webOrigin, android] : [webOrigin];
+}
+
 function relyingParty(req: Request) {
   const proto = req.get("x-forwarded-proto") || req.protocol;
   return resolveRelyingParty(
@@ -218,7 +263,10 @@ export const passkeysRouter = router({
         verification = await verifyRegistrationResponse({
           response: input.response as RegistrationResponseJSON,
           expectedChallenge: stored.challenge,
-          expectedOrigin: origin,
+          expectedOrigin: expectedPasskeyOrigins(
+            origin,
+            config.native.androidCertFingerprint
+          ),
           expectedRPID: rpID,
           requireUserVerification: false,
         });
@@ -312,7 +360,10 @@ export const passkeysRouter = router({
         verification = await verifyAuthenticationResponse({
           response: input.response as AuthenticationResponseJSON,
           expectedChallenge: stored.challenge,
-          expectedOrigin: origin,
+          expectedOrigin: expectedPasskeyOrigins(
+            origin,
+            config.native.androidCertFingerprint
+          ),
           expectedRPID: rpID,
           credential: {
             id: credential.credentialId,

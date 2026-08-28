@@ -8,6 +8,34 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — Passkeys can be asserted from the Android app
+
+### Added
+
+- **`expectedOrigin` accepts Android's.** A passkey assertion from an Android
+  app carries `android:apk-key-hash:<base64url SHA-256 of the signing
+certificate>` rather than an `https://` origin — the same certificate
+  `assetlinks.json` publishes as colon-hex, in a different encoding. The server
+  now expects both, derived from `ANDROID_CERT_FINGERPRINT`.
+
+  This widens _origins_, not _who may assert_: `expectedRPID` still pins every
+  assertion to this domain, and the Android entry can only be produced by
+  whoever holds the signing key. A malformed fingerprint adds nothing rather
+  than adding something wrong.
+
+  iOS needs no equivalent — an app associated through `webcredentials` in the
+  AASA presents the domain's own origin, which already matches.
+
+### Note
+
+The earlier claim that `passkeys.ts` derives `rpID` from the request `Host` and
+would therefore see `localhost` in a WebView was **wrong**:
+`resolveRelyingParty` prefers `config.publicBaseUrl` and only falls back to the
+header. On any deployment with `PUBLIC_BASE_URL` set — which is all of them —
+the RP ID was already the real domain.
+
+---
+
 ## 2026-08-28 — Deep links, the WebView's own behaviours, and a real purchase sheet
 
 ### Added
