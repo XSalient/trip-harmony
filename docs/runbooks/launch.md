@@ -1,120 +1,102 @@
 # Launching on the app stores
 
-What has to be true before Back To Travelling can be submitted to the App Store
-or Google Play, and who can do each part. Written during the Capacitor
-conversion; see the CHANGELOG entries from 2026-08-28 onwards for what has
-landed.
+Everything that has to happen before Back To Travelling is on the App Store and
+Google Play, in the order that unblocks the most, and who can do each part.
 
-The short version: **the code is not the hard part.** Store compliance is, and
-most of what is left on this page cannot be done by anyone without an Apple or
-Google account.
+**The code is done.** What is left is accounts, settings, a lawyer, a Mac and a
+phone — none of which anyone can do without your credentials.
 
 ---
 
-## Blockers — a submission will be rejected without these
+# The checklist
 
-### 1. Fill in the operator's details
+## 1. Open the two developer accounts
 
-Three environment variables, served to the pages by `system.support`:
+- **Apple Developer Program** — $99/year, at developer.apple.com. Approval takes
+  a day or two.
+- **Google Play Console** — $25, once, at play.google.com/console.
+- In App Store Connect, sign the **Paid Applications Agreement** and fill in
+  banking and tax details. This blocks any paid release and can take days.
+- **Enrol in the Small Business Program while you are there.** It halves Apple's
+  commission from 30% to 15% below $1M a year. It is not automatic — people miss
+  it and pay double for a year. Google's equivalent is automatic.
 
-| Variable             | What it needs                                               |
-| -------------------- | ----------------------------------------------------------- |
-| `LEGAL_ENTITY`       | The company or person operating the service                 |
-| `LEGAL_JURISDICTION` | Whose law governs, and where disputes are heard             |
-| `LEGAL_ADDRESS`      | A postal address — required by GDPR Article 13 and by Apple |
+## 2. Fill in thirteen settings
 
-Configuration rather than constants, so filling them in is a Doppler edit rather
-than a rebuild and a release — a placeholder that ships to production is the
-failure mode here, and one that can only be fixed by a code change ships for
-longer. Unset, the pages render a visible `[LEGAL ENTITY NAME]` rather than an
-empty gap, because a policy that silently omits the operator reads as finished.
-`client/src/pages/legal.test.ts` fails if a page hardcodes one instead.
+Set these in Doppler (`dev`, `stg`, `prd`) and in Vercel — see
+[secrets.md](secrets.md). All are empty today. Nothing breaks while they are
+empty; each one switches on the feature it belongs to.
 
-`GET /api/health` reports `legal: "configured"` once all three are set.
+**Needed to submit at all:**
+
+| Variable             | What it needs                                   |
+| -------------------- | ----------------------------------------------- |
+| `SUPPORT_EMAIL`      | An address people can write to                  |
+| `LEGAL_ENTITY`       | Your company, or your own name                  |
+| `LEGAL_JURISDICTION` | e.g. "England and Wales"                        |
+| `LEGAL_ADDRESS`      | A postal address — GDPR Article 13 requires one |
+
+Until these are set, `/privacy` and `/terms` show a visible `[LEGAL ENTITY NAME]`
+rather than an empty gap, because a policy that silently omits the operator reads
+as finished when it is not.
+
+**Needed for links and passkeys to work in the apps:**
+
+| Variable                   | Where it comes from                          |
+| -------------------------- | -------------------------------------------- |
+| `APPLE_TEAM_ID`            | Your Apple account, e.g. `A1B2C3D4E5`        |
+| `IOS_BUNDLE_ID`            | You choose it, e.g. `com.yourname.btt`       |
+| `ANDROID_PACKAGE_NAME`     | Usually the same string                      |
+| `ANDROID_CERT_FINGERPRINT` | **The Play Console** — see the warning below |
+
+> **Take the Android fingerprint from the Play Console, not from your own
+> keystore.** With Play App Signing, Google re-signs your app, so the certificate
+> App Links verify against is theirs and not your upload key's. Getting this
+> wrong means links quietly open the browser instead of the app, with no error
+> anywhere — the file is perfectly valid, it just describes a different app.
+
+**Needed to take payment:**
+
+`REVENUECAT_SECRET_KEY`, `REVENUECAT_WEBHOOK_SECRET`, `VITE_REVENUECAT_IOS_KEY`
+and `VITE_REVENUECAT_ANDROID_KEY`, all from the RevenueCat dashboard. Leave
+`BILLING_ENABLED` empty — empty means on.
+
+**Check they took:** open `https://<your-domain>/api/health`. It should report
+`supportEmail`, `legal`, `nativeIds` and `billing` as `configured`.
+
+## 3. Have a lawyer read two pages
+
+`/privacy` and `/terms` are written and live, drawn from what the code actually
+does — every claim traces to a table in `drizzle/schema.ts` or a call in
+`server/`.
+
+**They are a draft, not legal advice.** Ask whoever reviews them to look hardest
+at two things:
+
+- The app sends trip content to Google's Gemini, including member names, their
+  recorded preferences and their budget limits — the referee's prompt is built
+  from them (`server/prompts/referee.ts`).
+- The app stores ages for attendees who are not users, including children, who
+  cannot consent for themselves.
 
 The date at the top of each page (`LEGAL_UPDATED` in `LegalPage.tsx`) stays in
-code: it moves when the wording changes, so it belongs beside the wording.
+code, because it moves when the wording moves.
 
-**These pages are a draft, not legal advice.** They were written from what the
-code actually does — every claim traces to a table in `drizzle/schema.ts` or a
-call in `server/` — but somebody qualified should read them before they are
-published, particularly the sections on children's data and on what leaves the
-system for Google's Gemini API.
+## 4. Set up the subscription
 
-### 2. Set `SUPPORT_EMAIL`
+- Create the subscription product in App Store Connect and in the Play Console.
+- In RevenueCat, attach it to an entitlement.
+- Point RevenueCat's webhook at `https://<your-domain>/api/billing/webhook`, with
+  `REVENUECAT_WEBHOOK_SECRET` as its Authorization header.
 
-Apple's guideline 1.2 requires published contact information for an app with
-user-generated content. Set it in Doppler (`dev`, `stg`, `prd`) and in Vercel;
-see [secrets.md](secrets.md).
+## 5. Build the apps (needs a Mac)
 
-Check it took: `GET /api/health` reports `supportEmail: "configured"` or
-`"missing"`. The privacy and terms pages say support is unavailable while it is
-missing, rather than rendering a `mailto:` that goes nowhere.
-
-### 3. Store accounts and agreements
-
-Nobody but the account holder can do these.
-
-- Apple Developer Program — $99/yr.
-- Google Play Console — $25 once.
-- The paid applications agreement, plus banking and tax details, in App Store
-  Connect. This can take days to clear and blocks any paid release.
-
-### 4. Set up the subscription products
-
-In App Store Connect and the Play Console, then in RevenueCat: create the
-product, attach it to an entitlement, and point the webhook at
-`https://<your-domain>/api/billing/webhook` with `REVENUECAT_WEBHOOK_SECRET` as
-its Authorization header. `/api/health` reports `billing: "configured"` once the
-secret key is set.
-
-Under the Small Business Program the commission is 15% while you are below $1M
-a year, on both stores. It is not automatic on Apple's side — you have to
-enrol.
-
-### 5. Answer the questionnaires honestly
-
-- **Privacy nutrition labels / Data safety.** Declare the third parties the
-  privacy policy names: Google Gemini, the email provider, the optional
-  page-fetching service, and the hosting platform. Note that member names,
-  recorded preferences and budget caps reach Gemini — the referee's prompt
-  builds from them (`server/prompts/referee.ts`).
-- **AI disclosure and age rating.** The referee generates text shown to users.
-  Both stores now ask about this.
-- **Age.** The terms set a floor of 13. The app also stores ages for attendees
-  who are not users, including children — worth raising with whoever reviews
-  the policy.
-
----
-
-## Already done
-
-- In-app account deletion (Apple has required this since 2022), with the trip
-  handover it implies.
-- Guideline 1.2's four requirements: a submission-time content filter, a report
-  mechanism, blocking, and a contact address once `SUPPORT_EMAIL` is set.
-- Billing: a free account organises one trip at a time, sold through Apple's and
-  Google's in-app purchase. The purchase sheet itself is wired when the
-  Capacitor wrap lands — there is no in-app purchase on the web — so until then
-  the paywall explains the limit and points at the apps.
-- A privacy policy and terms at `/privacy` and `/terms`, reachable **without an
-  account** — a reviewer opening that URL is signed out, which is why those
-  pages never call `useAuth` and a test enforces it.
-
----
-
-## Still to build
-
-Nothing. The code side is complete — see **Building the apps** below.
-
-## Building the apps
-
-`ios/` and `android/` are not in this repository: generating them needs Xcode
-and the Android SDK. On a Mac with both:
+`ios/` and `android/` are not in this repository — generating them needs Xcode
+and the Android SDK.
 
 ```bash
 pnpm build
-npx cap add ios && npx cap add android   # once
+npx cap add ios && npx cap add android   # once only
 npx cap sync                             # after every pnpm build
 npx cap open ios                         # or: npx cap open android
 ```
@@ -123,54 +105,82 @@ npx cap open ios                         # or: npx cap open android
 splash screens and the signing configuration, and regenerating them loses all
 three.
 
-Two things need doing by hand in the native projects, because they are Xcode and
-Gradle settings rather than code:
+## 6. Two settings that cannot be written in code
 
-- **iOS**: add the Associated Domains capability with
+They are Xcode and Gradle settings:
+
+- **iOS**: add the Associated Domains capability, with **both**
   `applinks:<your-domain>` and `webcredentials:<your-domain>`. Without the
   second, passkeys created in the app are not offered on the website.
 - **Android**: add the `intent-filter` for `<your-domain>` with
   `android:autoVerify="true"` in `AndroidManifest.xml`.
 
-### Passkeys in the native builds
+## 7. Test on a real phone
 
-The server already expects both origins: the web's, and Android's
-`android:apk-key-hash:…` derived from `ANDROID_CERT_FINGERPRINT`. iOS needs
-nothing extra — an app associated through `webcredentials` presents the domain's
-own origin.
+None of these can be checked any other way, and each is a likely first bug:
 
-What the _client_ needs is a native WebAuthn bridge:
-`@simplewebauthn/browser` calls the WebView's own API, whose origin is
-`capacitor://localhost` and will not match. Sign-in by password and magic link
-works regardless, so this can follow the first release rather than block it.
+- Sign in, close the app completely, reopen it — are you still signed in?
+- Tap a magic link from your email — does the app open, or the browser?
+- Drag a member between families on the Members screen.
+- Buy the subscription with a sandbox account, then tap **Restore purchases**.
 
-## Values needed before the wrap can be finished
+## 8. Submit
 
-Held only by the account owner. All four are declared as environment variables
-already, so filling them in needs no code change:
+Answer the questionnaires honestly:
 
-| Variable                   | Where it comes from                                      |
-| -------------------------- | -------------------------------------------------------- |
-| `APPLE_TEAM_ID`            | The Apple Developer account, e.g. `A1B2C3D4E5`           |
-| `IOS_BUNDLE_ID`            | Chosen when the app record is created                    |
-| `ANDROID_PACKAGE_NAME`     | Usually the same string as the iOS bundle                |
-| `ANDROID_CERT_FINGERPRINT` | `keytool -list -v -keystore <file>`, colon-separated hex |
+- **Privacy nutrition labels / Data safety.** Declare what the privacy policy
+  names: Google Gemini, the email provider, the optional page-fetching service
+  and the hosting platform.
+- **AI disclosure and age rating.** The referee generates text shown to users;
+  both stores now ask.
+- **Age.** The terms set a floor of 13.
 
-With Play App Signing, the fingerprint Android App Links verify against is the
-one **Play re-signs with**, not the upload key's — take it from the Play Console,
-not from your local keystore.
+**Expect one rejection.** It is normal. The two likeliest reasons — guideline 1.2
+(user-generated content) and 4.2 (minimum functionality, which webview wrappers
+attract) — are both already handled.
 
-None of these are secret; every one is readable from a shipped app. They are
-here because the `apple-app-site-association` and `assetlinks.json` files are
-built from them, and universal links and passkeys stay broken until they are
-real. `/api/health` reports `nativeIds`.
+---
 
-## A known gap, unrelated to the stores
+# Already done, so you do not have to
+
+- **In-app account deletion**, required by Apple since 2022, with the trip
+  handover it implies: an organiser's trips pass to another member rather than
+  taking the group's planning with them.
+- **Guideline 1.2's four requirements**: a submission-time content filter, a
+  report mechanism, blocking, and a published contact address.
+- **A privacy policy and terms** at `/privacy` and `/terms`, reachable **without
+  an account** — a reviewer opening that URL is signed out, which is why those
+  pages never call `useAuth` and a test enforces it.
+- **Billing**: a free account organises one trip at a time; being invited is
+  always free. Sold through the stores' own in-app purchase, with the purchase
+  sheet and restore-purchases wired.
+- **The native shell**: Capacitor config, the session as a bearer token, the
+  association files, deep links, the Android back button, safe-area insets,
+  status bar, keyboard and splash screen.
+
+# Still to do on the code side
+
+- **Passkeys inside the apps.** The server already expects both origins: the
+  web's, and Android's `android:apk-key-hash:…` derived from
+  `ANDROID_CERT_FINGERPRINT`. iOS needs nothing extra — an app associated
+  through `webcredentials` presents the domain's own origin.
+
+  What is missing is a **native WebAuthn bridge on the client**:
+  `@simplewebauthn/browser` calls the WebView's own API, whose origin is
+  `capacitor://localhost` and will not match. Password and magic-link sign-in
+  work regardless, so this can follow the first release rather than block it.
+
+- **Whatever device testing turns up.** The bearer-token session and the deep
+  links are the two most likely to need a round or two, because both fail in
+  ways only a real phone reveals.
+
+# A known gap, unrelated to the stores
 
 CI's "Schema and migrations agree" step does not currently do anything. The
 drizzle snapshots in `drizzle/meta/` stop at `0007` while migrations run past
-`0017`, so `pnpm db:generate` hits an interactive prompt, writes nothing, and
+`0018`, so `pnpm db:generate` hits an interactive prompt, writes nothing, and
 `git diff --quiet` passes vacuously. Migrations are still exercised — CI applies
-them to a scratch Postgres with `pnpm db:deploy` — but the guard against a
-column added to `schema.ts` with no migration is not working. Regenerating the
-missing snapshots is its own piece of work.
+them to a scratch Postgres with `pnpm db:deploy` — but the guard against a column
+added to `schema.ts` with no migration is not working. Regenerating the missing
+snapshots is its own piece of work, and worth doing before anyone relies on that
+check.
