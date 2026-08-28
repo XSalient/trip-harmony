@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { trpc } from "@/lib/trpc";
+import { rememberSession } from "@/lib/session";
 import { useSessionSwitch } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,9 @@ export function AuthDialog({
   // Signing in is a change of identity, not a change of one query: the tab may
   // already hold another account's trips. See `useSessionSwitch`.
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: async () => {
+    onSuccess: async result => {
+      // A no-op on the web: the server returns a token only to a native origin.
+      await rememberSession(result);
       await switchSession();
       onSuccess();
     },
@@ -87,7 +90,8 @@ export function AuthDialog({
   });
 
   const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: async () => {
+    onSuccess: async result => {
+      await rememberSession(result);
       await switchSession();
       onSuccess();
     },
@@ -125,7 +129,11 @@ export function AuthDialog({
     try {
       const { challengeId, options } = await passkeyStartMutation.mutateAsync();
       const response = await startAuthentication({ optionsJSON: options });
-      await passkeyFinishMutation.mutateAsync({ challengeId, response });
+      const result = await passkeyFinishMutation.mutateAsync({
+        challengeId,
+        response,
+      });
+      await rememberSession(result);
       await switchSession();
       onSuccess();
     } catch (error) {

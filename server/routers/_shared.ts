@@ -17,7 +17,46 @@ import {
   TRIP_LIMIT_ERR_MSG,
 } from "../../shared/billing.js";
 import { config } from "../_core/env.js";
+import { sdk } from "../_core/sdk.js";
+import { getSessionCookieOptions } from "../_core/cookies.js";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { isNativeOrigin } from "../../shared/native.js";
+import type { TrpcContext } from "../_core/context.js";
 import * as db from "../db.js";
+
+/**
+ * Start a session: set the cookie, and hand the token back to a native client.
+ *
+ * Five procedures signed somebody in — register, login, the demo, a magic link
+ * and a passkey — each minting a token and setting a cookie in the same four
+ * lines. One helper, because the interesting part is now a *rule* rather than
+ * boilerplate, and a rule copied five times is a rule that will be applied four
+ * times after the next edit.
+ *
+ * The rule: the token is returned in the body **only** when the request's
+ * `Origin` is a Capacitor WebView (see `shared/native.ts`). The web keeps the
+ * `httpOnly` cookie and is told nothing, because a token page script can read
+ * is a token an XSS can steal, and `Origin` is the one signal a web page cannot
+ * forge — it is set by the browser, not by the page.
+ */
+export async function issueSession(
+  ctx: { req: TrpcContext["req"]; res: TrpcContext["res"] },
+  user: { openId: string; name?: string | null }
+): Promise<{ sessionToken?: string }> {
+  const token = await sdk.createSessionToken(user.openId, {
+    name: user.name || "",
+    expiresInMs: ONE_YEAR_MS,
+  });
+
+  // Set for everyone: the native builds ignore it, and it costs nothing there.
+  const cookieOptions = getSessionCookieOptions(ctx.req);
+  ctx.res.cookie(COOKIE_NAME, token, {
+    ...cookieOptions,
+    maxAge: ONE_YEAR_MS,
+  });
+
+  return isNativeOrigin(ctx.req.get("origin")) ? { sessionToken: token } : {};
+}
 
 /**
  * Refuse a new trip when a free account is already organising one.

@@ -8,6 +8,50 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — The native shell, and a session that survives it
+
+### Added
+
+- **Capacitor config**, pointing at the bundle `pnpm build` already produces.
+  There is no second app: iOS and Android run the same SPA the web runs, so a
+  fix ships to all three at once. `ios/` and `android/` are **not** in the
+  repository — generating them needs Xcode and the Android SDK — so they are
+  created on a developer machine with `npx cap add ios` / `npx cap add android`
+  and committed once they exist.
+
+- **The session can travel as a bearer token.** In a Capacitor WebView the
+  page's origin is `capacitor://localhost`, so the cookie for the API's domain
+  is third-party and iOS drops it. `sdk.authenticateRequest` now reads the
+  cookie _or_ an `Authorization: Bearer` header — cookie first, so an injected
+  header can never override a real session.
+
+  **Additive, never a replacement.** The web keeps its `httpOnly` cookie, which
+  page script cannot read; moving the web to a readable token as well would
+  trade a real defence against XSS for one code path.
+
+- **The token is returned in a response body only to a WebView origin.**
+  `shared/native.ts` lists them and matches exactly — `startsWith` would have
+  accepted `https://localhost.evil.example`, a domain anybody can register. The
+  origin is the right signal because a browser sets it and page script cannot
+  forge it, so an XSS on the web cannot ask for the token by pretending to be
+  the app. `http://localhost` is deliberately absent: that is the dev server,
+  and accepting it would hand a readable token to every tab a developer has
+  open.
+
+  `nativeSession.test.ts` covers it, and was checked by making `issueSession`
+  hand the token to everyone — two tests fail, by name.
+
+### Changed
+
+- **Five sign-in procedures now mint their session in one place.** Register,
+  login, the demo, a magic link and a passkey each repeated the same four lines
+  of token-and-cookie. They call `issueSession` instead, because the interesting
+  part is now a _rule_ rather than boilerplate, and a rule copied five times is
+  a rule that gets applied four times after the next edit. A test asserts none
+  of them calls `createSessionToken` directly.
+
+---
+
 ## 2026-08-28 — Subscriptions, through the stores' own in-app purchase
 
 ### Added

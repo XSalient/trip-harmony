@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth, useSessionSwitch } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { rememberSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +54,8 @@ function DemoSeatDialog({
   const take = async (persona: string) => {
     setPending(persona);
     try {
-      await demoSignIn.mutateAsync({ persona });
+      const result = await demoSignIn.mutateAsync({ persona });
+      await rememberSession(result);
       // The seats are meant to be tried one after another, so this is the one
       // screen where a stale cache is guaranteed rather than unlikely: without
       // the clear, Nina's first paint is whatever Ava was looking at.

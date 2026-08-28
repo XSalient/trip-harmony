@@ -6,7 +6,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
-import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { COOKIE_NAME } from "../../shared/const.js";
 import {
   DEMO_OPEN_ID_PREFIX,
   DEMO_PERSONA_KEY_PATTERN,
@@ -14,7 +14,6 @@ import {
   isDemoTourHost,
 } from "../../shared/demo.js";
 import { getSessionCookieOptions } from "../_core/cookies.js";
-import { sdk } from "../_core/sdk.js";
 import * as db from "../db.js";
 import { config } from "../_core/env.js";
 import {
@@ -22,7 +21,12 @@ import {
   isEmailConfigured,
   sendMagicLinkEmail,
 } from "../utils/mailer.js";
-import { hashPassword, toPublicUser, verifyPassword } from "./_shared.js";
+import {
+  hashPassword,
+  issueSession,
+  toPublicUser,
+  verifyPassword,
+} from "./_shared.js";
 
 /**
  * Whether this request should be offered the demo.
@@ -95,16 +99,7 @@ export const authRouter = router({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to create account.",
         });
-      const token = await sdk.createSessionToken(user.openId, {
-        name: user.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, token, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
-      return { success: true };
+      return { success: true, ...(await issueSession(ctx, user)) };
     }),
   login: publicProcedure
     .input(
@@ -127,16 +122,7 @@ export const authRouter = router({
           message: "Invalid email or password.",
         });
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
-      const token = await sdk.createSessionToken(user.openId, {
-        name: user.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, token, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
-      return { success: true };
+      return { success: true, ...(await issueSession(ctx, user)) };
     }),
   /**
    * Signs a visitor into a seeded demo account, with nothing to type.
@@ -188,16 +174,11 @@ export const authRouter = router({
           message: "This deployment has no demo in it.",
         });
 
-      const token = await sdk.createSessionToken(user.openId, {
-        name: user.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, token, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
-      return { success: true, name: user.name };
+      return {
+        success: true,
+        name: user.name,
+        ...(await issueSession(ctx, user)),
+      };
     }),
   requestMagicLink: publicProcedure
     .input(
@@ -398,15 +379,9 @@ export const authRouter = router({
         });
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
       const name = user.name || row.email.split("@")[0] || "User";
-      const sessionToken = await sdk.createSessionToken(user.openId, {
-        name,
-        expiresInMs: ONE_YEAR_MS,
-      });
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, sessionToken, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
-      return { success: true };
+      return {
+        success: true,
+        ...(await issueSession(ctx, { openId: user.openId, name })),
+      };
     }),
 });

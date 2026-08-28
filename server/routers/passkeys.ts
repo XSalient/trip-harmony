@@ -27,10 +27,8 @@ import type {
   AuthenticatorTransportFuture,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
-import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
-import { getSessionCookieOptions } from "../_core/cookies.js";
-import { sdk } from "../_core/sdk.js";
 import * as db from "../db.js";
+import { issueSession } from "./_shared.js";
 import { config } from "../_core/env.js";
 import { logger } from "../_core/logger.js";
 
@@ -340,18 +338,10 @@ export const passkeysRouter = router({
       );
       await db.upsertUser({ openId: user.openId, lastSignedIn: new Date() });
 
-      const token = await sdk.createSessionToken(user.openId, {
-        name: user.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.cookie(COOKIE_NAME, token, {
-        ...cookieOptions,
-        maxAge: ONE_YEAR_MS,
-      });
+      const session = await issueSession(ctx, user);
 
       log.info("passkey sign-in", { userId: user.id });
-      return { success: true } as const;
+      return { success: true, ...session } as const;
     }),
 
   rename: protectedProcedure

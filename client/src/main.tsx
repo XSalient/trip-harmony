@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { trackNavigationDepth } from "./lib/navigationDepth";
+import { clearSessionToken, getSessionToken } from "./lib/session";
 import "./index.css";
 
 /**
@@ -48,6 +49,12 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
 
   if (!isUnauthorized) return;
+
+  // The native builds hold the session themselves, so a token the server has
+  // stopped accepting has to be dropped here — otherwise every later request
+  // re-sends it and the app bounces to the landing page forever.
+  void clearSessionToken();
+
   // Already on the login page — redirecting would reload into the same error.
   if (window.location.pathname === LOGIN_PATH) return;
 
@@ -113,11 +120,26 @@ const timeoutSignal = (
   };
 };
 
-/** The session cookie has to ride along, on every link. */
-const withCredentials = (init?: RequestInit): RequestInit => ({
-  ...(init ?? {}),
-  credentials: "include",
-});
+/**
+ * The session, on every link — however this build carries it.
+ *
+ * On the web that is the `httpOnly` cookie, which `credentials: "include"` is
+ * enough for; nothing here can see it, which is the point. In a Capacitor
+ * WebView the page's origin is `capacitor://localhost`, so that cookie is
+ * third-party and iOS drops it, and the same JWT rides in an `Authorization`
+ * header instead. `getSessionToken` returns null on the web, so this adds
+ * nothing there.
+ */
+const withSession = async (init?: RequestInit): Promise<RequestInit> => {
+  const token = await getSessionToken();
+  return {
+    ...(init ?? {}),
+    credentials: "include",
+    headers: token
+      ? { ...(init?.headers ?? {}), Authorization: `Bearer ${token}` }
+      : init?.headers,
+  };
+};
 
 const trpcClient = trpc.createClient({
   links: [
@@ -126,20 +148,22 @@ const trpcClient = trpc.createClient({
       true: httpLink({
         url: "/api/trpc",
         transformer: superjson,
-        fetch(input, init) {
+        async fetch(input, init) {
           const { signal, cleanup } = timeoutSignal(
             init?.signal,
             AUTH_REQUEST_TIMEOUT_MS
           );
+          const withAuth = await withSession(init);
           return globalThis
-            .fetch(input, { ...withCredentials(init), signal })
+            .fetch(input, { ...withAuth, signal })
             .finally(cleanup);
         },
       }),
       false: httpBatchLink({
         url: "/api/trpc",
         transformer: superjson,
-        fetch: (input, init) => globalThis.fetch(input, withCredentials(init)),
+        fetch: async (input, init) =>
+          globalThis.fetch(input, await withSession(init)),
       }),
     }),
   ],
