@@ -48,7 +48,7 @@ export default function CreateTrip() {
   return (
     <AppShell title="New Trip" showBack backHref="/">
       <form onSubmit={handleSubmit} className="px-4 py-5">
-        <Card className="border-border/50">
+        <Card className="rounded-2xl border-0 bg-card shadow-sm">
           <CardContent className="space-y-6 p-5">
             <div className="pb-1 text-center">
               <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">

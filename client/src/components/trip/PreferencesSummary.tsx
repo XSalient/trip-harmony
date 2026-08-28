@@ -71,7 +71,7 @@ export default function PreferencesSummary({
   };
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-2xl border-0 bg-card shadow-sm">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -92,7 +92,7 @@ export default function PreferencesSummary({
               {savedAt ? (
                 <Badge
                   variant="outline"
-                  className="text-xs text-green-600 border-green-300 gap-1"
+                  className="text-xs text-success-strong border-success-border gap-1"
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   Saved {format(new Date(savedAt), "d MMM")}

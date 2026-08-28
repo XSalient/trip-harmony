@@ -30,7 +30,7 @@ export default function MobileNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border/60 safe-area-bottom">
       <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-2">
         {navItems.map(item => {
           const isActive =
@@ -40,14 +40,14 @@ export default function MobileNav() {
           return (
             <Link key={item.href} href={item.href}>
               <div
-                className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all relative ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                className={`flex flex-col items-center gap-0.5 py-1.5 px-4 rounded-2xl transition-all relative ${isActive ? "bg-secondary text-primary" : "text-muted-foreground"}`}
               >
                 <div className="relative">
                   <item.icon
                     className={`h-5 w-5 ${isActive ? "stroke-[2.5px]" : ""}`}
                   />
                   {item.badge && item.badge > 0 ? (
-                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                    <span className="absolute -top-1.5 -right-2 bg-danger-strong text-white text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   ) : null}

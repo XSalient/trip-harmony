@@ -82,7 +82,7 @@ function DemoSeatDialog({
               key={persona.key}
               onClick={() => take(persona.key)}
               disabled={pending !== null}
-              className="w-full text-left rounded-xl border border-border/70 p-4 transition hover:border-primary hover:bg-accent/40 disabled:opacity-60"
+              className="w-full text-left rounded-2xl border border-border/70 p-4 transition hover:border-primary hover:bg-secondary disabled:opacity-60"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{persona.name}</span>
@@ -128,7 +128,7 @@ function LandingPage() {
       />
       {/* Hero */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/10 to-secondary/10" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-from/12 via-brand-to/10 to-secondary" />
         <div className="relative px-6 pt-16 pb-12 max-w-lg mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary rounded-full px-4 py-1.5 text-sm font-medium mb-6">
             <Sparkles className="h-4 w-4" />
@@ -146,7 +146,7 @@ function LandingPage() {
           </p>
           <Button
             size="lg"
-            className="w-full max-w-xs h-12 text-base font-semibold rounded-xl shadow-lg"
+            className="w-full max-w-xs h-12 text-base font-semibold rounded-2xl shadow-lg"
             onClick={() => setAuthOpen(true)}
           >
             Get Started
@@ -162,7 +162,7 @@ function LandingPage() {
               <Button
                 variant="outline"
                 size="lg"
-                className="w-full max-w-xs h-12 text-base rounded-xl"
+                className="w-full max-w-xs h-12 text-base rounded-2xl"
                 onClick={() => setDemoOpen(true)}
               >
                 <Eye className="h-4 w-4" />
@@ -192,7 +192,7 @@ function LandingPage() {
               icon: Vote,
               title: "Smart Voting",
               desc: "Love, Fine, or Veto on every option",
-              color: "text-chart-2 bg-accent",
+              color: "text-accent-foreground bg-accent",
             },
             {
               icon: Shield,
@@ -207,7 +207,10 @@ function LandingPage() {
               color: "text-chart-4 bg-chart-4/10",
             },
           ].map(f => (
-            <Card key={f.title} className="border-0 shadow-sm bg-card">
+            <Card
+              key={f.title}
+              className="rounded-2xl border-0 shadow-sm bg-card"
+            >
               <CardContent className="p-4">
                 <div
                   className={`h-10 w-10 rounded-xl ${f.color} flex items-center justify-center mb-3`}
@@ -242,12 +245,12 @@ function TripCard({ trip }: { trip: any }) {
     destination: "bg-chart-3/10 text-chart-3",
     accommodation: "bg-chart-2/10 text-chart-2",
     activities: "bg-primary/10 text-primary",
-    finalized: "bg-green-100 text-green-700",
+    finalized: "bg-success-soft text-success-strong",
   };
 
   return (
     <Link href={`/trips/${trip.id}`}>
-      <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+      <Card className="rounded-2xl border-0 bg-card shadow-sm hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -302,7 +305,7 @@ function Dashboard() {
         {/* Quick Actions */}
         <Button
           variant="default"
-          className="h-auto w-full py-4 flex-col gap-2 rounded-xl shadow-sm"
+          className="h-auto w-full py-4 flex-col gap-2 rounded-2xl shadow-sm"
           onClick={() => navigate("/trips/new")}
         >
           <Plus className="h-5 w-5" />

@@ -65,7 +65,7 @@ function SignInMethods() {
         Sign-in &amp; security
       </h2>
 
-      <Card className="border-border/50">
+      <Card className="rounded-2xl border-0 bg-card shadow-sm">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-start gap-3">
             <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center shrink-0">

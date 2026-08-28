@@ -48,7 +48,7 @@ export default function MagicLinkVerify() {
         )}
         {isSuccess && (
           <>
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+            <CheckCircle className="h-12 w-12 text-success-strong mx-auto" />
             <h2 className="text-xl font-semibold">You're in!</h2>
             <p className="text-muted-foreground text-sm">
               Redirecting you to your dashboard…

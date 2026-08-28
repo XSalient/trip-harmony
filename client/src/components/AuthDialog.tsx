@@ -203,7 +203,7 @@ export function AuthDialog({
 
         {mode === "signin" && magicSent && (
           <div className="space-y-4 mt-2 text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+            <CheckCircle className="h-12 w-12 text-success-strong mx-auto" />
             <p className="text-sm text-muted-foreground">
               We've sent a sign-in link to{" "}
               <strong>{signInForm.getValues("email")}</strong>. Click it to log

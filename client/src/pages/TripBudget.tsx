@@ -508,7 +508,7 @@ export default function TripBudget() {
         {/* A count, never a name: enough to reopen the conversation, without
             publishing anybody's finances to the group. */}
         {summary && summary.votersOverCap ? (
-          <Card className="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20">
+          <Card className="border-attention-border bg-attention-soft/60">
             <CardContent className="p-3 text-xs">
               {summary.votersOverCap === 1
                 ? "One person is above the limit they set."
@@ -677,13 +677,13 @@ export default function TripBudget() {
                     )}
 
                     <div className="flex gap-4 text-xs mb-3 items-center">
-                      <span className="text-pink-600 font-medium flex items-center gap-1">
+                      <span className="text-success-strong font-medium flex items-center gap-1">
                         <Heart className="h-3 w-3" /> {loves}
                       </span>
-                      <span className="text-blue-600 font-medium flex items-center gap-1">
+                      <span className="text-attention-strong font-medium flex items-center gap-1">
                         <HelpCircle className="h-3 w-3" /> {fines}
                       </span>
-                      <span className="text-red-500 font-medium flex items-center gap-1">
+                      <span className="text-danger-strong font-medium flex items-center gap-1">
                         <Ban className="h-3 w-3" /> {vetos}
                       </span>
                       <VotedCount
@@ -707,20 +707,21 @@ export default function TripBudget() {
                               icon: Heart,
                               label: "Yes",
                               active:
-                                "bg-green-100 text-green-700 border-green-300",
+                                "bg-success-soft text-success-strong border-success-border",
                             },
                             {
                               vote: "fine" as const,
                               icon: HelpCircle,
                               label: "Maybe",
                               active:
-                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                                "bg-attention-soft text-attention-strong border-attention-border",
                             },
                             {
                               vote: "veto" as const,
                               icon: Ban,
                               label: "No",
-                              active: "bg-red-100 text-red-600 border-red-300",
+                              active:
+                                "bg-danger-soft text-danger-strong border-danger-border",
                             },
                           ].map(btn => (
                             <Button

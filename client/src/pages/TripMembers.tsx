@@ -846,7 +846,7 @@ export default function TripMembers() {
             plus guests, mind the overlap". Pets are counted and shown, and
             never divided by. */}
         {headcount && (
-          <Card className="bg-muted/40 border-border/50">
+          <Card className="rounded-2xl border-0 bg-muted/40 shadow-sm">
             <CardContent className="p-3 flex items-center gap-2 text-sm">
               <Users className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>
@@ -867,7 +867,7 @@ export default function TripMembers() {
           </h2>
 
           {canContribute && (
-            <Card className="border-border/50">
+            <Card className="rounded-2xl border-0 bg-card shadow-sm">
               <CardContent className="p-3 space-y-3">
                 <div className="flex gap-2">
                   <Input
@@ -1345,7 +1345,7 @@ export default function TripMembers() {
                 className="flex items-center gap-2 text-xs text-muted-foreground px-1"
               >
                 {i.status === "accepted" ? (
-                  <Check className="h-3 w-3 text-green-600" />
+                  <Check className="h-3 w-3 text-success-strong" />
                 ) : (
                   <X className="h-3 w-3" />
                 )}
@@ -1363,7 +1363,7 @@ export default function TripMembers() {
               Invite someone
             </h2>
 
-            <Card className="border-border/50">
+            <Card className="rounded-2xl border-0 bg-card shadow-sm">
               <CardContent className="p-3 space-y-3">
                 <div>
                   <Label className="text-xs">Join as</Label>
@@ -1448,7 +1448,7 @@ export default function TripMembers() {
                 makes tripmates, so handing it to a tripmate would hand out
                 votes — the one thing the loosened invite rule protects. */}
             {isAdmin && (
-              <Card className="border-border/50">
+              <Card className="rounded-2xl border-0 bg-card shadow-sm">
                 <CardContent className="p-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Or share this link. Anyone who follows it joins as a
@@ -1596,20 +1596,20 @@ export default function TripMembers() {
           {importPlan && (
             <div className="space-y-3 pt-1 text-sm">
               {importPlan.conflicts.length > 0 && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
-                  <p className="font-medium text-amber-900 dark:text-amber-200">
+                <div className="rounded-lg border border-attention-border bg-attention-soft p-3 space-y-1.5">
+                  <p className="font-medium text-attention-strong">
                     Already in another group
                   </p>
                   {importPlan.conflicts.map((c: any) => (
                     <p
                       key={c.userId}
-                      className="text-xs text-amber-900/80 dark:text-amber-200/80"
+                      className="text-xs text-attention-strong/80"
                     >
                       {c.name} is already on this trip in {c.currentGroupName}.
                       Adding this group moves them into {importPlan.groupName}.
                     </p>
                   ))}
-                  <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                  <p className="text-xs text-attention-strong/80">
                     A group casts one vote, so moving somebody can drop a vote
                     that has become a duplicate.
                   </p>

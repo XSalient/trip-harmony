@@ -45,7 +45,7 @@ function DemoResetCard() {
   });
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-2xl border-0 bg-card shadow-sm">
       <CardContent className="p-4 space-y-3">
         <div>
           <h3 className="font-semibold">Demo data</h3>

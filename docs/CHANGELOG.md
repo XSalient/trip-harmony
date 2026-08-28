@@ -8,6 +8,39 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — A new look, and a way into the votes you owe
+
+### Changed
+
+- **The app is violet.** A new palette across every screen: a violet primary and
+  a purple-to-magenta gradient behind every header, a lavender page, white cards
+  with a wider radius and a soft shadow in place of hairline borders, mint for
+  what the group has settled and amber for what is waiting on you. The teal
+  theme is gone.
+
+- **Status colour now has names.** Around 180 hardcoded Tailwind classes
+  (`bg-green-100`, `text-yellow-700`, `border-red-300`) became five semantic
+  token families — success, attention, caution, danger, info — defined once in
+  `client/src/index.css`. Nothing changed meaning; see
+  [ADR 0023](adr/0023-semantic-colour-tokens.md). One visible knock-on: the
+  love/fine/veto tally is the same three colours everywhere, where the
+  accommodation and suggestion rows used to show it in pink and blue.
+
+- **Dark mode exists.** The client was full of `dark:` classes that had never
+  applied, because no dark palette had been defined. There is one now. The app
+  still opens in light and has no switch — this only means the dark half is
+  correct rather than dead.
+
+### Added
+
+- **"Start voting".** The trip page's card counting your unvoted proposals used
+  to say "Open a section below to vote" and leave you to find them on a page
+  where every section starts collapsed. It now names what is waiting — "1 date ·
+  2 accommodations · 2 budgets" — and its button opens the first section that
+  needs you and scrolls to it. The section stays open when you come back.
+
+---
+
 ## 2026-08-27 — Somebody without an account can be corrected, and moved
 
 ### Fixed

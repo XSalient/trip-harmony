@@ -29,7 +29,10 @@ export default function LockToggle({
   const blocked = !locked && Boolean(disabledReason);
   if (!canLock) {
     return locked ? (
-      <Lock className="h-3.5 w-3.5 text-green-600" aria-label="Finalised" />
+      <Lock
+        className="h-3.5 w-3.5 text-success-strong"
+        aria-label="Finalised"
+      />
     ) : null;
   }
   return (
@@ -51,7 +54,7 @@ export default function LockToggle({
       }
       className={`p-0.5 rounded transition-colors disabled:opacity-50 ${
         locked
-          ? "text-green-600 hover:bg-green-100"
+          ? "text-success-strong hover:bg-success-soft"
           : "text-muted-foreground hover:text-foreground hover:bg-muted"
       }`}
     >

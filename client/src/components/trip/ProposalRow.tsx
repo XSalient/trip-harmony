@@ -83,7 +83,7 @@ function RowShell({
 }) {
   return (
     <div
-      className={`rounded-lg border p-2.5 text-xs ${row.selected ? "border-green-300 bg-green-50/60 dark:bg-green-950/20" : "border-border/40 bg-background"}`}
+      className={`rounded-lg border p-2.5 text-xs ${row.selected ? "border-success-border bg-success-soft/60" : "border-border/40 bg-background"}`}
     >
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex-1 min-w-0">{title}</div>
@@ -194,19 +194,19 @@ const DATE_OPTIONS = [
     vote: "available" as const,
     icon: Check,
     label: "Yes",
-    active: "bg-green-100 text-green-700 border-green-300",
+    active: "bg-success-soft text-success-strong border-success-border",
   },
   {
     vote: "maybe" as const,
     icon: HelpCircle,
     label: "Maybe",
-    active: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    active: "bg-attention-soft text-attention-strong border-attention-border",
   },
   {
     vote: "unavailable" as const,
     icon: X,
     label: "No",
-    active: "bg-red-100 text-red-600 border-red-300",
+    active: "bg-danger-soft text-danger-strong border-danger-border",
   },
 ] as const;
 
@@ -214,17 +214,17 @@ const CHOICE_OPTIONS = [
   {
     vote: "love" as const,
     label: "Yes",
-    active: "bg-green-100 text-green-700 border-green-300",
+    active: "bg-success-soft text-success-strong border-success-border",
   },
   {
     vote: "fine" as const,
     label: "Maybe",
-    active: "bg-yellow-100 text-yellow-700 border-yellow-300",
+    active: "bg-attention-soft text-attention-strong border-attention-border",
   },
   {
     vote: "veto" as const,
     label: "No",
-    active: "bg-red-100 text-red-600 border-red-300",
+    active: "bg-danger-soft text-danger-strong border-danger-border",
   },
 ] as const;
 
@@ -272,11 +272,13 @@ export function DateProposalRow({
       }
       tally={
         <>
-          <span className="text-green-600">
+          <span className="text-success-strong">
             {countVotes(row, "available")}✓
           </span>
-          <span className="text-yellow-600">{countVotes(row, "maybe")}?</span>
-          <span className="text-red-500">
+          <span className="text-attention-strong">
+            {countVotes(row, "maybe")}?
+          </span>
+          <span className="text-danger-strong">
             {countVotes(row, "unavailable")}✗
           </span>
         </>
@@ -330,9 +332,13 @@ export function BudgetProposalRow({
       }
       tally={
         <>
-          <span className="text-green-600">{countVotes(row, "love")}✓</span>
-          <span className="text-yellow-600">{countVotes(row, "fine")}?</span>
-          <span className="text-red-500">{countVotes(row, "veto")}✗</span>
+          <span className="text-success-strong">
+            {countVotes(row, "love")}✓
+          </span>
+          <span className="text-attention-strong">
+            {countVotes(row, "fine")}?
+          </span>
+          <span className="text-danger-strong">{countVotes(row, "veto")}✗</span>
         </>
       }
       votes={
@@ -377,9 +383,13 @@ export function ChoiceProposalRow({
       }
       tally={
         <>
-          <span className="text-pink-600">{countVotes(row, "love")}❤</span>
-          <span className="text-blue-600">{countVotes(row, "fine")}✓</span>
-          <span className="text-red-500">{countVotes(row, "veto")}✗</span>
+          <span className="text-success-strong">
+            {countVotes(row, "love")}❤
+          </span>
+          <span className="text-attention-strong">
+            {countVotes(row, "fine")}✓
+          </span>
+          <span className="text-danger-strong">{countVotes(row, "veto")}✗</span>
         </>
       }
       votes={

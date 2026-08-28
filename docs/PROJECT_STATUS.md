@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-25
+- **Last updated:** 2026-08-28
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
@@ -22,7 +22,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 892 tests ✅ · production build ✅ (2026-08-25) ·
+- **Health:** typecheck ✅ · 907 tests ✅ · production build ✅ (2026-08-28) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -80,6 +80,30 @@ finish a piece of work — the next person (or agent) starts here.
   no model call happens on an ordinary write). The **passkey** enrol → sign-out →
   passkey sign-in round trip was last verified on 2026-08-01 and has not been
   repeated since.
+- **✅ The design pass is done** (2026-08-28). Every screen carries the violet
+  and amber theme: a gradient header, a lavender page, white cards with a wider
+  radius and a soft shadow. The part worth knowing about is underneath it —
+  around 180 hardcoded Tailwind palette classes across 21 files became five
+  semantic token families (success, attention, caution, danger, info) defined
+  once in `client/src/index.css`, so status colour can be changed in one place
+  and a new screen picks a meaning rather than a hue.
+  [ADR 0023](adr/0023-semantic-colour-tokens.md). Two things fell out of it: the
+  love/fine/veto tally is one scale everywhere (it was pink/blue/red on two of
+  the four proposal types), and **dark mode is real** — the client was full of
+  `dark:` classes that had never applied because no dark palette existed. There
+  is one now; the app still opens in light and has no switch.
+
+  One feature came with it: the trip page's unvoted-proposals card was a count
+  that told you to go and find the sections yourself, on a page where every
+  section starts collapsed. It now names what is waiting and its **Start
+  voting** button opens the first section that needs you and scrolls to it.
+
+  Verified in a real Chromium at phone width across every route, in both
+  palettes, with the API stubbed — the demo database is not reachable from a
+  sandbox. Worth repeating against a real database when one is at hand; the
+  screens that were checked hardest are the ones with the most status colour
+  (the trip page, budget, preferences).
+
 - **A tripmate can invite a watcher** (2026-08-22). Inviting was admin-only,
   which on a trip of families meant asking somebody else to add your own family.
   `trips.sendInviteEmail` requires a tripmate, and an admin for any role but

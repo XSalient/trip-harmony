@@ -2,7 +2,6 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import { useParams, Link, useLocation } from "wouter";
@@ -17,7 +16,6 @@ import {
   CheckCircle2,
   Bot,
   Plus,
-  AlertCircle,
   ClipboardList,
   FileText,
 } from "lucide-react";
@@ -25,6 +23,7 @@ import TripSummary from "@/components/trip/TripSummary";
 import EditTripDialog from "@/components/trip/EditTripDialog";
 import TripActionsMenu from "@/components/trip/TripActionsMenu";
 import WatcherNotice from "@/components/trip/WatcherNotice";
+import PendingVotesCard from "@/components/trip/PendingVotesCard";
 import { useSectionState } from "@/components/trip/useSectionState";
 import { useProposalDialogs } from "@/components/trip/useProposalDialogs";
 import SectionCard, {
@@ -130,7 +129,7 @@ export default function TripDashboard() {
     refetchDests: refetchDest,
     refetchAccs: refetchAcc,
   });
-  const { isOpen, toggle } = useSectionState(tripId);
+  const { isOpen, toggle, expand } = useSectionState(tripId);
 
   if (isLoading) {
     return (
@@ -216,6 +215,33 @@ export default function TripDashboard() {
     pendingVotes.destinations +
     pendingVotes.accommodations +
     pendingVotes.budgets;
+
+  /**
+   * Open the first section that is waiting on this person and scroll to it.
+   *
+   * The order matches the order the sections are rendered in below — landing
+   * on the second one while the first is also unvoted would read as a bug.
+   * The scroll waits a frame because the section is collapsed until this
+   * render commits, and a collapsed section is the wrong height to scroll to.
+   */
+  const startVoting = () => {
+    const first = (
+      [
+        ["dates", pendingVotes.dates],
+        ["accommodations", pendingVotes.accommodations],
+        ["suggestions", pendingVotes.destinations],
+        ["budget", pendingVotes.budgets],
+      ] as const
+    ).find(([, count]) => count > 0);
+    if (!first) return;
+    const [section] = first;
+    expand(section);
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`section-${section}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   /**
    * Finalise or un-finalise from the dashboard.
@@ -481,22 +507,13 @@ export default function TripDashboard() {
       <div className="px-4 py-4 space-y-4">
         {isWatcher && <WatcherNotice />}
 
-        {/* Pending votes alert */}
+        {/* The votes you still owe, and the way to them. */}
         {totalPending > 0 && (
-          <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/10">
-            <CardContent className="p-3 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-orange-500 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                  You have {totalPending} unvoted proposal
-                  {totalPending > 1 ? "s" : ""}
-                </p>
-                <p className="text-xs text-orange-600 dark:text-orange-400">
-                  Open a section below to vote
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <PendingVotesCard
+            pending={pendingVotes}
+            total={totalPending}
+            onStart={startVoting}
+          />
         )}
 
         {/* ── Summary — the only section open by default ── */}
@@ -558,9 +575,7 @@ export default function TripDashboard() {
               )
             }
             iconClass={
-              myPrefs
-                ? "bg-green-100 dark:bg-green-900/30 text-green-600"
-                : undefined
+              myPrefs ? "bg-success-soft text-success-strong" : undefined
             }
             open={isOpen("preferences")}
             onToggle={() => toggle("preferences")}
@@ -577,6 +592,7 @@ export default function TripDashboard() {
 
         {/* ── Dates ── */}
         <SectionCard
+          id="section-dates"
           title="Dates"
           icon={Calendar}
           href={`/trips/${tripId}/dates`}
@@ -619,6 +635,7 @@ export default function TripDashboard() {
 
         {/* ── Accommodations (was "Stays" — UI copy only) ── */}
         <SectionCard
+          id="section-accommodations"
           title="Accommodations"
           icon={HomeIcon}
           href={`/trips/${tripId}/accommodations`}
@@ -669,6 +686,7 @@ export default function TripDashboard() {
 
         {/* ── Suggestions (the `destinations` router, renamed in the UI only) ── */}
         <SectionCard
+          id="section-suggestions"
           title="Suggestions"
           icon={Lightbulb}
           href={`/trips/${tripId}/suggestions`}
@@ -710,6 +728,7 @@ export default function TripDashboard() {
 
         {/* ── Budget — a voting section like the three above it ── */}
         <SectionCard
+          id="section-budget"
           title="Budget"
           icon={DollarSign}
           href={`/trips/${tripId}/budget`}

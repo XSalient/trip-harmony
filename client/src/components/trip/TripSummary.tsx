@@ -31,7 +31,7 @@ function Line({
       <div className="flex items-baseline justify-between gap-3 text-sm py-0.5 rounded cursor-pointer hover:bg-muted/40 transition-colors">
         <span className="text-muted-foreground shrink-0">{label}</span>
         <span
-          className={`text-right font-medium truncate ${done ? "text-green-600" : "text-muted-foreground"}`}
+          className={`text-right font-medium truncate ${done ? "text-success-strong" : "text-muted-foreground"}`}
         >
           {value}
         </span>
@@ -89,7 +89,7 @@ export default function TripSummary({
     locked > 0 ? `${locked} of ${total} finalised` : `${total} proposed`;
 
   return (
-    <Card className="border-border/50 py-0">
+    <Card className="rounded-2xl border-0 bg-card py-0 shadow-sm">
       <CardContent className="p-0">
         <button
           onClick={onToggle}

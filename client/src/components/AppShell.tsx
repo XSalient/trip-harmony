@@ -48,20 +48,28 @@ export default function AppShell({
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {title && (
-        <header className="sticky top-0 z-40 bg-card/95 backdrop-blur-lg border-b border-border">
+        /* The brand gradient, on every screen that has a header. Its contents
+           sit on violet rather than on card white, so the controls inside it —
+           including whatever `headerRight` passes — are forced to white here
+           rather than each caller having to remember. */
+        <header className="sticky top-0 z-40 bg-gradient-to-br from-brand-from to-brand-to text-white shadow-sm">
           <div className="mx-auto flex h-14 max-w-2xl items-center px-4 sm:px-5">
             {showBack && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="mr-2 -ml-2 h-9 w-9"
+                className="mr-2 -ml-1 h-9 w-9 rounded-xl bg-white/15 text-white hover:bg-white/25 hover:text-white"
                 onClick={goBack}
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             )}
             <h1 className="text-lg font-semibold truncate flex-1">{title}</h1>
-            {headerRight && <div className="ml-2">{headerRight}</div>}
+            {headerRight && (
+              <div className="ml-2 [&_button]:text-white [&_button:hover]:bg-white/20 [&_button:hover]:text-white">
+                {headerRight}
+              </div>
+            )}
           </div>
         </header>
       )}

@@ -54,10 +54,33 @@ export function useSectionState(tripId: number) {
     [tripId]
   );
 
+  /**
+   * Open a section, whether or not it was open already.
+   *
+   * `toggle` cannot do this job: "take me to the votes I owe" must land on an
+   * open section, and toggling an already-open one closes it. Persists through
+   * the same path as `toggle` so the section is still open when you come back.
+   */
+  const expand = useCallback(
+    (section: SectionKey) => {
+      setOpen(prev => {
+        if (prev[section]) return prev;
+        const next = { ...prev, [section]: true };
+        try {
+          window.localStorage.setItem(keyFor(tripId), JSON.stringify(next));
+        } catch {
+          // As above: not remembering is survivable.
+        }
+        return next;
+      });
+    },
+    [tripId]
+  );
+
   const isOpen = useCallback(
     (section: SectionKey) => open[section] ?? false,
     [open]
   );
 
-  return { isOpen, toggle };
+  return { isOpen, toggle, expand };
 }

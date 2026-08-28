@@ -69,7 +69,7 @@ export function PasskeySection() {
   if (!supported) return null;
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-2xl border-0 bg-card shadow-sm">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -93,7 +93,7 @@ export function PasskeySection() {
                 key={passkey.id}
                 className="flex items-center gap-3 rounded-lg border border-border/60 px-3 py-2"
               >
-                <ShieldCheck className="h-4 w-4 text-green-600 shrink-0" />
+                <ShieldCheck className="h-4 w-4 text-success-strong shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
                     {passkey.label}
