@@ -1,5 +1,6 @@
 import {
   index,
+  uniqueIndex,
   pgEnum,
   pgTable,
   serial,
@@ -847,3 +848,112 @@ export const proposalComments = pgTable(
 
 export type ProposalComment = typeof proposalComments.$inferSelect;
 export type InsertProposalComment = typeof proposalComments.$inferInsert;
+
+/**
+ * What a piece of reported content is. Kept as an enum rather than a table
+ * name, because `member` is not one: reporting a person is reporting the
+ * account, not a row in any one trip's tables.
+ */
+export const reportedContentEnum = pgEnum("reported_content", [
+  "comment",
+  "proposal",
+  "trip",
+  "member",
+]);
+
+/**
+ * Why something was reported. Apple's guideline 1.2 asks for a report
+ * mechanism, not for a particular taxonomy; these are the categories a
+ * moderator can actually act differently on.
+ */
+export const reportReasonEnum = pgEnum("report_reason", [
+  "spam",
+  "harassment",
+  "hate",
+  "sexual",
+  "violence",
+  "other",
+]);
+
+export const reportStatusEnum = pgEnum("report_status", [
+  "open",
+  "actioned",
+  "dismissed",
+]);
+
+/**
+ * Something a member reported, and what an admin did about it.
+ *
+ * Reports go to **app** admins — `users.role === "admin"`, what
+ * `adminProcedure` checks — rather than to the trip's own admins. A trip admin
+ * can already delete any comment on their trip, but reporting a trip admin to
+ * that same trip admin is not a moderation path, and theirs is the behaviour
+ * most worth being able to escalate.
+ *
+ * `tripId` is nullable because reporting an account is not reporting a trip.
+ */
+export const contentReports = pgTable(
+  "content_reports",
+  {
+    id: serial("id").primaryKey(),
+    reporterUserId: integer("reporterUserId").notNull(),
+    /** Null when the report is about a person rather than something in a trip. */
+    tripId: integer("tripId"),
+    contentType: reportedContentEnum("contentType").notNull(),
+    /** The comment, proposal, trip or user id, per `contentType`. */
+    contentId: integer("contentId").notNull(),
+    reason: reportReasonEnum("reason").notNull(),
+    note: varchar("note", { length: 500 }),
+    status: reportStatusEnum("status").default("open").notNull(),
+    reviewedByUserId: integer("reviewedByUserId"),
+    reviewedAt: timestamp("reviewedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [
+    /** The queue: open reports, oldest first. */
+    index("content_reports_status_idx").on(t.status, t.createdAt),
+    /**
+     * Reporting the same thing twice is one row, so a double-tap does not
+     * inflate the queue — and so "how many people reported this" stays a
+     * count of people rather than of taps.
+     */
+    uniqueIndex("content_reports_once_idx").on(
+      t.reporterUserId,
+      t.contentType,
+      t.contentId
+    ),
+  ]
+);
+
+export type ContentReport = typeof contentReports.$inferSelect;
+export type InsertContentReport = typeof contentReports.$inferInsert;
+
+/**
+ * One person choosing not to hear from another.
+ *
+ * Deliberately **not** mutual invisibility. Everyone in a trip shares it: a
+ * blocked member keeps their place in the members list and their vote keeps
+ * counting, because a trip somebody is legitimately on must not quietly lose a
+ * voter, and a vote count that differed per viewer would be reported as data
+ * loss rather than read as a block.
+ *
+ * What it does instead: their comments arrive collapsed, and they cannot invite
+ * the blocker to a trip or add them to a contact book.
+ */
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    id: serial("id").primaryKey(),
+    blockerUserId: integer("blockerUserId").notNull(),
+    blockedUserId: integer("blockedUserId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [
+    uniqueIndex("user_blocks_pair_idx").on(t.blockerUserId, t.blockedUserId),
+    /** "Who have I blocked?" — read on every thread the blocker opens. */
+    index("user_blocks_blocker_idx").on(t.blockerUserId),
+  ]
+);
+
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type InsertUserBlock = typeof userBlocks.$inferInsert;

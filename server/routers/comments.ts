@@ -68,7 +68,12 @@ export const commentsRouter = router({
     )
     .query(async ({ ctx, input }) => {
       await requireTripRole(input.tripId, ctx.user.id, "tripmate");
-      return db.getComments(input.proposalType, input.proposalId, input.tripId);
+      return db.getComments(
+        input.proposalType,
+        input.proposalId,
+        input.tripId,
+        ctx.user.id
+      );
     }),
   add: protectedProcedure
     .input(

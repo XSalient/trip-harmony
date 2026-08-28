@@ -82,15 +82,23 @@ describe("auth.deleteAccount", () => {
 });
 
 describe("the deletion cascade covers every table that names a user", () => {
-  /** Tables in the schema with a `userId` column, read from the schema itself. */
-  function tablesWithUserId(): Set<string> {
+  /**
+   * Tables in the schema that name a user, read from the schema itself.
+   *
+   * Matches any column *ending* in `UserId`, not just a bare `userId`. The
+   * narrow version of this check shipped with account deletion and was already
+   * blind to `contacts.ownerUserId` and `trip_attendees.memberUserId`; it would
+   * have been blind to `content_reports.reporterUserId` and both of
+   * `user_blocks`' columns too, which is exactly the hole it exists to catch.
+   */
+  function tablesNamingAUser(): Set<string> {
     const src = readSource("../../drizzle/schema.ts");
     const found = new Set<string>();
     for (const block of src.split("pgTable(").slice(1)) {
       const table = block.match(/^\s*"([a-z_]+)"/)?.[1];
       if (!table) continue;
       const body = block.slice(0, block.indexOf("});"));
-      if (/\buserId:\s*integer\(/.test(body)) found.add(table);
+      if (/[a-zA-Z]*[Uu]serId:\s*integer\(/.test(body)) found.add(table);
     }
     return found;
   }
@@ -99,7 +107,7 @@ describe("the deletion cascade covers every table that names a user", () => {
     const declared = [...USER_ROWS_DELETED, ...USER_ROWS_ANONYMISED];
     expect(new Set(declared).size).toBe(declared.length);
 
-    const inSchema = tablesWithUserId();
+    const inSchema = tablesNamingAUser();
     expect(inSchema.size).toBeGreaterThan(0);
     expect([...inSchema].sort()).toEqual([...declared].sort());
   });

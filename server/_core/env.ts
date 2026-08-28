@@ -159,6 +159,18 @@ const schema = z.object({
   AI_INTEGRATIONS_GEMINI_BASE_URL: optionalUrl,
   AI_INTEGRATIONS_GEMINI_API_KEY: z.string().trim().default(""),
 
+  /**
+   * Where a user writes when something has gone wrong, or when they want to
+   * report something the in-app tools cannot reach.
+   *
+   * Apple's guideline 1.2 requires published contact information for an app
+   * carrying user-generated content, and a privacy policy needs a contact point
+   * of its own. Unset is allowed — the pages then say support is unavailable
+   * rather than printing an empty `mailto:` — but a store submission needs it
+   * set, which is why `/api/health` reports whether it is.
+   */
+  SUPPORT_EMAIL: z.string().trim().default(""),
+
   // --- Email --------------------------------------------------------------
   // Resend is tried first; SMTP is the fallback, because serverless platforms
   // commonly block outbound SMTP ports.
@@ -330,6 +342,9 @@ export const config = {
   port: parsed.PORT,
   publicBaseUrl: parsed.PUBLIC_BASE_URL,
   logLevel: parsed.LOG_LEVEL ?? defaultLogLevel,
+
+  /** Published contact point. Empty when this deployment has not set one. */
+  supportEmail: parsed.SUPPORT_EMAIL,
 
   auth: {
     appId: parsed.VITE_APP_ID,
@@ -628,6 +643,12 @@ export function describeConfig() {
     /** Which model requests go to. Not a secret, and the first thing to check
         when every AI call starts failing at once. */
     aiModel: config.ai.model,
+    /**
+     * Whether a published contact address exists — the name of the state, never
+     * the address. An app-store submission needs this "configured": Apple's
+     * guideline 1.2 requires published contact info for a UGC app.
+     */
+    supportEmail: config.supportEmail ? "configured" : "missing",
     // Three states, because "can send" and "can send to anyone" differ: Resend's
     // sandbox sender only reaches the account owner.
     email: !isEmailConfigured()

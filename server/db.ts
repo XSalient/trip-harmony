@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, ne, sql, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, ne, or, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
 import { nanoid } from "nanoid";
@@ -52,6 +52,9 @@ import {
   InsertContactGroupMember,
   activityEvents,
   accommodationAttributes,
+  contentReports,
+  InsertContentReport,
+  userBlocks,
 } from "../drizzle/schema.js";
 import { TRIP_ROLE_RANK, type TripRole } from "../shared/roles.js";
 import { config, ENV } from "./_core/env.js";
@@ -522,6 +525,7 @@ export async function deleteWebauthnCredential(id: number, userId: number) {
  */
 export const USER_ROWS_DELETED = [
   "trip_members",
+  "trip_attendees",
   "date_votes",
   "destination_votes",
   "accommodation_votes",
@@ -531,6 +535,10 @@ export const USER_ROWS_DELETED = [
   "suggestion_dismissals",
   "webauthn_credentials",
   "webauthn_challenges",
+  "contacts",
+  "contact_groups",
+  "content_reports",
+  "user_blocks",
 ] as const;
 
 /**
@@ -542,7 +550,10 @@ export const USER_ROWS_DELETED = [
  * covers `proposedBy` and `addedBy`, which are columns rather than tables and
  * so are not listed here.
  */
-export const USER_ROWS_ANONYMISED = ["proposal_comments"] as const;
+export const USER_ROWS_ANONYMISED = [
+  "proposal_comments",
+  "activity_events",
+] as const;
 
 /**
  * What deleting this account would do to the trips it organises — decided in
@@ -703,6 +714,30 @@ export async function deleteUserCascade(userId: number) {
       .delete(suggestionDismissals)
       .where(eq(suggestionDismissals.userId, userId));
 
+    // Moderation state, in both directions. A block is a relationship between
+    // two accounts and means nothing once one of them is gone; a report they
+    // filed cannot be followed up with a reporter who no longer exists, and a
+    // report *about* them has lost its subject.
+    await tx
+      .delete(userBlocks)
+      .where(
+        or(
+          eq(userBlocks.blockerUserId, userId),
+          eq(userBlocks.blockedUserId, userId)
+        )
+      );
+    await tx
+      .delete(contentReports)
+      .where(
+        or(
+          eq(contentReports.reporterUserId, userId),
+          and(
+            eq(contentReports.contentType, "member"),
+            eq(contentReports.contentId, userId)
+          )
+        )
+      );
+
     // Membership itself, in the trips they are only a guest of.
     await tx.delete(tripMembers).where(eq(tripMembers.userId, userId));
     await tx
@@ -795,6 +830,7 @@ export async function updateTrip(id: number, data: Partial<InsertTrip>) {
  * schema so the next one cannot be forgotten quietly.
  */
 export const TRIP_OWNED_TABLES = [
+  "content_reports",
   "trip_members",
   "trip_groups",
   "trip_attendees",
@@ -867,6 +903,10 @@ export async function deleteTripCascade(tripId: number) {
         .where(inArray(budgetVotes.proposalId, ids(budgetIds)));
 
     // Then everything that names the trip directly.
+    // Reports first: they point at comments and proposals that are about to
+    // stop existing, and a queue item whose subject cannot be looked at is
+    // worse than no queue item.
+    await tx.delete(contentReports).where(eq(contentReports.tripId, tripId));
     await tx
       .delete(proposalComments)
       .where(eq(proposalComments.tripId, tripId));
@@ -2956,10 +2996,20 @@ export async function createComment(data: InsertProposalComment) {
  * router checks the caller's role on *that* trip, so a thread belonging to
  * another trip must not come back even if its proposal id is guessed right.
  */
+/**
+ * A thread, with each comment marked as to whether the viewer has blocked its
+ * author.
+ *
+ * Marked rather than removed. A thread with silent holes in it reads as lost
+ * data — and the replies around a blocked comment still refer to it, so hiding
+ * it outright makes the rest of the conversation harder to follow, not easier.
+ * The client collapses these behind a reveal.
+ */
 export async function getComments(
   proposalType: "date" | "destination" | "accommodation" | "budget",
   proposalId: number,
-  tripId: number
+  tripId: number,
+  viewerUserId?: number
 ) {
   const db = await getDb();
   if (!db) return [];
@@ -2977,7 +3027,14 @@ export async function getComments(
   if (comments.length === 0) return [];
   // One query for the whole thread rather than one per comment.
   const byId = await namesByUserId(comments.map(c => c.userId));
-  return comments.map(c => ({ ...c, user: byId.get(c.userId) ?? null }));
+  const blocked = viewerUserId
+    ? await getBlockedUserIds(viewerUserId)
+    : new Set<number>();
+  return comments.map(c => ({
+    ...c,
+    user: byId.get(c.userId) ?? null,
+    blocked: blocked.has(c.userId),
+  }));
 }
 
 export async function deleteComment(id: number) {
@@ -3159,4 +3216,161 @@ export async function countTripPreferences(tripId: number): Promise<number> {
       )
     );
   return rows.length;
+}
+
+// ---- Moderation: reports and blocks ----
+
+/**
+ * File a report, or leave the existing one alone.
+ *
+ * A unique index on `(reporterUserId, contentType, contentId)` makes reporting
+ * the same thing twice one row, so the queue counts people rather than taps and
+ * a double-tap is not an escalation. `onConflictDoNothing` is what turns that
+ * index from an error into the intended no-op.
+ */
+export async function createContentReport(data: InsertContentReport) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .insert(contentReports)
+    .values(data)
+    .onConflictDoNothing()
+    .returning({ id: contentReports.id });
+  return row?.id ?? null;
+}
+
+/**
+ * The moderation queue: open reports, oldest first, with the reporter named.
+ *
+ * Bounded because an unbounded admin screen is a screen that stops loading the
+ * day it is most needed.
+ */
+export async function getOpenContentReports(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(contentReports)
+    .where(eq(contentReports.status, "open"))
+    .orderBy(asc(contentReports.createdAt))
+    .limit(limit);
+  if (rows.length === 0) return [];
+  const byId = await namesByUserId(rows.map(r => r.reporterUserId));
+  return rows.map(r => ({
+    ...r,
+    reporter: byId.get(r.reporterUserId) ?? null,
+  }));
+}
+
+/** How many reports are waiting, for the badge on the admin screen. */
+export async function countOpenContentReports() {
+  const db = await getDb();
+  if (!db) return 0;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(contentReports)
+    .where(eq(contentReports.status, "open"));
+  return row?.count ?? 0;
+}
+
+/** Close a report. `reviewedByUserId` is who closed it, not who reported it. */
+export async function resolveContentReport(
+  id: number,
+  status: "actioned" | "dismissed",
+  reviewedByUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .update(contentReports)
+    .set({ status, reviewedByUserId, reviewedAt: new Date() })
+    .where(and(eq(contentReports.id, id), eq(contentReports.status, "open")))
+    .returning({ id: contentReports.id });
+  return Boolean(row);
+}
+
+/**
+ * Block somebody. Idempotent, for the same reason reporting is: the unique
+ * index on the pair means a second tap is not a second block.
+ */
+export async function createUserBlock(
+  blockerUserId: number,
+  blockedUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .insert(userBlocks)
+    .values({ blockerUserId, blockedUserId })
+    .onConflictDoNothing();
+}
+
+export async function deleteUserBlock(
+  blockerUserId: number,
+  blockedUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(userBlocks)
+    .where(
+      and(
+        eq(userBlocks.blockerUserId, blockerUserId),
+        eq(userBlocks.blockedUserId, blockedUserId)
+      )
+    );
+}
+
+/** Who this account has blocked, named, for the list on the profile screen. */
+export async function getUserBlocks(blockerUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerUserId, blockerUserId))
+    .orderBy(desc(userBlocks.createdAt));
+  if (rows.length === 0) return [];
+  const byId = await namesByUserId(rows.map(r => r.blockedUserId));
+  return rows.map(r => ({ ...r, user: byId.get(r.blockedUserId) ?? null }));
+}
+
+/**
+ * The set of accounts `userId` has blocked.
+ *
+ * A set of ids rather than rows: every caller is asking "is this person
+ * blocked?" about a list of authors it already has.
+ */
+export async function getBlockedUserIds(userId: number): Promise<Set<number>> {
+  const db = await getDb();
+  if (!db) return new Set();
+  const rows = await db
+    .select({ blockedUserId: userBlocks.blockedUserId })
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerUserId, userId));
+  return new Set(rows.map(r => r.blockedUserId));
+}
+
+/**
+ * Whether either of two people has blocked the other.
+ *
+ * Symmetric on purpose, and only used to refuse *contact* — an invite, a
+ * contact-book entry. Somebody who blocked you should not receive your
+ * invitation, and somebody you blocked should not be able to put themselves in
+ * front of you by sending one.
+ */
+export async function isBlockedEitherWay(a: number, b: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const [row] = await db
+    .select({ id: userBlocks.id })
+    .from(userBlocks)
+    .where(
+      or(
+        and(eq(userBlocks.blockerUserId, a), eq(userBlocks.blockedUserId, b)),
+        and(eq(userBlocks.blockerUserId, b), eq(userBlocks.blockedUserId, a))
+      )
+    )
+    .limit(1);
+  return Boolean(row);
 }
