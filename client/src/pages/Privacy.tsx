@@ -12,14 +12,15 @@
  * children's data is the operator's to review — the app stores ages for
  * attendees who are not users and cannot consent for themselves.
  */
-import { LegalPage, LEGAL } from "@/components/LegalPage";
+import { LegalPage, useLegal } from "@/components/LegalPage";
 
 export default function Privacy() {
+  const legal = useLegal();
   return (
     <LegalPage title="Privacy">
       <p>
         Back To Travelling helps a group plan a trip together. This page says
-        what {LEGAL.entity} stores while you do that, who else sees it, and how
+        what {legal.entity} stores while you do that, who else sees it, and how
         to get rid of it.
       </p>
 
@@ -151,7 +152,7 @@ export default function Privacy() {
 
       <p>
         Depending on where you live — and this service is operated from{" "}
-        {LEGAL.jurisdiction} — you may have the right to a copy of your data, to
+        {legal.jurisdiction} — you may have the right to a copy of your data, to
         correct it, to have it erased, or to object to how it is used. Deletion
         is self-service, as above. For anything else, write to us and we will
         answer.

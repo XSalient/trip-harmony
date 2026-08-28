@@ -64,27 +64,39 @@ describe("the legal pages are reachable signed out", () => {
 
 describe("the operator's details", () => {
   /**
-   * Placeholders are allowed to exist — they have to, until somebody fills them
-   * in — but they must all live in `LEGAL` in one file. Scattered through two
-   * pages, one of them ships to production still saying [JURISDICTION].
+   * They are configuration (`LEGAL_ENTITY`, `LEGAL_JURISDICTION`,
+   * `LEGAL_ADDRESS`), served by `system.support`. Placeholders exist only as
+   * the fallback inside `useLegal`, so an unset deployment shows a visible
+   * bracket instead of an empty gap — and so filling them in is a Doppler edit
+   * rather than a rebuild and a release.
    *
-   * `docs/runbooks/launch.md` lists filling these in as a submission blocker.
+   * A page that hardcoded one would ship it forever, because nothing about
+   * setting the variable would change the page. That is what this guards.
    */
-  it("keeps every placeholder in one place", () => {
+  it("are never hardcoded into a page", () => {
     for (const [name, src] of Object.entries(PUBLIC_PAGES)) {
       if (name.endsWith("LegalPage.tsx")) continue;
       expect(
         /\[[A-Z][A-Z ,.]+\]/.test(src),
-        `${name} carries its own placeholder — put it in LEGAL instead`
+        `${name} hardcodes a placeholder — read it from useLegal() instead`
       ).toBe(false);
     }
   });
 
-  it("still names the operator and the jurisdiction on both pages", () => {
+  it("reach both pages through the hook", () => {
     for (const page of ["Privacy.tsx", "Terms.tsx"]) {
-      expect(PUBLIC_PAGES[page as keyof typeof PUBLIC_PAGES]).toContain(
-        "LEGAL."
-      );
+      const src = PUBLIC_PAGES[page as keyof typeof PUBLIC_PAGES];
+      expect(src, `${page} should call useLegal()`).toContain("useLegal()");
     }
+  });
+
+  it("are reported by the health endpoint", () => {
+    // A submission needs all three set, and the only way to check a deployed
+    // environment without shell access is /api/health.
+    const env = readFileSync(
+      join(import.meta.dirname, "../../../server/_core/env.ts"),
+      "utf8"
+    );
+    expect(env).toContain("legal: config.legal.isComplete");
   });
 });

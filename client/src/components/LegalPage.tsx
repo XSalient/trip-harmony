@@ -14,22 +14,33 @@ import { trpc } from "@/lib/trpc";
 import { ArrowLeft } from "lucide-react";
 
 /**
- * Everything here that is the operator's to decide rather than the code's.
- *
- * Kept together and obvious, because a legal page carrying a placeholder into
- * production is worse than one that is late. `docs/runbooks/launch.md` lists
- * these as blockers for a store submission.
+ * The one thing on these pages that is genuinely the code's: when the text last
+ * changed. It moves when somebody edits the wording, so it belongs beside the
+ * wording rather than in configuration where it would drift.
  */
-export const LEGAL = {
-  /** The name of the company or person operating the service. */
-  entity: "[LEGAL ENTITY NAME]",
-  /** Where disputes are heard, and whose data-protection law applies. */
-  jurisdiction: "[JURISDICTION, e.g. England and Wales]",
-  /** Postal address. Required by some stores and by GDPR Article 13. */
-  address: "[POSTAL ADDRESS]",
-  /** Last substantive revision, shown to the reader. */
-  updated: "28 August 2026",
-} as const;
+export const LEGAL_UPDATED = "28 August 2026";
+
+/**
+ * Who operates this deployment — served by `system.support` from `LEGAL_*`
+ * configuration, not baked in.
+ *
+ * Configuration because the answer differs per deployment and because filling
+ * it in should not need a rebuild: a placeholder that ships to production is
+ * the failure mode, and one that can only be fixed by a code change ships for
+ * longer. Unset renders as a visible bracket rather than an empty gap, because
+ * a policy that silently omits the operator's name reads as finished.
+ *
+ * `docs/runbooks/launch.md` lists these as submission blockers.
+ */
+export function useLegal() {
+  const { data } = trpc.system.support.useQuery();
+  return {
+    email: data?.email ?? null,
+    entity: data?.entity ?? "[LEGAL ENTITY NAME]",
+    jurisdiction: data?.jurisdiction ?? "[JURISDICTION]",
+    address: data?.address ?? "[POSTAL ADDRESS]",
+  };
+}
 
 export function LegalPage({
   title,
@@ -38,7 +49,7 @@ export function LegalPage({
   title: string;
   children: React.ReactNode;
 }) {
-  const { data: support } = trpc.system.support.useQuery();
+  const legal = useLegal();
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +67,7 @@ export function LegalPage({
 
       <main className="max-w-2xl mx-auto px-4 py-6">
         <p className="text-xs text-muted-foreground mb-6">
-          Last updated {LEGAL.updated}
+          Last updated {LEGAL_UPDATED}
         </p>
 
         {/* Styled with child selectors rather than `prose`: the typography
@@ -80,10 +91,10 @@ export function LegalPage({
 
           <h2>Contact</h2>
           <p>
-            {support?.email ? (
+            {legal.email ? (
               <>
                 Questions about this page, or anything else:{" "}
-                <a href={`mailto:${support.email}`}>{support.email}</a>.
+                <a href={`mailto:${legal.email}`}>{legal.email}</a>.
               </>
             ) : (
               <>
@@ -93,7 +104,7 @@ export function LegalPage({
             )}
           </p>
           <p className="text-xs text-muted-foreground">
-            {LEGAL.entity} · {LEGAL.address}
+            {legal.entity} · {legal.address}
           </p>
         </div>
 

@@ -15,19 +15,25 @@ Google account.
 
 ### 1. Fill in the operator's details
 
-`client/src/components/LegalPage.tsx` exports a `LEGAL` constant holding four
-values that ship as visible placeholders:
+Three environment variables, served to the pages by `system.support`:
 
-| Field          | What it needs                                               |
-| -------------- | ----------------------------------------------------------- |
-| `entity`       | The company or person operating the service                 |
-| `jurisdiction` | Whose law governs, and where disputes are heard             |
-| `address`      | A postal address — required by GDPR Article 13 and by Apple |
-| `updated`      | Bump when the policy text changes substantively             |
+| Variable             | What it needs                                               |
+| -------------------- | ----------------------------------------------------------- |
+| `LEGAL_ENTITY`       | The company or person operating the service                 |
+| `LEGAL_JURISDICTION` | Whose law governs, and where disputes are heard             |
+| `LEGAL_ADDRESS`      | A postal address — required by GDPR Article 13 and by Apple |
 
-They live in one file on purpose: `client/src/pages/legal.test.ts` fails if a
-placeholder appears anywhere else, because the one that gets scattered is the
-one that ships still saying `[JURISDICTION]`.
+Configuration rather than constants, so filling them in is a Doppler edit rather
+than a rebuild and a release — a placeholder that ships to production is the
+failure mode here, and one that can only be fixed by a code change ships for
+longer. Unset, the pages render a visible `[LEGAL ENTITY NAME]` rather than an
+empty gap, because a policy that silently omits the operator reads as finished.
+`client/src/pages/legal.test.ts` fails if a page hardcodes one instead.
+
+`GET /api/health` reports `legal: "configured"` once all three are set.
+
+The date at the top of each page (`LEGAL_UPDATED` in `LegalPage.tsx`) stays in
+code: it moves when the wording changes, so it belongs beside the wording.
 
 **These pages are a draft, not legal advice.** They were written from what the
 code actually does — every claim traces to a table in `drizzle/schema.ts` or a
@@ -96,15 +102,24 @@ Nobody but the account holder can do these.
 
 ## Values needed before the wrap can be finished
 
-Held only by the account owner:
+Held only by the account owner. All four are declared as environment variables
+already, so filling them in needs no code change:
 
-- Apple Team ID
-- The iOS and Android bundle identifiers
-- The Android signing keystore's SHA-256 fingerprint
+| Variable                   | Where it comes from                                      |
+| -------------------------- | -------------------------------------------------------- |
+| `APPLE_TEAM_ID`            | The Apple Developer account, e.g. `A1B2C3D4E5`           |
+| `IOS_BUNDLE_ID`            | Chosen when the app record is created                    |
+| `ANDROID_PACKAGE_NAME`     | Usually the same string as the iOS bundle                |
+| `ANDROID_CERT_FINGERPRINT` | `keytool -list -v -keystore <file>`, colon-separated hex |
 
-The `apple-app-site-association` and `assetlinks.json` files can be written with
-placeholders, but universal links and passkeys will not work until these are
-real.
+With Play App Signing, the fingerprint Android App Links verify against is the
+one **Play re-signs with**, not the upload key's — take it from the Play Console,
+not from your local keystore.
+
+None of these are secret; every one is readable from a shipped app. They are
+here because the `apple-app-site-association` and `assetlinks.json` files are
+built from them, and universal links and passkeys stay broken until they are
+real. `/api/health` reports `nativeIds`.
 
 ## A known gap, unrelated to the stores
 

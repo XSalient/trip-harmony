@@ -10,14 +10,15 @@
  * Deliberately short. A page nobody reads protects nobody; the parts that
  * actually bind somebody's behaviour are worth more than length.
  */
-import { LegalPage, LEGAL } from "@/components/LegalPage";
+import { LegalPage, useLegal } from "@/components/LegalPage";
 
 export default function Terms() {
+  const legal = useLegal();
   return (
     <LegalPage title="Terms">
       <p>
         These terms cover your use of Back To Travelling, operated by{" "}
-        {LEGAL.entity}. Using the app means accepting them.
+        {legal.entity}. Using the app means accepting them.
       </p>
 
       <h2>Your account</h2>
@@ -114,7 +115,7 @@ export default function Terms() {
       <h2>Governing law</h2>
 
       <p>
-        These terms are governed by the law of {LEGAL.jurisdiction}, and its
+        These terms are governed by the law of {legal.jurisdiction}, and its
         courts have jurisdiction over any dispute.
       </p>
 
