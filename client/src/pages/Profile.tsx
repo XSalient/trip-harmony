@@ -12,6 +12,7 @@ import AppShell from "@/components/AppShell";
 import { PasskeySection } from "@/components/PasskeySection";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { BlockedSection } from "@/components/BlockedSection";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,7 @@ export default function Profile() {
       <div className="px-4 py-4 space-y-6">
         <ProfileHeader />
         <SignInMethods />
+        <BlockedSection />
 
         {/* App admins only, and only a way in — the destructive part lives on
             its own screen rather than on a page every user visits. */}

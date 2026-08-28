@@ -8,6 +8,48 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-28 — Report, block, and a filter on what gets submitted
+
+### Added
+
+- **Report a comment, and block the person who wrote it.** Both live on the
+  comment's own menu. Reports go to app admins — `users.role === "admin"` — and
+  not to the reported trip's admins: a trip admin can already delete any comment
+  on their trip, but reporting a trip admin to that same trip admin is not a
+  moderation path. The queue is on the admin screen, beside the demo reset.
+
+- **Blocking hides content and stops contact, and nothing else.** A blocked
+  member keeps their place in the trip and their vote keeps counting. A trip
+  somebody is legitimately on must not quietly lose a voter, and a vote count
+  that differed per viewer would be reported as data loss rather than read as a
+  block. Their comments arrive collapsed behind "Blocked — tap to show" rather
+  than removed, because a thread with holes in it reads as lost data and the
+  replies around a hidden comment still refer to it. What blocking does stop is
+  an invite and a contact-book entry, enforced in `sendInvite`, through which
+  both invite paths run. Undo is on the profile screen.
+
+- **A content filter on every mutation.** One middleware on `base` in
+  `_core/trpc.ts` rather than a check at each of twenty-odd free-text fields
+  across eight routers — the twenty-first would not have had one. It works from
+  an allow-list of prose field names, so `pageText` (400kB of scraped listing
+  HTML) is never inspected and a legitimate import cannot be refused over a word
+  on a hotel's own page. The wordlist separates infix terms from prefix terms,
+  which is what lets `bullshit` fail while `scraped`, `classic`, `grapes` and
+  Scunthorpe pass.
+
+- **`SUPPORT_EMAIL`**, the published contact address guideline 1.2 requires.
+  `/api/health` reports whether it is set — a store submission needs it.
+
+### Removed
+
+- **Four unused template components**: `Map.tsx` (nothing imported it,
+  `index.html` never loaded the Maps SDK and there was no API key), plus
+  `ManusDialog`, `DashboardLayout` and its skeleton. The `@types/google.maps`
+  devDependency went with the map. `AIChatBox` stays, despite looking the same:
+  `ComponentShowcase` imports it.
+
+---
+
 ## 2026-08-28 — You can delete your account
 
 ### Added
