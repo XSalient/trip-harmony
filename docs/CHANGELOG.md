@@ -77,6 +77,40 @@ the RP ID was already the real domain.
 
 ---
 
+## 2026-08-29 — Validation messages read like sentences
+
+### Changed
+
+- **Invalid input now names the field and says what is wrong with it**, instead
+  of restating the schema. `Invalid input: expected string, received undefined
+at "name"` became `Name is required`; `Too big: expected string to have <=255
+characters` became `Name must be 255 characters or fewer`.
+
+  Generated from the issues zod reports, rather than written per field —
+  ~230 `z.string()`/`z.number()` fields across 108 `.input()` blocks would have
+  been a lot of typing for a result a mapping gets generically, and most of
+  those fields are internal ids nobody types.
+
+  The wording matches what the client's own forms already say by hand
+  (`AuthDialog`: "Name is required", "Password must be at least 8 characters"),
+  so the server backstop stops sounding like a different program.
+
+  Anything unmapped still goes through `zod-validation-error`, so an issue code
+  nobody anticipated degrades to readable rather than to "invalid".
+
+### Note
+
+Telling a **missing** field from a **wrong-typed** one is more awkward than it
+looks, and a test found it: zod 4's _finalized_ issues carry `expected` and
+`path` but drop `input` — that exists only inside the live error hook. The
+distinction survives just in zod's own default wording, "…received undefined",
+which is what the code reads. If that wording ever changes, a missing field
+reads "is not valid" rather than "is required": less specific, never wrong. A
+test pins the current behaviour so the change is noticed rather than inferred
+from a confusing message in production.
+
+---
+
 ## 2026-08-29 — A failed query stops telling the user what it selected
 
 ### Fixed

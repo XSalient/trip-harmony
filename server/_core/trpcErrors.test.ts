@@ -169,19 +169,100 @@ describe("readableValidationMessage", () => {
     const message = readableValidationMessage(
       badRequestFrom(login, { email: "not-an-email", password: "" })
     );
-    expect(message).toBeTruthy();
-    expect(message).toContain("email");
     // The three things that made the old message unreadable.
     expect(message).not.toContain("{");
     expect(message).not.toContain('"code"');
     expect(message).not.toContain("pattern");
+    expect(message).toBe(
+      "That does not look like an email address; Password is required"
+    );
   });
 
-  it("names the field, so somebody knows which box to fix", () => {
-    const message = readableValidationMessage(
-      badRequestFrom(login, { email: "nope", password: "hunter2" })
+  it("says a missing field is required, not that it received undefined", () => {
+    // Zod reports a missing key as a type error against `undefined`, which is
+    // what produced "expected string, received undefined at \"name\"".
+    const register = z.object({
+      name: z.string().min(1).max(100),
+      email: z.string().email(),
+      password: z.string().min(8),
+    });
+    expect(
+      readableValidationMessage(badRequestFrom(register, { email: "a@b.com" }))
+    ).toBe("Name is required; Password is required");
+  });
+
+  it("names a length limit in a way somebody can act on", () => {
+    expect(
+      readableValidationMessage(
+        badRequestFrom(z.object({ name: z.string().min(1).max(255) }), {
+          name: "x".repeat(300),
+        })
+      )
+    ).toBe("Name must be 255 characters or fewer");
+
+    expect(
+      readableValidationMessage(
+        badRequestFrom(z.object({ password: z.string().min(8) }), {
+          password: "abc",
+        })
+      )
+    ).toBe("Password must be at least 8 characters");
+  });
+
+  /**
+   * Sentence case, not title case: "Must Haves" reads like a heading, and the
+   * field is being named inside a sentence.
+   */
+  it("says a camelCase field the way a person would", () => {
+    expect(
+      readableValidationMessage(
+        badRequestFrom(z.object({ mustHaves: z.string() }), { mustHaves: 5 })
+      )
+    ).toBe("Must haves is not valid");
+
+    expect(
+      readableValidationMessage(
+        badRequestFrom(z.object({ openComments: z.string() }), {
+          openComments: 5,
+        })
+      )
+    ).toBe("Open comments is not valid");
+  });
+
+  it("handles an enum without printing the whole option list twice", () => {
+    expect(
+      readableValidationMessage(
+        badRequestFrom(z.object({ reason: z.enum(["spam", "harassment"]) }), {
+          reason: "banana",
+        })
+      )
+    ).toBe("Reason is not one of the allowed values");
+  });
+
+  it("matches the wording the client's own forms use", () => {
+    // `AuthDialog` says "Name is required" and "Password must be at least 8
+    // characters" by hand. The backstop should not sound like a different
+    // program.
+    const fromServer = readableValidationMessage(
+      badRequestFrom(z.object({ name: z.string().min(1) }), { name: "" })
     );
-    expect(message).toMatch(/email/);
+    expect(fromServer).toBe("Name is required");
+  });
+
+  /**
+   * Zod's finalized issues drop `input`, so a missing key and a wrong type
+   * arrive as the same code and are told apart only by zod's default wording.
+   * If that wording changes this test fails — which is the point, because the
+   * alternative is noticing through a confusing message in production.
+   */
+  it("tells a missing field apart from a wrong type", () => {
+    const schema = z.object({ mustHaves: z.string() });
+    expect(readableValidationMessage(badRequestFrom(schema, {}))).toBe(
+      "Must haves is required"
+    );
+    expect(
+      readableValidationMessage(badRequestFrom(schema, { mustHaves: 5 }))
+    ).toBe("Must haves is not valid");
   });
 
   it("caps how many problems it lists", () => {
@@ -196,6 +277,21 @@ describe("readableValidationMessage", () => {
     });
     const message = readableValidationMessage(badRequestFrom(wide, {}))!;
     expect(message.split(";").length).toBeLessThanOrEqual(3);
+  });
+
+  /**
+   * An issue code nobody anticipated must still produce something readable.
+   * The library keeps that promise; a half-translated sentence would not.
+   */
+  it("falls back to the library for a code it does not map", () => {
+    const custom = z.string().superRefine((_value, ctx) => {
+      ctx.addIssue({ code: "custom", message: "that will not do" });
+    });
+    const message = readableValidationMessage(badRequestFrom(custom, "x"));
+    expect(message).toBeTruthy();
+    // The library sentence-cases what it is given, so match case-insensitively.
+    expect(message?.toLowerCase()).toContain("that will not do");
+    expect(message).not.toContain("{");
   });
 
   it("ignores anything that is not a validation failure", () => {
