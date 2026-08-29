@@ -3,11 +3,19 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-28
+- **Last updated:** 2026-08-29
 - **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
+- **One database, shared by preview and production.** The Supabase free tier
+  gives one project, so a Vercel preview reads and writes the live data. Preview
+  builds therefore do not migrate, every migration must be backward compatible
+  with `master`, and applying one is a deliberate production change —
+  [ADR-0023](adr/0023-preview-and-production-share-one-database.md). Recorded
+  2026-08-29 after a branch's three migrations were missing from the preview it
+  was being tested on, which is the same failure ADR-0010 exists for, arriving
+  from the other direction.
 - **In flight — shipping to the app stores.** The web app is being wrapped with
   Capacitor rather than rewritten in React Native: the 21k lines of client UI
   are Radix, Tailwind and DOM throughout, none of which survives a rewrite and

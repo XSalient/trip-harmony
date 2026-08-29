@@ -6,8 +6,25 @@
 | ------------- | ---------------- | ------------------------------ | ------------------------------- | --------------------------------- |
 | `development` | Local machine    | Local or personal Postgres     | Pretty console + `logs/*.jsonl` | Doppler `dev`, or `.env`          |
 | `test`        | `pnpm test`, CI  | None (routers called directly) | Silent                          | None — env files are not loaded   |
-| `preview`     | Vercel, per PR   | Preview Postgres               | JSON to stdout                  | Doppler `stg` → Vercel Preview    |
-| `production`  | Vercel, `master` | Production Postgres            | JSON to stdout                  | Doppler `prd` → Vercel Production |
+| `preview`     | Vercel, per PR   | **The production database**    | JSON to stdout                  | Doppler `stg` → Vercel Preview    |
+| `production`  | Vercel, `master` | The production database        | JSON to stdout                  | Doppler `prd` → Vercel Production |
+
+> **Preview and production share one Supabase database.** The free tier gives
+> one project, and that trade was made deliberately — see
+> [ADR-0023](../adr/0023-preview-and-production-share-one-database.md). It has
+> three consequences you cannot design around:
+>
+> - **Never set `RUN_MIGRATIONS=1` on Preview.** It would migrate production as
+>   a side effect of building any branch, on every push.
+> - **A branch with new migrations cannot be tested on preview until they are
+>   applied to that one database** — which is a production change. Do it
+>   deliberately: `pnpm db:status`, then `pnpm db:deploy`.
+> - **Every migration must be backward compatible with `master`**, because the
+>   old code keeps serving production against the new schema.
+>
+> This table used to say "Preview Postgres" and "Production Postgres" as though
+> they were two databases. They never were, and the wrong line cost an
+> afternoon.
 
 ## How the environment is chosen
 

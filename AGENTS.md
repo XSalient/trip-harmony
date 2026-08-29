@@ -85,6 +85,11 @@ done. CI narrows to `pnpm test:affected` for speed; the full suite runs nightly.
    committing the migration in the same commit.** The deploy applies it; CI
    fails if the schema and the migrations disagree. A column that ships without
    its migration takes production down — it already did once.
+   **There is one database, shared by preview and production**
+   ([ADR-0023](docs/adr/0023-preview-and-production-share-one-database.md)), so
+   every migration must be backward compatible with `master` and none may be
+   applied by a preview build. Preview deploys do not migrate; applying a
+   branch's migration is a production change and is done by hand.
 10. **This repository has exactly two branches: `master` and `dev`.** Work goes
     to `master`; `dev` tracks it. Do not leave per-task or per-agent branches
     behind — merge the work and delete the branch in the same breath. A branch

@@ -33,6 +33,7 @@ or operated. Skip it for routine feature work.
 | [0020](0020-preferences-suggest-proposals.md)                    | A preference is offered as a proposal, never made one | Accepted |
 | [0021](0021-optimistic-updates-for-drag-and-drop.md)             | A dragged member moves on the drop                    | Accepted |
 | [0022](0022-membership-is-read-once-per-request.md)              | A membership is read once per request                 | Accepted |
+| [0023](0023-preview-and-production-share-one-database.md)        | Preview and production share one database             | Accepted |
 
 ## Template
 
