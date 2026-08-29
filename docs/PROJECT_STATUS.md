@@ -8,6 +8,10 @@ finish a piece of work — the next person (or agent) starts here.
   `harmony` / `trip-harmony` because they are registered outside this repo —
   `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
   before changing them here.
+- **Migrations 0016–0018 are applied** to the live database (2026-08-29), by
+  hand through the Supabase API — see
+  [runbooks/database.md](runbooks/database.md). The branch's schema and the
+  database now agree.
 - **One database, shared by preview and production.** The Supabase free tier
   gives one project, so a Vercel preview reads and writes the live data. Preview
   builds therefore do not migrate, every migration must be backward compatible

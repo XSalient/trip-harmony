@@ -77,6 +77,30 @@ the RP ID was already the real domain.
 
 ---
 
+## 2026-08-29 — Migrations 0016–0018 applied to the live database
+
+### Fixed
+
+- **Sign-in and the demo both worked again.** They had been failing with
+  `column "deletedAt" does not exist`: this branch's three migrations were never
+  applied, because preview deploys do not migrate and preview shares the one
+  production database ([ADR-0023](adr/0023-preview-and-production-share-one-database.md)).
+  Every query touching `users` failed, which presented as three unrelated bugs —
+  password sign-in, `auth.me`, and taking a demo seat — and was one.
+
+  Applied through the Supabase Management API, because direct Postgres is not
+  reachable from every environment. The method, and the trap in it — the
+  `drizzle.__drizzle_migrations` row that has to be written alongside, or the
+  next production deploy re-runs the same migrations and dies on `CREATE TYPE` —
+  is written up in [runbooks/database.md](runbooks/database.md).
+
+  Verified after: `deletedAt` present, all three new tables present, the
+  migration high-water mark equal to `0018`'s journal `when`, `pendingSince`
+  reporting nothing outstanding, and the data untouched (13 users, 5 trips, 19
+  memberships).
+
+---
+
 ## 2026-08-28 — The native shell, and a session that survives it
 
 ### Added

@@ -79,6 +79,16 @@ done. CI narrows to `pnpm test:affected` for speed; the full suite runs nightly.
    agent — and the next developer — learns what happened without reading git log.
 7. **Architectural decisions get an ADR** in `docs/adr/`. Copy the shape of an
    existing one; keep it under a page.
+   **More generally: a decision reached in conversation is not recorded until it
+   is committed.** Chat history is not shared between sessions and an AI
+   assistant starts every session with no memory of the last one, so anything
+   agreed — a constraint, a trade-off, a "we decided not to" — has to land in
+   the repository before the session ends, or the next person re-derives it from
+   an outage. An ADR for anything structural; otherwise a line in
+   `docs/PROJECT_STATUS.md`, the relevant runbook, or a comment where the
+   surprise lives. This rule was written after "preview and production share one
+   database" survived only in a chat log — see
+   [ADR-0023](docs/adr/0023-preview-and-production-share-one-database.md).
 8. **Don't add a dependency** to solve something the stack already does
    (validation → Zod, dates → date-fns, state → TanStack Query, styles → Tailwind).
 9. **Changing `drizzle/schema.ts` means running `pnpm db:generate` and
