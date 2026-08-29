@@ -15,7 +15,13 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { clientSafeMessage, flattenCauses } from "./trpcErrors.js";
+import { z } from "zod";
+
+import {
+  clientSafeMessage,
+  flattenCauses,
+  readableValidationMessage,
+} from "./trpcErrors.js";
 
 /**
  * `clientSafeMessage` only redacts on a deployed environment; locally the
@@ -134,5 +140,79 @@ describe("flattenCauses", () => {
     const b = { message: "b", cause: a };
     a.cause = b;
     expect(flattenCauses({ cause: a }).length).toBeLessThanOrEqual(5);
+  });
+});
+
+/**
+ * tRPC reports an input-validation failure as a `BAD_REQUEST` whose `cause` is
+ * the `ZodError`, and a `ZodError`'s own message is `JSON.stringify` of its
+ * issues — so a malformed email produced a wall of `{"origin":"string",
+ * "code":"invalid_format","pattern":"/^(?!\\.)…"}` in a toast.
+ */
+describe("readableValidationMessage", () => {
+  /** The failure exactly as tRPC hands it to the formatter. */
+  function badRequestFrom(schema: z.ZodType, input: unknown) {
+    try {
+      schema.parse(input);
+      throw new Error("expected the schema to reject this");
+    } catch (cause) {
+      return { code: "BAD_REQUEST", cause };
+    }
+  }
+
+  const login = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+  });
+
+  it("turns a schema dump into a sentence", () => {
+    const message = readableValidationMessage(
+      badRequestFrom(login, { email: "not-an-email", password: "" })
+    );
+    expect(message).toBeTruthy();
+    expect(message).toContain("email");
+    // The three things that made the old message unreadable.
+    expect(message).not.toContain("{");
+    expect(message).not.toContain('"code"');
+    expect(message).not.toContain("pattern");
+  });
+
+  it("names the field, so somebody knows which box to fix", () => {
+    const message = readableValidationMessage(
+      badRequestFrom(login, { email: "nope", password: "hunter2" })
+    );
+    expect(message).toMatch(/email/);
+  });
+
+  it("caps how many problems it lists", () => {
+    // Eight clauses joined by semicolons is a message nobody finishes reading.
+    const wide = z.object({
+      a: z.string(),
+      b: z.string(),
+      c: z.string(),
+      d: z.string(),
+      e: z.string(),
+      f: z.string(),
+    });
+    const message = readableValidationMessage(badRequestFrom(wide, {}))!;
+    expect(message.split(";").length).toBeLessThanOrEqual(3);
+  });
+
+  it("ignores anything that is not a validation failure", () => {
+    // A deliberate BAD_REQUEST — the content filter naming the word it
+    // objected to — must keep its own message.
+    expect(
+      readableValidationMessage({
+        code: "BAD_REQUEST",
+        cause: new Error("not a zod error"),
+      })
+    ).toBe(null);
+    expect(readableValidationMessage({ code: "BAD_REQUEST" })).toBe(null);
+    expect(
+      readableValidationMessage({
+        code: "INTERNAL_SERVER_ERROR",
+        cause: new Error("boom"),
+      })
+    ).toBe(null);
   });
 });

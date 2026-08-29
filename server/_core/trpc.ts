@@ -3,7 +3,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context.js";
 import { logger } from "./logger.js";
-import { clientSafeMessage } from "./trpcErrors.js";
+import { clientSafeMessage, readableValidationMessage } from "./trpcErrors.js";
 import {
   blockedTermMessage,
   findBlockedTerm,
@@ -21,6 +21,10 @@ const t = initTRPC.context<TrpcContext>().create({
    * logs through `logTrpcError`, keyed by the same request id this quotes.
    */
   errorFormatter({ shape, error, ctx }) {
+    // Input that failed validation: a sentence rather than a schema dump.
+    const readable = readableValidationMessage(error);
+    if (readable) return { ...shape, message: readable };
+
     const safe = clientSafeMessage(error, ctx?.requestId);
     if (!safe) return shape;
     return {

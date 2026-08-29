@@ -4,6 +4,8 @@
  * cause chain. Flatten the whole chain onto the log entry so a production
  * failure is diagnosable from the platform logs without a reproduction.
  */
+import { fromError, isZodErrorLike } from "zod-validation-error/v4";
+
 import { config } from "./env.js";
 import { logger } from "./logger.js";
 
@@ -98,4 +100,38 @@ export function clientSafeMessage(
   return requestId
     ? `Something went wrong on our end. Please try again. (ref: ${requestId})`
     : "Something went wrong on our end. Please try again.";
+}
+
+/**
+ * A readable sentence for input that failed validation, or null.
+ *
+ * tRPC reports an input-validation failure as a `BAD_REQUEST` whose `cause` is
+ * the `ZodError`, and a `ZodError`'s own message is `JSON.stringify` of its
+ * issues. So typing a malformed address produced, in a toast:
+ *
+ * > [\n  {\n    "origin": "string",\n    "code": "invalid_format",\n
+ * >     "format": "email",\n    "pattern": "/^(?!\\.)(?!.*\\.\\.)…
+ *
+ * which is a schema dump where a sentence belongs. `zod-validation-error` turns
+ * the same issues into `Invalid email address at "email"`. It was already a
+ * dependency and unused, so this adds nothing to the tree.
+ *
+ * Applied everywhere, not only when deployed: unlike the internal-error case
+ * there is nothing to hide here, and the readable form is better for whoever is
+ * reading it.
+ *
+ * Capped at three issues. A form with eight problems produces eight clauses
+ * joined by semicolons, and nobody reads the eighth — the first few are what
+ * gets somebody moving.
+ */
+export function readableValidationMessage(error: {
+  code?: string;
+  cause?: unknown;
+}): string | null {
+  if (error.code !== "BAD_REQUEST") return null;
+  if (!isZodErrorLike(error.cause)) return null;
+  return fromError(error.cause, {
+    prefix: null,
+    maxIssuesInMessage: 3,
+  }).message;
 }

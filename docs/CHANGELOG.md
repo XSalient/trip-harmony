@@ -111,6 +111,23 @@ the RP ID was already the real domain.
   existed. Applying a migration by hand was two commands where one of them had
   to be remembered in full.
 
+### Fixed, again
+
+- **Invalid input reads as a sentence, not a schema dump.** tRPC reports a
+  validation failure as a `BAD_REQUEST` whose `cause` is the `ZodError`, and a
+  `ZodError`'s own message is `JSON.stringify` of its issues — so a malformed
+  address produced `[{"origin":"string","code":"invalid_format","pattern":
+"/^(?!\\.)(?!.*\\.\\.)…"}]` in a toast. It now reads
+  `Invalid email address at "email"`.
+
+  Done with `zod-validation-error`, which was already a dependency and unused,
+  so nothing joins the tree. Capped at three issues: a form with eight problems
+  makes eight clauses joined by semicolons and nobody reads the eighth.
+
+  Unlike the internal-error case this applies everywhere, deployed or not —
+  there is nothing to hide in a validation message, and the readable form is
+  better for whoever is reading it.
+
 ---
 
 ## 2026-08-29 — Migrations 0016–0018 applied to the live database
