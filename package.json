@@ -24,6 +24,7 @@
     "db:status": "node scripts/db-migrate.mjs --check",
     "db:status:doppler": "doppler run --config prd -- node scripts/db-migrate.mjs --check",
     "db:deploy": "node scripts/db-migrate.mjs --apply",
+    "db:deploy:doppler": "doppler run --config prd -- node scripts/db-migrate.mjs --apply",
     "db:push": "drizzle-kit push",
     "db:push:doppler": "doppler run --config dev -- drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",

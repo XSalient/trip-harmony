@@ -3,6 +3,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context.js";
 import { logger } from "./logger.js";
+import { clientSafeMessage } from "./trpcErrors.js";
 import {
   blockedTermMessage,
   findBlockedTerm,
@@ -10,6 +11,24 @@ import {
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,
+  /**
+   * Keeps a server fault from telling the client more than it should.
+   *
+   * tRPC puts a thrown error's message into the response, and drizzle's message
+   * for a failed query is the entire column list plus the parameters — which is
+   * how a user once saw `passwordHash` and their own email address in a toast.
+   * `clientSafeMessage` decides what may be said; the detail still reaches the
+   * logs through `logTrpcError`, keyed by the same request id this quotes.
+   */
+  errorFormatter({ shape, error, ctx }) {
+    const safe = clientSafeMessage(error, ctx?.requestId);
+    if (!safe) return shape;
+    return {
+      ...shape,
+      message: safe,
+      data: { ...shape.data, stack: undefined },
+    };
+  },
 });
 
 export const router = t.router;

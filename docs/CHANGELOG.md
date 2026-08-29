@@ -77,6 +77,42 @@ the RP ID was already the real domain.
 
 ---
 
+## 2026-08-29 — A failed query stops telling the user what it selected
+
+### Fixed
+
+- **A server fault no longer publishes the schema.** Signing in against a
+  database missing a column produced this, in a toast, to the person signing in:
+
+  > Failed query: select "id", "openId", "name", "email", "passwordHash", …
+  > from "users" where "users"."email" = $1 params: someone@example.com,1
+
+  That is drizzle's message for any failed query, and tRPC puts a thrown error's
+  message straight into the response. It published the column list —
+  `passwordHash` included — and the address of whoever was signing in, while
+  telling them nothing they could act on.
+
+  A wrapped internal error now returns "Something went wrong on our end. Please
+  try again." with the request id, which is the same id the log entry carries —
+  so a screenshot from a user leads straight to the record, and `logTrpcError`
+  still flattens the whole cause chain into it.
+
+  **Only errors tRPC wrapped are rewritten.** A hand-written `TRPCError` carries
+  no `cause` and keeps its message; `auth.me` uses exactly that shape to say
+  "Could not verify your session", which is written to be read. Every other code
+  is untouched, because the client matches some of them by exact string — the
+  paywall, the login redirect, the content filter naming the word it objected
+  to. Local development keeps the raw message: there the developer is the user
+  and the detail is the point.
+
+### Added
+
+- **`pnpm db:deploy:doppler`**, beside the `db:status:doppler` that already
+  existed. Applying a migration by hand was two commands where one of them had
+  to be remembered in full.
+
+---
+
 ## 2026-08-29 — Migrations 0016–0018 applied to the live database
 
 ### Fixed
