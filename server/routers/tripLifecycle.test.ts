@@ -162,7 +162,7 @@ describe("deleteTripCascade covers the schema", () => {
    * Product measurement has to survive a deleted trip, or the abandoned ones —
    * the trips a beta most needs to count — drop out of every funnel and the
    * numbers flatter the product. See
-   * `docs/adr/0016-first-party-product-measurement.md`.
+   * `docs/adr/0024-first-party-product-measurement.md`.
    *
    * Adding to this set is a decision, not a convenience. Anything else that
    * names a trip still has to be in the cascade.

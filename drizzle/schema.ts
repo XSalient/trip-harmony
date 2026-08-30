@@ -444,7 +444,7 @@ export type InsertActivityEvent = typeof activityEvents.$inferInsert;
  * First-party product measurement for the beta.
  *
  * Separate from `activity_events` on purpose, and the reasons are in
- * `docs/adr/0016-first-party-product-measurement.md`. The short version:
+ * `docs/adr/0024-first-party-product-measurement.md`. The short version:
  * the activity trail belongs to the trip and is deleted with it, which would
  * quietly remove abandoned trips from every funnel — exactly the trips a beta
  * most needs to count. And the trail carries member detail (an invite's email
