@@ -12,15 +12,15 @@ import { pathFromDeepLink } from "./nativeBridge";
 
 describe("pathFromDeepLink", () => {
   it("keeps the path, the query and the fragment", () => {
-    expect(
-      pathFromDeepLink("https://backtotravelling.com/auth/magic/abc123")
-    ).toBe("/auth/magic/abc123");
-    expect(
-      pathFromDeepLink("https://backtotravelling.com/join/XYZ?ref=sms")
-    ).toBe("/join/XYZ?ref=sms");
-    expect(
-      pathFromDeepLink("https://backtotravelling.com/trips/4#budget")
-    ).toBe("/trips/4#budget");
+    expect(pathFromDeepLink("https://wevotrip.com/auth/magic/abc123")).toBe(
+      "/auth/magic/abc123"
+    );
+    expect(pathFromDeepLink("https://wevotrip.com/join/XYZ?ref=sms")).toBe(
+      "/join/XYZ?ref=sms"
+    );
+    expect(pathFromDeepLink("https://wevotrip.com/trips/4#budget")).toBe(
+      "/trips/4#budget"
+    );
   });
 
   it("accepts the app's own scheme", () => {
@@ -28,7 +28,7 @@ describe("pathFromDeepLink", () => {
   });
 
   it("returns the root for a bare domain", () => {
-    expect(pathFromDeepLink("https://backtotravelling.com")).toBe("/");
+    expect(pathFromDeepLink("https://wevotrip.com")).toBe("/");
   });
 
   /**
@@ -37,12 +37,10 @@ describe("pathFromDeepLink", () => {
    * link if this returned the path unexamined.
    */
   it("refuses a protocol-relative path", () => {
-    expect(pathFromDeepLink("https://backtotravelling.com//evil.example")).toBe(
+    expect(pathFromDeepLink("https://wevotrip.com//evil.example")).toBe(null);
+    expect(pathFromDeepLink("https://wevotrip.com//evil.example/join/1")).toBe(
       null
     );
-    expect(
-      pathFromDeepLink("https://backtotravelling.com//evil.example/join/1")
-    ).toBe(null);
   });
 
   it("refuses a scheme that is not http, https or the app's own", () => {

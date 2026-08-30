@@ -5,7 +5,7 @@
 
 ## Context
 
-Back To Travelling is a single product with a single database, built by a very small team
+WeVoTrip is a single product with a single database, built by a very small team
 plus AI agents. The API is roughly 100 procedures across 13 domains.
 
 The alternatives considered were a REST or GraphQL API with a generated client,

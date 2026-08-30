@@ -56,7 +56,7 @@ describe("isNativeOrigin", () => {
 
   it("rejects the web, including local development", () => {
     for (const origin of [
-      "https://backtotravelling.com",
+      "https://wevotrip.com",
       // The local dev server. Accepting it would hand a readable token to
       // every browser tab a developer has open.
       "http://localhost:5000",
@@ -90,7 +90,7 @@ const demoUser = {
   id: 42,
   openId: `${DEMO_OPEN_ID_PREFIX}ava`,
   name: "Ava Bennett",
-  email: "ava@demo.backtotravelling.example",
+  email: "ava@demo.wevotrip.example",
   passwordHash: null,
   loginMethod: "email",
   role: "user" as const,
@@ -102,7 +102,7 @@ const demoUser = {
 
 /** A sign-in request from `origin`, on the demo's own host. */
 function createContext(origin: string | undefined) {
-  const host = "demo.backtotravelling.com";
+  const host = "demo.wevotrip.com";
   const headers: Record<string, string> = { host };
   if (origin) headers.origin = origin;
   const cookies: string[] = [];
@@ -144,7 +144,7 @@ describe("who gets the session token in the response body", () => {
 
   it("withholds it from the web", async () => {
     for (const origin of [
-      "https://backtotravelling.com",
+      "https://wevotrip.com",
       "http://localhost:5000",
       "https://localhost.evil.example",
       undefined, // a same-origin request sends no Origin at all

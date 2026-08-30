@@ -8,6 +8,79 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-30 — Renamed to WeVoTrip
+
+### Changed
+
+- **The product is WeVoTrip.** Every user-visible "Back To Travelling" is now
+  "WeVoTrip": the page title, the marketing copy on `/home`, the privacy and
+  terms pages, both magic-link and invite emails, the referee's system prompt,
+  the passkey relying-party name and the Capacitor `appName`.
+
+- **The domain is `wevotrip.com`**, with the demo at `demo.wevotrip.com`. The
+  demo gate is unchanged and needed no edit — it matches any `demo.` subdomain
+  by shape rather than by name, so the new domain works for the same reason the
+  old one did.
+
+- **Infrastructure identifiers follow the name.** `package.json` is `wevotrip`;
+  the local and CI databases are `wevotrip_dev` / `wevotrip_ci` (were
+  `back_to_travelling_dev` / `_ci`); the docker container in the runbooks is
+  `wevotrip-db`; and `server/back-to-travelling.test.ts` is
+  `server/wevotrip.test.ts`, with the four documents that cite it updated.
+
+- **`DEMO_EMAIL_DOMAIN` is `demo.wevotrip.example`.** Any database already
+  holding seeded demo rows keeps the old addresses until `pnpm seed:demo` runs
+  again. Nothing is orphaned by that: `admin.resetDemo` finds demo rows by the
+  `DEMO-` invite-code prefix, not by the email domain.
+
+- **The native bundle id is `com.wevotrip.app`** for both stores, replacing the
+  `com.example.backtotravelling` placeholder in `capacitor.config.ts`.
+
+- **Existing passkeys do not survive the domain move.** Only `RP_NAME` changed
+  in `passkeys.ts`, and it is a display string; `rpID` is still derived from
+  `PUBLIC_BASE_URL`. But a WebAuthn credential is scoped to the relying-party id
+  it was created under, so any passkey registered against the old domain cannot
+  be asserted against `wevotrip.com` — the browser will not even offer it. There
+  is no migration for this by design; the credential is bound to the origin.
+  Anyone holding one re-registers after signing in by password or magic link,
+  both of which are unaffected. Worth knowing before, not after, the DNS cutover.
+
+- **Doppler now carries all thirteen launch settings** in `dev`, `stg`, `prd`
+  and `demo` — five with real values, eight as empty slots. `PUBLIC_BASE_URL`
+  and `MAIL_FROM` moved to `wevotrip.com` in `dev` and `demo`; both previously
+  named the retired domain, and `MAIL_FROM` still said "Harmony". Outbound mail
+  now depends on `wevotrip.com` being a verified sender in Resend — verify it
+  there before relying on magic links.
+
+### Note
+
+Entries below this one still say "Back To Travelling". That is deliberate — they
+record what was true when they were written, and one of them documents an
+earlier rename, which rewriting would make incoherent.
+
+### Decided — placeholder secrets are not a substitute for empty ones
+
+The outstanding launch variables were created in Doppler as **named slots with
+empty values**, not filled with placeholder strings, because several of this
+codebase's "is it configured?" checks are presence checks rather than validity
+checks:
+
+- `config.billing.isConfigured` is `Boolean(REVENUECAT_SECRET_KEY)`, so any
+  non-empty string makes `/api/health` report `billing: configured` while every
+  purchase verification fails against a key RevenueCat has never seen.
+- `config.legal.isComplete` requires all three legal fields to be non-empty, so
+  a placeholder address publishes a fake postal address on `/privacy` and
+  silences the very placeholder that exists to make the gap visible.
+- A placeholder `APPLE_TEAM_ID` yields a syntactically valid
+  `apple-app-site-association` describing an app that does not exist — the
+  silent failure `runbooks/launch.md` already warns about for the Android
+  fingerprint.
+
+Empty and absent are identical to `env.ts`, so the slots cost nothing and keep
+`/api/health` honest about what is genuinely missing.
+
+---
+
 ## 2026-08-28 — Passkeys can be asserted from the Android app
 
 ### Added

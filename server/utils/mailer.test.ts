@@ -48,7 +48,7 @@ describe("mailer delivery reporting", () => {
 
   it("delivers through the Resend HTTP API when a key is set", async () => {
     process.env.RESEND_API_KEY = "re_test_key";
-    process.env.MAIL_FROM = "Back To Travelling <hello@example.com>";
+    process.env.MAIL_FROM = "WeVoTrip <hello@example.com>";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response("{}", { status: 200 }));
@@ -64,7 +64,7 @@ describe("mailer delivery reporting", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
     const body = JSON.parse(init.body as string);
-    expect(body.from).toBe("Back To Travelling <hello@example.com>");
+    expect(body.from).toBe("WeVoTrip <hello@example.com>");
     expect(body.to).toEqual(["traveler@example.com"]);
     expect(body.text).toContain("https://example.com/auth/magic/abc");
   });
@@ -117,7 +117,7 @@ describe("mailer delivery reporting", () => {
     expect(isEmailConfigured()).toBe(true);
     expect(canEmailAnyRecipient()).toBe(false);
 
-    process.env.MAIL_FROM = "Back To Travelling <hello@verified-domain.com>";
+    process.env.MAIL_FROM = "WeVoTrip <hello@verified-domain.com>";
     expect(canEmailAnyRecipient()).toBe(true);
   });
 

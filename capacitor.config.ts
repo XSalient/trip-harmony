@@ -30,8 +30,8 @@ const config: CapacitorConfig = {
    * with a placeholder that is obviously a placeholder rather than a real-looking
    * default somebody might ship.
    */
-  appId: process.env.IOS_BUNDLE_ID || "com.example.backtotravelling",
-  appName: "Back To Travelling",
+  appId: process.env.IOS_BUNDLE_ID || "com.wevotrip.app",
+  appName: "WeVoTrip",
   webDir: "dist/public",
 
   server: {

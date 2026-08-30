@@ -3,11 +3,17 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-29
-- **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
-  `harmony` / `trip-harmony` because they are registered outside this repo —
-  `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
-  before changing them here.
+- **Last updated:** 2026-08-30
+- **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
+  that). The domain is `wevotrip.com`, with the marketing demo at
+  `demo.wevotrip.com`. Three identifiers still read the older names because they
+  are registered outside this repo — `VITE_APP_ID` (`harmony`) at the OAuth
+  portal, the Doppler project (`trip-harmony`), and nothing else. Rename them
+  there before changing them here.
+- **The native bundle id is `com.wevotrip.app`**, for both stores, chosen
+  2026-08-30. It is the fallback in `capacitor.config.ts` and the value set in
+  Doppler. Apple does not allow a bundle id to change after the first
+  submission, so this one is effectively permanent.
 - **Migrations 0016–0018 are applied** to the live database (2026-08-29), by
   hand through the Supabase API — see
   [runbooks/database.md](runbooks/database.md). The branch's schema and the
@@ -348,19 +354,19 @@ integration."` even with the right integration UUID, because a Doppler
 
 ## Where it runs
 
-| Environment         | Status                 | Notes                                                                                 |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
-| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                                      |
-| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied          |
-| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)             |
-| Production (Vercel) | ✅ Live                | `www.backtotravelling.com`, project `trip-harmony`, team `saurabhs-projects-4d5cc478` |
-| Sales demo          | Same deployment        | `demo.backtotravelling.com` — one build, two domains; gated on the Host header        |
+| Environment         | Status                 | Notes                                                                         |
+| ------------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                              |
+| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied  |
+| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)     |
+| Production (Vercel) | ✅ Live                | `www.wevotrip.com`, project `trip-harmony`, team `saurabhs-projects-4d5cc478` |
+| Sales demo          | Same deployment        | `demo.wevotrip.com` — one build, two domains; gated on the Host header        |
 
-Production serves from `www.backtotravelling.com` (the apex 308-redirects to
+Production serves from `www.wevotrip.com` (the apex 308-redirects to
 `www`). `/api/health` returns `"status":"ok"` with
 `"databaseSource":"DATABASE_URL"`.
 
-`demo.backtotravelling.com` is the **same deployment**, not a second one. The
+`demo.wevotrip.com` is the **same deployment**, not a second one. The
 demo entry point — the landing-page button and the seat-picker API — is shown
 only when the request arrives on that hostname, because one process serving two
 domains sees one environment and the `Host` header is the only thing that

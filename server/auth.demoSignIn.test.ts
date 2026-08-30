@@ -46,7 +46,7 @@ type SetCookie = { name: string; value: string };
  * sign-in these tests describe actually happens. The host rule has its own
  * cases below; everywhere else it would be noise in the setup.
  */
-function createContext(host = "demo.backtotravelling.com") {
+function createContext(host = "demo.wevotrip.com") {
   const cookies: SetCookie[] = [];
   const ctx: TrpcContext = {
     user: null,
@@ -68,7 +68,7 @@ const demoUser = {
   id: 42,
   openId: `${DEMO_OPEN_ID_PREFIX}ava`,
   name: "Ava Bennett",
-  email: "ava@demo.backtotravelling.example",
+  email: "ava@demo.wevotrip.example",
   passwordHash: null,
   loginMethod: "email",
   role: "user" as const,
@@ -142,7 +142,7 @@ describe("auth.demoSignIn", () => {
     // the button is presentation; these are the cases that matter.
     it("refuses on the product site, without reaching the database", async () => {
       getUserByOpenId.mockResolvedValue(demoUser);
-      const { ctx, cookies } = createContext("www.backtotravelling.com");
+      const { ctx, cookies } = createContext("www.wevotrip.com");
 
       await expect(
         appRouter.createCaller(ctx).auth.demoSignIn({ persona: "ava" })
@@ -158,7 +158,7 @@ describe("auth.demoSignIn", () => {
       // Distinguishable errors would confirm a demo exists somewhere and that
       // the caller merely asked the wrong host.
       getUserByOpenId.mockResolvedValue(demoUser);
-      const offHost = createContext("www.backtotravelling.com");
+      const offHost = createContext("www.wevotrip.com");
       getUserByOpenId.mockResolvedValueOnce(null);
       const unseeded = createContext();
 

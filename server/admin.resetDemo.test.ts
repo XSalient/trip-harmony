@@ -57,7 +57,7 @@ const seedResult = {
     { name: "Kyoto", id: 3 },
   ],
   totals: { votes: 150, comments: 14 },
-  primaryEmail: "ava@demo.backtotravelling.example",
+  primaryEmail: "ava@demo.wevotrip.example",
 };
 
 describe("admin.resetDemo", () => {

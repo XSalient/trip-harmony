@@ -195,7 +195,7 @@ const schema = z.object({
   // both features stay broken in the native builds; the web app is unaffected.
   /** From the Apple Developer account, e.g. `A1B2C3D4E5`. */
   APPLE_TEAM_ID: z.string().trim().default(""),
-  /** e.g. `com.example.backtotravelling`. */
+  /** e.g. `com.wevotrip.app`. */
   IOS_BUNDLE_ID: z.string().trim().default(""),
   /** The Android application id. Usually the same string as the iOS bundle. */
   ANDROID_PACKAGE_NAME: z.string().trim().default(""),

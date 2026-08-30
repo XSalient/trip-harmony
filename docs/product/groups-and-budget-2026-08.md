@@ -91,7 +91,7 @@ holds 0000–0007.
 Tests follow the patterns already in the repo — no database in the suite:
 literal fixtures as in `server/routers/roles.test.ts`, source-reading structural
 tests as in `server/routers/locking.test.ts`, and the tRPC caller with a
-hand-built context from `server/back-to-travelling.test.ts:1-52`. Every suite
+hand-built context from `server/wevotrip.test.ts:1-52`. Every suite
 opens with a comment naming the bug it exists to prevent.
 
 | Suite                                 | Asserts                                                                                                                                        | Epic |

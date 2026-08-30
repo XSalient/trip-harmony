@@ -13,7 +13,7 @@ bold() { printf '\033[1m%s\033[0m\n' "$1"; }
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$1"; }
 
-bold "Back To Travelling setup"
+bold "WeVoTrip setup"
 
 # --- 1. Toolchain -----------------------------------------------------------
 REQUIRED_NODE_MAJOR=20

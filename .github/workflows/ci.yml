@@ -72,7 +72,7 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: back_to_travelling_ci
+          POSTGRES_DB: wevotrip_ci
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -96,19 +96,19 @@ jobs:
       - name: Apply migrations to a scratch database
         run: pnpm db:deploy
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/back_to_travelling_ci
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wevotrip_ci
 
       - name: A migrated database reports no pending migrations
         run: pnpm db:status
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/back_to_travelling_ci
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wevotrip_ci
 
       # The sibling of the outage this job guards: a column added to
       # drizzle/schema.ts with no migration to create it. If generate produces
       # anything, the schema and the migrations disagree.
       - name: Schema and migrations agree
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/back_to_travelling_ci
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/wevotrip_ci
         run: |
           pnpm db:generate
           if ! git diff --quiet -- drizzle || \

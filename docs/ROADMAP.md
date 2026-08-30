@@ -138,7 +138,7 @@ is partly E4.4, and "Organizer controls: unlock finalised selections" is E6.2.
 
 ### 1. Deploy — production is live; preview is the remainder
 
-Production runs at `www.backtotravelling.com` and `/api/health` reports `ok`.
+Production runs at `www.wevotrip.com` and `/api/health` reports `ok`.
 What is left is preview, and tidying how production's secrets are managed.
 
 - [x] Provision Postgres for **production** (Supabase `Trip Harmony`, eu-west-1)

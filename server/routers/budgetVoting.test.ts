@@ -8,7 +8,7 @@
  * (which is exactly how `budget.summary` came to hand every member's cap to
  * anyone who asked), an edit that works on a finalised figure.
  *
- * Input validation runs through a real caller, as `back-to-travelling.test.ts`
+ * Input validation runs through a real caller, as `wevotrip.test.ts`
  * does; the rules that need a database are read off the source, as
  * `locking.test.ts` does.
  */

@@ -1,6 +1,6 @@
 # Launching on the app stores
 
-Everything that has to happen before Back To Travelling is on the App Store and
+Everything that has to happen before WeVoTrip is on the App Store and
 Google Play, in the order that unblocks the most, and who can do each part.
 
 **The code is done.** What is left is accounts, settings, a lawyer, a Mac and a
@@ -23,14 +23,58 @@ phone — none of which anyone can do without your credentials.
 
 ## 2. Fill in thirteen settings
 
-**None of these exist in Doppler yet — you create each one.** They are declared
-in `server/_core/env.ts` and `.env.example`, which is code; Doppler is a separate
-system and does not learn about them from the repository. So an empty Doppler
-config is the expected state, not a sign that something went wrong.
+These are declared in `server/_core/env.ts` and `.env.example`, which is code;
+Doppler is a separate system and does not learn about them from the repository.
 
 Nothing breaks while a variable is absent: `env.ts` defaults every one of them
-to empty, and each switches on the feature it belongs to when you set it. Add
-them as you get the values rather than creating thirteen blanks now.
+to empty, and each switches on the feature it belongs to when you set it.
+
+**Done, 2026-08-30 — all thirteen exist in `dev`, `stg`, `prd` and `demo`.**
+Five carry real values; eight are empty. Empty and absent are the same thing to
+`env.ts`, so the empty ones change nothing — they exist so the Doppler UI
+doubles as the list of what is still outstanding, which is worth more here than
+the tidiness of an otherwise empty config.
+
+There are **five** configs, not the three this runbook used to name: `dev`,
+`dev_personal`, `stg`, `prd` and `demo`. `demo` backs `demo.wevotrip.com` and
+has its own database, so it needs the legal and support values like any other —
+a visitor can open `/privacy` there. `dev_personal` has never been fetched and
+was left alone.
+
+> **Never fill one with a placeholder string to "reserve" it.** The
+> configured/missing checks in `env.ts` test presence, not validity, so a
+> plausible-looking value is worse than no value at all:
+> `billing.isConfigured` is `Boolean(REVENUECAT_SECRET_KEY)` and would report
+> `configured` while every purchase check fails; a placeholder `LEGAL_ADDRESS`
+> publishes a fake postal address on `/privacy` and silences the visible
+> `[LEGAL ENTITY NAME]` that exists to stop exactly that; and a placeholder
+> `APPLE_TEAM_ID` builds a perfectly valid association file describing an app
+> that does not exist. Leave it empty and `/api/health` keeps telling you the
+> truth.
+
+### What the 2026-08-30 pass found in Doppler
+
+Three things worth fixing that are nothing to do with the thirteen:
+
+- **`stg` has `SCRAPER_API_LET`, a typo for `SCRAPER_API_KEY`.** `env.ts` reads
+  the correct name and nothing reads the typo, so staging's listing scraper has
+  been off while a paid key sat under a name no code looks for. Fix it in the
+  Doppler UI — renaming it here would pull the key through a tool transcript.
+- **Neither `stg` nor `prd` has `JWT_SECRET` or `APP_ENV`**, and `prd` has no
+  `PUBLIC_BASE_URL`. `JWT_SECRET` is required at 32+ characters in any deployed
+  environment, so both configs would fail `env.ts` validation at boot as they
+  stand. Neither has ever been fetched (no initial-fetch timestamp), which is
+  consistent: they are not provisioned yet rather than broken.
+- **`VITE_APP_ID` is still `harmony`** in `dev` and `demo`. That is deliberate —
+  it is registered outside this repo; see `PROJECT_STATUS.md`.
+
+`PUBLIC_BASE_URL` and `MAIL_FROM` were moved to the new domain in `dev` and
+`demo` on the same pass. `PUBLIC_BASE_URL` is what pins the passkey
+relying-party id and builds magic-link URLs, so it must not point at a host that
+does not yet resolve — check `wevotrip.com` is live and served before relying on
+either.
+
+### Adding the rest
 
 The quickest way is the bootstrap script, which prompts for each in turn and
 skips any you press Enter on:
@@ -45,12 +89,16 @@ also need to reach Vercel — see [secrets.md](secrets.md).
 
 **Needed to submit at all:**
 
-| Variable             | What it needs                                   |
-| -------------------- | ----------------------------------------------- |
-| `SUPPORT_EMAIL`      | An address people can write to                  |
-| `LEGAL_ENTITY`       | Your company, or your own name                  |
-| `LEGAL_JURISDICTION` | e.g. "England and Wales"                        |
-| `LEGAL_ADDRESS`      | A postal address — GDPR Article 13 requires one |
+| Variable             | What it needs                                   | State                     |
+| -------------------- | ----------------------------------------------- | ------------------------- |
+| `SUPPORT_EMAIL`      | An address people can write to                  | `support@wevotrip.com`    |
+| `LEGAL_ENTITY`       | Your company, or your own name                  | `WeVoTrip`                |
+| `LEGAL_JURISDICTION` | e.g. "England and Wales"                        | `the Netherlands`         |
+| `LEGAL_ADDRESS`      | A postal address — GDPR Article 13 requires one | **empty — blocks submit** |
+
+`LEGAL_ADDRESS` is the one holding `legal` at `missing`: `config.legal.isComplete`
+needs all three. It is waiting on business registration, which also gates the two
+developer accounts below.
 
 Until these are set, `/privacy` and `/terms` show a visible `[LEGAL ENTITY NAME]`
 rather than an empty gap, because a policy that silently omits the operator reads
@@ -58,12 +106,17 @@ as finished when it is not.
 
 **Needed for links and passkeys to work in the apps:**
 
-| Variable                   | Where it comes from                          |
-| -------------------------- | -------------------------------------------- |
-| `APPLE_TEAM_ID`            | Your Apple account, e.g. `A1B2C3D4E5`        |
-| `IOS_BUNDLE_ID`            | You choose it, e.g. `com.yourname.btt`       |
-| `ANDROID_PACKAGE_NAME`     | Usually the same string                      |
-| `ANDROID_CERT_FINGERPRINT` | **The Play Console** — see the warning below |
+| Variable                   | Where it comes from                          | State              |
+| -------------------------- | -------------------------------------------- | ------------------ |
+| `APPLE_TEAM_ID`            | Your Apple account, e.g. `A1B2C3D4E5`        | empty — no account |
+| `IOS_BUNDLE_ID`            | You choose it                                | `com.wevotrip.app` |
+| `ANDROID_PACKAGE_NAME`     | Usually the same string                      | `com.wevotrip.app` |
+| `ANDROID_CERT_FINGERPRINT` | **The Play Console** — see the warning below | empty — no account |
+
+The two bundle ids are set and the two account-derived values are not, which is
+the expected shape while business registration is pending: you can choose an id
+today, and Apple will not let you change it after the first submission, so it is
+better fixed early than late.
 
 > **Take the Android fingerprint from the Play Console, not from your own
 > keystore.** With Play App Signing, Google re-signs your app, so the certificate

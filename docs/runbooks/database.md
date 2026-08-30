@@ -218,8 +218,8 @@ it before assuming data loss. Connections time out after 5s, and queries after
 See [local-setup.md](local-setup.md). A disposable container is enough:
 
 ```bash
-docker run -d --name back-to-travelling-db \
-  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=back_to_travelling_dev \
+docker run -d --name wevotrip-db \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=wevotrip_dev \
   -p 5432:5432 postgres:16
 ```
 

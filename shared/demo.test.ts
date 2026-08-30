@@ -9,13 +9,13 @@ import { isDemoTourHost } from "./demo.js";
 
 describe("isDemoTourHost", () => {
   it("offers the demo on the demo subdomain", () => {
-    expect(isDemoTourHost("demo.backtotravelling.com")).toBe(true);
+    expect(isDemoTourHost("demo.wevotrip.com")).toBe(true);
   });
 
   it("does not offer it on the product site", () => {
     // The reason this function exists.
-    expect(isDemoTourHost("www.backtotravelling.com")).toBe(false);
-    expect(isDemoTourHost("backtotravelling.com")).toBe(false);
+    expect(isDemoTourHost("www.wevotrip.com")).toBe(false);
+    expect(isDemoTourHost("wevotrip.com")).toBe(false);
   });
 
   it("offers it on localhost, so a seeded local database needs no configuration", () => {
@@ -33,8 +33,8 @@ describe("isDemoTourHost", () => {
   });
 
   it("treats the hostname case-insensitively, as DNS does", () => {
-    expect(isDemoTourHost("DEMO.BackToTravelling.com")).toBe(true);
-    expect(isDemoTourHost("WWW.BackToTravelling.com")).toBe(false);
+    expect(isDemoTourHost("DEMO.WeVoTrip.com")).toBe(true);
+    expect(isDemoTourHost("WWW.WeVoTrip.com")).toBe(false);
   });
 
   it("refuses a missing or empty host rather than defaulting to on", () => {
@@ -53,9 +53,7 @@ describe("isDemoTourHost", () => {
     // And a host merely *containing* "demo" is not a demo host, which is the
     // part that would matter if this were ever the only check.
     expect(isDemoTourHost("democracy.example.com")).toBe(false);
-    expect(isDemoTourHost("mydemo.backtotravelling.com")).toBe(false);
-    expect(isDemoTourHost("backtotravelling.com.demo.evil.example")).toBe(
-      false
-    );
+    expect(isDemoTourHost("mydemo.wevotrip.com")).toBe(false);
+    expect(isDemoTourHost("wevotrip.com.demo.evil.example")).toBe(false);
   });
 });

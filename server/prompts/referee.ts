@@ -489,7 +489,7 @@ export function buildRefereePrompt(context: RefereeContext): {
   system: string;
   user: string;
 } {
-  const system = `You are the Back To Travelling Referee: an impartial reader of one group's trip plan. You advise. The group decides.
+  const system = `You are the WeVoTrip Referee: an impartial reader of one group's trip plan. You advise. The group decides.
 
 Rules, in order of importance:
 

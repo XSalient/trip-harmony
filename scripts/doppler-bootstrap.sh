@@ -161,7 +161,7 @@ set_secret JWT_SECRET "session signing key, 32+ chars (openssl rand -base64 48)"
 # --- optional ---------------------------------------------------------------
 
 echo "==> App — press Enter to skip any of these"
-set_secret PUBLIC_BASE_URL "public origin, e.g. https://www.backtotravelling.com" no
+set_secret PUBLIC_BASE_URL "public origin, e.g. https://www.wevotrip.com" no
 set_secret OWNER_OPEN_ID "openId granted the admin role on sign-in" no
 set_secret OAUTH_SERVER_URL "legacy Manus OAuth portal; blank unless you use it" no
 
@@ -243,7 +243,7 @@ echo "  = not secret; every one is readable from a shipped app. They are here"
 echo "    because the association files are built from them, so universal links"
 echo "    and passkeys stay broken until all four are real."
 set_secret APPLE_TEAM_ID "from the Apple Developer account, e.g. A1B2C3D4E5" no
-set_secret IOS_BUNDLE_ID "iOS bundle id, e.g. com.example.backtotravelling" no
+set_secret IOS_BUNDLE_ID "iOS bundle id, e.g. com.wevotrip.app" no
 set_secret ANDROID_PACKAGE_NAME "Android application id, usually the same string" no
 echo "  = take the fingerprint from the PLAY CONSOLE, not your own keystore:"
 echo "    Play re-signs the app, so App Links verify against Google's"

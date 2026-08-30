@@ -10,7 +10,7 @@ explore the repo to become productive.**
 
 ## 1. What this is
 
-Back To Travelling is a group-trip planning app. A group proposes dates, destinations,
+WeVoTrip is a group-trip planning app. A group proposes dates, destinations,
 accommodations and activities; everyone votes; an AI "referee" surfaces conflicts
 and suggests compromises.
 

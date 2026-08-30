@@ -185,7 +185,7 @@ export async function tripRoleOf(
  * **The return type is the un-projected shape.** Typing the stripped fields as
  * optional would be more truthful, but it ripples into every consumer of an
  * already `any`-heavy client for no runtime gain — the payload is what matters
- * and the payload is genuinely stripped. `back-to-travelling.test.ts` asserts
+ * and the payload is genuinely stripped. `wevotrip.test.ts` asserts
  * that over the wire; treat that test, not this signature, as the guarantee.
  */
 export function projectProposalForRole<

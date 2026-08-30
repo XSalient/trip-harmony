@@ -1,4 +1,4 @@
-# Back To Travelling
+# WeVoTrip
 
 AI-assisted group trip planning. A group proposes dates, destinations,
 accommodations and activities; everyone votes; an AI "referee" surfaces conflicts

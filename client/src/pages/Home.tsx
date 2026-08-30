@@ -143,9 +143,8 @@ function LandingPage() {
             <span className="text-primary">without the drama</span>
           </h1>
           <p className="text-muted-foreground text-base mb-8 max-w-sm mx-auto leading-relaxed">
-            Back To Travelling resolves group conflicts, finds consensus, and
-            keeps everyone's budget in check — so you can focus on the
-            adventure.
+            WeVoTrip resolves group conflicts, finds consensus, and keeps
+            everyone's budget in check — so you can focus on the adventure.
           </p>
           <Button
             size="lg"

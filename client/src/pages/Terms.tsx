@@ -17,8 +17,8 @@ export default function Terms() {
   return (
     <LegalPage title="Terms">
       <p>
-        These terms cover your use of Back To Travelling, operated by{" "}
-        {legal.entity}. Using the app means accepting them.
+        These terms cover your use of WeVoTrip, operated by {legal.entity}.
+        Using the app means accepting them.
       </p>
 
       <h2>Your account</h2>
@@ -81,9 +81,9 @@ export default function Terms() {
       <h2>What the app is not</h2>
 
       <p>
-        Back To Travelling helps a group decide. It does not book anything, take
-        payment for travel, or hold money. Any arrangement you make — a booking,
-        a deposit, splitting a bill — is between you and the people or companies
+        WeVoTrip helps a group decide. It does not book anything, take payment
+        for travel, or hold money. Any arrangement you make — a booking, a
+        deposit, splitting a bill — is between you and the people or companies
         involved. Prices, availability and links shown in the app come from what
         members enter or from pages we read on their behalf, and may be wrong or
         out of date.

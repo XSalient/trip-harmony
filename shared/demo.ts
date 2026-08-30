@@ -20,7 +20,7 @@ export const DEMO_INVITE_CODE_PREFIX = "DEMO-";
  * Reserved by RFC 2606, so a demo account can never receive mail or be
  * mistaken for a person.
  */
-export const DEMO_EMAIL_DOMAIN = "demo.backtotravelling.example";
+export const DEMO_EMAIL_DOMAIN = "demo.wevotrip.example";
 
 /**
  * The trip a visitor lands on from the marketing site: the seven-person
@@ -42,7 +42,7 @@ export const DEMO_TOUR_ENV_VAR = "DEMO_TOUR_ENABLED";
  * Whether a request arriving on this host should be offered the demo.
  *
  * The demo and the product are one deployment behind two domains — the sales
- * demo at `demo.backtotravelling.com`, the real site at `www`. Two domains
+ * demo at `demo.wevotrip.com`, the real site at `www`. Two domains
  * pointing at one deployment share a process and therefore share an
  * environment, so nothing in `process.env` can tell a request to one from a
  * request to the other. The `Host` header is the only thing that differs, which

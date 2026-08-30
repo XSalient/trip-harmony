@@ -19,9 +19,9 @@ export default function Privacy() {
   return (
     <LegalPage title="Privacy">
       <p>
-        Back To Travelling helps a group plan a trip together. This page says
-        what {legal.entity} stores while you do that, who else sees it, and how
-        to get rid of it.
+        WeVoTrip helps a group plan a trip together. This page says what{" "}
+        {legal.entity} stores while you do that, who else sees it, and how to
+        get rid of it.
       </p>
 
       <h2>What we store</h2>
