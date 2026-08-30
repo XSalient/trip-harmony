@@ -3,11 +3,42 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-25
-- **Name:** Back To Travelling (formerly Harmony). Two identifiers still read
-  `harmony` / `trip-harmony` because they are registered outside this repo —
-  `VITE_APP_ID` at the OAuth portal, and the Doppler project. Rename them there
-  before changing them here.
+- **Last updated:** 2026-08-30
+- **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
+  that). The domain is `wevotrip.com`, with the marketing demo at
+  `demo.wevotrip.com`. Three identifiers still read the older names because they
+  are registered outside this repo — `VITE_APP_ID` (`harmony`) at the OAuth
+  portal, the Doppler project (`trip-harmony`), and nothing else. Rename them
+  there before changing them here.
+- **The native bundle id is `com.wevotrip.app`**, for both stores, chosen
+  2026-08-30. It is the fallback in `capacitor.config.ts` and the value set in
+  Doppler. Apple does not allow a bundle id to change after the first
+  submission, so this one is effectively permanent.
+- **Migrations 0016–0018 are applied** to the live database (2026-08-29), by
+  hand through the Supabase API — see
+  [runbooks/database.md](runbooks/database.md). The branch's schema and the
+  database now agree.
+- **One database, shared by preview and production.** The Supabase free tier
+  gives one project, so a Vercel preview reads and writes the live data. Preview
+  builds therefore do not migrate, every migration must be backward compatible
+  with `master`, and applying one is a deliberate production change —
+  [ADR-0023](adr/0023-preview-and-production-share-one-database.md). Recorded
+  2026-08-29 after a branch's three migrations were missing from the preview it
+  was being tested on, which is the same failure ADR-0010 exists for, arriving
+  from the other direction.
+- **In flight — shipping to the app stores.** The web app is being wrapped with
+  Capacitor rather than rewritten in React Native: the 21k lines of client UI
+  are Radix, Tailwind and DOM throughout, none of which survives a rewrite and
+  all of which runs unchanged in a WebView. The server does not change. The
+  critical path is store compliance, not Capacitor — account deletion, UGC
+  moderation and privacy/terms routes — **all three done** (2026-08-28), none of
+  which existed. What remains before a submission is not code: see
+  [runbooks/launch.md](runbooks/launch.md). Billing is **done** (2026-08-28): a free
+  account organises one trip at a time, sold through the stores' own IAP. What
+  remains is the wrap itself:
+  the session cookie is `SameSite=None` and iOS drops it in a WebView, so the
+  session JWT has to travel as a bearer token, and `passkeys.ts` derives `rpID`
+  from the request Host, which is `localhost` there.
 - **Stage:** feature-complete MVP, deployed to production on Vercel.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. The **groups and budget** programme (E9–E12) is
@@ -22,7 +53,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 892 tests ✅ · production build ✅ (2026-08-25) ·
+- **Health:** typecheck ✅ · 1024 tests ✅ · production build ✅ (2026-08-28) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —
@@ -323,19 +354,19 @@ integration."` even with the right integration UUID, because a Doppler
 
 ## Where it runs
 
-| Environment         | Status                 | Notes                                                                                 |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------- |
-| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                                      |
-| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied          |
-| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)             |
-| Production (Vercel) | ✅ Live                | `www.backtotravelling.com`, project `trip-harmony`, team `saurabhs-projects-4d5cc478` |
-| Sales demo          | Same deployment        | `demo.backtotravelling.com` — one build, two domains; gated on the Host header        |
+| Environment         | Status                 | Notes                                                                         |
+| ------------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| Local               | ✅ Working             | `pnpm setup && pnpm dev` → http://localhost:5000                              |
+| Database (Supabase) | ✅ Live, migrated      | `Trip Harmony` `eqpqjivaubdbdmyrlczh`, eu-west-1. All six migrations applied  |
+| Preview (Vercel)    | ⚠️ Not yet provisioned | Config is in place — see [runbooks/deployment.md](runbooks/deployment.md)     |
+| Production (Vercel) | ✅ Live                | `www.wevotrip.com`, project `trip-harmony`, team `saurabhs-projects-4d5cc478` |
+| Sales demo          | Same deployment        | `demo.wevotrip.com` — one build, two domains; gated on the Host header        |
 
-Production serves from `www.backtotravelling.com` (the apex 308-redirects to
+Production serves from `www.wevotrip.com` (the apex 308-redirects to
 `www`). `/api/health` returns `"status":"ok"` with
 `"databaseSource":"DATABASE_URL"`.
 
-`demo.backtotravelling.com` is the **same deployment**, not a second one. The
+`demo.wevotrip.com` is the **same deployment**, not a second one. The
 demo entry point — the landing-page button and the seat-picker API — is shown
 only when the request arrives on that hostname, because one process serving two
 domains sees one environment and the `Host` header is the only thing that

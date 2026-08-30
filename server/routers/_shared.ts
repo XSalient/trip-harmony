@@ -11,7 +11,83 @@ import {
   type TripRole,
 } from "../../shared/roles.js";
 import { finaliseBlockReason } from "../../shared/votes.js";
+import {
+  FREE_ACTIVE_TRIP_LIMIT,
+  isEntitled,
+  TRIP_LIMIT_ERR_MSG,
+} from "../../shared/billing.js";
+import { config } from "../_core/env.js";
+import { sdk } from "../_core/sdk.js";
+import { getSessionCookieOptions } from "../_core/cookies.js";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { isNativeOrigin } from "../../shared/native.js";
+import type { TrpcContext } from "../_core/context.js";
 import * as db from "../db.js";
+
+/**
+ * Start a session: set the cookie, and hand the token back to a native client.
+ *
+ * Five procedures signed somebody in — register, login, the demo, a magic link
+ * and a passkey — each minting a token and setting a cookie in the same four
+ * lines. One helper, because the interesting part is now a *rule* rather than
+ * boilerplate, and a rule copied five times is a rule that will be applied four
+ * times after the next edit.
+ *
+ * The rule: the token is returned in the body **only** when the request's
+ * `Origin` is a Capacitor WebView (see `shared/native.ts`). The web keeps the
+ * `httpOnly` cookie and is told nothing, because a token page script can read
+ * is a token an XSS can steal, and `Origin` is the one signal a web page cannot
+ * forge — it is set by the browser, not by the page.
+ */
+export async function issueSession(
+  ctx: { req: TrpcContext["req"]; res: TrpcContext["res"] },
+  user: { openId: string; name?: string | null }
+): Promise<{ sessionToken?: string }> {
+  const token = await sdk.createSessionToken(user.openId, {
+    name: user.name || "",
+    expiresInMs: ONE_YEAR_MS,
+  });
+
+  // Set for everyone: the native builds ignore it, and it costs nothing there.
+  const cookieOptions = getSessionCookieOptions(ctx.req);
+  ctx.res.cookie(COOKIE_NAME, token, {
+    ...cookieOptions,
+    maxAge: ONE_YEAR_MS,
+  });
+
+  return isNativeOrigin(ctx.req.get("origin")) ? { sessionToken: token } : {};
+}
+
+/**
+ * Refuse a new trip when a free account is already organising one.
+ *
+ * The only paywall in the app, and it sits on **creating** a trip. Being
+ * invited to one is free and unlimited: a paying organiser must never drag
+ * their friends into paying, both because it would stall the group and because
+ * the person who started the trip is the one who chose to spend anything.
+ *
+ * Two ways this lets somebody through, both deliberate:
+ *
+ * - `BILLING_ENABLED=false` — a paused product, not a broken one. Everybody
+ *   gets everything rather than nobody being able to plan.
+ * - No RevenueCat key configured — a development database, or a deployment that
+ *   has not set billing up. Charging nobody is right; refusing everybody is not.
+ *
+ * With billing on and configured, an account with no subscription row is free,
+ * which is the failing-closed direction: the row is written only by the
+ * webhook, so an absent one means no purchase was confirmed.
+ */
+export async function requireTripAllowance(userId: number) {
+  if (!config.billing.enabled || !config.billing.isConfigured) return;
+
+  const subscription = await db.getSubscription(userId);
+  if (isEntitled(subscription)) return;
+
+  const active = await db.countActiveOrganisedTrips(userId);
+  if (active < FREE_ACTIVE_TRIP_LIMIT) return;
+
+  throw new TRPCError({ code: "FORBIDDEN", message: TRIP_LIMIT_ERR_MSG });
+}
 
 /**
  * The user fields that are safe to send to a browser.
@@ -109,7 +185,7 @@ export async function tripRoleOf(
  * **The return type is the un-projected shape.** Typing the stripped fields as
  * optional would be more truthful, but it ripples into every consumer of an
  * already `any`-heavy client for no runtime gain — the payload is what matters
- * and the payload is genuinely stripped. `back-to-travelling.test.ts` asserts
+ * and the payload is genuinely stripped. `wevotrip.test.ts` asserts
  * that over the wire; treat that test, not this signature, as the guarantee.
  */
 export function projectProposalForRole<

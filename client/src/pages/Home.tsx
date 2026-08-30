@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useAuth, useSessionSwitch } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
+import { rememberSession } from "@/lib/session";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { PaywallDialog } from "@/components/PaywallDialog";
 import { AuthDialog } from "@/components/AuthDialog";
 import { Link, useLocation } from "wouter";
 import {
@@ -52,7 +54,8 @@ function DemoSeatDialog({
   const take = async (persona: string) => {
     setPending(persona);
     try {
-      await demoSignIn.mutateAsync({ persona });
+      const result = await demoSignIn.mutateAsync({ persona });
+      await rememberSession(result);
       // The seats are meant to be tried one after another, so this is the one
       // screen where a stale cache is guaranteed rather than unlikely: without
       // the clear, Nina's first paint is whatever Ava was looking at.
@@ -140,9 +143,8 @@ function LandingPage() {
             <span className="text-primary">without the drama</span>
           </h1>
           <p className="text-muted-foreground text-base mb-8 max-w-sm mx-auto leading-relaxed">
-            Back To Travelling resolves group conflicts, finds consensus, and
-            keeps everyone's budget in check — so you can focus on the
-            adventure.
+            WeVoTrip resolves group conflicts, finds consensus, and keeps
+            everyone's budget in check — so you can focus on the adventure.
           </p>
           <Button
             size="lg"
@@ -223,6 +225,18 @@ function LandingPage() {
           ))}
         </div>
       </div>
+
+      {/* The landing page is the only screen a signed-out visitor sees, so it
+          is where the policy links have to be: a store reviewer opening the app
+          without an account still has to be able to reach them. */}
+      <footer className="px-6 pb-10 max-w-lg mx-auto flex justify-center gap-4 text-xs text-muted-foreground">
+        <Link href="/privacy" className="hover:text-foreground">
+          Privacy
+        </Link>
+        <Link href="/terms" className="hover:text-foreground">
+          Terms
+        </Link>
+      </footer>
     </div>
   );
 }
@@ -246,7 +260,7 @@ function TripCard({ trip }: { trip: any }) {
   };
 
   return (
-    <Link href={`/trips/${trip.id}`}>
+    <Link href={`/trips/${trip.id}`} className="block">
       <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-3">
@@ -283,6 +297,10 @@ function Dashboard() {
   const { user, logout } = useAuth();
   const { data: trips, isLoading } = trpc.trips.list.useQuery();
   const [, navigate] = useLocation();
+  // Asked before the button is pressed, so somebody at the limit meets the
+  // paywall instead of the create form and a refusal at the end of it.
+  const { data: billing } = trpc.billing.status.useQuery();
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   return (
     <AppShell
@@ -303,7 +321,9 @@ function Dashboard() {
         <Button
           variant="default"
           className="h-auto w-full py-4 flex-col gap-2 rounded-xl shadow-sm"
-          onClick={() => navigate("/trips/new")}
+          onClick={() =>
+            billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+          }
         >
           <Plus className="h-5 w-5" />
           <span className="text-sm font-medium">New Trip</span>
@@ -338,6 +358,8 @@ function Dashboard() {
           )}
         </div>
       </div>
+
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} />
     </AppShell>
   );
 }

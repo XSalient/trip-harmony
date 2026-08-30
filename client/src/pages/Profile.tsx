@@ -5,18 +5,22 @@
  * by magic link.
  */
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
 import { PasskeySection } from "@/components/PasskeySection";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
+import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { BlockedSection } from "@/components/BlockedSection";
+import { PlanSection } from "@/components/PlanSection";
+import { PaywallDialog } from "@/components/PaywallDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { KeyRound, LogOut, Shield } from "lucide-react";
+import { KeyRound, LogOut, Shield, Trash2 } from "lucide-react";
 
 function ProfileHeader() {
   const { user } = useAuth();
@@ -114,6 +118,8 @@ export default function Profile() {
     redirectOnUnauthenticated: true,
   });
   const [, navigate] = useLocation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   if (loading) {
     return (
@@ -131,7 +137,9 @@ export default function Profile() {
     <AppShell title="Profile" showBack backHref="/">
       <div className="px-4 py-4 space-y-6">
         <ProfileHeader />
+        <PlanSection onUpgrade={() => setPaywallOpen(true)} />
         <SignInMethods />
+        <BlockedSection />
 
         {/* App admins only, and only a way in — the destructive part lives on
             its own screen rather than on a page every user visits. */}
@@ -152,7 +160,32 @@ export default function Profile() {
         >
           <LogOut className="h-4 w-4" /> Sign out
         </Button>
+
+        <div className="flex justify-center gap-4 text-xs text-muted-foreground">
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+        </div>
+
+        {/* Last, and visually quietest — reachable without hunting for it,
+            which is what review checks, but not sitting next to "Sign out"
+            waiting to be hit by mistake. */}
+        <div className="pt-2 border-t">
+          <button
+            type="button"
+            className="w-full text-center text-xs text-muted-foreground hover:text-destructive transition-colors py-2 inline-flex items-center justify-center gap-1.5"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete my account
+          </button>
+        </div>
       </div>
+
+      <DeleteAccountDialog open={deleteOpen} onOpenChange={setDeleteOpen} />
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} />
     </AppShell>
   );
 }

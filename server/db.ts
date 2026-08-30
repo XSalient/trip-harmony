@@ -1,6 +1,7 @@
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, asc, desc, ne, or, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
+import { nanoid } from "nanoid";
 import {
   InsertUser,
   users,
@@ -51,8 +52,14 @@ import {
   InsertContactGroupMember,
   activityEvents,
   accommodationAttributes,
+  contentReports,
+  InsertContentReport,
+  userBlocks,
+  subscriptions,
+  InsertSubscription,
 } from "../drizzle/schema.js";
-import type { TripRole } from "../shared/roles.js";
+import { TRIP_ROLE_RANK, type TripRole } from "../shared/roles.js";
+import { ACTIVE_TRIP_STATUSES } from "../shared/billing.js";
 import { config, ENV } from "./_core/env.js";
 import { cachedTripMember, forgetMemberships } from "./_core/requestCache.js";
 import { logger } from "./_core/logger.js";
@@ -510,6 +517,278 @@ export async function deleteWebauthnCredential(id: number, userId: number) {
   return result.length > 0;
 }
 
+/**
+ * Every table that names a user, split by what account deletion does to it.
+ *
+ * The split is the whole policy in one place, and `accountDeletion.test.ts`
+ * checks both halves against `drizzle/schema.ts`: a table added later with a
+ * `userId` column and no entry here fails that test rather than quietly
+ * surviving somebody's deletion. This schema declares no foreign keys, so
+ * nothing else would catch it.
+ */
+export const USER_ROWS_DELETED = [
+  "trip_members",
+  "trip_attendees",
+  "date_votes",
+  "destination_votes",
+  "accommodation_votes",
+  "budget_votes",
+  "notifications",
+  "member_preferences",
+  "suggestion_dismissals",
+  "webauthn_credentials",
+  "webauthn_challenges",
+  "contacts",
+  "contact_groups",
+  "content_reports",
+  "user_blocks",
+  "subscriptions",
+] as const;
+
+/**
+ * Rows that keep pointing at the account after it is anonymised.
+ *
+ * A comment is part of a conversation other people are still having. Deleting
+ * it would edit their trip's history to remove one voice; the tombstone leaves
+ * the thread intact under a name that identifies nobody. The same reasoning
+ * covers `proposedBy` and `addedBy`, which are columns rather than tables and
+ * so are not listed here.
+ */
+export const USER_ROWS_ANONYMISED = [
+  "proposal_comments",
+  "activity_events",
+] as const;
+
+/**
+ * What deleting this account would do to the trips it organises — decided in
+ * one place, so the warning the dialog shows and the work `deleteUserCascade`
+ * does can never disagree.
+ *
+ * A trip is handed to its most capable remaining member, and among equals to
+ * the one who has been there longest. A trip with nobody left accepted into it
+ * is abandoned, and the caller deletes it.
+ *
+ * Read-only: safe to call to preview the outcome.
+ */
+export async function planAccountDeletion(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  const organised = await db
+    .select({ id: trips.id })
+    .from(trips)
+    .where(eq(trips.organizerId, userId));
+
+  const handovers: { tripId: number; toUserId: number }[] = [];
+  const abandoned: number[] = [];
+
+  for (const trip of organised) {
+    const survivors = await db
+      .select({ userId: tripMembers.userId, role: tripMembers.role })
+      .from(tripMembers)
+      .where(
+        and(
+          eq(tripMembers.tripId, trip.id),
+          eq(tripMembers.status, "accepted"),
+          ne(tripMembers.userId, userId)
+        )
+      )
+      .orderBy(asc(tripMembers.joinedAt), asc(tripMembers.id));
+
+    // The query is already in `joinedAt` order and `reduce` keeps the incumbent
+    // on a tie, so an existing admin is never passed over for a tripmate who
+    // merely joined earlier.
+    const heir = survivors.reduce<(typeof survivors)[number] | null>(
+      (best, m) =>
+        best && TRIP_ROLE_RANK[best.role] >= TRIP_ROLE_RANK[m.role] ? best : m,
+      null
+    );
+    if (heir) handovers.push({ tripId: trip.id, toUserId: heir.userId });
+    else abandoned.push(trip.id);
+  }
+
+  return { handovers, abandoned };
+}
+
+/**
+ * Erase an account at its owner's request, and hand on what other people share.
+ *
+ * Apple requires deletion to be reachable from inside the app, and the naive
+ * reading of that — delete the row — is wrong here twice over. This schema
+ * declares no foreign keys, so nothing would stop a proposal outliving its
+ * proposer. And a trip is other people's: the organiser walking out must not
+ * take four friends' planning with them.
+ *
+ * So, in order:
+ *
+ * 1. **Trips they organise are handed on**, to the longest-standing accepted
+ *    member — an existing organiser first, so a co-organiser is never demoted
+ *    past a tripmate who happened to join earlier. A trip with nobody left in
+ *    it is deleted outright through `deleteTripCascade`, which already knows
+ *    the full child-row order.
+ * 2. **Everything personal is deleted**: credentials, passkeys, magic-link
+ *    tokens, notifications, preferences, their address book, and every vote
+ *    they cast. Votes go because a departed member must not keep counting
+ *    toward a quorum they can no longer be part of.
+ * 3. **Everything shared is anonymised, not deleted.** A proposal the group is
+ *    still voting on keeps its row and points at a tombstone (see
+ *    `users.deletedAt`), so the trip survives intact and nothing dangles.
+ *
+ * Returns what it did, so the caller can log it: this is irreversible and the
+ * log line is the only record that will exist afterwards.
+ */
+export async function deleteUserCascade(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  // Read before anything is cleared: magic-link tokens are keyed by address
+  // rather than by id, so once the address is gone there is no way to find
+  // them, and a live link is a way back into a deleted account.
+  const [existing] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId));
+  const email = existing?.email ?? null;
+
+  const { handovers, abandoned } = await planAccountDeletion(userId);
+
+  for (const tripId of abandoned) await deleteTripCascade(tripId);
+
+  await db.transaction(async tx => {
+    for (const { tripId, toUserId } of handovers) {
+      await tx
+        .update(trips)
+        .set({ organizerId: toUserId, updatedAt: new Date() })
+        .where(eq(trips.id, tripId));
+      // The heir must be able to act on what they now own: `organizerId` names
+      // who the trip belongs to, but every authorisation check goes through the
+      // member role, so handing over one without the other leaves an owner who
+      // cannot invite, edit or finalise. Harmless when they were already admin.
+      await tx
+        .update(tripMembers)
+        .set({ role: "admin" })
+        .where(
+          and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, toUserId))
+        );
+    }
+
+    // Their own address book, and their rows in anybody else's.
+    const owned = await tx
+      .select({ id: contactGroups.id })
+      .from(contactGroups)
+      .where(eq(contactGroups.ownerUserId, userId));
+    if (owned.length)
+      await tx.delete(contactGroupMembers).where(
+        inArray(
+          contactGroupMembers.groupId,
+          owned.map(g => g.id)
+        )
+      );
+    await tx.delete(contactGroups).where(eq(contactGroups.ownerUserId, userId));
+    await tx.delete(contacts).where(eq(contacts.ownerUserId, userId));
+    // A contact card somebody else saved stops naming an account that is gone,
+    // but stays in their book as the plain address they typed.
+    await tx
+      .update(contacts)
+      .set({ contactUserId: null })
+      .where(eq(contacts.contactUserId, userId));
+
+    // Credentials and anything that could sign in again.
+    await tx
+      .delete(webauthnCredentials)
+      .where(eq(webauthnCredentials.userId, userId));
+    await tx
+      .delete(webauthnChallenges)
+      .where(eq(webauthnChallenges.userId, userId));
+
+    // Every vote they cast, and the personal state behind them.
+    await tx.delete(dateVotes).where(eq(dateVotes.userId, userId));
+    await tx
+      .delete(destinationVotes)
+      .where(eq(destinationVotes.userId, userId));
+    await tx
+      .delete(accommodationVotes)
+      .where(eq(accommodationVotes.userId, userId));
+    await tx.delete(budgetVotes).where(eq(budgetVotes.userId, userId));
+    await tx.delete(notifications).where(eq(notifications.userId, userId));
+    await tx
+      .delete(memberPreferences)
+      .where(eq(memberPreferences.userId, userId));
+    await tx
+      .delete(suggestionDismissals)
+      .where(eq(suggestionDismissals.userId, userId));
+
+    // Moderation state, in both directions. A block is a relationship between
+    // two accounts and means nothing once one of them is gone; a report they
+    // filed cannot be followed up with a reporter who no longer exists, and a
+    // report *about* them has lost its subject.
+    await tx
+      .delete(userBlocks)
+      .where(
+        or(
+          eq(userBlocks.blockerUserId, userId),
+          eq(userBlocks.blockedUserId, userId)
+        )
+      );
+    await tx
+      .delete(contentReports)
+      .where(
+        or(
+          eq(contentReports.reporterUserId, userId),
+          and(
+            eq(contentReports.contentType, "member"),
+            eq(contentReports.contentId, userId)
+          )
+        )
+      );
+
+    // The store's record of what they bought. Deleting it does not cancel the
+    // subscription — only the store can do that, from the account that owns it,
+    // which is why the deletion dialog says so.
+    await tx.delete(subscriptions).where(eq(subscriptions.userId, userId));
+
+    // Membership itself, in the trips they are only a guest of.
+    await tx.delete(tripMembers).where(eq(tripMembers.userId, userId));
+    await tx
+      .delete(tripAttendees)
+      .where(eq(tripAttendees.memberUserId, userId));
+    // Invites they sent that nobody has accepted yet die with them; an invite
+    // is an act by a person, and there is no longer a person behind it.
+    await tx.delete(tripInvites).where(eq(tripInvites.invitedBy, userId));
+    await tx
+      .update(tripMembers)
+      .set({ invitedBy: null })
+      .where(eq(tripMembers.invitedBy, userId));
+
+    if (email)
+      await tx.delete(magicLinkTokens).where(eq(magicLinkTokens.email, email));
+
+    // What other people's trips still point at keeps its row and loses its
+    // name. `proposedBy` and friends are NOT NULL, so there is nowhere to put a
+    // null even if losing the attribution were acceptable.
+    const stamp = new Date();
+    await tx
+      .update(users)
+      .set({
+        openId: `deleted:${nanoid(32)}`,
+        email: null,
+        name: "A former member",
+        passwordHash: null,
+        avatarUrl: null,
+        loginMethod: null,
+        deletedAt: stamp,
+        updatedAt: stamp,
+      })
+      .where(eq(users.id, userId));
+  });
+
+  forgetMemberships();
+  return {
+    tripsHandedOver: handovers.length,
+    tripsDeleted: abandoned.length,
+  };
+}
+
 // ---- Trips ----
 export async function createTrip(data: InsertTrip) {
   const db = await getDb();
@@ -560,6 +839,7 @@ export async function updateTrip(id: number, data: Partial<InsertTrip>) {
  * schema so the next one cannot be forgotten quietly.
  */
 export const TRIP_OWNED_TABLES = [
+  "content_reports",
   "trip_members",
   "trip_groups",
   "trip_attendees",
@@ -632,6 +912,10 @@ export async function deleteTripCascade(tripId: number) {
         .where(inArray(budgetVotes.proposalId, ids(budgetIds)));
 
     // Then everything that names the trip directly.
+    // Reports first: they point at comments and proposals that are about to
+    // stop existing, and a queue item whose subject cannot be looked at is
+    // worse than no queue item.
+    await tx.delete(contentReports).where(eq(contentReports.tripId, tripId));
     await tx
       .delete(proposalComments)
       .where(eq(proposalComments.tripId, tripId));
@@ -2721,10 +3005,20 @@ export async function createComment(data: InsertProposalComment) {
  * router checks the caller's role on *that* trip, so a thread belonging to
  * another trip must not come back even if its proposal id is guessed right.
  */
+/**
+ * A thread, with each comment marked as to whether the viewer has blocked its
+ * author.
+ *
+ * Marked rather than removed. A thread with silent holes in it reads as lost
+ * data — and the replies around a blocked comment still refer to it, so hiding
+ * it outright makes the rest of the conversation harder to follow, not easier.
+ * The client collapses these behind a reveal.
+ */
 export async function getComments(
   proposalType: "date" | "destination" | "accommodation" | "budget",
   proposalId: number,
-  tripId: number
+  tripId: number,
+  viewerUserId?: number
 ) {
   const db = await getDb();
   if (!db) return [];
@@ -2742,7 +3036,14 @@ export async function getComments(
   if (comments.length === 0) return [];
   // One query for the whole thread rather than one per comment.
   const byId = await namesByUserId(comments.map(c => c.userId));
-  return comments.map(c => ({ ...c, user: byId.get(c.userId) ?? null }));
+  const blocked = viewerUserId
+    ? await getBlockedUserIds(viewerUserId)
+    : new Set<number>();
+  return comments.map(c => ({
+    ...c,
+    user: byId.get(c.userId) ?? null,
+    blocked: blocked.has(c.userId),
+  }));
 }
 
 export async function deleteComment(id: number) {
@@ -2924,4 +3225,229 @@ export async function countTripPreferences(tripId: number): Promise<number> {
       )
     );
   return rows.length;
+}
+
+// ---- Moderation: reports and blocks ----
+
+/**
+ * File a report, or leave the existing one alone.
+ *
+ * A unique index on `(reporterUserId, contentType, contentId)` makes reporting
+ * the same thing twice one row, so the queue counts people rather than taps and
+ * a double-tap is not an escalation. `onConflictDoNothing` is what turns that
+ * index from an error into the intended no-op.
+ */
+export async function createContentReport(data: InsertContentReport) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .insert(contentReports)
+    .values(data)
+    .onConflictDoNothing()
+    .returning({ id: contentReports.id });
+  return row?.id ?? null;
+}
+
+/**
+ * The moderation queue: open reports, oldest first, with the reporter named.
+ *
+ * Bounded because an unbounded admin screen is a screen that stops loading the
+ * day it is most needed.
+ */
+export async function getOpenContentReports(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(contentReports)
+    .where(eq(contentReports.status, "open"))
+    .orderBy(asc(contentReports.createdAt))
+    .limit(limit);
+  if (rows.length === 0) return [];
+  const byId = await namesByUserId(rows.map(r => r.reporterUserId));
+  return rows.map(r => ({
+    ...r,
+    reporter: byId.get(r.reporterUserId) ?? null,
+  }));
+}
+
+/** How many reports are waiting, for the badge on the admin screen. */
+export async function countOpenContentReports() {
+  const db = await getDb();
+  if (!db) return 0;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(contentReports)
+    .where(eq(contentReports.status, "open"));
+  return row?.count ?? 0;
+}
+
+/** Close a report. `reviewedByUserId` is who closed it, not who reported it. */
+export async function resolveContentReport(
+  id: number,
+  status: "actioned" | "dismissed",
+  reviewedByUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .update(contentReports)
+    .set({ status, reviewedByUserId, reviewedAt: new Date() })
+    .where(and(eq(contentReports.id, id), eq(contentReports.status, "open")))
+    .returning({ id: contentReports.id });
+  return Boolean(row);
+}
+
+/**
+ * Block somebody. Idempotent, for the same reason reporting is: the unique
+ * index on the pair means a second tap is not a second block.
+ */
+export async function createUserBlock(
+  blockerUserId: number,
+  blockedUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .insert(userBlocks)
+    .values({ blockerUserId, blockedUserId })
+    .onConflictDoNothing();
+}
+
+export async function deleteUserBlock(
+  blockerUserId: number,
+  blockedUserId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(userBlocks)
+    .where(
+      and(
+        eq(userBlocks.blockerUserId, blockerUserId),
+        eq(userBlocks.blockedUserId, blockedUserId)
+      )
+    );
+}
+
+/** Who this account has blocked, named, for the list on the profile screen. */
+export async function getUserBlocks(blockerUserId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerUserId, blockerUserId))
+    .orderBy(desc(userBlocks.createdAt));
+  if (rows.length === 0) return [];
+  const byId = await namesByUserId(rows.map(r => r.blockedUserId));
+  return rows.map(r => ({ ...r, user: byId.get(r.blockedUserId) ?? null }));
+}
+
+/**
+ * The set of accounts `userId` has blocked.
+ *
+ * A set of ids rather than rows: every caller is asking "is this person
+ * blocked?" about a list of authors it already has.
+ */
+export async function getBlockedUserIds(userId: number): Promise<Set<number>> {
+  const db = await getDb();
+  if (!db) return new Set();
+  const rows = await db
+    .select({ blockedUserId: userBlocks.blockedUserId })
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerUserId, userId));
+  return new Set(rows.map(r => r.blockedUserId));
+}
+
+/**
+ * Whether either of two people has blocked the other.
+ *
+ * Symmetric on purpose, and only used to refuse *contact* — an invite, a
+ * contact-book entry. Somebody who blocked you should not receive your
+ * invitation, and somebody you blocked should not be able to put themselves in
+ * front of you by sending one.
+ */
+export async function isBlockedEitherWay(a: number, b: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const [row] = await db
+    .select({ id: userBlocks.id })
+    .from(userBlocks)
+    .where(
+      or(
+        and(eq(userBlocks.blockerUserId, a), eq(userBlocks.blockedUserId, b)),
+        and(eq(userBlocks.blockerUserId, b), eq(userBlocks.blockedUserId, a))
+      )
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+// ---- Billing ----
+
+/**
+ * What the store last told us about this account, or null for a free one.
+ *
+ * Null is the honest answer for "never subscribed" and for "this deployment has
+ * no billing configured" alike, and both should behave the same way: free.
+ */
+export async function getSubscription(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Record what a webhook reported.
+ *
+ * Upserts on `userId`, because RevenueCat retries deliveries deliberately and
+ * the same event arriving twice must be one row with the later state, not two
+ * rows racing to be read.
+ */
+export async function upsertSubscription(data: InsertSubscription) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .insert(subscriptions)
+    .values(data)
+    .onConflictDoUpdate({
+      target: subscriptions.userId,
+      set: {
+        revenueCatId: data.revenueCatId ?? null,
+        productId: data.productId,
+        store: data.store,
+        status: data.status,
+        expiresAt: data.expiresAt ?? null,
+        cancelledAt: data.cancelledAt ?? null,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * How many trips this account is organising that are still being planned.
+ *
+ * Organising, not belonging to: being invited is free and unlimited. Finished
+ * and abandoned trips do not count — the cap is on how much somebody is
+ * planning at once, not on how much they have ever planned.
+ */
+export async function countActiveOrganisedTrips(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(trips)
+    .where(
+      and(
+        eq(trips.organizerId, userId),
+        inArray(trips.status, [...ACTIVE_TRIP_STATUSES])
+      )
+    );
+  return row?.count ?? 0;
 }

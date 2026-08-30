@@ -12,6 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import AppShell from "@/components/AppShell";
+import { PaywallDialog } from "@/components/PaywallDialog";
+import { TRIP_LIMIT_ERR_MSG } from "@shared/billing";
+import { TRPCClientError } from "@trpc/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { useState } from "react";
@@ -25,6 +28,9 @@ export default function CreateTrip() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState("USD");
+  // Reachable by navigating straight here, so the limit is met with the same
+  // explanation as the button on the home screen gives.
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,8 +46,18 @@ export default function CreateTrip() {
       });
       toast.success("Trip created!");
       navigate(`/trips/${result.id}`);
-    } catch {
-      toast.error("Failed to create trip");
+    } catch (err) {
+      // The server's own words, not a generic failure. Two of the things it can
+      // say here are specific and actionable — which word the content filter
+      // objected to, and that a free account is already organising a trip — and
+      // both were being replaced with "Failed to create trip".
+      const message =
+        err instanceof TRPCClientError ? err.message : "Failed to create trip";
+      if (message === TRIP_LIMIT_ERR_MSG) {
+        setPaywallOpen(true);
+        return;
+      }
+      toast.error(message);
     }
   };
 
@@ -112,6 +128,8 @@ export default function CreateTrip() {
           </CardContent>
         </Card>
       </form>
+
+      <PaywallDialog open={paywallOpen} onOpenChange={setPaywallOpen} />
     </AppShell>
   );
 }

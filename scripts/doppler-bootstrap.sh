@@ -161,7 +161,7 @@ set_secret JWT_SECRET "session signing key, 32+ chars (openssl rand -base64 48)"
 # --- optional ---------------------------------------------------------------
 
 echo "==> App — press Enter to skip any of these"
-set_secret PUBLIC_BASE_URL "public origin, e.g. https://www.backtotravelling.com" no
+set_secret PUBLIC_BASE_URL "public origin, e.g. https://www.wevotrip.com" no
 set_secret OWNER_OPEN_ID "openId granted the admin role on sign-in" no
 set_secret OAUTH_SERVER_URL "legacy Manus OAuth portal; blank unless you use it" no
 
@@ -228,6 +228,38 @@ else
   echo "  - scraper overrides skipped; the preset's own values are used"
 fi
 
+echo
+echo "==> Who operates this deployment — shown on /privacy and /terms"
+echo "  = blank leaves a visible [LEGAL ENTITY NAME] on those pages, which is"
+echo "    deliberate: a policy that silently omits the operator reads as finished."
+set_secret SUPPORT_EMAIL "published contact address, e.g. support@yourdomain" no
+set_secret LEGAL_ENTITY "company or person operating the service" no
+set_secret LEGAL_JURISDICTION "whose law governs, e.g. England and Wales" no
+set_secret LEGAL_ADDRESS "postal address (GDPR Article 13 requires one)" no
+
+echo
+echo "==> Native app identifiers — blank until the apps exist"
+echo "  = not secret; every one is readable from a shipped app. They are here"
+echo "    because the association files are built from them, so universal links"
+echo "    and passkeys stay broken until all four are real."
+set_secret APPLE_TEAM_ID "from the Apple Developer account, e.g. A1B2C3D4E5" no
+set_secret IOS_BUNDLE_ID "iOS bundle id, e.g. com.wevotrip.app" no
+set_secret ANDROID_PACKAGE_NAME "Android application id, usually the same string" no
+echo "  = take the fingerprint from the PLAY CONSOLE, not your own keystore:"
+echo "    Play re-signs the app, so App Links verify against Google's"
+echo "    certificate. The wrong one fails silently — links just open a browser."
+set_secret ANDROID_CERT_FINGERPRINT \
+  "signing cert SHA-256, colon-separated hex, from the Play Console" no
+
+echo
+echo "==> Billing — blank means nobody is charged and everyone is on the free tier"
+set_secret REVENUECAT_SECRET_KEY "RevenueCat server key (secret: reads and writes any subscriber)"
+set_secret REVENUECAT_WEBHOOK_SECRET "shared secret checked on every webhook delivery"
+set_secret VITE_REVENUECAT_IOS_KEY "RevenueCat public iOS SDK key" no
+set_secret VITE_REVENUECAT_ANDROID_KEY "RevenueCat public Android SDK key" no
+set_secret BILLING_ENABLED \
+  "blank or true to enable; false pauses billing without losing the keys" no
+
 # --- coverage ---------------------------------------------------------------
 
 # Variables env.ts declares that this script intentionally never asks about,
@@ -238,6 +270,8 @@ NODE_ENV                 set by env.ts from APP_ENV
 PORT                     defaults to 5000; the platform overrides it
 LOG_LEVEL                defaults by environment
 VITE_APP_ID              build-time constant, not per-environment
+APP_ENV                  resolved by env.ts from the platform; never set by hand
+DB_POOL_MAX              defaults to 3; raise only against a dedicated database
 POSTGRES_URL             set by the Supabase/Vercel integration
 POSTGRES_URL_NON_POOLING set by the Supabase/Vercel integration
 "

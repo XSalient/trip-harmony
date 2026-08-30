@@ -122,6 +122,17 @@ export const contactsRouter = router({
       const existingUser = await db.getUserByEmail(
         input.email.trim().toLowerCase()
       );
+      // Blocking is a refusal to be contacted; keeping somebody's card in an
+      // address book is the first half of contacting them.
+      if (
+        existingUser &&
+        (await db.isBlockedEitherWay(ctx.user.id, existingUser.id))
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can't add this person to your contacts.",
+        });
+      }
       const id = await db.addContact({
         ownerUserId: ctx.user.id,
         name: input.name,

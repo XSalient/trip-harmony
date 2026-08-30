@@ -62,6 +62,57 @@ migrations — the fix is one row. Drizzle's migrator compares only the **latest
 `created_at` in that table against each journal entry's `when`, so marking the
 last already-applied migration is enough; it does not check the earlier ones.
 
+## Applying migrations without a Postgres connection
+
+On 2026-08-29, migrations 0016–0018 were applied by hand. They are worth
+recording because the method is not obvious and the trap in it is expensive.
+
+**Why by hand.** Preview and production share one database
+([ADR-0023](../adr/0023-preview-and-production-share-one-database.md)) and
+preview deploys do not migrate, so a branch adding three migrations deployed
+without its schema. Every query touching `users` failed on the missing
+`deletedAt` — sign-in, `auth.me`, and taking a demo seat alike, which looked
+like three unrelated bugs and was one.
+
+**How.** Direct Postgres (port 5432/6543) is blocked from some environments —
+an agent container, a locked-down network — so `pnpm db:deploy` cannot connect.
+The Supabase Management API reaches the same database over HTTPS and can run
+DDL, which is enough.
+
+**The trap.** Applying the SQL that way leaves `drizzle.__drizzle_migrations`
+untouched, so the repository still believes nothing was applied — and the next
+production deploy re-runs the same migrations. `CREATE TYPE` has no
+`IF NOT EXISTS` form, so that deploy fails and takes the release with it.
+
+So each migration must be followed, in the same transaction, by the row
+drizzle's own migrator would have written:
+
+```sql
+insert into drizzle.__drizzle_migrations ("hash", "created_at")
+values ('<sha256 of the whole .sql file>', <the journal entry's "when">);
+```
+
+Both values are exact. The hash is `sha256` of the **entire file contents**,
+not of any statement within it, and `created_at` is the `when` from
+`drizzle/meta/_journal.json` — that is what `readMigrationFiles` in
+`drizzle-orm/migrator.js` computes, and what `pendingSince` in
+`scripts/lib/migrations.mjs` compares against. Get either wrong and the
+migration is either applied twice or reported pending forever.
+
+Compute them with:
+
+```bash
+node -e "const c=require('crypto'),f=require('fs');
+  const j=JSON.parse(f.readFileSync('drizzle/meta/_journal.json'));
+  for (const e of j.entries) console.log(e.tag, e.when,
+    c.createHash('sha256').update(f.readFileSync('drizzle/'+e.tag+'.sql')).digest('hex'));"
+```
+
+Afterwards, confirm the repository agrees the database is current — `pnpm
+db:status` where a connection exists, or check that
+`max(created_at) in drizzle.__drizzle_migrations` equals the last journal
+entry's `when`.
+
 ## Deploying a schema change
 
 **The deploy applies migrations for you.** `vercel.json` runs
@@ -167,8 +218,8 @@ it before assuming data loss. Connections time out after 5s, and queries after
 See [local-setup.md](local-setup.md). A disposable container is enough:
 
 ```bash
-docker run -d --name back-to-travelling-db \
-  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=back_to_travelling_dev \
+docker run -d --name wevotrip-db \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=wevotrip_dev \
   -p 5432:5432 postgres:16
 ```
 

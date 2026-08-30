@@ -35,13 +35,13 @@ describe("auth.capabilities demoTour", () => {
   });
 
   it("is on for the demo subdomain", async () => {
-    await expect(demoTourOn("demo.backtotravelling.com")).resolves.toBe(true);
+    await expect(demoTourOn("demo.wevotrip.com")).resolves.toBe(true);
   });
 
   it("is off for the product site", async () => {
     // The reason the flag exists: the same build serves this host.
-    await expect(demoTourOn("www.backtotravelling.com")).resolves.toBe(false);
-    await expect(demoTourOn("backtotravelling.com")).resolves.toBe(false);
+    await expect(demoTourOn("www.wevotrip.com")).resolves.toBe(false);
+    await expect(demoTourOn("wevotrip.com")).resolves.toBe(false);
   });
 
   it("is on for localhost, so local development needs no configuration", async () => {
@@ -65,19 +65,19 @@ describe("auth.capabilities demoTour", () => {
     // host to decide, and the host says no.
     for (const value of ["false", "0", "off", "no", "", "  "]) {
       vi.stubEnv(DEMO_TOUR_ENV_VAR, value);
-      await expect(demoTourOn("www.backtotravelling.com")).resolves.toBe(false);
+      await expect(demoTourOn("www.wevotrip.com")).resolves.toBe(false);
     }
   });
 
   it("never lets the override turn the demo off where the host allows it", async () => {
     // The override only adds hosts. A demo subdomain stays a demo subdomain.
     vi.stubEnv(DEMO_TOUR_ENV_VAR, "false");
-    await expect(demoTourOn("demo.backtotravelling.com")).resolves.toBe(true);
+    await expect(demoTourOn("demo.wevotrip.com")).resolves.toBe(true);
   });
 
   it("still answers the sign-in capabilities it answered before", async () => {
     const caps = await appRouter
-      .createCaller(contextFor("www.backtotravelling.com"))
+      .createCaller(contextFor("www.wevotrip.com"))
       .auth.capabilities();
 
     expect(caps).toHaveProperty("magicLink");

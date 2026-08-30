@@ -17,7 +17,7 @@ again.
 pnpm seed:demo --allow-remote     # against the preview/demo deployment's DATABASE_URL
 ```
 
-Send marketing the URL — **https://demo.backtotravelling.com**. Done.
+Send marketing the URL — **https://demo.wevotrip.com**. Done.
 
 To reset it later — after a prospect has clicked around, or before recording —
 an app admin does it from the app itself, in one click and with no terminal:
@@ -94,7 +94,7 @@ database.
 
 Still works, for a seat the picker does not offer — `marcus@`, `tomas@`,
 `hannah@`, `dev@`, `yuki@` and the rest, all at
-`demo.backtotravelling.example`, sharing the password the seeder printed.
+`demo.wevotrip.example`, sharing the password the seeder printed.
 
 ## What you get
 
@@ -237,7 +237,7 @@ cannot be read back from its UI to identify the source.
 
 ### Two domains, one deployment
 
-`demo.backtotravelling.com` and `www.backtotravelling.com` are the **same
+`demo.wevotrip.com` and `www.wevotrip.com` are the **same
 build**, the same server and the same database. What separates them is the
 hostname the request arrived on:
 
@@ -272,7 +272,7 @@ it hides a demo, whereas the opposite mistake puts one on the marketing site.
 `PUBLIC_BASE_URL`, so a browser on `demo.` refuses with `'rp.id' cannot be used
 with the current origin`. Nothing in the demo needs them — the seat picker asks
 for no credential — but it will look like a bug to whoever meets it. Fixing it
-means setting the relying-party ID to `backtotravelling.com`, which covers every
+means setting the relying-party ID to `wevotrip.com`, which covers every
 subdomain, and re-enrolling every existing passkey, since a passkey is bound to
 the ID it was created under.
 
@@ -301,7 +301,7 @@ whoever wrote it and break for the next person.
 The password never has to be typed or pasted — it comes out of Doppler and goes
 straight into the flag. `--clean` on the same command removes the demo again.
 
-`PUBLIC_BASE_URL` here reads `https://demo.backtotravelling.com`, which is where
+`PUBLIC_BASE_URL` here reads `https://demo.wevotrip.com`, which is where
 the demo is served from — see _Two domains, one deployment_ below.
 
 **This cannot be run from a Claude Code web session.** That sandbox reaches the

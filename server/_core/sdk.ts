@@ -3,6 +3,7 @@ import {
   COOKIE_NAME,
   ONE_YEAR_MS,
 } from "../../shared/const.js";
+import { AUTH_HEADER, BEARER_PREFIX } from "../../shared/native.js";
 import { ForbiddenError } from "../../shared/_core/errors.js";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
@@ -301,10 +302,34 @@ class SDKServer {
     } as GetUserInfoWithJwtResponse;
   }
 
+  /**
+   * The session token on this request, from the cookie or the bearer header.
+   *
+   * The cookie is the web's, and stays first: it is `httpOnly`, so page script
+   * cannot read it, and that is a real defence against an XSS stealing a
+   * year-long session. The header is the native builds', which cannot use a
+   * cookie at all — in a Capacitor WebView the page's origin is
+   * `capacitor://localhost` and the cookie for the API's domain is third-party,
+   * which iOS drops.
+   *
+   * Additive, never a replacement. Sharing one code path by moving the web to a
+   * readable token as well would trade a real protection for tidiness.
+   */
+  private sessionTokenOf(req: Request): string | undefined {
+    const cookies = this.parseCookies(req.headers.cookie);
+    const fromCookie = cookies.get(COOKIE_NAME);
+    if (fromCookie) return fromCookie;
+
+    const header = req.headers[AUTH_HEADER];
+    const value = Array.isArray(header) ? header[0] : header;
+    if (!value?.startsWith(BEARER_PREFIX)) return undefined;
+    const token = value.slice(BEARER_PREFIX.length).trim();
+    return token || undefined;
+  }
+
   async authenticateRequest(req: Request): Promise<User> {
     // Regular authentication flow
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = cookies.get(COOKIE_NAME);
+    const sessionCookie = this.sessionTokenOf(req);
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {

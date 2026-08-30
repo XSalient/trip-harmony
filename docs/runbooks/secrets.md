@@ -11,6 +11,14 @@ message, or in a file that outlives a session. See
 | `dev`          | `development` | Local development                     |
 | `stg`          | `preview`     | Vercel preview deployments (every PR) |
 | `prd`          | `production`  | Production                            |
+| `demo`         | `production`  | The seeded demo, on its own host      |
+
+**A variable added to `server/_core/env.ts` does not appear in Doppler.** The
+schema and `.env.example` are code; Doppler is a separate system, and each
+config is populated by hand or by the bootstrap script below. An absent variable
+is the normal state until somebody sets it — `env.ts` defaults them all to
+empty, and each feature degrades in the way its own row in the table below
+describes.
 
 `doppler.yaml` binds this repository to project `trip-harmony`, config `dev`.
 
@@ -171,18 +179,22 @@ contract. Adding a variable means updating **both**, plus this table.
 
 ### Optional — the app runs without them
 
-| Variable                                                        | Missing behaviour                                                                                                                                                                              |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AI_INTEGRATIONS_GEMINI_API_KEY`                                | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected. **The key alone turns AI on** — see below                                   |
-| `AI_INTEGRATIONS_GEMINI_BASE_URL`                               | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                                     |
-| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`              | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                                  |
-| `AI_ENABLED`, `SCRAPER_ENABLED`                                 | Kill switches, independent of the keys. Empty or unset means **on**; only `0`/`false`/`no`/`off`/`disabled` turns one off — see below                                                          |
-| `AI_MODEL`                                                      | Which model to call. Empty uses `DEFAULT_AI_MODEL` in `env.ts`. See [When every AI call fails at once](#when-every-ai-call-fails-at-once)                                                      |
-| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                  | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                             |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                                 |
-| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                      | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel          |
-| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                     | **Unset everywhere since 2026-08-10, and should stay that way.** `getLoginUrl()` is never called, so no UI path reaches the Manus portal; email, magic-link and passkey sign-in are unaffected |
-| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`              | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                           |
+| Variable                                                                             | Missing behaviour                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_INTEGRATIONS_GEMINI_API_KEY`                                                     | AI features (referee, NL date parsing, URL import, match analysis) return an error; everything else is unaffected. **The key alone turns AI on** — see below                                    |
+| `AI_INTEGRATIONS_GEMINI_BASE_URL`                                                    | Optional override. `@google/genai` already knows Google's endpoint; set this only for a proxy or a gateway                                                                                      |
+| `BUILT_IN_FORGE_API_KEY`, `BUILT_IN_FORGE_API_URL`                                   | Legacy aliases; take precedence over the Gemini pair when set                                                                                                                                   |
+| `AI_ENABLED`, `SCRAPER_ENABLED`                                                      | Kill switches, independent of the keys. Empty or unset means **on**; only `0`/`false`/`no`/`off`/`disabled` turns one off — see below                                                           |
+| `AI_MODEL`                                                                           | Which model to call. Empty uses `DEFAULT_AI_MODEL` in `env.ts`. See [When every AI call fails at once](#when-every-ai-call-fails-at-once)                                                       |
+| `LEGAL_ENTITY`, `LEGAL_JURISDICTION`, `LEGAL_ADDRESS`                                | `/privacy` and `/terms` show visible placeholders where the operator's details belong. **A submission needs all three** — `/api/health` reports `legal`                                         |
+| `APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_FINGERPRINT` | The association files serve placeholders, so universal links and passkeys do not work in the native builds. Not secret, but deployment-specific. The web app is unaffected                      |
+| `REVENUECAT_SECRET_KEY`, `REVENUECAT_WEBHOOK_SECRET`                                 | No purchase can be verified, so every account is treated as free — the gate fails closed. `BILLING_ENABLED=false` is the deliberate off switch; missing keys are the accident                   |
+| `SUPPORT_EMAIL`                                                                      | The privacy, terms and support pages say support is unavailable instead of printing a contact. **An app-store submission needs this set** — Apple guideline 1.2 requires published contact info |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_PROVIDER`                                       | No Resend delivery. `MAIL_FROM` must be a verified domain or Resend only delivers to the account owner — the sign-in UI hides passwordless when so                                              |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`                      | SMTP fallback unavailable. With no provider at all, magic links and invites are logged at `warn` instead of emailed — intended local behaviour                                                  |
+| `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`                                           | Only consulted when `DATABASE_URL` is unset; set by the Supabase/Vercel integration. On this project both hold the direct, IPv6-only host, so neither is a working fallback on Vercel           |
+| `OAUTH_SERVER_URL`, `VITE_OAUTH_PORTAL_URL`                                          | **Unset everywhere since 2026-08-10, and should stay that way.** `getLoginUrl()` is never called, so no UI path reaches the Manus portal; email, magic-link and passkey sign-in are unaffected  |
+| `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`                                   | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                            |
 
 `GET /api/health` reports which of these are configured, without revealing
 values. It names the variable each one came from rather than echoing anything:

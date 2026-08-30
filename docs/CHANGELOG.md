@@ -8,6 +8,480 @@ is built, run or deployed.
 
 ---
 
+## 2026-08-30 — Renamed to WeVoTrip
+
+### Changed
+
+- **The product is WeVoTrip.** Every user-visible "Back To Travelling" is now
+  "WeVoTrip": the page title, the marketing copy on `/home`, the privacy and
+  terms pages, both magic-link and invite emails, the referee's system prompt,
+  the passkey relying-party name and the Capacitor `appName`.
+
+- **The domain is `wevotrip.com`**, with the demo at `demo.wevotrip.com`. The
+  demo gate is unchanged and needed no edit — it matches any `demo.` subdomain
+  by shape rather than by name, so the new domain works for the same reason the
+  old one did.
+
+- **Infrastructure identifiers follow the name.** `package.json` is `wevotrip`;
+  the local and CI databases are `wevotrip_dev` / `wevotrip_ci` (were
+  `back_to_travelling_dev` / `_ci`); the docker container in the runbooks is
+  `wevotrip-db`; and `server/back-to-travelling.test.ts` is
+  `server/wevotrip.test.ts`, with the four documents that cite it updated.
+
+- **`DEMO_EMAIL_DOMAIN` is `demo.wevotrip.example`.** Any database already
+  holding seeded demo rows keeps the old addresses until `pnpm seed:demo` runs
+  again. Nothing is orphaned by that: `admin.resetDemo` finds demo rows by the
+  `DEMO-` invite-code prefix, not by the email domain.
+
+- **The native bundle id is `com.wevotrip.app`** for both stores, replacing the
+  `com.example.backtotravelling` placeholder in `capacitor.config.ts`.
+
+- **Existing passkeys do not survive the domain move.** Only `RP_NAME` changed
+  in `passkeys.ts`, and it is a display string; `rpID` is still derived from
+  `PUBLIC_BASE_URL`. But a WebAuthn credential is scoped to the relying-party id
+  it was created under, so any passkey registered against the old domain cannot
+  be asserted against `wevotrip.com` — the browser will not even offer it. There
+  is no migration for this by design; the credential is bound to the origin.
+  Anyone holding one re-registers after signing in by password or magic link,
+  both of which are unaffected. Worth knowing before, not after, the DNS cutover.
+
+- **Doppler now carries all thirteen launch settings** in `dev`, `stg`, `prd`
+  and `demo` — five with real values, eight as empty slots. `PUBLIC_BASE_URL`
+  and `MAIL_FROM` moved to `wevotrip.com` in `dev` and `demo`; both previously
+  named the retired domain, and `MAIL_FROM` still said "Harmony". Outbound mail
+  now depends on `wevotrip.com` being a verified sender in Resend — verify it
+  there before relying on magic links.
+
+### Note
+
+Entries below this one still say "Back To Travelling". That is deliberate — they
+record what was true when they were written, and one of them documents an
+earlier rename, which rewriting would make incoherent.
+
+### Decided — placeholder secrets are not a substitute for empty ones
+
+The outstanding launch variables were created in Doppler as **named slots with
+empty values**, not filled with placeholder strings, because several of this
+codebase's "is it configured?" checks are presence checks rather than validity
+checks:
+
+- `config.billing.isConfigured` is `Boolean(REVENUECAT_SECRET_KEY)`, so any
+  non-empty string makes `/api/health` report `billing: configured` while every
+  purchase verification fails against a key RevenueCat has never seen.
+- `config.legal.isComplete` requires all three legal fields to be non-empty, so
+  a placeholder address publishes a fake postal address on `/privacy` and
+  silences the very placeholder that exists to make the gap visible.
+- A placeholder `APPLE_TEAM_ID` yields a syntactically valid
+  `apple-app-site-association` describing an app that does not exist — the
+  silent failure `runbooks/launch.md` already warns about for the Android
+  fingerprint.
+
+Empty and absent are identical to `env.ts`, so the slots cost nothing and keep
+`/api/health` honest about what is genuinely missing.
+
+---
+
+## 2026-08-28 — Passkeys can be asserted from the Android app
+
+### Added
+
+- **`expectedOrigin` accepts Android's.** A passkey assertion from an Android
+  app carries `android:apk-key-hash:<base64url SHA-256 of the signing
+certificate>` rather than an `https://` origin — the same certificate
+  `assetlinks.json` publishes as colon-hex, in a different encoding. The server
+  now expects both, derived from `ANDROID_CERT_FINGERPRINT`.
+
+  This widens _origins_, not _who may assert_: `expectedRPID` still pins every
+  assertion to this domain, and the Android entry can only be produced by
+  whoever holds the signing key. A malformed fingerprint adds nothing rather
+  than adding something wrong.
+
+  iOS needs no equivalent — an app associated through `webcredentials` in the
+  AASA presents the domain's own origin, which already matches.
+
+### Note
+
+The earlier claim that `passkeys.ts` derives `rpID` from the request `Host` and
+would therefore see `localhost` in a WebView was **wrong**:
+`resolveRelyingParty` prefers `config.publicBaseUrl` and only falls back to the
+header. On any deployment with `PUBLIC_BASE_URL` set — which is all of them —
+the RP ID was already the real domain.
+
+---
+
+## 2026-08-28 — Deep links, the WebView's own behaviours, and a real purchase sheet
+
+### Added
+
+- **`/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`**,
+  built from the four native identifiers. Served by Express rather than as
+  static files, because `vercel.json` rewrites everything that is not `/api/`
+  to `/index.html` — a file in `client/public/` would have been served the HTML
+  shell, with a 200, to a fetcher expecting JSON. Confirmed against the previous
+  build, which does exactly that. They answer 404 while the identifiers are
+  unset: both platforms cache what they fetch, and a well-formed file naming an
+  app that does not exist is worse than an absent one.
+
+- **Deep links.** A universal link now routes inside the app instead of opening
+  the landing page. `pathFromDeepLink` takes the path and refuses everything
+  else — a protocol-relative `//evil.example` would navigate off-site, and the
+  value goes to `history.pushState`, so it is not somewhere to trust a JSON file
+  on a CDN.
+
+- **The behaviours a WebView does not get for free**: the Android hardware back
+  button walks history and exits only at the root, the status bar is styled, the
+  keyboard resizes the view instead of covering the field, and the splash screen
+  hides after the first paint rather than on a timer racing it.
+
+- **The purchase sheet.** The paywall's stub is gone: it configures RevenueCat
+  with the signed-in account's numeric id — an anonymous id would reach the
+  webhook as `$RCAnonymousID:…` with no account to attach to — opens the store's
+  sheet, and offers **restore purchases**, which Apple requires and rejects for
+  omitting. Both paths refetch `billing.status` rather than believing the
+  client: entitlement arrives by webhook and can be a second behind.
+
+### Fixed
+
+- **The bottom navigation sat under the home indicator.** `MobileNav` has
+  referenced a `safe-area-bottom` class since it was written and **the class did
+  not exist**. Defining it was not enough either — `env(safe-area-inset-*)` is
+  zero on iOS until `viewport-fit=cover` is on the viewport meta, which it now
+  is. The header gained the matching top inset, so the title clears the notch.
+
+---
+
+## 2026-08-29 — Validation messages read like sentences
+
+### Changed
+
+- **Invalid input now names the field and says what is wrong with it**, instead
+  of restating the schema. `Invalid input: expected string, received undefined
+at "name"` became `Name is required`; `Too big: expected string to have <=255
+characters` became `Name must be 255 characters or fewer`.
+
+  Generated from the issues zod reports, rather than written per field —
+  ~230 `z.string()`/`z.number()` fields across 108 `.input()` blocks would have
+  been a lot of typing for a result a mapping gets generically, and most of
+  those fields are internal ids nobody types.
+
+  The wording matches what the client's own forms already say by hand
+  (`AuthDialog`: "Name is required", "Password must be at least 8 characters"),
+  so the server backstop stops sounding like a different program.
+
+  Anything unmapped still goes through `zod-validation-error`, so an issue code
+  nobody anticipated degrades to readable rather than to "invalid".
+
+### Note
+
+Telling a **missing** field from a **wrong-typed** one is more awkward than it
+looks, and a test found it: zod 4's _finalized_ issues carry `expected` and
+`path` but drop `input` — that exists only inside the live error hook. The
+distinction survives just in zod's own default wording, "…received undefined",
+which is what the code reads. If that wording ever changes, a missing field
+reads "is not valid" rather than "is required": less specific, never wrong. A
+test pins the current behaviour so the change is noticed rather than inferred
+from a confusing message in production.
+
+---
+
+## 2026-08-29 — A failed query stops telling the user what it selected
+
+### Fixed
+
+- **A server fault no longer publishes the schema.** Signing in against a
+  database missing a column produced this, in a toast, to the person signing in:
+
+  > Failed query: select "id", "openId", "name", "email", "passwordHash", …
+  > from "users" where "users"."email" = $1 params: someone@example.com,1
+
+  That is drizzle's message for any failed query, and tRPC puts a thrown error's
+  message straight into the response. It published the column list —
+  `passwordHash` included — and the address of whoever was signing in, while
+  telling them nothing they could act on.
+
+  A wrapped internal error now returns "Something went wrong on our end. Please
+  try again." with the request id, which is the same id the log entry carries —
+  so a screenshot from a user leads straight to the record, and `logTrpcError`
+  still flattens the whole cause chain into it.
+
+  **Only errors tRPC wrapped are rewritten.** A hand-written `TRPCError` carries
+  no `cause` and keeps its message; `auth.me` uses exactly that shape to say
+  "Could not verify your session", which is written to be read. Every other code
+  is untouched, because the client matches some of them by exact string — the
+  paywall, the login redirect, the content filter naming the word it objected
+  to. Local development keeps the raw message: there the developer is the user
+  and the detail is the point.
+
+### Added
+
+- **`pnpm db:deploy:doppler`**, beside the `db:status:doppler` that already
+  existed. Applying a migration by hand was two commands where one of them had
+  to be remembered in full.
+
+### Fixed, again
+
+- **Invalid input reads as a sentence, not a schema dump.** tRPC reports a
+  validation failure as a `BAD_REQUEST` whose `cause` is the `ZodError`, and a
+  `ZodError`'s own message is `JSON.stringify` of its issues — so a malformed
+  address produced `[{"origin":"string","code":"invalid_format","pattern":
+"/^(?!\\.)(?!.*\\.\\.)…"}]` in a toast. It now reads
+  `Invalid email address at "email"`.
+
+  Done with `zod-validation-error`, which was already a dependency and unused,
+  so nothing joins the tree. Capped at three issues: a form with eight problems
+  makes eight clauses joined by semicolons and nobody reads the eighth.
+
+  Unlike the internal-error case this applies everywhere, deployed or not —
+  there is nothing to hide in a validation message, and the readable form is
+  better for whoever is reading it.
+
+---
+
+## 2026-08-29 — Migrations 0016–0018 applied to the live database
+
+### Fixed
+
+- **Sign-in and the demo both worked again.** They had been failing with
+  `column "deletedAt" does not exist`: this branch's three migrations were never
+  applied, because preview deploys do not migrate and preview shares the one
+  production database ([ADR-0023](adr/0023-preview-and-production-share-one-database.md)).
+  Every query touching `users` failed, which presented as three unrelated bugs —
+  password sign-in, `auth.me`, and taking a demo seat — and was one.
+
+  Applied through the Supabase Management API, because direct Postgres is not
+  reachable from every environment. The method, and the trap in it — the
+  `drizzle.__drizzle_migrations` row that has to be written alongside, or the
+  next production deploy re-runs the same migrations and dies on `CREATE TYPE` —
+  is written up in [runbooks/database.md](runbooks/database.md).
+
+  Verified after: `deletedAt` present, all three new tables present, the
+  migration high-water mark equal to `0018`'s journal `when`, `pendingSince`
+  reporting nothing outstanding, and the data untouched (13 users, 5 trips, 19
+  memberships).
+
+---
+
+## 2026-08-28 — The native shell, and a session that survives it
+
+### Added
+
+- **Capacitor config**, pointing at the bundle `pnpm build` already produces.
+  There is no second app: iOS and Android run the same SPA the web runs, so a
+  fix ships to all three at once. `ios/` and `android/` are **not** in the
+  repository — generating them needs Xcode and the Android SDK — so they are
+  created on a developer machine with `npx cap add ios` / `npx cap add android`
+  and committed once they exist.
+
+- **The session can travel as a bearer token.** In a Capacitor WebView the
+  page's origin is `capacitor://localhost`, so the cookie for the API's domain
+  is third-party and iOS drops it. `sdk.authenticateRequest` now reads the
+  cookie _or_ an `Authorization: Bearer` header — cookie first, so an injected
+  header can never override a real session.
+
+  **Additive, never a replacement.** The web keeps its `httpOnly` cookie, which
+  page script cannot read; moving the web to a readable token as well would
+  trade a real defence against XSS for one code path.
+
+- **The token is returned in a response body only to a WebView origin.**
+  `shared/native.ts` lists them and matches exactly — `startsWith` would have
+  accepted `https://localhost.evil.example`, a domain anybody can register. The
+  origin is the right signal because a browser sets it and page script cannot
+  forge it, so an XSS on the web cannot ask for the token by pretending to be
+  the app. `http://localhost` is deliberately absent: that is the dev server,
+  and accepting it would hand a readable token to every tab a developer has
+  open.
+
+  `nativeSession.test.ts` covers it, and was checked by making `issueSession`
+  hand the token to everyone — two tests fail, by name.
+
+### Changed
+
+- **Five sign-in procedures now mint their session in one place.** Register,
+  login, the demo, a magic link and a passkey each repeated the same four lines
+  of token-and-cookie. They call `issueSession` instead, because the interesting
+  part is now a _rule_ rather than boilerplate, and a rule copied five times is
+  a rule that gets applied four times after the next edit. A test asserts none
+  of them calls `createSessionToken` directly.
+
+---
+
+## 2026-08-28 — Subscriptions, through the stores' own in-app purchase
+
+### Added
+
+- **A free account organises one trip at a time.** Being _invited_ to a trip is
+  free and unlimited, and always will be: a paying organiser must never drag
+  their friends into paying. Finishing a trip frees the slot, because the cap is
+  on how much somebody is planning at once, not on how much they have ever
+  planned.
+
+  Enforced in `requireTripAllowance`, called from both `trips.create` and
+  `trips.clone` — gating only the first would have made the limit one click to
+  bypass. On clone the trip role is checked first, so somebody who cannot clone
+  a trip is told that rather than shown a paywall for something they could not
+  do anyway.
+
+- **Purchases go through Apple's and Google's IAP**, which is mandatory for
+  digital goods. **No money moves through this server and no card details reach
+  it.** RevenueCat's webhook at `/api/billing/webhook` is the only thing that
+  writes `subscriptions`, and `billing.test.ts` asserts the billing router
+  exposes no mutation at all — a client that could say "I bought it" could grant
+  itself the product, so "there is no such procedure" is the security property
+  and it is tested rather than commented.
+
+  The webhook verifies its shared secret with `timingSafeEqual`, answers 401
+  when it fails so a misconfigured secret shows up in RevenueCat's delivery log,
+  and acknowledges rather than rejects event types it does not act on — a 4xx
+  would make RevenueCat retry an unknown event forever.
+
+- **A billing issue still entitles.** The store is retrying a card that will
+  probably work, and locking somebody out of a half-planned trip over a
+  temporary decline is worse than a few days of unpaid access. The expiry date
+  is checked as well as the status, so a webhook that never arrived cannot
+  entitle somebody indefinitely.
+
+- **Two deliberate ways past the gate**, distinguished on `/api/health`:
+  `BILLING_ENABLED=false` is a paused product, and no RevenueCat key is a
+  deployment that has not set billing up. Both charge nobody. An account with no
+  subscription row is free, which is the failing-closed direction.
+
+### Fixed
+
+- **"Failed to create trip" no longer swallows what actually went wrong.**
+  `CreateTrip` replaced every server error with that one sentence, including the
+  content filter naming the word it objected to. It shows the server's own
+  message now, and opens the paywall on the trip limit.
+
+---
+
+## 2026-08-28 — A privacy policy and terms, reachable without an account
+
+### Added
+
+- **`/privacy` and `/terms`.** Both render signed out, which is the actual
+  requirement rather than a nicety: a store reviewer opening the privacy URL has
+  no account. They are the only screens here that never call `useAuth` and never
+  use `AppShell`, and `legal.test.ts` fails if either creeps back in — a
+  redirect would fail a submission for a reason invisible in the code.
+
+- **A policy written from the code, not a template.** Every claim traces to a
+  table in `drizzle/schema.ts` or a call in `server/`. Including the awkward
+  ones: member names, recorded preferences and budget caps reach Google's Gemini
+  API, because that is what `server/prompts/referee.ts` builds its prompt from;
+  `activity_events` has no retention policy, so the page says so rather than
+  implying a schedule; and the app stores ages for attendees who are children
+  and cannot consent for themselves.
+
+- **`system.support`**, a public procedure serving `SUPPORT_EMAIL`. Public for
+  the same reason the pages are. Null rather than empty where a deployment has
+  not set one, so the page says support is unavailable instead of rendering a
+  `mailto:` that goes nowhere.
+
+- **[docs/runbooks/launch.md](runbooks/launch.md)** — what is still blocking a
+  store submission and who can do each part. The operator's details (`LEGAL` in
+  `LegalPage.tsx`) ship as visible placeholders and are top of that list; a test
+  keeps them in one file so the scattered one cannot ship still saying
+  `[JURISDICTION]`.
+
+  **The pages are a draft, not legal advice.** Somebody qualified should read
+  them before they are published.
+
+---
+
+## 2026-08-28 — Report, block, and a filter on what gets submitted
+
+### Added
+
+- **Report a comment, and block the person who wrote it.** Both live on the
+  comment's own menu. Reports go to app admins — `users.role === "admin"` — and
+  not to the reported trip's admins: a trip admin can already delete any comment
+  on their trip, but reporting a trip admin to that same trip admin is not a
+  moderation path. The queue is on the admin screen, beside the demo reset.
+
+- **Blocking hides content and stops contact, and nothing else.** A blocked
+  member keeps their place in the trip and their vote keeps counting. A trip
+  somebody is legitimately on must not quietly lose a voter, and a vote count
+  that differed per viewer would be reported as data loss rather than read as a
+  block. Their comments arrive collapsed behind "Blocked — tap to show" rather
+  than removed, because a thread with holes in it reads as lost data and the
+  replies around a hidden comment still refer to it. What blocking does stop is
+  an invite and a contact-book entry, enforced in `sendInvite`, through which
+  both invite paths run. Undo is on the profile screen.
+
+- **A content filter on every mutation.** One middleware on `base` in
+  `_core/trpc.ts` rather than a check at each of twenty-odd free-text fields
+  across eight routers — the twenty-first would not have had one. It works from
+  an allow-list of prose field names, so `pageText` (400kB of scraped listing
+  HTML) is never inspected and a legitimate import cannot be refused over a word
+  on a hotel's own page. The wordlist separates infix terms from prefix terms,
+  which is what lets `bullshit` fail while `scraped`, `classic`, `grapes` and
+  Scunthorpe pass.
+
+- **`SUPPORT_EMAIL`**, the published contact address guideline 1.2 requires.
+  `/api/health` reports whether it is set — a store submission needs it.
+
+### Removed
+
+- **Four unused template components**: `Map.tsx` (nothing imported it,
+  `index.html` never loaded the Maps SDK and there was no API key), plus
+  `ManusDialog`, `DashboardLayout` and its skeleton. The `@types/google.maps`
+  devDependency went with the map. `AIChatBox` stays, despite looking the same:
+  `ComponentShowcase` imports it.
+
+---
+
+## 2026-08-28 — You can delete your account
+
+### Added
+
+- **Delete your account, from inside the app.** Profile → "Delete my account".
+  Apple has required this since 2022 and checks it in review; there was no way
+  to do it at all, from any screen. The dialog says what will happen before the
+  button is live — how many trips will be handed on, how many deleted — and an
+  account with a password must re-enter it, because a session cookie is a
+  long-lived bearer token and this is the one action nothing undoes.
+
+- **A trip outlives the person who organised it.** Deleting an organiser's
+  account hands each of their trips to its most capable remaining member, and
+  among equals to whoever joined first; that member becomes an admin, because
+  `organizerId` without the role is an owner who cannot invite or finalise. Only
+  a trip with nobody else accepted into it is deleted, through the existing
+  `deleteTripCascade`.
+
+- **A deleted account keeps a nameless row.** `users.deletedAt` marks it. The
+  email, name, password hash, avatar and login method are cleared and `openId`
+  is replaced, so there is no address to reach, no credential to present and no
+  session token that still resolves. What survives is the integer other rows
+  point at: this schema declares no foreign keys and `proposedBy` is NOT NULL,
+  so deleting the row outright would leave proposals the group is still voting
+  on pointing at nothing, with nothing in the database to catch it. Votes are
+  removed; comments and proposals stay, attributed to "A former member".
+
+  `accountDeletion.test.ts` reads `drizzle/schema.ts` and asserts every table
+  with a `userId` column is classified as deleted or anonymised. A table added
+  later that is neither fails that test rather than quietly surviving somebody's
+  deletion.
+
+---
+
+## 2026-08-28 — The trip list sits evenly again
+
+### Fixed
+
+- **The trips on the home screen are evenly spaced.** The list is a `space-y-3`
+  container, which Tailwind implements as a `margin-top` on every child but the
+  first. Each child is a wouter `<Link>`, which renders a bare `<a>` — and an
+  anchor is `display: inline`, so vertical margin does nothing to it. The
+  `<Card>` inside is a block, so each anchor was wrapped in anonymous block
+  boxes and the gaps came out ragged rather than simply absent. The loading
+  skeletons in the same container are `div`s, which is why they always looked
+  right and the real list never did. Both anchors are `block` now.
+
+  The same shape sat in `TripSummary`'s rows, where the gap is 6px and it read
+  as slightly-off rather than broken. Fixed alongside.
+
+---
+
 ## 2026-08-27 — Somebody without an account can be corrected, and moved
 
 ### Fixed

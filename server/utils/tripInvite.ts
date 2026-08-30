@@ -51,6 +51,19 @@ export async function sendInvite({
   origin: string;
   throwOnFailure?: boolean;
 }) {
+  // A block is a refusal to be contacted, and an invitation is contact. Checked
+  // here rather than in the routers because both invite paths go through this
+  // function, and a rule enforced in one of two places is a rule with a way
+  // round it. Symmetric: somebody who blocked you must not receive your
+  // invitation, and somebody you blocked must not reach you by sending one.
+  const invitee = await db.getUserByEmail(email.trim().toLowerCase());
+  if (invitee && (await db.isBlockedEitherWay(invitedBy, invitee.id))) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "You can't invite this person.",
+    });
+  }
+
   // Record the invite before sending, so a send that fails still leaves the
   // members page able to say who was invited and to what address.
   const invite = await db.upsertTripInvite({

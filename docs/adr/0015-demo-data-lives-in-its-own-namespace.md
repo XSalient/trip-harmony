@@ -33,7 +33,7 @@ of touching data it did not create.
 - Every demo user's `openId` starts `demo:`.
 - Every demo trip's `inviteCode` starts `DEMO-`. `inviteCode` is already unique
   and indexed, which makes it the cheapest honest answer to "is this row ours?".
-- Every demo mailbox is at `demo.backtotravelling.example` — a domain RFC 2606
+- Every demo mailbox is at `demo.wevotrip.example` — a domain RFC 2606
   reserves, so a seeded account can never receive mail or be mistaken for a
   person.
 - The reset selects on those two prefixes and nothing else. Trips go through

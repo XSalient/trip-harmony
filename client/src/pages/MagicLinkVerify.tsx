@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { rememberSession } from "@/lib/session";
 import { useParams, useLocation } from "wouter";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
@@ -15,7 +16,8 @@ export default function MagicLinkVerify() {
   const switchSession = useSessionSwitch();
 
   const verifyMutation = trpc.auth.verifyMagicLink.useMutation({
-    onSuccess: async () => {
+    onSuccess: async result => {
+      await rememberSession(result);
       // A magic link can land in a tab that is already signed in as somebody
       // else — it is the likeliest place for that to happen, in fact.
       await switchSession();

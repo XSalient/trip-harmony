@@ -22,6 +22,8 @@ import { notificationsRouter } from "./notifications.js";
 import { commentsRouter } from "./comments.js";
 import { preferencesRouter } from "./preferences.js";
 import { suggestionsRouter } from "./suggestions.js";
+import { moderationRouter } from "./moderation.js";
+import { billingRouter } from "./billing.js";
 
 export const appRouter = router({
   system: systemRouter,
@@ -40,6 +42,8 @@ export const appRouter = router({
   comments: commentsRouter,
   preferences: preferencesRouter,
   suggestions: suggestionsRouter,
+  moderation: moderationRouter,
+  billing: billingRouter,
 });
 
 export type AppRouter = typeof appRouter;

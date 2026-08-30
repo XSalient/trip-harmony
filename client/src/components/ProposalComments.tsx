@@ -10,8 +10,18 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  MoreVertical,
+  Flag,
+  Ban,
 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ReportDialog, type ReportTarget } from "@/components/ReportDialog";
 
 type ProposalType = "date" | "destination" | "accommodation" | "budget";
 
@@ -48,6 +58,20 @@ export default function ProposalComments({
   );
   const addMutation = trpc.comments.add.useMutation();
   const deleteMutation = trpc.comments.delete.useMutation();
+
+  const [reporting, setReporting] = useState<ReportTarget | null>(null);
+  // Which blocked comments the reader has chosen to see. Per-thread and not
+  // persisted: revealing one is a decision about this comment, not a change of
+  // mind about the person.
+  const [revealed, setRevealed] = useState<Set<number>>(new Set());
+
+  const blockMutation = trpc.moderation.block.useMutation({
+    onSuccess: () => {
+      toast.success("Blocked. Their comments are hidden from you.");
+      refetch();
+    },
+    onError: err => toast.error(err.message),
+  });
 
   const handleAdd = async () => {
     if (!text.trim()) return;
@@ -113,35 +137,94 @@ export default function ProposalComments({
               No comments yet. Be first!
             </p>
           )}
-          {comments.map((c: any) => (
-            <div key={c.id} className="flex gap-2 group">
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0 mt-0.5">
-                {(c.user?.name || "?")[0].toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-xs font-medium">
-                    {c.user?.name || "Unknown"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(c.createdAt), "MMM d, h:mm a")}
-                  </span>
+          {comments.map((c: any) => {
+            const mine = c.userId === user?.id;
+            // Blocked comments stay in the thread, collapsed. Removing them
+            // would leave holes that read as lost data, and the replies around
+            // one still refer to it.
+            const hidden = c.blocked && !revealed.has(c.id);
+            return (
+              <div key={c.id} className="flex gap-2 group">
+                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-semibold text-primary shrink-0 mt-0.5">
+                  {(c.user?.name || "?")[0].toUpperCase()}
                 </div>
-                <p className="text-xs text-foreground/80 break-words">
-                  {c.content}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-xs font-medium">
+                      {c.user?.name || "Unknown"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(new Date(c.createdAt), "MMM d, h:mm a")}
+                    </span>
+                  </div>
+                  {hidden ? (
+                    <button
+                      onClick={() =>
+                        setRevealed(prev => new Set(prev).add(c.id))
+                      }
+                      className="text-xs text-muted-foreground italic hover:text-foreground transition-colors"
+                    >
+                      Blocked — tap to show
+                    </button>
+                  ) : (
+                    <p className="text-xs text-foreground/80 break-words">
+                      {c.content}
+                    </p>
+                  )}
+                </div>
+
+                {mine || isOrganizer ? (
+                  <button
+                    onClick={() => handleDelete(c.id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                ) : null}
+
+                {/* Report and block are for other people's comments only —
+                    there is nothing to report about your own. */}
+                {!mine && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
+                        aria-label="Comment options"
+                      >
+                        <MoreVertical className="h-3 w-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() =>
+                          setReporting({
+                            contentType: "comment",
+                            contentId: c.id,
+                            tripId,
+                            label: String(c.content).slice(0, 80),
+                          })
+                        }
+                      >
+                        <Flag className="h-3.5 w-3.5" /> Report comment
+                      </DropdownMenuItem>
+                      {!c.blocked && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() =>
+                            blockMutation.mutate({ userId: c.userId })
+                          }
+                        >
+                          <Ban className="h-3.5 w-3.5" /> Block{" "}
+                          {c.user?.name || "this person"}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
-              {(c.userId === user?.id || isOrganizer) && (
-                <button
-                  onClick={() => handleDelete(c.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive shrink-0 mt-0.5"
-                  disabled={deleteMutation.isPending}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
 
           <div className="flex gap-2 pt-1">
             <Textarea
@@ -164,6 +247,12 @@ export default function ProposalComments({
           </div>
         </div>
       )}
+
+      <ReportDialog
+        target={reporting}
+        open={reporting !== null}
+        onOpenChange={next => !next && setReporting(null)}
+      />
     </div>
   );
 }

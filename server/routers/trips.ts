@@ -11,6 +11,7 @@ import { config } from "../_core/env.js";
 import { sendTripInviteEmail } from "../utils/mailer.js";
 import {
   requireTripRole,
+  requireTripAllowance,
   tripRoleOf,
   projectMembersForRole,
 } from "./_shared.js";
@@ -114,6 +115,7 @@ export const tripsRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      await requireTripAllowance(ctx.user.id);
       const inviteCode = nanoid(12);
       const tripId = await db.createTrip({
         ...input,
@@ -230,6 +232,11 @@ export const tripsRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await requireTripRole(input.id, ctx.user.id, "admin");
+      // Cloning makes a trip like any other, so it costs the same allowance.
+      // Checked after the role, so somebody who cannot clone this trip is told
+      // that rather than being shown a paywall for something they could not do
+      // anyway.
+      await requireTripAllowance(ctx.user.id);
       const source = await db.getTrip(input.id);
       if (!source)
         throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });

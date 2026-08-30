@@ -1,5 +1,6 @@
 import {
   index,
+  uniqueIndex,
   pgEnum,
   pgTable,
   serial,
@@ -151,6 +152,23 @@ export const users = pgTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  /**
+   * When this account was deleted by the person who owned it, or null.
+   *
+   * A deleted account keeps its row and loses everything that identifies it:
+   * `email`, `name`, `passwordHash` and `avatarUrl` are cleared and `openId` is
+   * replaced with a fresh `deleted:` value, so there is nothing left to sign in
+   * with and nothing left to recognise. What survives is an integer other
+   * people's rows already point at — `proposedBy` on a proposal the group is
+   * still voting on, `addedBy` on an accommodation somebody booked.
+   *
+   * Deleting the row instead would take those with it, or leave them dangling:
+   * `proposedBy` is NOT NULL and this schema declares no foreign keys, so
+   * nothing would stop a proposal outliving its proposer and nothing would
+   * catch it when it did. The tombstone is what lets one person leave without
+   * deleting everyone else's trip.
+   */
+  deletedAt: timestamp("deletedAt"),
 });
 
 export type User = typeof users.$inferSelect;
@@ -830,3 +848,175 @@ export const proposalComments = pgTable(
 
 export type ProposalComment = typeof proposalComments.$inferSelect;
 export type InsertProposalComment = typeof proposalComments.$inferInsert;
+
+/**
+ * What a piece of reported content is. Kept as an enum rather than a table
+ * name, because `member` is not one: reporting a person is reporting the
+ * account, not a row in any one trip's tables.
+ */
+export const reportedContentEnum = pgEnum("reported_content", [
+  "comment",
+  "proposal",
+  "trip",
+  "member",
+]);
+
+/**
+ * Why something was reported. Apple's guideline 1.2 asks for a report
+ * mechanism, not for a particular taxonomy; these are the categories a
+ * moderator can actually act differently on.
+ */
+export const reportReasonEnum = pgEnum("report_reason", [
+  "spam",
+  "harassment",
+  "hate",
+  "sexual",
+  "violence",
+  "other",
+]);
+
+export const reportStatusEnum = pgEnum("report_status", [
+  "open",
+  "actioned",
+  "dismissed",
+]);
+
+/**
+ * Something a member reported, and what an admin did about it.
+ *
+ * Reports go to **app** admins — `users.role === "admin"`, what
+ * `adminProcedure` checks — rather than to the trip's own admins. A trip admin
+ * can already delete any comment on their trip, but reporting a trip admin to
+ * that same trip admin is not a moderation path, and theirs is the behaviour
+ * most worth being able to escalate.
+ *
+ * `tripId` is nullable because reporting an account is not reporting a trip.
+ */
+export const contentReports = pgTable(
+  "content_reports",
+  {
+    id: serial("id").primaryKey(),
+    reporterUserId: integer("reporterUserId").notNull(),
+    /** Null when the report is about a person rather than something in a trip. */
+    tripId: integer("tripId"),
+    contentType: reportedContentEnum("contentType").notNull(),
+    /** The comment, proposal, trip or user id, per `contentType`. */
+    contentId: integer("contentId").notNull(),
+    reason: reportReasonEnum("reason").notNull(),
+    note: varchar("note", { length: 500 }),
+    status: reportStatusEnum("status").default("open").notNull(),
+    reviewedByUserId: integer("reviewedByUserId"),
+    reviewedAt: timestamp("reviewedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [
+    /** The queue: open reports, oldest first. */
+    index("content_reports_status_idx").on(t.status, t.createdAt),
+    /**
+     * Reporting the same thing twice is one row, so a double-tap does not
+     * inflate the queue — and so "how many people reported this" stays a
+     * count of people rather than of taps.
+     */
+    uniqueIndex("content_reports_once_idx").on(
+      t.reporterUserId,
+      t.contentType,
+      t.contentId
+    ),
+  ]
+);
+
+export type ContentReport = typeof contentReports.$inferSelect;
+export type InsertContentReport = typeof contentReports.$inferInsert;
+
+/**
+ * One person choosing not to hear from another.
+ *
+ * Deliberately **not** mutual invisibility. Everyone in a trip shares it: a
+ * blocked member keeps their place in the members list and their vote keeps
+ * counting, because a trip somebody is legitimately on must not quietly lose a
+ * voter, and a vote count that differed per viewer would be reported as data
+ * loss rather than read as a block.
+ *
+ * What it does instead: their comments arrive collapsed, and they cannot invite
+ * the blocker to a trip or add them to a contact book.
+ */
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    id: serial("id").primaryKey(),
+    blockerUserId: integer("blockerUserId").notNull(),
+    blockedUserId: integer("blockedUserId").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  t => [
+    uniqueIndex("user_blocks_pair_idx").on(t.blockerUserId, t.blockedUserId),
+    /** "Who have I blocked?" — read on every thread the blocker opens. */
+    index("user_blocks_blocker_idx").on(t.blockerUserId),
+  ]
+);
+
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type InsertUserBlock = typeof userBlocks.$inferInsert;
+
+/**
+ * What a store reports about a subscription, narrowed to what this app acts on.
+ *
+ * `billing_issue` is deliberately separate from `expired`: the store is
+ * retrying a card that will probably work, and it still entitles. See
+ * `isEntitled` in `shared/billing.ts`.
+ */
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "in_grace_period",
+  "billing_issue",
+  "expired",
+]);
+
+export const subscriptionStoreEnum = pgEnum("subscription_store", [
+  "app_store",
+  "play_store",
+  /** RevenueCat's sandbox and its dashboard's manual grants. */
+  "promotional",
+]);
+
+/**
+ * One row per subscriber, written only by RevenueCat's webhook.
+ *
+ * **Never written from a client.** A purchase is a fact the store owns; this
+ * table is a cache of what the store last told us, which is why every column
+ * here comes from a webhook payload and none from a tRPC input. A client that
+ * could write it could grant itself the product.
+ *
+ * Absent means free, which is also what an unconfigured deployment produces —
+ * the gate fails closed.
+ */
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("userId").notNull(),
+    /** RevenueCat's identifier for this subscriber, for support lookups. */
+    revenueCatId: varchar("revenueCatId", { length: 128 }),
+    /** The store product, e.g. `btt_pro_monthly`. */
+    productId: varchar("productId", { length: 128 }).notNull(),
+    store: subscriptionStoreEnum("store").notNull(),
+    status: subscriptionStatusEnum("status").notNull(),
+    /**
+     * When access lapses if nothing renews it. Null for a lifetime grant.
+     * Checked as well as `status`, so a webhook we never received cannot keep
+     * somebody entitled forever.
+     */
+    expiresAt: timestamp("expiresAt"),
+    /** Set when the subscriber has asked the store not to renew. */
+    cancelledAt: timestamp("cancelledAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  t => [
+    /** One subscription per account: the webhook upserts on this. */
+    uniqueIndex("subscriptions_user_idx").on(t.userId),
+  ]
+);
+
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = typeof subscriptions.$inferInsert;

@@ -1,4 +1,5 @@
 import { trpc } from "@/lib/trpc";
+import { clearSessionToken } from "@/lib/session";
 import { TRPCClientError } from "@trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
@@ -54,7 +55,11 @@ export function useAuth(options?: UseAuthOptions) {
   });
 
   const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // The cookie is cleared by the server; the native builds hold the token
+      // themselves, so signing out has to drop it here as well or the app
+      // stays signed in with a session the server has already forgotten.
+      await clearSessionToken();
       utils.auth.me.setData(undefined, null);
     },
   });

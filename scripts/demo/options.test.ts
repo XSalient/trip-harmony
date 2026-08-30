@@ -15,7 +15,7 @@ import {
   parseArgs,
 } from "./options.js";
 
-const LOCAL = "postgresql://postgres@127.0.0.1:5432/back_to_travelling_dev";
+const LOCAL = "postgresql://postgres@127.0.0.1:5432/wevotrip_dev";
 const REMOTE =
   "postgresql://postgres.abcdef:secret@aws-0-eu-west-2.pooler.supabase.com:5432/postgres";
 

@@ -120,9 +120,7 @@ export default function TripReferee() {
             <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
               <Bot className="h-7 w-7" />
             </div>
-            <h2 className="font-semibold text-base">
-              Back To Travelling Referee
-            </h2>
+            <h2 className="font-semibold text-base">WeVoTrip Referee</h2>
             <p className="text-sm text-muted-foreground mt-1">
               I analyze your group's preferences, detect conflicts, and suggest
               fair compromises.

@@ -159,6 +159,73 @@ const schema = z.object({
   AI_INTEGRATIONS_GEMINI_BASE_URL: optionalUrl,
   AI_INTEGRATIONS_GEMINI_API_KEY: z.string().trim().default(""),
 
+  /**
+   * Where a user writes when something has gone wrong, or when they want to
+   * report something the in-app tools cannot reach.
+   *
+   * Apple's guideline 1.2 requires published contact information for an app
+   * carrying user-generated content, and a privacy policy needs a contact point
+   * of its own. Unset is allowed — the pages then say support is unavailable
+   * rather than printing an empty `mailto:` — but a store submission needs it
+   * set, which is why `/api/health` reports whether it is.
+   */
+  SUPPORT_EMAIL: z.string().trim().default(""),
+
+  /**
+   * Who operates this deployment, for the privacy policy and terms.
+   *
+   * Configuration rather than constants in the page, because the answer differs
+   * per deployment and because filling them in should not need a rebuild and a
+   * release — a placeholder that ships to production is the failure mode here,
+   * and one that can only be fixed by a code change ships for longer.
+   *
+   * Unset is allowed, and visible: the pages render `[LEGAL ENTITY NAME]` and
+   * friends so the gap is obvious to anyone who opens them. `/api/health`
+   * reports whether all three are set, because a store submission needs them.
+   */
+  LEGAL_ENTITY: z.string().trim().default(""),
+  LEGAL_JURISDICTION: z.string().trim().default(""),
+  LEGAL_ADDRESS: z.string().trim().default(""),
+
+  // --- Native apps ---------------------------------------------------------
+  // Identifiers for the iOS and Android builds. They are not secret — every one
+  // of them is readable from a shipped app — but they are deployment-specific,
+  // and the association files that make universal links and passkeys work are
+  // built from them. Until they are set, those files serve placeholders and
+  // both features stay broken in the native builds; the web app is unaffected.
+  /** From the Apple Developer account, e.g. `A1B2C3D4E5`. */
+  APPLE_TEAM_ID: z.string().trim().default(""),
+  /** e.g. `com.wevotrip.app`. */
+  IOS_BUNDLE_ID: z.string().trim().default(""),
+  /** The Android application id. Usually the same string as the iOS bundle. */
+  ANDROID_PACKAGE_NAME: z.string().trim().default(""),
+  /**
+   * The signing certificate's SHA-256 fingerprint, colon-separated upper hex,
+   * from `keytool -list -v -keystore <file>`. Android App Links verify against
+   * this, so a Play-signed build needs the fingerprint Play re-signs with, not
+   * the upload key's.
+   */
+  ANDROID_CERT_FINGERPRINT: z.string().trim().default(""),
+
+  // --- Billing (in-app purchase) -------------------------------------------
+  // Subscriptions are sold through Apple's and Google's in-app purchase, which
+  // is mandatory for digital goods, so no card details ever reach this server.
+  // RevenueCat sits in front of both stores and tells us what somebody owns.
+  /** Server-side key. Secret — it can read and modify any subscriber. */
+  REVENUECAT_SECRET_KEY: z.string().trim().default(""),
+  /** Shared secret on RevenueCat's webhook, checked on every delivery. */
+  REVENUECAT_WEBHOOK_SECRET: z.string().trim().default(""),
+  /** Public SDK keys, safe in a client bundle. Per platform. */
+  VITE_REVENUECAT_IOS_KEY: z.string().trim().default(""),
+  VITE_REVENUECAT_ANDROID_KEY: z.string().trim().default(""),
+  /**
+   * Turns billing off entirely, independent of the keys — the same polarity as
+   * `AI_ENABLED`. Empty or unset means **on**; only `0`/`false`/`no`/`off`
+   * disables. With no keys configured the app behaves as though everybody is on
+   * the free tier, which is what a development database should do.
+   */
+  BILLING_ENABLED: z.string().trim().default(""),
+
   // --- Email --------------------------------------------------------------
   // Resend is tried first; SMTP is the fallback, because serverless platforms
   // commonly block outbound SMTP ports.
@@ -330,6 +397,67 @@ export const config = {
   port: parsed.PORT,
   publicBaseUrl: parsed.PUBLIC_BASE_URL,
   logLevel: parsed.LOG_LEVEL ?? defaultLogLevel,
+
+  /** Published contact point. Empty when this deployment has not set one. */
+  supportEmail: parsed.SUPPORT_EMAIL,
+
+  /**
+   * Who operates this deployment. Empty strings, not placeholders — the client
+   * substitutes something visible, so the gap shows on the page rather than
+   * being papered over here.
+   */
+  legal: {
+    entity: parsed.LEGAL_ENTITY,
+    jurisdiction: parsed.LEGAL_JURISDICTION,
+    address: parsed.LEGAL_ADDRESS,
+    /** All three set is what a store submission needs. */
+    get isComplete() {
+      return Boolean(
+        parsed.LEGAL_ENTITY && parsed.LEGAL_JURISDICTION && parsed.LEGAL_ADDRESS
+      );
+    },
+  },
+
+  /**
+   * Identifiers for the native builds. Not secret — all four are readable from
+   * a shipped app — but the association files are built from them, so universal
+   * links and passkeys stay broken until they are set.
+   */
+  native: {
+    appleTeamId: parsed.APPLE_TEAM_ID,
+    iosBundleId: parsed.IOS_BUNDLE_ID,
+    androidPackage: parsed.ANDROID_PACKAGE_NAME,
+    androidCertFingerprint: parsed.ANDROID_CERT_FINGERPRINT,
+    get isConfigured() {
+      return Boolean(
+        parsed.APPLE_TEAM_ID &&
+          parsed.IOS_BUNDLE_ID &&
+          parsed.ANDROID_PACKAGE_NAME &&
+          parsed.ANDROID_CERT_FINGERPRINT
+      );
+    },
+  },
+
+  /**
+   * Subscriptions, sold through Apple's and Google's in-app purchase because
+   * that is mandatory for digital goods. No card details reach this server.
+   */
+  billing: {
+    /** `BILLING_ENABLED=false` turns it off without removing the keys. */
+    get enabled() {
+      return !isDisabled(process.env.BILLING_ENABLED);
+    },
+    secretKey: parsed.REVENUECAT_SECRET_KEY,
+    webhookSecret: parsed.REVENUECAT_WEBHOOK_SECRET,
+    /**
+     * Whether this deployment can actually verify a purchase. False means every
+     * account is treated as free — the right behaviour for a development
+     * database, and the reason the gate fails closed rather than open.
+     */
+    get isConfigured() {
+      return Boolean(parsed.REVENUECAT_SECRET_KEY);
+    },
+  },
 
   auth: {
     appId: parsed.VITE_APP_ID,
@@ -628,6 +756,23 @@ export function describeConfig() {
     /** Which model requests go to. Not a secret, and the first thing to check
         when every AI call starts failing at once. */
     aiModel: config.ai.model,
+    /**
+     * Whether a published contact address exists — the name of the state, never
+     * the address. An app-store submission needs this "configured": Apple's
+     * guideline 1.2 requires published contact info for a UGC app.
+     */
+    supportEmail: config.supportEmail ? "configured" : "missing",
+    /** All three of entity, jurisdiction and address. A submission needs them. */
+    legal: config.legal.isComplete ? "configured" : "missing",
+    /** The four native identifiers the association files are built from. */
+    nativeIds: config.native.isConfigured ? "configured" : "missing",
+    // Same three-way distinction as the AI and the scraper: off on purpose,
+    // never set up, or working.
+    billing: !config.billing.enabled
+      ? "off"
+      : config.billing.isConfigured
+        ? "configured"
+        : "missing",
     // Three states, because "can send" and "can send to anyone" differ: Resend's
     // sandbox sender only reaches the account owner.
     email: !isEmailConfigured()

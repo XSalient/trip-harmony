@@ -85,7 +85,7 @@ read as a bug:
   `getGroupTravelDna`; also drop the `travelDna` import at the top of the file.
 - `drizzle/schema.ts:108-126` — the table and its types.
 - `drizzle/0002_drop_travel_dna.sql` — new migration.
-- `server/back-to-travelling.test.ts` — references Travel DNA. Update the
+- `server/wevotrip.test.ts` — references Travel DNA. Update the
   affected tests rather than deleting them; the coverage they give the
   surrounding behaviour still matters.
 

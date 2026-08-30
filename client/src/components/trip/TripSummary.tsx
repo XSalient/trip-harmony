@@ -27,7 +27,7 @@ function Line({
   done: boolean;
 }) {
   return (
-    <Link href={href}>
+    <Link href={href} className="block">
       <div className="flex items-baseline justify-between gap-3 text-sm py-0.5 rounded cursor-pointer hover:bg-muted/40 transition-colors">
         <span className="text-muted-foreground shrink-0">{label}</span>
         <span

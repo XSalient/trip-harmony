@@ -1,6 +1,6 @@
 # Architecture
 
-## What Back To Travelling is
+## What WeVoTrip is
 
 A group-trip planning app. A group proposes dates, destinations, accommodations
 and activities; everyone votes; an AI "referee" surfaces conflicts and suggests
