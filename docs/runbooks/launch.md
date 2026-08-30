@@ -23,9 +23,25 @@ phone — none of which anyone can do without your credentials.
 
 ## 2. Fill in thirteen settings
 
-Set these in Doppler (`dev`, `stg`, `prd`) and in Vercel — see
-[secrets.md](secrets.md). All are empty today. Nothing breaks while they are
-empty; each one switches on the feature it belongs to.
+**None of these exist in Doppler yet — you create each one.** They are declared
+in `server/_core/env.ts` and `.env.example`, which is code; Doppler is a separate
+system and does not learn about them from the repository. So an empty Doppler
+config is the expected state, not a sign that something went wrong.
+
+Nothing breaks while a variable is absent: `env.ts` defaults every one of them
+to empty, and each switches on the feature it belongs to when you set it. Add
+them as you get the values rather than creating thirteen blanks now.
+
+The quickest way is the bootstrap script, which prompts for each in turn and
+skips any you press Enter on:
+
+```bash
+bash scripts/doppler-bootstrap.sh dev    # then stg, then prd
+```
+
+Or add them by hand in the Doppler UI, or with
+`doppler secrets set NAME --project trip-harmony --config dev`. Either way they
+also need to reach Vercel — see [secrets.md](secrets.md).
 
 **Needed to submit at all:**
 

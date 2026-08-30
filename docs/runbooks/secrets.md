@@ -11,6 +11,14 @@ message, or in a file that outlives a session. See
 | `dev`          | `development` | Local development                     |
 | `stg`          | `preview`     | Vercel preview deployments (every PR) |
 | `prd`          | `production`  | Production                            |
+| `demo`         | `production`  | The seeded demo, on its own host      |
+
+**A variable added to `server/_core/env.ts` does not appear in Doppler.** The
+schema and `.env.example` are code; Doppler is a separate system, and each
+config is populated by hand or by the bootstrap script below. An absent variable
+is the normal state until somebody sets it — `env.ts` defaults them all to
+empty, and each feature degrades in the way its own row in the table below
+describes.
 
 `doppler.yaml` binds this repository to project `trip-harmony`, config `dev`.
 
