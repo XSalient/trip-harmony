@@ -14,8 +14,9 @@ finish a piece of work — the next person (or agent) starts here.
   2026-08-30. It is the fallback in `capacitor.config.ts` and the value set in
   Doppler. Apple does not allow a bundle id to change after the first
   submission, so this one is effectively permanent.
-- **Migrations 0016–0018 are applied** to the live database (2026-08-29), by
-  hand through the Supabase API — see
+- **Migrations 0016–0018 were applied** to the live database (2026-08-29), by
+  hand through the Supabase API, because they were being tested on preview
+  before merging — the one case that needs it. See
   [runbooks/database.md](runbooks/database.md). The branch's schema and the
   database now agree.
 - **One database, shared by preview and production.** The Supabase free tier
@@ -49,8 +50,14 @@ finish a piece of work — the next person (or agent) starts here.
   and forbids nothing** — the procedures behind a hidden section are unchanged,
   deliberately
   ([ADR-0025](adr/0025-a-hidden-section-is-a-display-preference.md)). Migration
-  0020 is **not yet applied** to the live database; per ADR-0023 that is a
-  deliberate production change made by hand.
+  0020 is applied by the production deploy of `master`, like every migration
+  before it — `vercel.json` runs `db-migrate.mjs --deploy` and
+  `deployDecision` returns true for `VERCEL_ENV=production`. It was **not**
+  applied ahead of the merge: the migration is additive and nullable, so
+  production runs the old code against a column it does not read until the same
+  deploy finishes. An earlier note here called it a manual step, which was
+  wrong — see the 2026-09-09 amendment to
+  [ADR-0023](adr/0023-preview-and-production-share-one-database.md).
   Shipped alongside it: the section header's Add button moved to the left of the
   collapse chevron, so expanding a section no longer moves the control that
   opened it.
