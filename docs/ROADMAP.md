@@ -11,6 +11,24 @@ Keep an item here until it ships, then move a one-line summary to the changelog.
 ## Shipped
 
 <details>
+<summary>Trip settings — 2026-09-09</summary>
+
+Specified in
+[product/trip-sections-and-settings-2026-09.md](product/trip-sections-and-settings-2026-09.md).
+
+- [x] **Sections a trip does not need can be switched off**, per trip, by an
+      admin, from ⋮ → Trip settings. Hidden sections leave the trip page, the
+      summary, the pending-votes banner and the AI Referee's context; their data
+      is untouched
+      ([ADR-0025](adr/0025-a-hidden-section-is-a-display-preference.md))
+- [x] **The Add button sits to the left of the collapse chevron**, so expanding
+      a section no longer moves the control that opened it
+- [x] Declined, with the reasoning recorded: a section for private cars, seats
+      and parking. Planning, not consensus
+
+</details>
+
+<details>
 <summary>Planning features — 2026-08-24</summary>
 
 Specified in [product/planning-features-2026-08.md](product/planning-features-2026-08.md),
@@ -162,33 +180,19 @@ What is left is preview, and tidying how production's secrets are managed.
 - [x] Applied to every trip-scoped mutation
 - [x] Tests cover the role ordering and the watcher payload projections
 
-### 3. Trip settings — hiding the sections a trip does not need
-
-Specified in
-[product/trip-sections-and-settings-2026-09.md](product/trip-sections-and-settings-2026-09.md).
-Designed, agreed, deliberately not built yet — the MVP is not to be disturbed.
-
-- [ ] A `hiddenSections` column on `trips`, the section list promoted to
-      `shared/sections.ts`, and `trips.setHiddenSections` behind the trip admin role
-- [ ] A `/trips/:id/settings` screen, reached from the trip's ⋮ menu
-- [ ] Hidden sections dropped from the trip page, the summary rows, the
-      pending-votes banner, and the AI Referee's context
-- [ ] The Add button moves to the left of the collapse chevron, so the chevron
-      stops moving when a section is expanded
-
-### 4. Frontend confidence
+### 3. Frontend confidence
 
 - [ ] Add Vitest + Testing Library for components
 - [ ] Cover the dashboard, voting and auth dialog
 - [ ] Add a smoke test that boots the app and asserts the shell renders
 
-### 5. Performance
+### 4. Performance
 
 - [ ] Route-level code splitting (`React.lazy`) to break up the 2.2 MB bundle
 - [ ] Lazy-load the syntax highlighter and mermaid, which dominate the build
 - [ ] Set a bundle-size budget in CI
 
-### 6. Remove dead weight
+### 5. Remove dead weight
 
 - [ ] Delete `server/replit_integrations/` if genuinely unused
 - [ ] Remove `vite-plugin-manus-runtime` and the Manus debug collector

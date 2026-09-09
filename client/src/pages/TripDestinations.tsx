@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
@@ -283,6 +284,11 @@ export default function TripDestinations() {
     () => sortedDestinations.filter((d: any) => d.selected),
     [sortedDestinations]
   );
+
+  // Switched off for this trip. The data behind this screen is untouched and
+  // its procedures still work — this is a display decision, not a permission.
+  if ((trip as any)?.hiddenSections?.includes("suggestions"))
+    return <SectionOffNotice tripId={tripId} section="suggestions" />;
 
   return (
     <AppShell title="Suggestions" showBack backHref={`/trips/${tripId}`}>

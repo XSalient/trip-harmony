@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { Link } from "wouter";
 import { CalendarCheck, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import type { SectionKey } from "@shared/sections";
 
 /**
  * One figure, linking to the section it summarises — the summary is a place to
@@ -49,6 +50,7 @@ export default function TripSummary({
   totalAccommodations,
   budget,
   headcount,
+  hiddenSections = [],
   open,
   onToggle,
 }: {
@@ -67,6 +69,12 @@ export default function TripSummary({
     children: number;
     pets: number;
   } | null;
+  /**
+   * Sections this trip has switched off. Each line here links to a section's
+   * own screen, so a line for a hidden one is a link to a notice saying the
+   * thing you just tapped does not apply to this trip.
+   */
+  hiddenSections?: SectionKey[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -88,6 +96,8 @@ export default function TripSummary({
   const countOf = (locked: number, total: number) =>
     locked > 0 ? `${locked} of ${total} finalised` : `${total} proposed`;
 
+  const shows = (section: SectionKey) => !hiddenSections.includes(section);
+
   return (
     <Card className="border-border/50 py-0">
       <CardContent className="p-0">
@@ -106,34 +116,42 @@ export default function TripSummary({
         </button>
         {open && (
           <div className="px-3 pb-3 space-y-1.5">
-            <Line
-              label="Dates"
-              value={dates}
-              href={`/trips/${tripId}/dates`}
-              done={Boolean(lockedDate)}
-            />
-            <Line
-              label="Accommodations"
-              value={countOf(lockedAccommodations, totalAccommodations)}
-              href={`/trips/${tripId}/accommodations`}
-              done={lockedAccommodations > 0}
-            />
-            <Line
-              label="Suggestions"
-              value={countOf(lockedSuggestions, totalSuggestions)}
-              href={`/trips/${tripId}/suggestions`}
-              done={lockedSuggestions > 0}
-            />
-            <Line
-              label="Budget"
-              value={
-                budget
-                  ? `${budget.currency} ${Math.round(budget.tripTotal).toLocaleString()}`
-                  : "Not finalised"
-              }
-              href={`/trips/${tripId}/budget`}
-              done={Boolean(budget)}
-            />
+            {shows("dates") && (
+              <Line
+                label="Dates"
+                value={dates}
+                href={`/trips/${tripId}/dates`}
+                done={Boolean(lockedDate)}
+              />
+            )}
+            {shows("accommodations") && (
+              <Line
+                label="Accommodations"
+                value={countOf(lockedAccommodations, totalAccommodations)}
+                href={`/trips/${tripId}/accommodations`}
+                done={lockedAccommodations > 0}
+              />
+            )}
+            {shows("suggestions") && (
+              <Line
+                label="Suggestions"
+                value={countOf(lockedSuggestions, totalSuggestions)}
+                href={`/trips/${tripId}/suggestions`}
+                done={lockedSuggestions > 0}
+              />
+            )}
+            {shows("budget") && (
+              <Line
+                label="Budget"
+                value={
+                  budget
+                    ? `${budget.currency} ${Math.round(budget.tripTotal).toLocaleString()}`
+                    : "Not finalised"
+                }
+                href={`/trips/${tripId}/budget`}
+                done={Boolean(budget)}
+              />
+            )}
             {headcount && (
               <Line
                 label="Coming"

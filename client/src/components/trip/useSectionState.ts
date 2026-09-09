@@ -7,16 +7,11 @@
  * have to re-open the dates section on every visit.
  */
 import { useCallback, useEffect, useState } from "react";
+// The list itself lives in `shared/` because the server validates the keys it
+// stores for a trip's hidden sections. This hook only asks which are collapsed.
+import type { SectionKey } from "@shared/sections";
 
-export type SectionKey =
-  | "summary"
-  | "description"
-  | "preferences"
-  | "dates"
-  | "accommodations"
-  | "suggestions"
-  | "budget"
-  | "referee";
+export type { SectionKey };
 
 /** Only the summary. Everything else starts closed — that is the point of E5. */
 const DEFAULT_OPEN: Record<string, boolean> = { summary: true };

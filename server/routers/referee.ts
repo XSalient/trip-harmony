@@ -23,6 +23,7 @@ import {
   REFEREE_COOLDOWN_MS,
   refereeCooldownRemainingMs,
 } from "../../shared/const.js";
+import { parseHiddenSections, type SectionKey } from "../../shared/sections.js";
 
 const log = logger.child({ scope: "referee" });
 
@@ -130,16 +131,30 @@ export const refereeRouter = router({
         db.getAccommodations(input.tripId),
       ]);
 
+      // A section the trip has switched off is not part of its decision, so
+      // the referee does not see it. Filtering the input rather than the
+      // output: `dataGaps` would otherwise report "nobody has proposed a
+      // budget" as missing information on a group that decided it has no
+      // budget to propose, and the prompt tells the model those gaps are not
+      // optional context.
+      //
+      // The cost is that a proposal finalised and *then* hidden disappears
+      // from the referee's view. That is what hiding a section means.
+      const hidden = parseHiddenSections(trip?.hiddenSections);
+      const visible = <T>(section: SectionKey, rows: T[]): T[] =>
+        hidden.includes(section) ? [] : rows;
+
       const context = buildRefereeContext({
         trip,
         phase: input.phase,
         members,
-        preferences: allPrefs,
-        budgetProposals,
+        preferences: hidden.includes("preferences") ? [] : allPrefs,
+        budgetProposals: visible("budget", budgetProposals),
         headcount,
-        dateProposals,
-        destinations,
-        accommodations,
+        dateProposals: visible("dates", dateProposals),
+        destinations: visible("suggestions", destinations),
+        accommodations: visible("accommodations", accommodations),
+        hiddenSections: hidden,
       });
       const prompt = buildRefereePrompt(context);
       // Carries `promptVersion`, so a stored message can always be traced back

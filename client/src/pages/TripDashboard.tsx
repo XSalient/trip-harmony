@@ -26,6 +26,7 @@ import EditTripDialog from "@/components/trip/EditTripDialog";
 import TripActionsMenu from "@/components/trip/TripActionsMenu";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useSectionState } from "@/components/trip/useSectionState";
+import type { SectionKey } from "@shared/sections";
 import { useProposalDialogs } from "@/components/trip/useProposalDialogs";
 import SectionCard, {
   AddProposalButton,
@@ -189,27 +190,25 @@ export default function TripDashboard() {
   // one. Derived by the server so four screens cannot answer it differently.
   const voterCount = (trip as any)?.voterCount || 1;
 
+  // Which sections this trip uses. Parsed by the server so this is already an
+  // array; a trip that has never opened Trip settings has an empty one.
+  const hiddenSections: SectionKey[] = (trip as any)?.hiddenSections ?? [];
+  const shows = (section: SectionKey) => !hiddenSections.includes(section);
+
+  const unvoted = (rows: any[] | undefined) =>
+    rows?.filter(
+      (r: any) =>
+        !r.selected && !r.votes?.some((v: any) => v.userId === user?.id)
+    ).length || 0;
+
+  // A hidden section contributes nothing. Counting it would put "you have 3
+  // unvoted proposals — open a section below to vote" above a page with no
+  // such section on it, which is an instruction the reader cannot follow.
   const pendingVotes = {
-    dates:
-      dateProposals?.filter(
-        (d: any) =>
-          !d.selected && !d.votes?.some((v: any) => v.userId === user?.id)
-      ).length || 0,
-    destinations:
-      destinations?.filter(
-        (d: any) =>
-          !d.selected && !d.votes?.some((v: any) => v.userId === user?.id)
-      ).length || 0,
-    accommodations:
-      accommodations?.filter(
-        (a: any) =>
-          !a.selected && !a.votes?.some((v: any) => v.userId === user?.id)
-      ).length || 0,
-    budgets:
-      budgets?.filter(
-        (b: any) =>
-          !b.selected && !b.votes?.some((v: any) => v.userId === user?.id)
-      ).length || 0,
+    dates: shows("dates") ? unvoted(dateProposals) : 0,
+    destinations: shows("suggestions") ? unvoted(destinations) : 0,
+    accommodations: shows("accommodations") ? unvoted(accommodations) : 0,
+    budgets: shows("budget") ? unvoted(budgets) : 0,
   };
   const totalPending =
     pendingVotes.dates +
@@ -509,6 +508,7 @@ export default function TripDashboard() {
           budget={budgetSummary?.finalised ?? null}
           headcount={budgetSummary?.headcount ?? null}
           totalAccommodations={accommodations?.length ?? 0}
+          hiddenSections={hiddenSections}
           open={isOpen("summary")}
           onToggle={() => toggle("summary")}
         />
@@ -516,7 +516,7 @@ export default function TripDashboard() {
         {/* ── Trip Description — set at creation, shown nowhere until now.
             With no description there is nothing for a member to expand, so only
             an admin — who can do something about it — sees the row. ── */}
-        {(trip.description || isAdmin) && (
+        {shows("description") && (trip.description || isAdmin) && (
           <CollapsibleRow
             title="Trip Description"
             subtitle={trip.description ? undefined : "Not set yet"}
@@ -542,7 +542,7 @@ export default function TripDashboard() {
         )}
 
         {/* ── My Trip Preferences ── */}
-        {canContribute && (
+        {shows("preferences") && canContribute && (
           <CollapsibleRow
             title={myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
             subtitle={
@@ -576,187 +576,199 @@ export default function TripDashboard() {
         )}
 
         {/* ── Dates ── */}
-        <SectionCard
-          title="Dates"
-          icon={Calendar}
-          href={`/trips/${tripId}/dates`}
-          lockedCount={lockedDate ? 1 : 0}
-          singleLock
-          pendingCount={pendingVotes.dates}
-          addSlot={
-            canContribute ? (
-              <AddProposalButton href={`/trips/${tripId}/dates?add=1`} />
-            ) : null
-          }
-          emptyText="No dates proposed yet — add the first one above!"
-          open={isOpen("dates")}
-          onToggle={() => toggle("dates")}
-        >
-          {topDates.map((p: any) => (
-            <DateProposalRow
-              key={p.id}
-              tripId={tripId}
-              row={p}
-              userId={user?.id}
-              detailHref={`/trips/${tripId}/dates`}
-              proposalType="date"
-              isAdmin={isAdmin}
-              canContribute={canContribute}
-              voterCount={voterCount}
-              commentCount={(commentCounts as any)[`date_${p.id}`] || 0}
-              lockBusy={lockBusy === p.id}
-              canManage={
-                canContribute && (p.proposedBy === user?.id || isAdmin)
-              }
-              onToggleLock={() => handleToggleLock("date", p)}
-              onEdit={() => openEdit("date", p)}
-              onClone={() => openClone("date", p)}
-              onDelete={() => removeProposal("date", p.id)}
-              onVote={vote => handleDateVote(p.id, vote)}
-            />
-          ))}
-        </SectionCard>
+        {shows("dates") && (
+          <SectionCard
+            title="Dates"
+            icon={Calendar}
+            href={`/trips/${tripId}/dates`}
+            lockedCount={lockedDate ? 1 : 0}
+            singleLock
+            pendingCount={pendingVotes.dates}
+            addSlot={
+              canContribute ? (
+                <AddProposalButton href={`/trips/${tripId}/dates?add=1`} />
+              ) : null
+            }
+            emptyText="No dates proposed yet — add the first one above!"
+            open={isOpen("dates")}
+            onToggle={() => toggle("dates")}
+          >
+            {topDates.map((p: any) => (
+              <DateProposalRow
+                key={p.id}
+                tripId={tripId}
+                row={p}
+                userId={user?.id}
+                detailHref={`/trips/${tripId}/dates`}
+                proposalType="date"
+                isAdmin={isAdmin}
+                canContribute={canContribute}
+                voterCount={voterCount}
+                commentCount={(commentCounts as any)[`date_${p.id}`] || 0}
+                lockBusy={lockBusy === p.id}
+                canManage={
+                  canContribute && (p.proposedBy === user?.id || isAdmin)
+                }
+                onToggleLock={() => handleToggleLock("date", p)}
+                onEdit={() => openEdit("date", p)}
+                onClone={() => openClone("date", p)}
+                onDelete={() => removeProposal("date", p.id)}
+                onVote={vote => handleDateVote(p.id, vote)}
+              />
+            ))}
+          </SectionCard>
+        )}
 
         {/* ── Accommodations (was "Stays" — UI copy only) ── */}
-        <SectionCard
-          title="Accommodations"
-          icon={HomeIcon}
-          href={`/trips/${tripId}/accommodations`}
-          lockedCount={lockedAccs.length}
-          pendingCount={pendingVotes.accommodations}
-          addSlot={
-            canContribute ? (
-              <AddProposalButton
-                href={`/trips/${tripId}/accommodations?add=1`}
+        {shows("accommodations") && (
+          <SectionCard
+            title="Accommodations"
+            icon={HomeIcon}
+            href={`/trips/${tripId}/accommodations`}
+            lockedCount={lockedAccs.length}
+            pendingCount={pendingVotes.accommodations}
+            addSlot={
+              canContribute ? (
+                <AddProposalButton
+                  href={`/trips/${tripId}/accommodations?add=1`}
+                />
+              ) : null
+            }
+            emptyText="No accommodations suggested yet — add an option!"
+            open={isOpen("accommodations")}
+            onToggle={() => toggle("accommodations")}
+          >
+            {topAccs.map((a: any) => (
+              <ChoiceProposalRow
+                key={a.id}
+                tripId={tripId}
+                row={a}
+                userId={user?.id}
+                detailHref={`/trips/${tripId}/accommodations`}
+                proposalType="accommodation"
+                priceLabel={
+                  a.pricePerNight
+                    ? `${trip.currency}${a.pricePerNight}/night`
+                    : undefined
+                }
+                isAdmin={isAdmin}
+                canContribute={canContribute}
+                voterCount={voterCount}
+                commentCount={
+                  (commentCounts as any)[`accommodation_${a.id}`] || 0
+                }
+                lockBusy={lockBusy === a.id}
+                canManage={
+                  canContribute && (a.proposedBy === user?.id || isAdmin)
+                }
+                onToggleLock={() => handleToggleLock("acc", a)}
+                onEdit={() => openEdit("acc", a)}
+                onClone={() => openClone("acc", a)}
+                onDelete={() => removeProposal("acc", a.id)}
+                onVote={vote => handleAccVote(a.id, vote)}
               />
-            ) : null
-          }
-          emptyText="No accommodations suggested yet — add an option!"
-          open={isOpen("accommodations")}
-          onToggle={() => toggle("accommodations")}
-        >
-          {topAccs.map((a: any) => (
-            <ChoiceProposalRow
-              key={a.id}
-              tripId={tripId}
-              row={a}
-              userId={user?.id}
-              detailHref={`/trips/${tripId}/accommodations`}
-              proposalType="accommodation"
-              priceLabel={
-                a.pricePerNight
-                  ? `${trip.currency}${a.pricePerNight}/night`
-                  : undefined
-              }
-              isAdmin={isAdmin}
-              canContribute={canContribute}
-              voterCount={voterCount}
-              commentCount={
-                (commentCounts as any)[`accommodation_${a.id}`] || 0
-              }
-              lockBusy={lockBusy === a.id}
-              canManage={
-                canContribute && (a.proposedBy === user?.id || isAdmin)
-              }
-              onToggleLock={() => handleToggleLock("acc", a)}
-              onEdit={() => openEdit("acc", a)}
-              onClone={() => openClone("acc", a)}
-              onDelete={() => removeProposal("acc", a.id)}
-              onVote={vote => handleAccVote(a.id, vote)}
-            />
-          ))}
-        </SectionCard>
+            ))}
+          </SectionCard>
+        )}
 
         {/* ── Suggestions (the `destinations` router, renamed in the UI only) ── */}
-        <SectionCard
-          title="Suggestions"
-          icon={Lightbulb}
-          href={`/trips/${tripId}/suggestions`}
-          lockedCount={lockedDests.length}
-          pendingCount={pendingVotes.destinations}
-          addSlot={
-            canContribute ? (
-              <AddProposalButton href={`/trips/${tripId}/suggestions?add=1`} />
-            ) : null
-          }
-          emptyText="No suggestions yet — add the first one!"
-          open={isOpen("suggestions")}
-          onToggle={() => toggle("suggestions")}
-        >
-          {topDests.map((d: any) => (
-            <ChoiceProposalRow
-              key={d.id}
-              tripId={tripId}
-              row={d}
-              userId={user?.id}
-              detailHref={`/trips/${tripId}/suggestions`}
-              proposalType="destination"
-              isAdmin={isAdmin}
-              canContribute={canContribute}
-              voterCount={voterCount}
-              commentCount={(commentCounts as any)[`destination_${d.id}`] || 0}
-              lockBusy={lockBusy === d.id}
-              canManage={
-                canContribute && (d.proposedBy === user?.id || isAdmin)
-              }
-              onToggleLock={() => handleToggleLock("dest", d)}
-              onEdit={() => openEdit("dest", d)}
-              onClone={() => openClone("dest", d)}
-              onDelete={() => removeProposal("dest", d.id)}
-              onVote={vote => handleDestVote(d.id, vote)}
-            />
-          ))}
-        </SectionCard>
+        {shows("suggestions") && (
+          <SectionCard
+            title="Suggestions"
+            icon={Lightbulb}
+            href={`/trips/${tripId}/suggestions`}
+            lockedCount={lockedDests.length}
+            pendingCount={pendingVotes.destinations}
+            addSlot={
+              canContribute ? (
+                <AddProposalButton
+                  href={`/trips/${tripId}/suggestions?add=1`}
+                />
+              ) : null
+            }
+            emptyText="No suggestions yet — add the first one!"
+            open={isOpen("suggestions")}
+            onToggle={() => toggle("suggestions")}
+          >
+            {topDests.map((d: any) => (
+              <ChoiceProposalRow
+                key={d.id}
+                tripId={tripId}
+                row={d}
+                userId={user?.id}
+                detailHref={`/trips/${tripId}/suggestions`}
+                proposalType="destination"
+                isAdmin={isAdmin}
+                canContribute={canContribute}
+                voterCount={voterCount}
+                commentCount={
+                  (commentCounts as any)[`destination_${d.id}`] || 0
+                }
+                lockBusy={lockBusy === d.id}
+                canManage={
+                  canContribute && (d.proposedBy === user?.id || isAdmin)
+                }
+                onToggleLock={() => handleToggleLock("dest", d)}
+                onEdit={() => openEdit("dest", d)}
+                onClone={() => openClone("dest", d)}
+                onDelete={() => removeProposal("dest", d.id)}
+                onVote={vote => handleDestVote(d.id, vote)}
+              />
+            ))}
+          </SectionCard>
+        )}
 
         {/* ── Budget — a voting section like the three above it ── */}
-        <SectionCard
-          title="Budget"
-          icon={DollarSign}
-          href={`/trips/${tripId}/budget`}
-          lockedCount={lockedBudget ? 1 : 0}
-          singleLock
-          pendingCount={pendingVotes.budgets}
-          addSlot={
-            canContribute ? (
-              <AddProposalButton href={`/trips/${tripId}/budget?add=1`} />
-            ) : null
-          }
-          emptyText="No budget proposed yet — put a number on the table."
-          open={isOpen("budget")}
-          onToggle={() => toggle("budget")}
-        >
-          {topBudgets.map((b: any) => (
-            <BudgetProposalRow
-              key={b.id}
-              tripId={tripId}
-              row={b}
-              userId={user?.id}
-              detailHref={`/trips/${tripId}/budget`}
-              proposalType="budget"
-              isAdmin={isAdmin}
-              canContribute={canContribute}
-              voterCount={voterCount}
-              commentCount={(commentCounts as any)[`budget_${b.id}`] || 0}
-              lockBusy={lockBusy === b.id}
-              canManage={
-                canContribute && (b.proposedBy === user?.id || isAdmin)
-              }
-              onToggleLock={() => handleToggleLock("budget", b)}
-              onEdit={() => navigate(`/trips/${tripId}/budget?edit=${b.id}`)}
-              onClone={() => navigate(`/trips/${tripId}/budget?add=1`)}
-              onDelete={() => removeBudget(b.id)}
-              onVote={(vote: PreferenceVote) => handleBudgetVote(b.id, vote)}
-              tripTotalLabel={
-                budgetSummary?.leading && b.id === budgetSummary.leading.id
-                  ? `${b.currency} ${Math.round(budgetSummary.leading.tripTotal).toLocaleString()} for the trip`
-                  : undefined
-              }
-            />
-          ))}
-        </SectionCard>
+        {shows("budget") && (
+          <SectionCard
+            title="Budget"
+            icon={DollarSign}
+            href={`/trips/${tripId}/budget`}
+            lockedCount={lockedBudget ? 1 : 0}
+            singleLock
+            pendingCount={pendingVotes.budgets}
+            addSlot={
+              canContribute ? (
+                <AddProposalButton href={`/trips/${tripId}/budget?add=1`} />
+              ) : null
+            }
+            emptyText="No budget proposed yet — put a number on the table."
+            open={isOpen("budget")}
+            onToggle={() => toggle("budget")}
+          >
+            {topBudgets.map((b: any) => (
+              <BudgetProposalRow
+                key={b.id}
+                tripId={tripId}
+                row={b}
+                userId={user?.id}
+                detailHref={`/trips/${tripId}/budget`}
+                proposalType="budget"
+                isAdmin={isAdmin}
+                canContribute={canContribute}
+                voterCount={voterCount}
+                commentCount={(commentCounts as any)[`budget_${b.id}`] || 0}
+                lockBusy={lockBusy === b.id}
+                canManage={
+                  canContribute && (b.proposedBy === user?.id || isAdmin)
+                }
+                onToggleLock={() => handleToggleLock("budget", b)}
+                onEdit={() => navigate(`/trips/${tripId}/budget?edit=${b.id}`)}
+                onClone={() => navigate(`/trips/${tripId}/budget?add=1`)}
+                onDelete={() => removeBudget(b.id)}
+                onVote={(vote: PreferenceVote) => handleBudgetVote(b.id, vote)}
+                tripTotalLabel={
+                  budgetSummary?.leading && b.id === budgetSummary.leading.id
+                    ? `${b.currency} ${Math.round(budgetSummary.leading.tripTotal).toLocaleString()} for the trip`
+                    : undefined
+                }
+              />
+            ))}
+          </SectionCard>
+        )}
 
         {/* ── AI Referee — not for watchers: it summarises the group's argument ── */}
-        {canContribute && (
+        {shows("referee") && canContribute && (
           <CollapsibleRow
             title="AI Referee"
             icon={<Bot className="h-5 w-5" />}

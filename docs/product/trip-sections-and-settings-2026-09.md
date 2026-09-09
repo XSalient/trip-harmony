@@ -1,8 +1,12 @@
 # Trip settings: hiding the sections a trip does not need
 
-**Status:** design brief. Nothing here is built, and no code, schema or migration
-has been touched for it. Written 2026-09-07 against the app as it stood then, so
-check every file:line below before acting on it.
+**Status:** built and shipped 2026-09-09. Written 2026-09-07 as a design brief
+against the app as it stood before the change, and kept because it holds the
+reasoning the code cannot: what was considered and rejected, and why item 3 is
+not here. **Its file:line references describe the code before this landed** — use
+them to follow the argument, not to navigate. The decisions that outlived it are
+in [ADR-0025](../adr/0025-a-hidden-section-is-a-display-preference.md) and
+[the changelog](../CHANGELOG.md).
 
 The ask was three things:
 
@@ -16,7 +20,10 @@ The ask was three things:
 
 Item 3 was **declined by the requester** after the options were put to them; the
 reasoning and the research are in section 4 so nobody re-derives them. Items 1
-and 2 are specified below and are ready to build.
+and 2 shipped as specified below, with one deviation, noted in 2.4:
+`SectionOffNotice` renders its own `AppShell` and asks for the caller's role
+itself, rather than six screens each destructuring a capability they otherwise
+do not use.
 
 ---
 

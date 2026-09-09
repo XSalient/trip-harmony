@@ -141,11 +141,29 @@ export default function SectionCard({
                 </Badge>
               ) : null}
             </div>
-            <ChevronDown
-              className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-            />
           </button>
           {open && addSlot}
+          {/* The chevron is a sibling of the title button rather than the last
+              thing inside it, so that Add can sit between them. Expanding a
+              section used to push the chevron inward and put Add under the
+              thumb that had just opened it: the control you were using moved
+              the moment you used it. It is the right-most thing in both states
+              now, and Add appears to its left.
+
+              Deliberately not a second tab stop — `aria-expanded` and the
+              accessible name live on the title button, and this is the same
+              action a second time. A screen reader announcing two controls for
+              one section would be a worse page than the one this fixes. */}
+          <button
+            onClick={onToggle}
+            aria-hidden="true"
+            tabIndex={-1}
+            className="shrink-0 p-1 -m-1 text-muted-foreground"
+          >
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+            />
+          </button>
         </div>
         {open && (
           <>

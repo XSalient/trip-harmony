@@ -8,6 +8,47 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-09 — Trip settings, and a header that stops moving
+
+### Added
+
+- **A trip can switch sections off.** ⋮ → **Trip settings** on the trip page
+  gives a trip admin a switch per section: Trip description, My trip
+  preferences, Dates, Accommodations, Suggestions, Budget and AI Referee. Not
+  every trip needs every section — a one-day trip has no accommodation to vote
+  on — and an empty section is not free: it is a card to scroll past and a line
+  in the summary. Summary itself is always shown.
+
+  **Nothing is deleted.** Proposals and votes in a section that is switched off
+  stay exactly where they were and come back untouched when it is switched on
+  again. Hiding is a display decision and not a permission — see
+  [ADR-0025](adr/0025-a-hidden-section-is-a-display-preference.md).
+
+  A hidden section also drops out of the summary rows, out of the "you have N
+  unvoted proposals" banner, and out of the AI Referee's context — so the
+  referee stops reporting "nobody has proposed a budget" as missing information
+  on a group that decided it has no budget. Opening a hidden section's URL —
+  from an old notification, or a link in the group chat — shows what happened
+  and, for an admin, the way to undo it, rather than silently redirecting.
+
+  A duplicated trip keeps the original's sections.
+
+### Changed
+
+- **The Add button moved to the left of the collapse chevron.** Expanding a
+  section used to push the chevron inward and put Add at the right edge, so the
+  control you had just used to open the section moved the moment you used it,
+  and the next tap in the same place did something else. The chevron is now the
+  right-most thing in both states.
+
+### Database
+
+- `trips.hiddenSections`, a nullable `text` column holding a JSON array of
+  section keys (`drizzle/0020_trip_hidden_sections.sql`). Additive: every
+  existing trip reads as nothing hidden.
+
+---
+
 ## 2026-08-30 — Renamed to WeVoTrip
 
 ### Changed

@@ -141,6 +141,13 @@
       "when": 1788208565605,
       "tag": "0019_product_events",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788294965605,
+      "tag": "0020_trip_hidden_sections",
+      "breakpoints": true
     }
   ]
 }

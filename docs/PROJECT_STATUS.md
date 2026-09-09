@@ -39,6 +39,21 @@ finish a piece of work — the next person (or agent) starts here.
   the session cookie is `SameSite=None` and iOS drops it in a WebView, so the
   session JWT has to travel as a bearer token, and `passkeys.ts` derives `rpID`
   from the request Host, which is `localhost` there.
+- **A trip chooses its own sections** (2026-09-09). An admin switches sections
+  off from ⋮ → Trip settings, because not every trip needs all eight — a one-day
+  trip has no accommodation to vote on. The set lives in `trips.hiddenSections`
+  (migration 0020, additive: an existing trip reads as nothing hidden), the
+  section list moved to `shared/sections.ts` so the server can validate what it
+  stores, and hidden sections leave the trip page, the summary, the
+  pending-votes banner and the AI Referee's context. **Hiding deletes nothing
+  and forbids nothing** — the procedures behind a hidden section are unchanged,
+  deliberately
+  ([ADR-0025](adr/0025-a-hidden-section-is-a-display-preference.md)). Migration
+  0020 is **not yet applied** to the live database; per ADR-0023 that is a
+  deliberate production change made by hand.
+  Shipped alongside it: the section header's Add button moved to the left of the
+  collapse chevron, so expanding a section no longer moves the control that
+  opened it.
 - **Stage:** feature-complete MVP, deployed to production on Vercel.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. The **groups and budget** programme (E9–E12) is
@@ -53,7 +68,7 @@ finish a piece of work — the next person (or agent) starts here.
   ("1200 GBP", "£1200pp", "Sept 12–19") were not being read at all. See
   [product/](product/) for the specifications and
   [product/progress.md](product/progress.md) for the story-by-story record.
-- **Health:** typecheck ✅ · 1069 tests ✅ · production build ✅ (2026-08-30) ·
+- **Health:** typecheck ✅ · 1088 tests ✅ · production build ✅ (2026-09-09) ·
   dev server ✅
   (2026-08-24, after E13–E16: migrations 0000–0014 applied in order to a scratch
   Postgres 16 and the result diffed against `drizzle-kit push` of `schema.ts` —

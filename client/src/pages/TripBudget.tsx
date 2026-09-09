@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
@@ -382,6 +383,11 @@ export default function TripBudget() {
       </div>
     </div>
   );
+
+  // Switched off for this trip. The data behind this screen is untouched and
+  // its procedures still work — this is a display decision, not a permission.
+  if ((trip as any)?.hiddenSections?.includes("budget"))
+    return <SectionOffNotice tripId={tripId} section="budget" />;
 
   return (
     <AppShell title="Budget" showBack backHref={`/trips/${tripId}`}>
