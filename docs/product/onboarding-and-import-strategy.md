@@ -119,7 +119,8 @@ gives it a home-screen presence, and is the precondition for web push (supported
 on iOS only for installed PWAs). Push is what breaks the "the chat notifies me,
 the app doesn't" asymmetry in item 7 above.
 
-**3.5 Route-level code splitting.** Already roadmap item 4. Reclassify it as
+**3.5 Route-level code splitting.** Already on the roadmap under **Performance**.
+Reclassify it as
 onboarding work and do it now rather than later: it is the load time of the first
 screen a stranger ever sees.
 
