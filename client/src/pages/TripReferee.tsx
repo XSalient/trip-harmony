@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams } from "wouter";
 import { useEffect, useState } from "react";
@@ -110,6 +111,11 @@ export default function TripReferee() {
       setAnalyzing(false);
     }
   };
+
+  // Switched off for this trip. The data behind this screen is untouched and
+  // its procedures still work — this is a display decision, not a permission.
+  if ((trip as any)?.hiddenSections?.includes("referee"))
+    return <SectionOffNotice tripId={tripId} section="referee" />;
 
   return (
     <AppShell title="AI Referee" showBack backHref={`/trips/${tripId}`}>

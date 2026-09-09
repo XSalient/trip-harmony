@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
 import FinalisedBy from "@/components/trip/FinalisedBy";
@@ -350,6 +351,11 @@ export default function TripDates() {
     setNlText("");
     setAddOpen(false);
   };
+
+  // Switched off for this trip. The data behind this screen is untouched and
+  // its procedures still work — this is a display decision, not a permission.
+  if ((trip as any)?.hiddenSections?.includes("dates"))
+    return <SectionOffNotice tripId={tripId} section="dates" />;
 
   return (
     <AppShell title="Dates" showBack backHref={`/trips/${tripId}`}>

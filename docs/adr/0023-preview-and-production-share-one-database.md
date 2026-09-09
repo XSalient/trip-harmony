@@ -38,9 +38,20 @@ Three rules follow from that, and they are not optional:
   nobody watching. ADR-0010's opt-in exists for projects whose preview has its
   own database. This one does not.
 
-- **Migrations are applied deliberately**, by a person, with
-  `pnpm db:status` first and `pnpm db:deploy` second. Applying a branch's
-  migrations is a production change and should be made as one.
+- **Merging to `master` is how a migration is applied.** The production deploy
+  runs `scripts/db-migrate.mjs --deploy` from `vercel.json`, and
+  `deployDecision` returns `run: true` for `VERCEL_ENV === "production"`
+  ([ADR-0010](0010-migrations-apply-on-deploy.md)). Nobody applies it by hand,
+  and nobody should: a migration that only ever runs through the deploy is a
+  migration that has been proven by the deploy.
+
+  The manual path — `pnpm db:status` then `pnpm db:deploy` — exists for the one
+  case the deploy cannot serve: **applying a branch's migration before it is
+  merged**, so the branch can be tested on preview. That is a production change
+  and should be made as one, by a person, deliberately. Recorded 2026-09-09
+  because the wording here previously said "by a person" without the
+  qualification, and was read as forbidding the automatic path it was actually
+  describing an exception to.
 
 - **Every migration must be backward compatible with `master`.** Because the
   one database serves production too, a branch's migration is live in
@@ -55,7 +66,17 @@ Three rules follow from that, and they are not optional:
 - **A branch with new migrations cannot be tested on preview until they are
   applied to the shared database** — which means applying them to production.
   There is no way around this that does not involve a second database. Plan the
-  migration and the branch as one piece of work, not two.
+  migration and the branch as one piece of work, not two. The cheapest honest
+  answer is often to merge: on an additive migration the deploy applies it, and
+  production runs the old code against a column it does not read until the same
+  deploy finishes.
+
+- **An agent session cannot apply a migration itself.** Claude Code on the web
+  runs in a container whose network policy allows outbound HTTPS through a proxy
+  and nothing else; the Supabase pooler on 5432 is unreachable, so
+  `pnpm db:deploy` fails there no matter who authorises it. An agent's options
+  are to merge, or to say plainly that a person has to run it. Recorded
+  2026-09-09 after the attempt.
 
 - **Seeding touches production.** `pnpm seed:demo` writes to the same database
   the live site reads. The demo's namespace prefixes

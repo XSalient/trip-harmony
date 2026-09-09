@@ -60,6 +60,7 @@ import {
   InsertSubscription,
 } from "../drizzle/schema.js";
 import { TRIP_ROLE_RANK, type TripRole } from "../shared/roles.js";
+import type { SectionKey } from "../shared/sections.js";
 import { ACTIVE_TRIP_STATUSES } from "../shared/billing.js";
 import {
   sanitiseProductEventMetadata,
@@ -834,6 +835,25 @@ export async function updateTrip(id: number, data: Partial<InsertTrip>) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db.update(trips).set(data).where(eq(trips.id, id));
+}
+
+/**
+ * The sections this trip has switched off, replaced wholesale.
+ *
+ * The caller sends the whole set rather than one key at a time, so two admins
+ * with the settings screen open cannot interleave into a state neither of them
+ * chose. `updatedAt` is bumped here because the column has no `$onUpdate`.
+ */
+export async function setTripHiddenSections(
+  tripId: number,
+  keys: SectionKey[]
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(trips)
+    .set({ hiddenSections: JSON.stringify(keys), updatedAt: new Date() })
+    .where(eq(trips.id, tripId));
 }
 
 /**

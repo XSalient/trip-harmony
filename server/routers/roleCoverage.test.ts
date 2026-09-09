@@ -202,6 +202,7 @@ const TRIP_PAGES = [
   "TripPreferences.tsx",
   "TripMembers.tsx",
   "TripReferee.tsx",
+  "TripSettings.tsx",
 ];
 
 describe("every trip screen asks for the role before offering a control", () => {

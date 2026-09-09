@@ -192,6 +192,19 @@ export const trips = pgTable("trips", {
   totalBudget: decimal("totalBudget", { precision: 12, scale: 2 }),
   /** One vote per person, or one per group. See `votingUnitEnum`. */
   votingUnit: votingUnitEnum("votingUnit").default("member").notNull(),
+  /**
+   * Sections this trip has switched off, as a JSON array of the keys in
+   * `shared/sections.ts`. Null and `[]` both mean nothing is hidden.
+   *
+   * Stores what is *off* rather than what is on, so a section added to the app
+   * later appears on every existing trip instead of being invisible until
+   * somebody opts each trip in one at a time.
+   *
+   * `text` and not `jsonb` because this schema has no `jsonb` anywhere — see
+   * `activityEvents.metadata` and `memberPreferences.attributes`, which are the
+   * same shape. Read it through `parseHiddenSections`, never `JSON.parse`.
+   */
+  hiddenSections: text("hiddenSections"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });

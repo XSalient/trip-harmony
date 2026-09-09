@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-import { Copy, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Copy, MoreVertical, Pencil, Settings2, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
@@ -101,6 +101,12 @@ export default function TripActionsMenu({
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onEdit} className="text-xs gap-2">
             <Pencil className="h-3.5 w-3.5" /> Edit trip
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => navigate(`/trips/${tripId}/settings`)}
+            className="text-xs gap-2"
+          >
+            <Settings2 className="h-3.5 w-3.5" /> Trip settings
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => setCloneOpen(true)}

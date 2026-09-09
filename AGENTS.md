@@ -98,8 +98,14 @@ done. CI narrows to `pnpm test:affected` for speed; the full suite runs nightly.
    **There is one database, shared by preview and production**
    ([ADR-0023](docs/adr/0023-preview-and-production-share-one-database.md)), so
    every migration must be backward compatible with `master` and none may be
-   applied by a preview build. Preview deploys do not migrate; applying a
-   branch's migration is a production change and is done by hand.
+   applied by a preview build. **Merging to `master` applies it**: the
+   production deploy runs `scripts/db-migrate.mjs --deploy`. Do not tell anyone
+   a merged migration is still waiting on a manual step — it is not. Applying a
+   branch's migration _before_ merging, to test it on preview, is the one manual
+   case, and an agent cannot do it: this container reaches nothing but HTTPS
+   through its proxy, so Postgres on 5432 is unreachable and `pnpm db:deploy`
+   fails there regardless of authorisation. Merge, or say a person has to run
+   it.
 10. **This repository has exactly two branches: `master` and `dev`.** Work goes
     to `master`; `dev` tracks it. Do not leave per-task or per-agent branches
     behind — merge the work and delete the branch in the same breath. A branch

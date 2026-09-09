@@ -16,6 +16,10 @@ import {
   projectMembersForRole,
 } from "./_shared.js";
 import { TRIP_ROLES } from "../../shared/roles.js";
+import {
+  HIDEABLE_SECTION_KEYS,
+  parseHiddenSections,
+} from "../../shared/sections.js";
 
 const roleInput = z.enum(TRIP_ROLES);
 
@@ -33,7 +37,15 @@ export const tripsRouter = router({
       // derivations of one number is how one page says "2/4 voted" while the
       // next says "2/3" — and with groups there are now two right answers
       // depending on the trip's voting unit.
-      return { ...trip, voterCount: await db.getTripVoterCount(input.id) };
+      //
+      // `hiddenSections` is parsed here for the same reason: every screen that
+      // asks whether a section is on gets an array, and the stored blob is
+      // read in exactly one place.
+      return {
+        ...trip,
+        voterCount: await db.getTripVoterCount(input.id),
+        hiddenSections: parseHiddenSections(trip.hiddenSections),
+      };
     }),
   /** The caller's own role, so the UI knows which controls to render. */
   myRole: protectedProcedure
@@ -215,6 +227,44 @@ export const tripsRouter = router({
       return { success: true };
     }),
   /**
+   * Switches sections off for the whole trip.
+   *
+   * Admin-only, and the whole set is sent every time: one key at a time would
+   * let two admins with the settings screen open interleave into a state
+   * neither of them chose.
+   *
+   * **This hides, it does not forbid.** Every proposal and vote in a hidden
+   * section stays exactly where it was and comes back untouched when the
+   * section is switched on again, and the section's own procedures keep
+   * working — deliberately. Gating them would put a check in every procedure of
+   * four routers, and would refuse the admin re-enabling the thing they just
+   * turned off. Nothing here is an authorisation boundary; do not treat it as
+   * one.
+   */
+  setHiddenSections: protectedProcedure
+    .input(
+      z.object({
+        tripId: z.number(),
+        hidden: z.array(z.enum(HIDEABLE_SECTION_KEYS)),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      // Deduplicated, because the array arrives from a client and a repeated
+      // key would be stored and read back forever.
+      const hidden = [...new Set(input.hidden)];
+      await db.setTripHiddenSections(input.tripId, hidden);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "trip.edited",
+        entityType: "trip",
+        entityId: input.tripId,
+        metadata: { fields: ["hiddenSections"] },
+      });
+      return { success: true };
+    }),
+  /**
    * Deletes the trip and everything in it, for everyone.
    *
    * Admin-only and irreversible, so the name has to be typed back: this is the
@@ -282,6 +332,9 @@ export const tripsRouter = router({
         description: source.description,
         currency: source.currency,
         totalBudget: source.totalBudget,
+        // The same trip run again wants the same sections. A copy of a one-day
+        // trip should not arrive with accommodation voting switched back on.
+        hiddenSections: source.hiddenSections,
         organizerId: ctx.user.id,
         // A new code: sharing the original's would put anyone following an old
         // link into whichever of the two trips resolved first.

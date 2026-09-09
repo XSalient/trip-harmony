@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import AppShell from "@/components/AppShell";
+import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -209,6 +210,11 @@ export default function TripPreferences() {
       </AppShell>
     );
   }
+
+  // Switched off for this trip. The data behind this screen is untouched and
+  // its procedures still work — this is a display decision, not a permission.
+  if ((trip as any)?.hiddenSections?.includes("preferences"))
+    return <SectionOffNotice tripId={tripId} section="preferences" />;
 
   return (
     <AppShell

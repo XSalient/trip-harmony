@@ -109,6 +109,13 @@ export type RefereeInput = {
   dateProposals: RefereeProposalRow[];
   destinations: RefereeProposalRow[];
   accommodations: RefereeAccommodationRow[];
+  /**
+   * Sections the trip has switched off. Their proposals are already absent
+   * from the lists above; this is what stops `dataGaps` reporting the absence
+   * as missing information. A group that turned Budget off has not failed to
+   * propose a budget.
+   */
+  hiddenSections?: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -399,8 +406,14 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
     .map(m => nameOf(m.userId));
 
   const dataGaps: string[] = [];
+  const off = (section: string) =>
+    (input.hiddenSections ?? []).includes(section);
   if (memberCount === 0) {
     dataGaps.push("Nobody has accepted an invitation to this trip yet.");
+  } else if (off("preferences")) {
+    dataGaps.push(
+      "This trip has turned member preferences off, so nobody was asked what they need. Do not treat that as people declining to answer."
+    );
   } else if (preferences.length === 0) {
     dataGaps.push(
       "No member has recorded any trip preferences, so nothing is known about what anyone needs."
@@ -415,8 +428,20 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
       }.`
     );
   }
-  if (allProposals.length === 0) {
-    dataGaps.push("No dates, destinations or stays have been proposed yet.");
+  // Named for the sections that are actually on: on a trip that only votes on
+  // dates, "no destinations or stays proposed" is not a gap, it is the plan.
+  const proposalSections = [
+    ["dates", "dates"],
+    ["suggestions", "destinations"],
+    ["accommodations", "stays"],
+  ].filter(([key]) => !off(key));
+  if (allProposals.length === 0 && proposalSections.length > 0) {
+    const names = proposalSections.map(([, label]) => label);
+    const listed =
+      names.length > 1
+        ? `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`
+        : names[0];
+    dataGaps.push(`No ${listed} have been proposed yet.`);
   }
   if (proposalsWithNoVotes.length > 0) {
     dataGaps.push(`Nobody has voted on: ${proposalsWithNoVotes.join("; ")}.`);
@@ -436,10 +461,17 @@ export function buildRefereeContext(input: RefereeInput): RefereeContext {
       `These stays have never been match-analysed, so no per-member fit is known for them: ${unanalysed.join("; ")}.`
     );
   }
-  if (memberCaps.length === 0 && memberCount > 0) {
+  if (memberCaps.length === 0 && memberCount > 0 && !off("budget")) {
     dataGaps.push("No member has set a personal budget cap.");
   }
-  if (budgetFacts.length === 0) {
+  if (off("budget")) {
+    // Said out loud rather than left silent: the model is told to report what
+    // the trip does not know, and "this trip does not do budgets" is a fact
+    // about the trip, not an absence for it to worry at.
+    dataGaps.push(
+      "This trip has turned the budget section off, so it has no budget to agree on. Do not treat that as a gap."
+    );
+  } else if (budgetFacts.length === 0) {
     dataGaps.push(
       "Nobody has proposed a budget, so there is no agreed figure to reason about — not a figure of zero."
     );

@@ -31,6 +31,7 @@ const TripBudget = lazy(() => import("./pages/TripBudget"));
 const TripReferee = lazy(() => import("./pages/TripReferee"));
 const TripPreferences = lazy(() => import("./pages/TripPreferences"));
 const TripMembers = lazy(() => import("./pages/TripMembers"));
+const TripSettings = lazy(() => import("./pages/TripSettings"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const Admin = lazy(() => import("@/pages/Admin"));
@@ -66,6 +67,7 @@ function Router() {
       <Route path="/trips/:id/referee" component={TripReferee} />
       <Route path="/trips/:id/preferences" component={TripPreferences} />
       <Route path="/trips/:id/members" component={TripMembers} />
+      <Route path="/trips/:id/settings" component={TripSettings} />
       <Route path="/notifications" component={Notifications} />
       <Route path="/profile" component={Profile} />
       <Route path="/admin" component={Admin} />
