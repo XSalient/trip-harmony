@@ -162,19 +162,33 @@ What is left is preview, and tidying how production's secrets are managed.
 - [x] Applied to every trip-scoped mutation
 - [x] Tests cover the role ordering and the watcher payload projections
 
-### 3. Frontend confidence
+### 3. Trip settings — hiding the sections a trip does not need
+
+Specified in
+[product/trip-sections-and-settings-2026-09.md](product/trip-sections-and-settings-2026-09.md).
+Designed, agreed, deliberately not built yet — the MVP is not to be disturbed.
+
+- [ ] A `hiddenSections` column on `trips`, the section list promoted to
+      `shared/sections.ts`, and `trips.setHiddenSections` behind the trip admin role
+- [ ] A `/trips/:id/settings` screen, reached from the trip's ⋮ menu
+- [ ] Hidden sections dropped from the trip page, the summary rows, the
+      pending-votes banner, and the AI Referee's context
+- [ ] The Add button moves to the left of the collapse chevron, so the chevron
+      stops moving when a section is expanded
+
+### 4. Frontend confidence
 
 - [ ] Add Vitest + Testing Library for components
 - [ ] Cover the dashboard, voting and auth dialog
 - [ ] Add a smoke test that boots the app and asserts the shell renders
 
-### 4. Performance
+### 5. Performance
 
 - [ ] Route-level code splitting (`React.lazy`) to break up the 2.2 MB bundle
 - [ ] Lazy-load the syntax highlighter and mermaid, which dominate the build
 - [ ] Set a bundle-size budget in CI
 
-### 5. Remove dead weight
+### 6. Remove dead weight
 
 - [ ] Delete `server/replit_integrations/` if genuinely unused
 - [ ] Remove `vite-plugin-manus-runtime` and the Manus debug collector
