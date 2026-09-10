@@ -53,9 +53,9 @@ export default function VoteScore({
   const score = scoreVotes(votes);
   const tone =
     score > 0
-      ? "text-green-600"
+      ? "text-success"
       : score < 0
-        ? "text-red-500"
+        ? "text-danger"
         : "text-muted-foreground";
 
   return (

@@ -92,7 +92,7 @@ export default function PreferencesSummary({
               {savedAt ? (
                 <Badge
                   variant="outline"
-                  className="text-xs text-green-600 border-green-300 gap-1"
+                  className="text-xs text-success border-success-border gap-1"
                 >
                   <CheckCircle2 className="h-3 w-3" />
                   Saved {format(new Date(savedAt), "d MMM")}

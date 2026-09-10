@@ -9,6 +9,7 @@ import ScrollRestoration from "./components/ScrollRestoration";
 import { startNativeBridge } from "./lib/nativeBridge";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import Preview from "./pages/Preview";
 
 /**
  * Every page but the first two is fetched when somebody goes to it.
@@ -73,6 +74,9 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      {/* Design-system gallery: every other screen is auth-gated, so this is
+          how the system is reviewed in both themes at any viewport. */}
+      <Route path="/preview" component={Preview} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -96,7 +100,7 @@ function NativeBridge() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="system">
         <TooltipProvider>
           <Toaster />
           <ScrollRestoration />

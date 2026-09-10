@@ -68,7 +68,7 @@ export function BottomSheet({
           </div>
 
           {footer && (
-            <DrawerFooter className="safe-bottom gap-2 border-t border-border/70 bg-card px-5 pt-3">
+            <DrawerFooter className="safe-area-bottom gap-2 border-t border-border/70 bg-card px-5 pt-3">
               {footer}
             </DrawerFooter>
           )}

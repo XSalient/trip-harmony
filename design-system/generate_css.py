@@ -205,26 +205,30 @@ CSS = f"""@import "tailwindcss";
 /* --------------------------------------------------------------------------
    Safe-area utilities
 
-   These are the real implementations of what MobileNav previously referenced
-   as an undefined `safe-area-bottom` class. They only resolve to non-zero once
-   client/index.html declares viewport-fit=cover.
+   Names and semantics are master's, not this branch's: MobileNav and the
+   legal/native screens already reference `safe-area-bottom`, and the max()
+   floor is a real refinement — on a device with no notch the inset is 0, and a
+   bar with no padding sits flush against the screen edge.
+
+   They only resolve to anything non-zero once client/index.html carries
+   viewport-fit=cover.
    -------------------------------------------------------------------------- */
 
-@utility safe-top {{
+@utility safe-area-bottom {{
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+}}
+
+@utility safe-area-top {{
   padding-top: env(safe-area-inset-top, 0px);
 }}
 
-@utility safe-bottom {{
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}}
-
-@utility safe-x {{
+@utility safe-area-x {{
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
 }}
 
-/* Bottom clearance for scroll content sitting above the floating tab bar.
-   This replaces every hardcoded pb-24 / bottom-14 in the app. */
+/* Bottom clearance for scroll content sitting above the floating tab bar,
+   driven by one token so no screen has to guess the nav height. */
 @utility pb-nav {{
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 1rem);
 }}
@@ -235,8 +239,7 @@ CSS = f"""@import "tailwindcss";
 }}
 
 /* Expands the tappable area of a visually small control to >=44px without
-   changing its painted size (MASTER §1, §8). Used by the sm/icon-sm button
-   variants, which stay visually compact in dense rows. */
+   changing its painted size (MASTER §1, §8). */
 @utility touch-target {{
   position: relative;
 }}

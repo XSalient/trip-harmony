@@ -52,7 +52,7 @@ export function LegalPage({
   const legal = useLegal();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-10">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
           <Link

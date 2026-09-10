@@ -482,15 +482,15 @@ export default function TripDashboard() {
 
         {/* Pending votes alert */}
         {totalPending > 0 && (
-          <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-950/10">
+          <Card className="border-warning-border bg-warning-soft">
             <CardContent className="p-3 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-orange-500 shrink-0" />
+              <AlertCircle className="h-5 w-5 text-warning shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
+                <p className="text-sm font-medium text-warning">
                   You have {totalPending} unvoted proposal
                   {totalPending > 1 ? "s" : ""}
                 </p>
-                <p className="text-xs text-orange-600 dark:text-orange-400">
+                <p className="text-xs text-warning">
                   Open a section below to vote
                 </p>
               </div>
@@ -559,7 +559,7 @@ export default function TripDashboard() {
             }
             iconClass={
               myPrefs
-                ? "bg-green-100 dark:bg-green-900/30 text-green-600"
+                ? "bg-success-soft text-success-on-soft"
                 : undefined
             }
             open={isOpen("preferences")}

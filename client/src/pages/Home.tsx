@@ -122,7 +122,7 @@ function LandingPage() {
   const { data: capabilities } = trpc.auth.capabilities.useQuery();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <AuthDialog
         open={authOpen}
         onOpenChange={setAuthOpen}
@@ -256,7 +256,7 @@ function TripCard({ trip }: { trip: any }) {
     destination: "bg-chart-3/10 text-chart-3",
     accommodation: "bg-chart-2/10 text-chart-2",
     activities: "bg-primary/10 text-primary",
-    finalized: "bg-green-100 text-green-700",
+    finalized: "bg-success-soft text-success-on-soft",
   };
 
   return (
@@ -369,7 +369,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-dvh flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
           <p className="text-sm text-muted-foreground">Loading...</p>

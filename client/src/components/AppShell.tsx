@@ -46,7 +46,7 @@ export default function AppShell({
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-dvh bg-background flex flex-col">
       {/* `safe-area-top` keeps the title clear of the notch: the WebView draws
           under the status bar, so without it the header sits behind the clock.
           Zero on the web and on a phone without one. */}

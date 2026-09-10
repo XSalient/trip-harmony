@@ -1,13 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* ==========================================================================
+   Trip Harmony design tokens
+
+   GENERATED FILE — do not hand-edit the :root and .dark token blocks.
+   Source of truth: design-system/tokens.py (96 WCAG contrast checks).
+   Regenerate with:  cd design-system && python generate_css.py
+   Spec:             design-system/MASTER.md
+   ========================================================================== */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* colour tokens -> Tailwind utilities */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -27,65 +33,303 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-foreground: var(--brand-teal-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-on-soft: var(--success-on-soft);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-on-soft: var(--warning-on-soft);
+  --color-warning-border: var(--warning-border);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-on-soft: var(--danger-on-soft);
+  --color-danger-border: var(--danger-border);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-info-on-soft: var(--info-on-soft);
+  --color-info-border: var(--info-border);
+
+  --color-cat-1: var(--cat-1);
+  --color-cat-1-foreground: var(--cat-1-foreground);
+  --color-cat-1-soft: var(--cat-1-soft);
+  --color-cat-1-on-soft: var(--cat-1-on-soft);
+  --color-cat-2: var(--cat-2);
+  --color-cat-2-foreground: var(--cat-2-foreground);
+  --color-cat-2-soft: var(--cat-2-soft);
+  --color-cat-2-on-soft: var(--cat-2-on-soft);
+  --color-cat-3: var(--cat-3);
+  --color-cat-3-foreground: var(--cat-3-foreground);
+  --color-cat-3-soft: var(--cat-3-soft);
+  --color-cat-3-on-soft: var(--cat-3-on-soft);
+  --color-cat-4: var(--cat-4);
+  --color-cat-4-foreground: var(--cat-4-foreground);
+  --color-cat-4-soft: var(--cat-4-soft);
+  --color-cat-4-on-soft: var(--cat-4-on-soft);
+  --color-cat-5: var(--cat-5);
+  --color-cat-5-foreground: var(--cat-5-foreground);
+  --color-cat-5-soft: var(--cat-5-soft);
+  --color-cat-5-on-soft: var(--cat-5-on-soft);
+  --color-cat-6: var(--cat-6);
+  --color-cat-6-foreground: var(--cat-6-foreground);
+  --color-cat-6-soft: var(--cat-6-soft);
+  --color-cat-6-on-soft: var(--cat-6-on-soft);
+
+  /* typography */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* radius scale (MASTER §4) */
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 12px);
+
+  /* elevation scale (MASTER §4) */
+  --shadow-e1: var(--elevation-1);
+  --shadow-e2: var(--elevation-2);
+  --shadow-e3: var(--elevation-3);
+  --shadow-e4: var(--elevation-4);
+
+  /* motion (MASTER §7) */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-soft: cubic-bezier(0.7, 0, 0.84, 0);
 }
 
 :root {
-  --primary: oklch(0.55 0.15 175);
-  --primary-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.55 0.15 175);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --chart-1: oklch(0.55 0.15 175);
-  --chart-2: oklch(0.65 0.18 30);
-  --chart-3: oklch(0.7 0.12 260);
-  --chart-4: oklch(0.75 0.14 85);
-  --chart-5: oklch(0.6 0.16 320);
-  --radius: 0.75rem;
-  --background: oklch(0.985 0.002 90);
-  --foreground: oklch(0.2 0.02 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.02 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.02 260);
-  --secondary: oklch(0.95 0.02 175);
-  --secondary-foreground: oklch(0.35 0.1 175);
-  --muted: oklch(0.96 0.005 260);
-  --muted-foreground: oklch(0.5 0.02 260);
-  --accent: oklch(0.95 0.03 30);
-  --accent-foreground: oklch(0.35 0.12 30);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.91 0.005 260);
-  --input: oklch(0.91 0.005 260);
-  --ring: oklch(0.55 0.15 175);
-  --sidebar: oklch(0.98 0.005 175);
-  --sidebar-foreground: oklch(0.2 0.02 260);
-  --sidebar-accent: oklch(0.94 0.02 175);
-  --sidebar-accent-foreground: oklch(0.2 0.02 260);
-  --sidebar-border: oklch(0.91 0.005 260);
-  --sidebar-ring: oklch(0.55 0.15 175);
+  --radius: 1rem;
+
+  /* chrome metrics — the single source for nav clearance.
+     StickyActionBar and AppShell both read these; never hardcode pb-24. */
+  --nav-height: 4rem;
+  --header-height: 3.5rem;
+
+  /* motion (MASTER §7) */
+  --motion-fast: 150ms;
+  --motion-base: 220ms;
+  --motion-slow: 320ms;
+
+  /* elevation — light */
+  --elevation-1: 0 1px 3px rgb(0 0 0 / 0.08);
+  --elevation-2: 0 4px 6px rgb(0 0 0 / 0.10);
+  --elevation-3: 0 10px 20px rgb(0 0 0 / 0.10);
+  --elevation-4: 0 20px 40px rgb(0 0 0 / 0.15);
+
+  --background: oklch(0.980 0.016 73.7);
+  --foreground: oklch(0.230 0.030 265.0);
+  --card: oklch(1.000 0.000 89.9);
+  --card-foreground: oklch(0.230 0.030 265.0);
+  --popover: oklch(1.000 0.000 89.9);
+  --popover-foreground: oklch(0.230 0.030 265.0);
+  --primary: oklch(0.584 0.165 41.1);
+  --primary-foreground: oklch(1.000 0.000 89.9);
+  --secondary: oklch(0.958 0.022 41.1);
+  --secondary-foreground: oklch(0.400 0.100 41.1);
+  --muted: oklch(0.966 0.008 70.0);
+  --muted-foreground: oklch(0.500 0.025 258.0);
+  --accent: oklch(0.955 0.030 58.3);
+  --accent-foreground: oklch(0.420 0.110 58.3);
+  --destructive: oklch(0.545 0.205 27.3);
+  --destructive-foreground: oklch(1.000 0.000 89.9);
+  --border: oklch(0.865 0.012 70.0);
+  --input: oklch(0.865 0.012 70.0);
+  --ring: oklch(0.584 0.165 41.1);
+  --brand-teal: oklch(0.558 0.111 221.7);
+  --brand-teal-foreground: oklch(1.000 0.000 89.9);
+
+  --success: oklch(0.524 0.130 152.0);
+  --success-foreground: oklch(1.000 0.000 89.9);
+  --success-soft: oklch(0.955 0.029 152.0);
+  --success-on-soft: oklch(0.420 0.094 152.0);
+  --success-border: oklch(0.885 0.045 152.0);
+  --warning: oklch(0.541 0.140 75.0);
+  --warning-foreground: oklch(1.000 0.000 89.9);
+  --warning-soft: oklch(0.955 0.031 75.0);
+  --warning-on-soft: oklch(0.420 0.101 75.0);
+  --warning-border: oklch(0.885 0.049 75.0);
+  --danger: oklch(0.555 0.205 27.3);
+  --danger-foreground: oklch(1.000 0.000 89.9);
+  --danger-soft: oklch(0.955 0.035 27.3);
+  --danger-on-soft: oklch(0.420 0.148 27.3);
+  --danger-border: oklch(0.885 0.055 27.3);
+  --info: oklch(0.527 0.150 240.0);
+  --info-foreground: oklch(1.000 0.000 89.9);
+  --info-soft: oklch(0.955 0.033 240.0);
+  --info-on-soft: oklch(0.420 0.108 240.0);
+  --info-border: oklch(0.885 0.052 240.0);
+
+  --cat-1: oklch(0.539 0.140 259.0);
+  --cat-1-foreground: oklch(1.000 0.000 89.9);
+  --cat-1-soft: oklch(0.955 0.032 259.0);
+  --cat-1-on-soft: oklch(0.420 0.100 259.0);
+  --cat-2: oklch(0.547 0.140 25.0);
+  --cat-2-foreground: oklch(1.000 0.000 89.9);
+  --cat-2-soft: oklch(0.955 0.032 25.0);
+  --cat-2-on-soft: oklch(0.420 0.100 25.0);
+  --cat-3: oklch(0.522 0.140 152.0);
+  --cat-3-foreground: oklch(1.000 0.000 89.9);
+  --cat-3-soft: oklch(0.955 0.032 152.0);
+  --cat-3-on-soft: oklch(0.420 0.100 152.0);
+  --cat-4: oklch(0.548 0.140 300.0);
+  --cat-4-foreground: oklch(1.000 0.000 89.9);
+  --cat-4-soft: oklch(0.955 0.032 300.0);
+  --cat-4-on-soft: oklch(0.420 0.100 300.0);
+  --cat-5: oklch(0.506 0.140 200.0);
+  --cat-5-foreground: oklch(1.000 0.000 89.9);
+  --cat-5-soft: oklch(0.955 0.032 200.0);
+  --cat-5-on-soft: oklch(0.420 0.100 200.0);
+  --cat-6: oklch(0.536 0.140 95.0);
+  --cat-6-foreground: oklch(1.000 0.000 89.9);
+  --cat-6-soft: oklch(0.955 0.032 95.0);
+  --cat-6-on-soft: oklch(0.420 0.100 95.0);
+
+  /* sidebar (shadcn compatibility) */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* charts -> category ramp, so charts and taxonomy agree */
+  --chart-1: var(--cat-1);
+  --chart-2: var(--cat-2);
+  --chart-3: var(--cat-3);
+  --chart-4: var(--cat-4);
+  --chart-5: var(--cat-5);
+}
+
+.dark {
+  /* Dark is a set of desaturated tonal variants, not an inversion (MASTER §2.4).
+     Shadows are weakened; depth comes from surface lightness instead. */
+  --elevation-1: 0 1px 3px rgb(0 0 0 / 0.40);
+  --elevation-2: 0 4px 6px rgb(0 0 0 / 0.45);
+  --elevation-3: 0 10px 20px rgb(0 0 0 / 0.50);
+  --elevation-4: 0 20px 40px rgb(0 0 0 / 0.60);
+
+  --background: oklch(0.185 0.012 60.0);
+  --foreground: oklch(0.950 0.008 75.0);
+  --card: oklch(0.228 0.014 60.0);
+  --card-foreground: oklch(0.950 0.008 75.0);
+  --popover: oklch(0.228 0.014 60.0);
+  --popover-foreground: oklch(0.950 0.008 75.0);
+  --primary: oklch(0.720 0.150 41.1);
+  --primary-foreground: oklch(0.200 0.030 41.1);
+  --secondary: oklch(0.290 0.030 41.1);
+  --secondary-foreground: oklch(0.900 0.030 41.1);
+  --muted: oklch(0.275 0.010 70.0);
+  --muted-foreground: oklch(0.720 0.020 258.0);
+  --accent: oklch(0.300 0.035 58.3);
+  --accent-foreground: oklch(0.900 0.040 58.3);
+  --destructive: oklch(0.680 0.185 27.3);
+  --destructive-foreground: oklch(0.180 0.030 27.3);
+  --border: oklch(0.350 0.012 70.0);
+  --input: oklch(0.375 0.012 70.0);
+  --ring: oklch(0.720 0.150 41.1);
+  --brand-teal: oklch(0.700 0.105 221.7);
+  --brand-teal-foreground: oklch(0.180 0.030 221.7);
+
+  --success: oklch(0.720 0.114 152.0);
+  --success-foreground: oklch(0.185 0.023 152.0);
+  --success-soft: oklch(0.300 0.034 152.0);
+  --success-on-soft: oklch(0.880 0.055 152.0);
+  --success-border: oklch(0.380 0.052 152.0);
+  --warning: oklch(0.720 0.123 75.0);
+  --warning-foreground: oklch(0.185 0.025 75.0);
+  --warning-soft: oklch(0.300 0.036 75.0);
+  --warning-on-soft: oklch(0.880 0.059 75.0);
+  --warning-border: oklch(0.380 0.056 75.0);
+  --danger: oklch(0.720 0.180 27.3);
+  --danger-foreground: oklch(0.185 0.037 27.3);
+  --danger-soft: oklch(0.300 0.045 27.3);
+  --danger-on-soft: oklch(0.880 0.086 27.3);
+  --danger-border: oklch(0.380 0.065 27.3);
+  --info: oklch(0.720 0.132 240.0);
+  --info-foreground: oklch(0.185 0.027 240.0);
+  --info-soft: oklch(0.300 0.039 240.0);
+  --info-on-soft: oklch(0.880 0.063 240.0);
+  --info-border: oklch(0.380 0.060 240.0);
+
+  --cat-1: oklch(0.700 0.120 259.0);
+  --cat-1-foreground: oklch(0.185 0.020 259.0);
+  --cat-1-soft: oklch(0.300 0.040 259.0);
+  --cat-1-on-soft: oklch(0.880 0.060 259.0);
+  --cat-2: oklch(0.700 0.120 25.0);
+  --cat-2-foreground: oklch(0.185 0.020 25.0);
+  --cat-2-soft: oklch(0.300 0.040 25.0);
+  --cat-2-on-soft: oklch(0.880 0.060 25.0);
+  --cat-3: oklch(0.700 0.120 152.0);
+  --cat-3-foreground: oklch(0.185 0.020 152.0);
+  --cat-3-soft: oklch(0.300 0.040 152.0);
+  --cat-3-on-soft: oklch(0.880 0.060 152.0);
+  --cat-4: oklch(0.700 0.120 300.0);
+  --cat-4-foreground: oklch(0.185 0.020 300.0);
+  --cat-4-soft: oklch(0.300 0.040 300.0);
+  --cat-4-on-soft: oklch(0.880 0.060 300.0);
+  --cat-5: oklch(0.700 0.120 200.0);
+  --cat-5-foreground: oklch(0.185 0.020 200.0);
+  --cat-5-soft: oklch(0.300 0.040 200.0);
+  --cat-5-on-soft: oklch(0.880 0.060 200.0);
+  --cat-6: oklch(0.700 0.120 95.0);
+  --cat-6-foreground: oklch(0.185 0.020 95.0);
+  --cat-6-soft: oklch(0.300 0.040 95.0);
+  --cat-6-on-soft: oklch(0.880 0.060 95.0);
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --chart-1: var(--cat-1);
+  --chart-2: var(--cat-2);
+  --chart-3: var(--cat-3);
+  --chart-4: var(--cat-4);
+  --chart-5: var(--cat-5);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Never let the page itself scroll sideways (MASTER §5). */
+    overflow-x: hidden;
   }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.011em;
+  }
+
+  /* Counts, prices, tallies and dates must not reflow as they change
+     (MASTER §3). Opt in explicitly with .tabular where needed. */
+  .tabular,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -96,6 +340,65 @@
   input[type="checkbox"]:not(:disabled),
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
+  }
+
+  /* Reduce the tap-highlight flash; real press feedback is per-component. */
+  button, [role="button"], a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Safe-area utilities
+
+   Names and semantics are master's, not this branch's: MobileNav and the
+   legal/native screens already reference `safe-area-bottom`, and the max()
+   floor is a real refinement — on a device with no notch the inset is 0, and a
+   bar with no padding sits flush against the screen edge.
+
+   They only resolve to anything non-zero once client/index.html carries
+   viewport-fit=cover.
+   -------------------------------------------------------------------------- */
+
+@utility safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+}
+
+@utility safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility safe-area-x {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Bottom clearance for scroll content sitting above the floating tab bar,
+   driven by one token so no screen has to guess the nav height. */
+@utility pb-nav {
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+/* Offset for elements anchored just above the tab bar (FAB, sticky bars). */
+@utility bottom-nav {
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
+/* Expands the tappable area of a visually small control to >=44px without
+   changing its painted size (MASTER §1, §8). */
+@utility touch-target {
+  position: relative;
+}
+
+@utility touch-target {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 50%;
+    width: max(100%, 2.75rem);
+    height: max(100%, 2.75rem);
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -108,35 +411,12 @@
     padding-right: 1rem;
   }
 
+  /* NOTE: this global override props up truncation/overflow behaviour across
+     every screen. Scheduled for removal in the final phase, once each screen
+     declares its own min-w-0 explicitly. Do not remove early. */
   .flex {
     min-height: 0;
     min-width: 0;
-  }
-
-  /**
-   * Room for the notch, the home indicator and the rounded corners.
-   *
-   * `MobileNav` has referenced `safe-area-bottom` since it was written and the
-   * class did not exist, so the bottom bar sat under the home indicator on
-   * every notched phone. Invisible in a desktop browser, where all four insets
-   * are zero — and invisible on iOS too until `viewport-fit=cover` is on the
-   * viewport meta, which is why that had to change with this.
-   *
-   * `max()` rather than the raw inset: on a device with no notch the inset is
-   * 0, and a bar with no padding at all sits flush against the screen edge.
-   */
-  .safe-area-bottom {
-    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
-  }
-
-  .safe-area-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  /** For anything full-bleed that would otherwise run under a rounded corner. */
-  .safe-area-x {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
   }
 
   @media (min-width: 640px) {
@@ -152,5 +432,27 @@
       padding-right: 2rem;
       max-width: 1280px;
     }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion (MASTER §7)
+
+   Motion must never be required to understand the interface.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  :root {
+    --motion-fast: 0.01ms;
+    --motion-base: 0.01ms;
+    --motion-slow: 0.01ms;
   }
 }

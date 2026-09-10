@@ -1179,17 +1179,17 @@ export default function TripAccommodations() {
                         </span>
                       )}
                       {acc.freeParking && (
-                        <span className="flex items-center gap-1 text-green-600">
+                        <span className="flex items-center gap-1 text-success">
                           <Car className="h-3.5 w-3.5" /> Free parking
                         </span>
                       )}
                       {acc.camperParking && (
-                        <span className="flex items-center gap-1 text-blue-600">
+                        <span className="flex items-center gap-1 text-info">
                           <Car className="h-3.5 w-3.5" /> Camper parking
                         </span>
                       )}
                       {acc.comfortScore && (
-                        <span className="flex items-center gap-1 text-yellow-600">
+                        <span className="flex items-center gap-1 text-warning">
                           <Star className="h-3.5 w-3.5" />{" "}
                           {parseFloat(acc.comfortScore).toFixed(1)}
                         </span>
@@ -1285,28 +1285,28 @@ export default function TripAccommodations() {
                                     <span
                                       className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
                                         match.groupFitScore >= 70
-                                          ? "bg-green-100 text-green-700"
+                                          ? "bg-success-soft text-success-on-soft"
                                           : match.groupFitScore >= 45
-                                            ? "bg-yellow-100 text-yellow-700"
-                                            : "bg-red-100 text-red-700"
+                                            ? "bg-warning-soft text-warning-on-soft"
+                                            : "bg-danger-soft text-danger-on-soft"
                                       }`}
                                     >
                                       {match.groupFitScore}/100
                                     </span>
-                                    <span className="text-xs text-yellow-600 flex items-center gap-0.5">
+                                    <span className="text-xs text-warning flex items-center gap-0.5">
                                       <Star className="h-3 w-3" />
                                       {typeof match.comfortScore === "number"
                                         ? match.comfortScore.toFixed(1)
                                         : match.comfortScore}
                                     </span>
                                     {match.resentmentRisk === "high" && (
-                                      <span className="text-xs text-red-600 flex items-center gap-0.5">
+                                      <span className="text-xs text-danger flex items-center gap-0.5">
                                         <AlertTriangle className="h-3 w-3" />{" "}
                                         High risk
                                       </span>
                                     )}
                                     {matchStaleness(acc) === "stale" && (
-                                      <span className="text-[10px] text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5">
+                                      <span className="text-[10px] text-warning bg-warning-soft rounded-full px-1.5 py-0.5">
                                         May be out of date
                                       </span>
                                     )}
@@ -1328,7 +1328,7 @@ export default function TripAccommodations() {
                                           (f: string, i: number) => (
                                             <div
                                               key={i}
-                                              className="flex items-start gap-1.5 text-xs text-red-600"
+                                              className="flex items-start gap-1.5 text-xs text-danger"
                                             >
                                               <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
                                               {f}
@@ -1352,10 +1352,10 @@ export default function TripAccommodations() {
                                               <span
                                                 className={`text-xs font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
                                                   m.score >= 70
-                                                    ? "bg-green-100 text-green-700"
+                                                    ? "bg-success-soft text-success-on-soft"
                                                     : m.score >= 45
-                                                      ? "bg-yellow-100 text-yellow-700"
-                                                      : "bg-red-100 text-red-700"
+                                                      ? "bg-warning-soft text-warning-on-soft"
+                                                      : "bg-danger-soft text-danger-on-soft"
                                                 }`}
                                               >
                                                 {m.score}
@@ -1443,13 +1443,13 @@ export default function TripAccommodations() {
 
                     {/* Vote counts */}
                     <div className="flex gap-4 text-xs mb-3 items-center">
-                      <span className="text-pink-600 font-medium flex items-center gap-1">
+                      <span className="text-cat-4 font-medium flex items-center gap-1">
                         <Heart className="h-3 w-3" /> {loves}
                       </span>
-                      <span className="text-blue-600 font-medium flex items-center gap-1">
+                      <span className="text-info font-medium flex items-center gap-1">
                         <ThumbsUp className="h-3 w-3" /> {fines}
                       </span>
-                      <span className="text-red-500 font-medium flex items-center gap-1">
+                      <span className="text-danger font-medium flex items-center gap-1">
                         <Ban className="h-3 w-3" /> {vetos}
                       </span>
                       <VotedCount
@@ -1474,20 +1474,20 @@ export default function TripAccommodations() {
                               icon: Heart,
                               label: "Yes",
                               active:
-                                "bg-green-100 text-green-700 border-green-300",
+                                "bg-success-soft text-success-on-soft border-success-border",
                             },
                             {
                               vote: "fine" as const,
                               icon: HelpCircle,
                               label: "Maybe",
                               active:
-                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                                "bg-warning-soft text-warning-on-soft border-warning-border",
                             },
                             {
                               vote: "veto" as const,
                               icon: Ban,
                               label: "No",
-                              active: "bg-red-100 text-red-600 border-red-300",
+                              active: "bg-danger-soft text-danger-on-soft border-danger-border",
                             },
                           ].map(btn => (
                             <Button

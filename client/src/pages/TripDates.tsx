@@ -691,13 +691,13 @@ export default function TripDates() {
                     </div>
 
                     <div className="flex gap-4 text-xs mb-3">
-                      <span className="text-green-600 font-medium">
+                      <span className="text-success font-medium">
                         {available} available
                       </span>
-                      <span className="text-yellow-600 font-medium">
+                      <span className="text-warning font-medium">
                         {maybe} maybe
                       </span>
-                      <span className="text-red-500 font-medium">
+                      <span className="text-danger font-medium">
                         {unavailable} can't
                       </span>
                       {noPreference > 0 && (
@@ -721,7 +721,7 @@ export default function TripDates() {
                       <div className="flex h-2 rounded-full overflow-hidden mb-3 bg-muted">
                         {available > 0 && (
                           <div
-                            className="bg-green-500"
+                            className="bg-success"
                             style={{
                               width: `${(available / Math.max(1, voterCount)) * 100}%`,
                             }}
@@ -729,7 +729,7 @@ export default function TripDates() {
                         )}
                         {maybe > 0 && (
                           <div
-                            className="bg-yellow-400"
+                            className="bg-warning"
                             style={{
                               width: `${(maybe / Math.max(1, voterCount)) * 100}%`,
                             }}
@@ -737,7 +737,7 @@ export default function TripDates() {
                         )}
                         {unavailable > 0 && (
                           <div
-                            className="bg-red-400"
+                            className="bg-danger"
                             style={{
                               width: `${(unavailable / Math.max(1, voterCount)) * 100}%`,
                             }}
@@ -765,20 +765,20 @@ export default function TripDates() {
                               icon: Check,
                               label: "Yes",
                               active:
-                                "bg-green-100 text-green-700 border-green-300",
+                                "bg-success-soft text-success-on-soft border-success-border",
                             },
                             {
                               vote: "maybe" as const,
                               icon: HelpCircle,
                               label: "Maybe",
                               active:
-                                "bg-yellow-100 text-yellow-700 border-yellow-300",
+                                "bg-warning-soft text-warning-on-soft border-warning-border",
                             },
                             {
                               vote: "unavailable" as const,
                               icon: X,
                               label: "No",
-                              active: "bg-red-100 text-red-600 border-red-300",
+                              active: "bg-danger-soft text-danger-on-soft border-danger-border",
                             },
                           ].map(btn => (
                             <Button

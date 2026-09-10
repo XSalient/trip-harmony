@@ -195,7 +195,7 @@ export function StatusScreen({
 }) {
   const reduce = useReducedMotion();
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-background px-6 safe-top safe-bottom">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-background px-6 safe-area-top safe-area-bottom">
       <motion.div
         initial={reduce ? false : { scale: 0.9 }}
         animate={{ scale: 1 }}

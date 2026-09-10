@@ -1345,7 +1345,7 @@ export default function TripMembers() {
                 className="flex items-center gap-2 text-xs text-muted-foreground px-1"
               >
                 {i.status === "accepted" ? (
-                  <Check className="h-3 w-3 text-green-600" />
+                  <Check className="h-3 w-3 text-success" />
                 ) : (
                   <X className="h-3 w-3" />
                 )}
@@ -1596,20 +1596,20 @@ export default function TripMembers() {
           {importPlan && (
             <div className="space-y-3 pt-1 text-sm">
               {importPlan.conflicts.length > 0 && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
-                  <p className="font-medium text-amber-900 dark:text-amber-200">
+                <div className="rounded-lg border border-warning-border bg-warning-soft p-3 space-y-1.5">
+                  <p className="font-medium text-warning-on-soft">
                     Already in another group
                   </p>
                   {importPlan.conflicts.map((c: any) => (
                     <p
                       key={c.userId}
-                      className="text-xs text-amber-900/80 dark:text-amber-200/80"
+                      className="text-xs text-warning-on-soft"
                     >
                       {c.name} is already on this trip in {c.currentGroupName}.
                       Adding this group moves them into {importPlan.groupName}.
                     </p>
                   ))}
-                  <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+                  <p className="text-xs text-warning-on-soft">
                     A group casts one vote, so moving somebody can drop a vote
                     that has become a duplicate.
                   </p>

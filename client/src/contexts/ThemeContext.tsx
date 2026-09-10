@@ -1,55 +1,92 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
-type Theme = "light" | "dark";
+/** What the user picked. "system" follows the OS. */
+export type ThemeSetting = "light" | "dark" | "system";
+/** What is actually painted. */
+export type ResolvedTheme = "light" | "dark";
 
 interface ThemeContextType {
-  theme: Theme;
-  toggleTheme?: () => void;
-  switchable: boolean;
+  /** The user's setting, including "system". */
+  theme: ThemeSetting;
+  /** The theme actually applied right now — never "system". */
+  resolvedTheme: ResolvedTheme;
+  setTheme: (theme: ThemeSetting) => void;
+  /** Cycles light -> dark -> system. */
+  toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-interface ThemeProviderProps {
-  children: React.ReactNode;
-  defaultTheme?: Theme;
-  switchable?: boolean;
+const STORAGE_KEY = "theme";
+
+function systemTheme(): ResolvedTheme {
+  if (typeof window === "undefined") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function ThemeProvider({
-  children,
-  defaultTheme = "light",
-  switchable = false,
-}: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (switchable) {
-      const stored = localStorage.getItem("theme");
-      return (stored as Theme) || defaultTheme;
-    }
-    return defaultTheme;
-  });
+function readStored(fallback: ThemeSetting): ThemeSetting {
+  // Private windows and blocked site data make storage throw, not just return null.
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+  } catch {
+    /* ignore */
+  }
+  return fallback;
+}
 
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  defaultTheme?: ThemeSetting;
+}
+
+export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProviderProps) {
+  const [theme, setThemeState] = useState<ThemeSetting>(() => readStored(defaultTheme));
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    readStored(defaultTheme) === "system" ? systemTheme() : (readStored(defaultTheme) as ResolvedTheme)
+  );
+
+  // Apply the resolved theme to <html> and keep it in sync with the OS while
+  // the setting is "system".
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
+    const apply = () => {
+      const next: ResolvedTheme = theme === "system" ? systemTheme() : theme;
+      setResolvedTheme(next);
+      document.documentElement.classList.toggle("dark", next === "dark");
+      document.documentElement.style.colorScheme = next;
+    };
 
-    if (switchable) {
-      localStorage.setItem("theme", theme);
-    }
-  }, [theme, switchable]);
+    apply();
 
-  const toggleTheme = switchable
-    ? () => {
-        setTheme(prev => (prev === "light" ? "dark" : "light"));
+    if (theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [theme]);
+
+  const setTheme = useCallback((next: ThemeSetting) => {
+    setThemeState(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setThemeState(prev => {
+      const next: ThemeSetting = prev === "light" ? "dark" : prev === "dark" ? "system" : "light";
+      try {
+        localStorage.setItem(STORAGE_KEY, next);
+      } catch {
+        /* ignore */
       }
-    : undefined;
+      return next;
+    });
+  }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -31,11 +31,11 @@ const typeIcons: Record<string, any> = {
 };
 
 const typeColors: Record<string, string> = {
-  invite: "bg-blue-100 text-blue-700",
-  vote_request: "bg-purple-100 text-purple-700",
-  budget_alert: "bg-red-100 text-red-600",
-  consensus: "bg-green-100 text-green-700",
-  phase_change: "bg-yellow-100 text-yellow-700",
+  invite: "bg-cat-1-soft text-cat-1-on-soft",
+  vote_request: "bg-cat-4-soft text-cat-4-on-soft",
+  budget_alert: "bg-danger-soft text-danger-on-soft",
+  consensus: "bg-success-soft text-success-on-soft",
+  phase_change: "bg-warning-soft text-warning-on-soft",
   referee: "bg-primary/10 text-primary",
   general: "bg-muted text-muted-foreground",
 };

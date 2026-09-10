@@ -143,12 +143,18 @@ GLOBAL_RULES = [
     (r"\bbg-red-(?:400|500)\b", "bg-danger"),
 
     # -- text ------------------------------------------------------------
-    (r"\btext-green-(?:500|600|700|800)\b", "text-success"),
-    (r"\btext-yellow-(?:500|600|700|800)\b", "text-warning"),
+    # Deep/pale levels with optional opacity suffixes, as used in master's
+    # callouts (text-amber-900/80 and friends).
+    (r"\btext-(?:amber|yellow|orange)-(?:100|200|900)(?:/\d+)?\b", "text-warning-on-soft"),
+    (r"\btext-green-(?:100|200|900)(?:/\d+)?\b", "text-success-on-soft"),
+    (r"\btext-red-(?:100|200|900)(?:/\d+)?\b", "text-danger-on-soft"),
+    (r"\btext-blue-(?:100|200|900)(?:/\d+)?\b", "text-info-on-soft"),
+    (r"\btext-green-(?:500|600|700|800)(?:/\d+)?\b", "text-success"),
+    (r"\btext-yellow-(?:500|600|700|800)(?:/\d+)?\b", "text-warning"),
     (r"\btext-amber-(?:300|400|500|600|700|800)\b", "text-warning"),
     (r"\btext-orange-(?:300|400|500|600|700|800)\b", "text-warning"),
-    (r"\btext-red-(?:500|600|700|800)\b", "text-danger"),
-    (r"\btext-blue-(?:500|600|700|800)\b", "text-info"),
+    (r"\btext-red-(?:500|600|700|800)(?:/\d+)?\b", "text-danger"),
+    (r"\btext-blue-(?:500|600|700|800)(?:/\d+)?\b", "text-info"),
     (r"\btext-purple-(?:500|600|700|800)\b", "text-cat-4"),
     (r"\btext-pink-(?:500|600|700|800)\b", "text-cat-4"),
     (r"\btext-gray-(?:500|600|700|800)\b", "text-muted-foreground"),
@@ -159,8 +165,13 @@ GLOBAL_RULES = [
     # These break dark mode just as badly as palette classes, and are easy to
     # miss because they carry no numeric suffix. Scrims inside components/ui
     # are intentional and left alone.
-    (r"bg-white(/\d+)?", r"bg-card"),
-    (r"text-white", "text-primary-foreground"),
+    (r"\bbg-white(/\d+)?\b", r"bg-card"),
+    (r"\btext-white\b", "text-primary-foreground"),
+
+    # Deep/pale levels and opacity suffixes used by master's callouts,
+    # e.g. text-amber-900/80 inside a bg-amber-50 panel.
+    (r"\btext-(?:amber|yellow|orange)-(?:100|200|800|900)(?:/\d+)?\b", "text-warning-on-soft"),
+    (r"\btext-(?:slate|gray|zinc)-(?:900)(?:/\d+)?\b", "text-foreground"),
 
     # -- borders ---------------------------------------------------------
     (r"\bborder-green-(?:200|300)\b", "border-success-border"),

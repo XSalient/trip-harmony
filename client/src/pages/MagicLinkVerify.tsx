@@ -37,7 +37,7 @@ export default function MagicLinkVerify() {
   const isError = verifyMutation.isError;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-dvh flex items-center justify-center bg-background p-4">
       <div className="text-center space-y-4 max-w-sm w-full">
         {isPending && (
           <>
@@ -50,7 +50,7 @@ export default function MagicLinkVerify() {
         )}
         {isSuccess && (
           <>
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
+            <CheckCircle className="h-12 w-12 text-success mx-auto" />
             <h2 className="text-xl font-semibold">You're in!</h2>
             <p className="text-muted-foreground text-sm">
               Redirecting you to your dashboard…

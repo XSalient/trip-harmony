@@ -110,7 +110,7 @@ export default function SectionCard({
   // is dead space on a collapsed section, and every section starts collapsed.
   return (
     <Card
-      className={`border py-0 ${locked ? "border-green-200 bg-green-50/40 dark:bg-green-950/10" : "border-border/50"} ${className ?? ""}`}
+      className={`border py-0 ${locked ? "border-success-border bg-success-soft" : "border-border/50"} ${className ?? ""}`}
     >
       <CardContent className="p-0">
         <div className="flex items-center gap-3 px-3 pt-3 pb-2">
@@ -120,7 +120,7 @@ export default function SectionCard({
             className="flex flex-1 min-w-0 items-center gap-3 text-left"
           >
             <div
-              className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${locked ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"}`}
+              className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/10 text-primary"}`}
             >
               {locked ? (
                 <CheckCircle2 className="h-5 w-5" />
@@ -131,12 +131,12 @@ export default function SectionCard({
             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
               <span className="text-sm font-medium">{title}</span>
               {locked && (
-                <Badge className="text-[10px] bg-green-100 text-green-700 border-green-200 px-1.5">
+                <Badge className="text-[10px] bg-success-soft text-success-on-soft border-success-border px-1.5">
                   {singleLock ? "Decided" : `${lockedCount} finalised`}
                 </Badge>
               )}
               {!locked && pendingCount && pendingCount > 0 ? (
-                <Badge className="text-[10px] bg-orange-100 text-orange-700 border-orange-200 px-1.5">
+                <Badge className="text-[10px] bg-warning-soft text-warning-on-soft border-warning-border px-1.5">
                   {pendingCount} to vote
                 </Badge>
               ) : null}

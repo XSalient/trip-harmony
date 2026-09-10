@@ -34,11 +34,11 @@ const typeIcons: Record<string, any> = {
 };
 
 const typeColors: Record<string, string> = {
-  nudge: "bg-blue-100 text-blue-700",
-  mediation: "bg-purple-100 text-purple-700",
-  compromise: "bg-yellow-100 text-yellow-700",
-  celebration: "bg-green-100 text-green-700",
-  summary: "bg-gray-100 text-gray-700",
+  nudge: "bg-cat-1-soft text-cat-1-on-soft",
+  mediation: "bg-cat-4-soft text-cat-4-on-soft",
+  compromise: "bg-cat-6-soft text-cat-6-on-soft",
+  celebration: "bg-cat-3-soft text-cat-3-on-soft",
+  summary: "bg-muted text-muted-foreground",
 };
 
 export default function TripReferee() {

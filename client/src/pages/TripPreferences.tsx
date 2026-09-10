@@ -31,9 +31,9 @@ const SECTIONS = [
     key: "mustHaves" as const,
     label: "Must-Haves / Hard Constraints",
     icon: CheckCircle2,
-    color: "text-red-600",
-    bg: "bg-red-50 dark:bg-red-950/30",
-    border: "border-red-200 dark:border-red-800",
+    color: "text-success",
+    bg: "bg-success-soft",
+    border: "border-success-border",
     placeholder:
       "e.g. Ground floor or elevator only (bad knee), minimum 3 attached bathrooms, EV charger required, full kitchen with pressure cooker…",
     hint: "These will be enforced. Any proposal failing these will be flagged with a warning.",
@@ -42,9 +42,9 @@ const SECTIONS = [
     key: "strongPreferences" as const,
     label: "Strong Preferences",
     icon: Star,
-    color: "text-amber-600",
-    bg: "bg-amber-50 dark:bg-amber-950/30",
-    border: "border-amber-200 dark:border-amber-800",
+    color: "text-info",
+    bg: "bg-info-soft",
+    border: "border-info-border",
     placeholder:
       "e.g. Pool essential for the kids, large kitchen with 4+ burners, secure bike storage for 4 adults, near beach…",
     hint: "Important but not absolute. The AI uses these for scoring.",
@@ -53,9 +53,9 @@ const SECTIONS = [
     key: "avoids" as const,
     label: "Avoids / Dealbreakers",
     icon: ThumbsDown,
-    color: "text-orange-600",
-    bg: "bg-orange-50 dark:bg-orange-950/30",
-    border: "border-orange-200 dark:border-orange-800",
+    color: "text-danger",
+    bg: "bg-danger-soft",
+    border: "border-danger-border",
     placeholder:
       "e.g. No more than 10 stairs, avoid car-free parks (long luggage walk), no high energy-cost cottages, not too remote…",
     hint: "Things that would make you vote No. These raise the resentment risk score.",
@@ -64,9 +64,9 @@ const SECTIONS = [
     key: "openComments" as const,
     label: "Open Comments",
     icon: MessageSquare,
-    color: "text-blue-600",
-    bg: "bg-blue-50 dark:bg-blue-950/30",
-    border: "border-blue-200 dark:border-blue-800",
+    color: "text-muted-foreground",
+    bg: "bg-muted",
+    border: "border-border",
     placeholder:
       "Anything else — flexible timings, early bedtime needs, happy to share rooms, dietary notes for Jain/vegan cooking, etc.",
     hint: "Freeform context the AI takes into account when analysing proposals.",
@@ -252,7 +252,7 @@ export default function TripPreferences() {
 
         {/* AI tip */}
         <div className="flex gap-2 rounded-xl border border-border/50 bg-muted/40 p-3">
-          <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+          <Lightbulb className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Tip:</span> Be
             specific. "Ground floor or elevator only" is more useful than

@@ -75,7 +75,7 @@ export default function Preview() {
 
   return (
     <div className="min-h-dvh bg-background pb-nav">
-      <header className="sticky top-0 z-40 safe-top border-b border-border/70 bg-card/85 backdrop-blur-lg">
+      <header className="sticky top-0 z-40 safe-area-top border-b border-border/70 bg-card/85 backdrop-blur-lg">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <h1 className="flex-1 font-display text-lg font-bold tracking-tight">
             Design system
