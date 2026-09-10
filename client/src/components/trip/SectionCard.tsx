@@ -26,7 +26,7 @@ export function AddProposalButton({ href }: { href: string }) {
     <Button
       size="sm"
       variant="outline"
-      className="gap-1 h-8 text-xs rounded-lg shrink-0"
+      className="h-9 shrink-0 gap-1 rounded-full text-xs touch-target"
       onClick={e => {
         // The section header toggles; this goes somewhere more specific.
         e.stopPropagation();
@@ -110,17 +110,17 @@ export default function SectionCard({
   // is dead space on a collapsed section, and every section starts collapsed.
   return (
     <Card
-      className={`border py-0 ${locked ? "border-success-border bg-success-soft" : "border-border/50"} ${className ?? ""}`}
+      className={`overflow-hidden rounded-2xl border py-0 shadow-e1 transition-shadow hover:shadow-e2 ${locked ? "border-success-border bg-success-soft" : "border-border/70"} ${className ?? ""}`}
     >
       <CardContent className="p-0">
-        <div className="flex items-center gap-3 px-3 pt-3 pb-2">
+        <div className="flex items-center gap-3 px-4 pb-2.5 pt-3.5">
           <button
             onClick={onToggle}
             aria-expanded={open}
             className="flex flex-1 min-w-0 items-center gap-3 text-left"
           >
             <div
-              className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/10 text-primary"}`}
+              className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/10 text-primary"}`}
             >
               {locked ? (
                 <CheckCircle2 className="h-5 w-5" />
@@ -129,7 +129,7 @@ export default function SectionCard({
               )}
             </div>
             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-medium">{title}</span>
+              <span className="font-display text-[15px] font-bold tracking-tight">{title}</span>
               {locked && (
                 <Badge className="text-[10px] bg-success-soft text-success-on-soft border-success-border px-1.5">
                   {singleLock ? "Decided" : `${lockedCount} finalised`}
@@ -158,7 +158,7 @@ export default function SectionCard({
             onClick={onToggle}
             aria-hidden="true"
             tabIndex={-1}
-            className="shrink-0 p-1 -m-1 text-muted-foreground"
+            className="-m-1 flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground touch-target hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ChevronDown
               className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
@@ -170,14 +170,14 @@ export default function SectionCard({
             {/* An empty list still arrives as `[]`, which is truthy — count the
                 rendered children rather than the expression that made them. */}
             {React.Children.count(children) > 0 ? (
-              <div className="px-3 pb-2 space-y-1.5">{children}</div>
+              <div className="space-y-2 px-4 pb-3">{children}</div>
             ) : (
-              <p className="px-3 pb-3 text-xs text-muted-foreground">
+              <p className="px-4 pb-3.5 text-[13px] text-muted-foreground">
                 {emptyText}
               </p>
             )}
             <Link href={href}>
-              <div className="flex items-center justify-between px-3 py-2.5 border-t border-border/30 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors cursor-pointer rounded-b-xl">
+              <div className="flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/50 px-4 py-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
                 <span>View all details</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </div>
@@ -211,15 +211,15 @@ export function CollapsibleRow({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border-border/50 py-0">
+    <Card className="overflow-hidden rounded-2xl border-border/70 py-0 shadow-e1">
       <CardContent className="p-0">
         <button
           onClick={onToggle}
           aria-expanded={open}
-          className="flex w-full items-center gap-3 p-3 text-left"
+          className="flex min-h-14 w-full items-center gap-3 p-3.5 text-left"
         >
           <div
-            className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${iconClass ?? "bg-primary/10 text-primary"}`}
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconClass ?? "bg-primary/10 text-primary"}`}
           >
             {icon}
           </div>

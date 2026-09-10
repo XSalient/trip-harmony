@@ -14,6 +14,7 @@
  * pages import it from this file.
  */
 import { useState } from "react";
+import { Info } from "lucide-react";
 import {
   PREFERENCE_VOTES,
   VOTE_LABELS,
@@ -57,6 +58,14 @@ export default function VoteScore({
       : score < 0
         ? "text-danger"
         : "text-muted-foreground";
+  // Chip surface matching the text tone, so the score reads as a badge rather
+  // than a stray underlined number.
+  const chip =
+    score > 0
+      ? "bg-success-soft text-success-on-soft"
+      : score < 0
+        ? "bg-danger-soft text-danger-on-soft"
+        : "bg-muted text-muted-foreground";
 
   return (
     <>
@@ -67,13 +76,15 @@ export default function VoteScore({
           setOpen(true);
         }}
         aria-label={`Vote score ${signed(score)} — how this is worked out`}
-        className={`text-lg font-bold underline decoration-dotted decoration-1 underline-offset-4 ${tone} ${className}`}
+        className={`inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-base font-bold tabular touch-target transition-[filter] hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card ${chip} ${className}`}
       >
         {signed(score)}
+        {/* Keeps the "this explains itself" affordance the underline carried. */}
+        <Info className="size-3 opacity-60" aria-hidden />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="glass-flat sm:max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>Vote score {signed(score)}</DialogTitle>
           </DialogHeader>

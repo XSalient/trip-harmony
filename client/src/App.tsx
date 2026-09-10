@@ -9,7 +9,6 @@ import ScrollRestoration from "./components/ScrollRestoration";
 import { startNativeBridge } from "./lib/nativeBridge";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
-import Preview from "./pages/Preview";
 
 /**
  * Every page but the first two is fetched when somebody goes to it.
@@ -22,6 +21,7 @@ import Preview from "./pages/Preview";
  * lands on, so splitting it only adds a round trip before anything is drawn, and
  * the second is the fallback, which should never itself fail to load.
  */
+const Preview = lazy(() => import("./pages/Preview"));
 const CreateTrip = lazy(() => import("./pages/CreateTrip"));
 const JoinTrip = lazy(() => import("./pages/JoinTrip"));
 const TripDashboard = lazy(() => import("./pages/TripDashboard"));

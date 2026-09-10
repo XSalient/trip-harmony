@@ -19,6 +19,7 @@ import {
   Trash2,
   X,
   Users,
+  Heart,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -83,7 +84,7 @@ function RowShell({
 }) {
   return (
     <div
-      className={`rounded-lg border p-2.5 text-xs ${row.selected ? "border-success-border bg-success-soft" : "border-border/40 bg-background"}`}
+      className={`rounded-2xl border p-3.5 text-sm shadow-e1 transition-shadow hover:shadow-e2 ${row.selected ? "border-success-border bg-success-soft" : "border-border/70 bg-card"}`}
     >
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex-1 min-w-0">{title}</div>
@@ -104,8 +105,8 @@ function RowShell({
           {canManage && !row.selected && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-                  <MoreVertical className="h-3.5 w-3.5" />
+                <button aria-label="Proposal actions" className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors touch-target hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <MoreVertical className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="text-xs">
@@ -158,15 +159,16 @@ function VoteButtons<T extends string>({
   onVote: (vote: T) => void;
 }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex gap-1.5">
+    <div className="space-y-2">
+      <div className="flex gap-2">
         {options.map(btn => (
           <button
             key={btn.vote}
             onClick={() => onVote(btn.vote)}
-            className={`flex-1 flex items-center justify-center gap-1 py-1 rounded border text-[11px] transition-colors ${myVote === btn.vote ? btn.active : "border-border/60 text-muted-foreground hover:border-border"}`}
+            aria-pressed={myVote === btn.vote}
+            className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${myVote === btn.vote ? `${btn.active} font-semibold shadow-e1` : "border-border/70 text-muted-foreground hover:border-foreground/25 hover:text-foreground"}`}
           >
-            {btn.icon && <btn.icon className="h-3 w-3" />}
+            {btn.icon && <btn.icon className="h-4 w-4 shrink-0" />}
             {btn.label}
           </button>
         ))}
@@ -176,16 +178,47 @@ function VoteButtons<T extends string>({
       <button
         onClick={() => onVote(MAJORITY_VOTE as T)}
         aria-pressed={myVote === MAJORITY_VOTE}
-        className={`w-full flex items-center justify-center gap-1 py-1 rounded border text-[11px] transition-colors ${
+        className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
           myVote === MAJORITY_VOTE
-            ? "bg-muted text-foreground border-foreground/20"
-            : "border-border/60 text-muted-foreground hover:border-border"
+            ? "border-foreground/20 bg-muted font-semibold text-foreground"
+            : "border-border/70 text-muted-foreground hover:border-foreground/25 hover:text-foreground"
         }`}
       >
-        <Users className="h-3 w-3" />
+        <Users className="h-4 w-4 shrink-0" />
         {VOTE_LABELS[MAJORITY_VOTE]}
       </button>
     </div>
+  );
+}
+
+/**
+ * One entry in a proposal's vote tally.
+ *
+ * These were bare glyphs — `{n}✓`, `{n}?`, `{n}✗`, `{n}❤` — which are text
+ * characters standing in for icons: they render inconsistently across
+ * platforms, cannot be styled with the icon scale, and a screen reader reads
+ * "3 check mark". Icon plus number plus an accessible label instead.
+ */
+function TallyChip({
+  icon: Icon,
+  count,
+  label,
+  tone,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  count: number;
+  label: string;
+  tone: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 ${tone}`}
+      title={`${count} ${label}`}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="tabular font-semibold">{count}</span>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }
 
@@ -272,13 +305,9 @@ export function DateProposalRow({
       }
       tally={
         <>
-          <span className="text-success">
-            {countVotes(row, "available")}✓
-          </span>
-          <span className="text-warning">{countVotes(row, "maybe")}?</span>
-          <span className="text-danger">
-            {countVotes(row, "unavailable")}✗
-          </span>
+          <TallyChip icon={Check} count={countVotes(row, "available")} label="available" tone="text-success" />
+          <TallyChip icon={HelpCircle} count={countVotes(row, "maybe")} label="maybe" tone="text-warning" />
+          <TallyChip icon={X} count={countVotes(row, "unavailable")} label="unavailable" tone="text-danger" />
         </>
       }
       votes={
@@ -330,9 +359,9 @@ export function BudgetProposalRow({
       }
       tally={
         <>
-          <span className="text-success">{countVotes(row, "love")}✓</span>
-          <span className="text-warning">{countVotes(row, "fine")}?</span>
-          <span className="text-danger">{countVotes(row, "veto")}✗</span>
+          <TallyChip icon={Check} count={countVotes(row, "love")} label="love it" tone="text-success" />
+          <TallyChip icon={HelpCircle} count={countVotes(row, "fine")} label="fine" tone="text-warning" />
+          <TallyChip icon={X} count={countVotes(row, "veto")} label="veto" tone="text-danger" />
         </>
       }
       votes={
@@ -377,9 +406,9 @@ export function ChoiceProposalRow({
       }
       tally={
         <>
-          <span className="text-cat-4">{countVotes(row, "love")}❤</span>
-          <span className="text-info">{countVotes(row, "fine")}✓</span>
-          <span className="text-danger">{countVotes(row, "veto")}✗</span>
+          <TallyChip icon={Heart} count={countVotes(row, "love")} label="love it" tone="text-cat-4" />
+          <TallyChip icon={Check} count={countVotes(row, "fine")} label="fine" tone="text-info" />
+          <TallyChip icon={X} count={countVotes(row, "veto")} label="veto" tone="text-danger" />
         </>
       }
       votes={
