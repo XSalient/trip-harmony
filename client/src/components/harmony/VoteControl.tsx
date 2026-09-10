@@ -1,18 +1,19 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
-  STANCES, STANCE_TONE, stanceOf, type Tally, type VoteScale, type VoteStance,
+  STANCES, STANCE_TONE, stanceOf, VOTE_LABELS, type Tally, type VoteScale,
+  type VoteStance,
 } from "@/lib/voting";
 import { tone as toneClasses } from "./tone";
 
 /* ========================================================= VoteControl === */
 
-interface VoteControlProps<W extends string> {
-  scale: VoteScale<W>;
+interface VoteControlProps {
+  scale: VoteScale;
   /** The current user's vote, in wire form. */
-  value?: W | null;
+  value?: string | null;
   /** `isUnvote` is decided here, not at the call site. */
-  onVote: (wire: W, isUnvote: boolean) => void;
+  onVote: (wire: string, isUnvote: boolean) => void;
   size?: "sm" | "md";
   /** `labeled` shows words; `icon` is for dense rows and narrow cards. */
   layout?: "labeled" | "icon";
@@ -21,7 +22,7 @@ interface VoteControlProps<W extends string> {
   className?: string;
 }
 
-export function VoteControl<W extends string>({
+export function VoteControl({
   scale,
   value,
   onVote,
@@ -30,7 +31,7 @@ export function VoteControl<W extends string>({
   disabled,
   pending,
   className,
-}: VoteControlProps<W>) {
+}: VoteControlProps) {
   const current = stanceOf(scale, value);
   const reduce = useReducedMotion();
 
@@ -46,15 +47,15 @@ export function VoteControl<W extends string>({
       )}
     >
       {STANCES.map(stance => {
-        const wire = scale.values[stance];
+        const wire = scale.byStance[stance];
         const active = current === stance;
         const c = toneClasses(STANCE_TONE[stance]);
-        const Icon = scale.icons[stance];
+        const Icon = scale.icons[wire];
         // Always render the short label. Three buttons across a 390px screen
         // cannot fit "Can't make it" without truncating, and truncation is a
         // worse failure than brevity. The full phrasing stays as the
         // accessible name below.
-        const label = scale.shortLabels[stance];
+        const label = VOTE_LABELS[wire] ?? wire;
 
         return (
           <motion.button
@@ -62,7 +63,7 @@ export function VoteControl<W extends string>({
             type="button"
             role="radio"
             aria-checked={active}
-            aria-label={scale.labels[stance]}
+            aria-label={VOTE_LABELS[wire] ?? wire}
             disabled={disabled}
             whileTap={reduce || disabled ? undefined : { scale: 0.94 }}
             onClick={() => onVote(wire, active)}
@@ -107,7 +108,7 @@ export function VoteBar({
 }: {
   tally: Tally;
   memberCount?: number;
-  scale: VoteScale<string>;
+  scale: VoteScale;
   className?: string;
   showLegend?: boolean;
 }) {
@@ -121,10 +122,9 @@ export function VoteBar({
         className="flex h-2 w-full overflow-hidden rounded-full bg-muted"
         role="img"
         aria-label={
-          `${tally.up} ${scale.shortLabels.up}, ` +
-          `${tally.mid} ${scale.shortLabels.mid}, ` +
-          `${tally.down} ${scale.shortLabels.down}` +
-          (pending ? `, ${pending} not voted` : "")
+          STANCES.map(
+            s => `${tally[s]} ${VOTE_LABELS[scale.byStance[s]] ?? s}`
+          ).join(", ") + (pending ? `, ${pending} not voted` : "")
         }
       >
         {STANCES.map(stance => {
@@ -154,7 +154,7 @@ export function VoteBar({
               >
                 <span className={cn("size-1.5 rounded-full", c.solid)} aria-hidden />
                 <span className="tabular font-medium text-foreground">{tally[stance]}</span>
-                {scale.shortLabels[stance]}
+                {VOTE_LABELS[scale.byStance[stance]] ?? stance}
               </span>
             );
           })}

@@ -199,12 +199,17 @@ RAW = re.compile(
 
 def migrate():
     changed, total_before, total_after = [], 0, 0
-    for root, _dirs, files in os.walk(SRC):
+    # shared/ is in scope too: shared/votes.ts holds VOTE_TONE, a map of UI
+    # class strings. Scanning only client/src left those raw, which is exactly
+    # the kind of gap a "0 remaining" count hides.
+    roots = [(SRC, ".tsx"), (os.path.join("..", "shared"), ".ts")]
+    for base, suffix in roots:
+      for root, _dirs, files in os.walk(base):
         for name in sorted(files):
-            if not name.endswith(".tsx"):
+            if not name.endswith(suffix):
                 continue
             path = os.path.join(root, name)
-            rel = os.path.relpath(path, SRC).replace("\\", "/")
+            rel = os.path.relpath(path, base).replace("\\", "/")
             original = open(path, encoding="utf-8").read()
             total_before += len(RAW.findall(original))
             text = original

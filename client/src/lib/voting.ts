@@ -1,88 +1,102 @@
-import { Ban, Check, Heart, HelpCircle, type LucideIcon, X } from "lucide-react";
+import { Ban, Check, Heart, HelpCircle, type LucideIcon, Users, X } from "lucide-react";
+import {
+  DATE_VOTES,
+  MAJORITY_VOTE,
+  PREFERENCE_VOTES,
+  VOTE_LABELS,
+  VOTE_WEIGHTS,
+  scoreVotes,
+} from "@shared/votes";
 
 /**
- * The app has exactly two vote wire-vocabularies, but all six call sites render
- * the same three choices. Modelling that as one stance with two scales removes
- * six divergent copies of the same UI.
+ * Presentation for a vote value — icons and grouping only.
+ *
+ * The weights, labels and the scoring rule deliberately are NOT redefined
+ * here. `shared/votes.ts` owns them, and the comment on VoteScore records why:
+ * the badge, the card ordering and the referee's reasoning had each grown their
+ * own copy of the rule, and the three drifted. This module adds the one thing
+ * shared/ has no opinion about — which glyph goes with which value — and
+ * re-exports the rest so a component needs a single import.
  */
-export type VoteStance = "up" | "mid" | "down";
 
-export interface VoteScale<W extends string = string> {
+export type VoteStance = "up" | "mid" | "down" | "abstain";
+
+export interface VoteScale {
   id: "availability" | "preference";
+  /** In display order, abstain last — it is a different kind of answer. */
+  values: readonly string[];
   /** stance -> the value the API expects */
-  values: Record<VoteStance, W>;
-  labels: Record<VoteStance, string>;
-  /** Short form for dense/icon layouts. */
-  shortLabels: Record<VoteStance, string>;
-  icons: Record<VoteStance, LucideIcon>;
-  /** Scoring weights. Down is punitive so one veto outweighs one yes. */
-  weight: Record<VoteStance, number>;
+  byStance: Record<Exclude<VoteStance, "abstain">, string>;
+  icons: Record<string, LucideIcon>;
 }
 
-const WEIGHT: Record<VoteStance, number> = { up: 2, mid: 1, down: -3 };
-
-export const AVAILABILITY_SCALE: VoteScale<"available" | "maybe" | "unavailable"> = {
+export const AVAILABILITY_SCALE: VoteScale = {
   id: "availability",
-  values: { up: "available", mid: "maybe", down: "unavailable" },
-  labels: { up: "I'm free", mid: "Maybe", down: "Can't make it" },
-  shortLabels: { up: "Yes", mid: "Maybe", down: "No" },
-  icons: { up: Check, mid: HelpCircle, down: X },
-  weight: WEIGHT,
+  values: DATE_VOTES,
+  byStance: { up: "available", mid: "maybe", down: "unavailable" },
+  icons: {
+    available: Check,
+    maybe: HelpCircle,
+    unavailable: X,
+    [MAJORITY_VOTE]: Users,
+  },
 };
 
-export const PREFERENCE_SCALE: VoteScale<"love" | "fine" | "veto"> = {
+export const PREFERENCE_SCALE: VoteScale = {
   id: "preference",
-  values: { up: "love", mid: "fine", down: "veto" },
-  labels: { up: "Love it", mid: "Fine", down: "Veto" },
-  shortLabels: { up: "Love", mid: "Fine", down: "Veto" },
-  icons: { up: Heart, mid: HelpCircle, down: Ban },
-  weight: WEIGHT,
+  values: PREFERENCE_VOTES,
+  byStance: { up: "love", mid: "fine", down: "veto" },
+  icons: {
+    love: Heart,
+    fine: Check,
+    veto: Ban,
+    [MAJORITY_VOTE]: Users,
+  },
 };
 
-export const STANCES: VoteStance[] = ["up", "mid", "down"];
+export const STANCES = ["up", "mid", "down"] as const;
 
-/** Map an API value back to its stance. */
-export function stanceOf<W extends string>(
-  scale: VoteScale<W>,
-  wire: W | null | undefined
-): VoteStance | undefined {
+/** Which stance a wire value represents, for tone and grouping. */
+export function stanceOf(scale: VoteScale, wire: string | null | undefined): VoteStance | undefined {
   if (!wire) return undefined;
-  return STANCES.find(s => scale.values[s] === wire);
+  if (wire === MAJORITY_VOTE) return "abstain";
+  const found = STANCES.find(s => scale.byStance[s] === wire);
+  return found;
 }
+
+/** Semantic tone per stance, so status colour is never chosen ad hoc. */
+export const STANCE_TONE: Record<VoteStance, "success" | "warning" | "danger" | "neutral"> = {
+  up: "success",
+  mid: "warning",
+  down: "danger",
+  abstain: "neutral",
+};
 
 export interface Tally {
   up: number;
   mid: number;
   down: number;
+  abstain: number;
   total: number;
-  /** Weighted group score; higher is better. */
+  /** Weighted group score, from shared/votes.ts — not recomputed here. */
   score: number;
 }
 
-/**
- * Count votes and compute the weighted score. Replaces the duplicated reduce
- * that lived in both TripDestinations and TripAccommodations.
- */
-export function tally<W extends string>(
-  scale: VoteScale<W>,
-  votes: ReadonlyArray<{ vote: W | string }> | null | undefined
+/** Counts per stance plus the shared score. */
+export function tally(
+  scale: VoteScale,
+  votes: ReadonlyArray<{ vote: string }> | null | undefined
 ): Tally {
-  const counts: Record<VoteStance, number> = { up: 0, mid: 0, down: 0 };
+  const counts = { up: 0, mid: 0, down: 0, abstain: 0 };
   for (const v of votes ?? []) {
-    const stance = stanceOf(scale, v.vote as W);
+    const stance = stanceOf(scale, v.vote);
     if (stance) counts[stance] += 1;
   }
-  const total = counts.up + counts.mid + counts.down;
-  const score =
-    counts.up * scale.weight.up +
-    counts.mid * scale.weight.mid +
-    counts.down * scale.weight.down;
-  return { ...counts, total, score };
+  return {
+    ...counts,
+    total: counts.up + counts.mid + counts.down + counts.abstain,
+    score: scoreVotes(votes as { vote: string }[] | null | undefined),
+  };
 }
 
-/** Semantic tone for a stance, so status colour is never chosen ad hoc. */
-export const STANCE_TONE: Record<VoteStance, "success" | "warning" | "danger"> = {
-  up: "success",
-  mid: "warning",
-  down: "danger",
-};
+export { MAJORITY_VOTE, VOTE_LABELS, VOTE_WEIGHTS, scoreVotes };

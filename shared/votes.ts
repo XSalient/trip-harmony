@@ -64,12 +64,12 @@ export const VOTE_LABELS: Record<string, string> = {
 };
 
 export const VOTE_TONE: Record<string, string> = {
-  available: "text-green-600",
-  love: "text-green-600",
-  maybe: "text-yellow-600",
-  fine: "text-yellow-600",
-  unavailable: "text-red-500",
-  veto: "text-red-500",
+  available: "text-success",
+  love: "text-success",
+  maybe: "text-warning",
+  fine: "text-warning",
+  unavailable: "text-danger",
+  veto: "text-danger",
   [MAJORITY_VOTE]: "text-muted-foreground",
 };
 
