@@ -75,8 +75,12 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       {/* Design-system gallery: every other screen is auth-gated, so this is
-          how the system is reviewed in both themes at any viewport. */}
-      <Route path="/preview" component={Preview} />
+          how the system is reviewed in both themes at any viewport.
+
+          Development only. It is a build-time constant, so a production bundle
+          cannot route to it however the URL is typed — and there is nothing to
+          remember to remove later. A deployed build shows the 404 instead. */}
+      {import.meta.env.DEV && <Route path="/preview" component={Preview} />}
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
