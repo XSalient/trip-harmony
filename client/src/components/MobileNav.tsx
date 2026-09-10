@@ -40,7 +40,7 @@ export default function MobileNav() {
       aria-label="Primary"
       className="safe-area-bottom pointer-events-none fixed inset-x-0 bottom-0 z-50"
     >
-      <div className="glass pointer-events-auto mx-auto mb-2 flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-full p-1.5 shadow-e3">
+      <div className="glass pointer-events-auto mx-auto mb-2 flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-full p-1.5 shadow-e4">
         {navItems.map(item => {
           const isActive =
             item.href === "/"
@@ -62,9 +62,13 @@ export default function MobileNav() {
                   "transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                   // Fill + colour + weight, so the active tab never depends on
                   // colour alone.
-                  isActive
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:text-foreground"
+                  // The create action is the raised, gradient one — the same
+                  // emphasis a centre FAB gives, without moving it in the bar.
+                  item.href === "/trips/new"
+                    ? "grad-brand glow text-primary-foreground"
+                    : isActive
+                      ? "bg-primary/15 text-primary"
+                      : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <span className="relative">

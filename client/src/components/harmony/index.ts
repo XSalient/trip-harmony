@@ -21,6 +21,8 @@ export { VoteControl, VoteBar, ScoreChip } from "./VoteControl";
 
 export { AvatarStack, type Person } from "./AvatarStack";
 
+export { ProgressRing } from "./ProgressRing";
+
 export { BottomSheet, type BottomSheetProps } from "./BottomSheet";
 
 export { ChipPicker, StickyActionBar, Fab, StatusScreen, type ChipOption } from "./controls";

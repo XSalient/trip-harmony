@@ -7,11 +7,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import {
+  EmptyState,
+  IconTile,
+  Meta,
+  ProgressRing,
+  StaggerItem,
+  StaggerList,
+  StatusPill,
+  Surface,
+} from "@/components/harmony";
+import type { Tone } from "@/lib/taxonomy";
 import Landing from "./Landing";
 import { PaywallDialog } from "@/components/PaywallDialog";
 import { AuthDialog } from "@/components/AuthDialog";
 import { Link, useLocation } from "wouter";
 import {
+  UserRound,
+  Users,
   ClipboardList,
   MapPin,
   Plus,
@@ -33,6 +46,16 @@ import {
 } from "@/components/ui/dialog";
 import { DEMO_PERSONAS, DEMO_TOUR_INVITE_CODE } from "@shared/demo";
 
+/** Phase order, so a trip's progress can be shown as a proportion. */
+const PHASE_ORDER = [
+  "setup",
+  "dates",
+  "destination",
+  "accommodation",
+  "activities",
+  "finalized",
+];
+
 function TripCard({ trip }: { trip: any }) {
   const phaseLabels: Record<string, string> = {
     setup: "Getting Started",
@@ -42,45 +65,51 @@ function TripCard({ trip }: { trip: any }) {
     activities: "Planning Activities",
     finalized: "All Set!",
   };
-  const phaseColors: Record<string, string> = {
-    setup: "bg-muted text-muted-foreground",
-    dates: "bg-chart-4/10 text-chart-4",
-    destination: "bg-chart-3/10 text-chart-3",
-    accommodation: "bg-chart-2/10 text-chart-2",
-    activities: "bg-primary/10 text-primary",
-    finalized: "bg-success-soft text-success-on-soft",
+  const phaseTone: Record<string, Tone> = {
+    setup: "neutral",
+    dates: "cat-1",
+    destination: "cat-5",
+    accommodation: "cat-2",
+    activities: "cat-4",
+    finalized: "success",
   };
+
+  const step = Math.max(0, PHASE_ORDER.indexOf(trip.phase));
+  const progress = ((step + 1) / PHASE_ORDER.length) * 100;
 
   return (
     <Link href={`/trips/${trip.id}`} className="block">
-      <Card className="border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-base truncate">{trip.name}</h3>
-              {trip.description && (
-                <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                  {trip.description}
-                </p>
+      <Surface interactive className="overflow-hidden">
+        {/* Gradient spine: gives the row an anchor on the left and carries the
+            brand into the list without tinting the whole card. */}
+        <span
+          aria-hidden
+          className="grad-brand absolute inset-y-3 left-0 w-1 rounded-r-full"
+        />
+        <div className="flex items-center gap-3 p-4 pl-5">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate font-display text-[17px] font-bold tracking-tight">
+              {trip.name}
+            </h3>
+            {trip.description && (
+              <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
+                {trip.description}
+              </p>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusPill tone={phaseTone[trip.phase] ?? "neutral"}>
+                {phaseLabels[trip.phase] || trip.phase}
+              </StatusPill>
+              {trip.memberRole === "organizer" && (
+                <Meta icon={Users}>You organise this</Meta>
               )}
-              <div className="flex items-center gap-2 mt-2">
-                <Badge
-                  variant="secondary"
-                  className={`text-xs ${phaseColors[trip.phase] || ""}`}
-                >
-                  {phaseLabels[trip.phase] || trip.phase}
-                </Badge>
-                {trip.memberRole === "organizer" && (
-                  <Badge variant="outline" className="text-xs">
-                    Organizer
-                  </Badge>
-                )}
-              </div>
             </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
           </div>
-        </CardContent>
-      </Card>
+
+          <ProgressRing value={progress} label={`${trip.name} progress`} />
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        </div>
+      </Surface>
     </Link>
   );
 }
@@ -94,59 +123,122 @@ function Dashboard() {
   const { data: billing } = trpc.billing.status.useQuery();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
+  const firstName = user?.name?.split(" ")[0] || "there";
+  const hour = new Date().getHours();
+  const greeting = `${
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
+  }, ${firstName}`;
+  const tripCount = trips?.length ?? 0;
+
   return (
     <AppShell
-      title={`Hi, ${user?.name?.split(" ")[0] || "Traveler"}`}
+      title={greeting}
+      largeTitle
+      headerBelow={
+        <p className="mt-1 text-sm text-muted-foreground">
+          {tripCount > 0
+            ? `${tripCount} ${tripCount === 1 ? "trip" : "trips"} in motion`
+            : "Nothing planned yet"}
+        </p>
+      }
       headerRight={
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9"
+          aria-label="Sign out"
           onClick={() => logout()}
         >
           <LogOut className="h-4 w-4" />
         </Button>
       }
     >
-      <div className="px-4 py-4 space-y-5">
-        {/* Quick Actions */}
-        <Button
-          variant="default"
-          className="h-auto w-full py-4 flex-col gap-2 rounded-xl shadow-sm"
-          onClick={() =>
-            billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
-          }
-        >
-          <Plus className="h-5 w-5" />
-          <span className="text-sm font-medium">New Trip</span>
-        </Button>
+      <div className="space-y-6 px-4 py-4">
+        {/* Two action tiles: the primary one carries the brand gradient, the
+            secondary sits on a plain surface so the hierarchy is unambiguous. */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+            }
+            className="grad-brand glow flex min-h-[8.5rem] flex-col items-start justify-between rounded-2xl p-4 text-left text-primary-foreground transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:active:scale-100"
+          >
+            <span className="flex size-11 items-center justify-center rounded-full bg-white/20">
+              <Plus className="size-5" />
+            </span>
+            <span>
+              <span className="block font-display text-[17px] font-bold">New trip</span>
+              <span className="block text-sm opacity-80">Start planning</span>
+            </span>
+          </button>
 
-        {/* Trips */}
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Your Trips
-          </h2>
+          <Link href="/profile" className="block">
+            <Surface
+              interactive
+              className="flex min-h-[8.5rem] flex-col items-start justify-between p-4"
+            >
+              <IconTile icon={UserRound} tone="cat-1" size="lg" />
+              <span>
+                <span className="block font-display text-[17px] font-bold tracking-tight">
+                  Your profile
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  Account &amp; plan
+                </span>
+              </span>
+            </Surface>
+          </Link>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between px-1">
+            <h2 className="font-display text-[17px] font-bold tracking-tight">
+              Your trips
+            </h2>
+            {tripCount > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+                }
+                className="inline-flex min-h-9 items-center gap-1 rounded-full px-2 text-[13px] font-semibold text-primary touch-target"
+              >
+                <Plus className="size-4" />
+                New
+              </button>
+            )}
+          </div>
+
           {isLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map(i => (
-                <Skeleton key={i} className="h-20 rounded-xl" />
+              {[0, 1, 2].map(i => (
+                <Skeleton key={i} className="h-[104px] rounded-2xl" />
               ))}
             </div>
           ) : trips && trips.length > 0 ? (
-            <div className="space-y-3">
+            <StaggerList className="space-y-3">
               {trips.map((trip: any) => (
-                <TripCard key={trip.id} trip={trip} />
+                <StaggerItem key={trip.id}>
+                  <TripCard trip={trip} />
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerList>
           ) : (
-            <Card className="border-dashed">
-              <CardContent className="p-8 text-center">
-                <MapPin className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">
-                  No trips yet. Create one to get started!
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={MapPin}
+              title="No trips yet"
+              description="Start one, share the link, and let everyone weigh in."
+              action={
+                <Button
+                  onClick={() =>
+                    billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+                  }
+                >
+                  <Plus />
+                  New trip
+                </Button>
+              }
+            />
           )}
         </div>
       </div>

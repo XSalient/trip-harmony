@@ -46,6 +46,9 @@ def glass_vars(key):
     ]
     for name, (a, b) in gradients(dark).items():
         out.append(f'  --grad-{name}: linear-gradient(135deg, {a} 0%, {b} 100%);')
+    # Atmosphere: aurora washes, the brand glow and the violet shadow tints.
+    for name, value in ATMOSPHERE[key].items():
+        out.append(f'  --{name}: {value};')
     return "\n".join(out)
 
 
@@ -93,12 +96,14 @@ CSS = f"""@import "tailwindcss";
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 12px);
+  --radius-3xl: calc(var(--radius) + 20px);
 
   /* elevation scale (MASTER §4) */
   --shadow-e1: var(--elevation-1);
   --shadow-e2: var(--elevation-2);
   --shadow-e3: var(--elevation-3);
   --shadow-e4: var(--elevation-4);
+  --shadow-glow: var(--elevation-glow);
 
   /* motion (MASTER §7) */
   --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
@@ -118,11 +123,13 @@ CSS = f"""@import "tailwindcss";
   --motion-base: 220ms;
   --motion-slow: 320ms;
 
-  /* elevation — light */
-  --elevation-1: 0 1px 3px rgb(0 0 0 / 0.08);
-  --elevation-2: 0 4px 6px rgb(0 0 0 / 0.10);
-  --elevation-3: 0 10px 20px rgb(0 0 0 / 0.10);
-  --elevation-4: 0 20px 40px rgb(0 0 0 / 0.15);
+  /* Elevation is layered and violet-tinted, so shadows belong to the palette
+     rather than being neutral grey. Values follow the reference design. */
+  --elevation-1: 0 1px 2px -1px var(--shadow-tint-weak), 0 1px 3px var(--shadow-tint-weak);
+  --elevation-2: 0 2px 4px -2px var(--shadow-tint-weak), 0 6px 16px -6px var(--shadow-tint);
+  --elevation-3: 0 4px 10px -4px var(--shadow-tint), 0 16px 32px -12px var(--shadow-tint);
+  --elevation-4: 0 8px 20px -8px var(--shadow-tint), 0 28px 56px -20px var(--shadow-tint-strong);
+  --elevation-glow: 0 8px 24px -6px var(--brand-glow);
 
 {theme_vars(LIGHT, status_light, False)}
 
@@ -147,12 +154,8 @@ CSS = f"""@import "tailwindcss";
 }}
 
 .dark {{
-  /* Dark is a set of desaturated tonal variants, not an inversion (MASTER §2.4).
-     Shadows are weakened; depth comes from surface lightness instead. */
-  --elevation-1: 0 1px 3px rgb(0 0 0 / 0.40);
-  --elevation-2: 0 4px 6px rgb(0 0 0 / 0.45);
-  --elevation-3: 0 10px 20px rgb(0 0 0 / 0.50);
-  --elevation-4: 0 20px 40px rgb(0 0 0 / 0.60);
+  /* Dark is a set of tonal variants, not an inversion (MASTER §2.4). The
+     elevation formulas are shared; only the tint underneath them changes. */
 
 {theme_vars(DARK, status_dark, True)}
 
@@ -313,6 +316,25 @@ CSS = f"""@import "tailwindcss";
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+}}
+
+/* Ambient aurora for hero surfaces. Three soft radial washes, positioned by
+   the caller; pointer-events-none and aria-hidden at the call site. */
+@utility aurora {{
+  position: relative;
+  isolation: isolate;
+}}
+
+@utility aurora-blob {{
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(64px);
+  pointer-events: none;
+}}
+
+/* A brand-tinted glow under the primary action, so it reads as lit. */
+@utility glow {{
+  box-shadow: var(--elevation-glow);
 }}
 
 @utility grad-brand {{

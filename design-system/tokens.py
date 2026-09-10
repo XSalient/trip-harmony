@@ -6,64 +6,71 @@ def hx(L,C,H):
 
 def ok(L,C,H): return f'oklch({L:.3f} {C:.3f} {H:.1f})'
 
-# hue anchors (from ui-ux-pro-max "Road Trip Planner" product palette)
-H_BRAND, H_TEAL, H_AMBER = 41.1, 221.7, 58.3
-H_SUCCESS, H_WARN, H_DANGER, H_INFO = 152.0, 75.0, 27.3, 240.0
-NEUTRAL_H, NEUTRAL_C = 70.0, 0.010     # warm neutral ramp
+# Hue anchors. Adopted from the reference design on
+# origin/redesign/mobile-ui-system: violet brand, coral and lagoon accents,
+# violet-tinted neutrals. Lightness is re-solved here so every pair clears WCAG
+# AA — that verification is what this file adds on top of the reference.
+H_BRAND, H_CORAL, H_LAGOON = 286.0, 33.0, 205.0
+H_SUCCESS, H_WARN, H_DANGER, H_INFO = 158.0, 68.0, 24.0, 255.0
+NEUTRAL_H, NEUTRAL_C = 285.0, 0.008     # violet-tinted neutral ramp
 
 LIGHT = {
- 'background':        (0.980, 0.016, 73.7),
- 'foreground':        (0.230, 0.030, 265.0),
+ 'background':        (0.985, 0.006, 285.0),
+ 'foreground':        (0.220, 0.032, 278.0),
  'card':              (1.000, 0.000, 89.9),
- 'card-foreground':   (0.230, 0.030, 265.0),
+ 'card-foreground':   (0.220, 0.032, 278.0),
  'popover':           (1.000, 0.000, 89.9),
- 'popover-foreground':(0.230, 0.030, 265.0),
- 'primary':           (0.584, 0.165, H_BRAND),
- 'primary-foreground':(1.000, 0.000, 89.9),
- 'secondary':         (0.958, 0.022, H_BRAND),
- 'secondary-foreground':(0.400, 0.100, H_BRAND),
- 'muted':             (0.966, 0.008, NEUTRAL_H),
- 'muted-foreground':  (0.500, 0.025, 258.0),
- 'accent':            (0.955, 0.030, H_AMBER),
- 'accent-foreground': (0.420, 0.110, H_AMBER),
- 'destructive':       (0.545, 0.205, H_DANGER),
- 'destructive-foreground':(1.000, 0.000, 89.9),
- 'border':            (0.865, 0.012, NEUTRAL_H),
- 'input':             (0.865, 0.012, NEUTRAL_H),
- 'ring':              (0.584, 0.165, H_BRAND),
- 'brand-teal':        (0.558, 0.111, H_TEAL),
- 'brand-teal-foreground':(1.000,0.000,89.9),
+ 'popover-foreground':(0.220, 0.032, 278.0),
+ 'primary':           (0.500, 0.190, H_BRAND),
+ 'primary-foreground':(0.990, 0.000, 89.9),
+ 'secondary':         (0.955, 0.022, H_BRAND),
+ 'secondary-foreground':(0.400, 0.140, H_BRAND),
+ 'muted':             (0.966, 0.007, H_BRAND),
+ 'muted-foreground':  (0.495, 0.026, 282.0),
+ 'accent':            (0.958, 0.030, 34.0),
+ 'accent-foreground': (0.420, 0.150, 34.0),
+ 'destructive':       (0.550, 0.210, H_DANGER),
+ 'destructive-foreground':(0.990, 0.000, 89.9),
+ 'border':            (0.861, 0.012, H_BRAND),
+ 'input':             (0.861, 0.012, H_BRAND),
+ 'ring':              (0.500, 0.190, H_BRAND),
+ 'coral':             (0.580, 0.190, H_CORAL),
+ 'coral-foreground':  (0.990, 0.000, 89.9),
+ 'lagoon':            (0.537, 0.120, H_LAGOON),
+ 'lagoon-foreground': (0.990, 0.000, 89.9),
 }
 DARK = {
- 'background':        (0.185, 0.012, 60.0),
- 'foreground':        (0.950, 0.008, 75.0),
- 'card':              (0.228, 0.014, 60.0),
- 'card-foreground':   (0.950, 0.008, 75.0),
- 'popover':           (0.228, 0.014, 60.0),
- 'popover-foreground':(0.950, 0.008, 75.0),
- 'primary':           (0.720, 0.150, H_BRAND),
- 'primary-foreground':(0.200, 0.030, H_BRAND),
- 'secondary':         (0.290, 0.030, H_BRAND),
- 'secondary-foreground':(0.900, 0.030, H_BRAND),
- 'muted':             (0.275, 0.010, NEUTRAL_H),
- 'muted-foreground':  (0.720, 0.020, 258.0),
- 'accent':            (0.300, 0.035, H_AMBER),
- 'accent-foreground': (0.900, 0.040, H_AMBER),
- 'destructive':       (0.680, 0.185, H_DANGER),
- 'destructive-foreground':(0.180, 0.030, H_DANGER),
- 'border':            (0.350, 0.012, NEUTRAL_H),
- 'input':             (0.375, 0.012, NEUTRAL_H),
- 'ring':              (0.720, 0.150, H_BRAND),
- 'brand-teal':        (0.700, 0.105, H_TEAL),
- 'brand-teal-foreground':(0.180,0.030,H_TEAL),
+ 'background':        (0.165, 0.021, 282.0),
+ 'foreground':        (0.965, 0.007, H_BRAND),
+ 'card':              (0.215, 0.024, 283.0),
+ 'card-foreground':   (0.965, 0.007, H_BRAND),
+ 'popover':           (0.215, 0.024, 283.0),
+ 'popover-foreground':(0.965, 0.007, H_BRAND),
+ 'primary':           (0.740, 0.155, 288.0),
+ 'primary-foreground':(0.170, 0.045, 285.0),
+ 'secondary':         (0.290, 0.045, H_BRAND),
+ 'secondary-foreground':(0.900, 0.050, 288.0),
+ 'muted':             (0.260, 0.022, 283.0),
+ 'muted-foreground':  (0.720, 0.022, 285.0),
+ 'accent':            (0.310, 0.055, 34.0),
+ 'accent-foreground': (0.870, 0.090, 40.0),
+ 'destructive':       (0.700, 0.185, H_DANGER),
+ 'destructive-foreground':(0.170, 0.040, H_DANGER),
+ 'border':            (0.346, 0.024, 284.0),
+ 'input':             (0.365, 0.024, 284.0),
+ 'ring':              (0.740, 0.155, 288.0),
+ 'coral':             (0.720, 0.165, H_CORAL),
+ 'coral-foreground':  (0.180, 0.040, H_CORAL),
+ 'lagoon':            (0.720, 0.110, H_LAGOON),
+ 'lagoon-foreground': (0.170, 0.035, H_LAGOON),
 }
-# status scales: base / foreground(on base) / soft(surface) / on-soft / border
+
 STATUS_H = {'success':H_SUCCESS,'warning':H_WARN,'danger':H_DANGER,'info':H_INFO}
-STATUS_C = {'success':0.130,'warning':0.140,'danger':0.205,'info':0.150}
+STATUS_C = {'success':0.140,'warning':0.140,'danger':0.200,'info':0.160}
 # Lightness solved so BOTH hold in light mode:
 #   white-on-base >= 4.5  (base used as a solid fill with white text)
 #   base-on-soft  >= 4.5  (base used as text inside its own soft surface)
-STATUS_L = {152.0:0.524, 75.0:0.541, 27.3:0.555, 240.0:0.527}
+STATUS_L = {H_SUCCESS:0.515, H_WARN:0.530, H_DANGER:0.545, H_INFO:0.520}
 def status_light(h,c):
     return {'':(STATUS_L[h],c,h), '-foreground':(1.000,0.000,89.9),
             '-soft':(0.955,min(c*0.22,0.035),h), '-on-soft':(0.420,c*0.72,h),
@@ -73,8 +80,8 @@ def status_dark(h,c):
             '-soft':(0.300,min(c*0.26,0.045),h), '-on-soft':(0.880,c*0.42,h),
             '-border':(0.380,min(c*0.40,0.065),h)}
 # category ramp (budget categories / notification types / itinerary item types)
-CAT_H = [259.0, 25.0, 152.0, 300.0, 200.0, 95.0]
-CAT_L = [0.539,0.547,0.522,0.548,0.506,0.536]  # same two constraints as STATUS_L
+CAT_H = [286.0, 33.0, 158.0, 320.0, 205.0, 68.0]
+CAT_L = [0.500,0.544,0.515,0.548,0.503,0.530]  # same two constraints as STATUS_L
 def cat(i, dark):
     h = CAT_H[i]
     return ((0.700,0.120,h),(0.185,0.020,h),(0.300,0.040,h),(0.880,0.060,h)) if dark \
@@ -107,7 +114,7 @@ def verify(verbose=False):
         chk(theme, "muted-foreground / background", rgb(D["muted-foreground"]), bg)
         chk(theme, "muted-foreground / card", rgb(D["muted-foreground"]), card)
         chk(theme, "muted-foreground / muted", rgb(D["muted-foreground"]), rgb(D["muted"]))
-        for p in ("primary", "secondary", "accent", "destructive", "brand-teal"):
+        for p in ("primary", "secondary", "accent", "destructive", "coral", "lagoon"):
             chk(theme, f"{p}-foreground / {p}", rgb(D[p + "-foreground"]), rgb(D[p]))
         chk(theme, "primary / background (UI)", rgb(D["primary"]), bg, 3.0)
         chk(theme, "ring / background (UI)", rgb(D["ring"]), bg, 3.0)
@@ -175,15 +182,39 @@ def verify(verbose=False):
 GLASS = {
     "light": {
         "tint": (1.000, 0.000, 89.9),   # white
-        "alpha": 0.72,
-        "hairline": "oklch(1 0 0 / 0.65)",
+        "alpha": 0.78,
+        "hairline": "oklch(1 0 0 / 0.70)",
         "blur": "20px",
     },
     "dark": {
-        "tint": (0.245, 0.014, 60.0),
-        "alpha": 0.74,
-        "hairline": "oklch(1 0 0 / 0.10)",
-        "blur": "22px",
+        "tint": (0.240, 0.026, 283.0),  # violet-tinted, matching the surfaces
+        "alpha": 0.80,
+        "hairline": "oklch(1 0 0 / 0.09)",
+        "blur": "20px",
+    },
+}
+
+# Atmosphere. The aurora washes and the brand glow are what make the dark
+# surfaces read as lit rather than flat; the shadow tint is violet so shadows
+# belong to the palette instead of being neutral grey.
+ATMOSPHERE = {
+    "light": {
+        "brand-glow": "oklch(0.50 0.19 286 / 0.28)",
+        "shadow-tint": "oklch(0.35 0.06 285 / 0.12)",
+        "shadow-tint-weak": "oklch(0.35 0.06 285 / 0.07)",
+        "shadow-tint-strong": "oklch(0.35 0.06 285 / 0.18)",
+        "aurora-1": "oklch(0.72 0.17 286 / 0.50)",
+        "aurora-2": "oklch(0.78 0.15 33 / 0.42)",
+        "aurora-3": "oklch(0.80 0.11 205 / 0.42)",
+    },
+    "dark": {
+        "brand-glow": "oklch(0.60 0.20 288 / 0.42)",
+        "shadow-tint": "oklch(0.05 0.02 280 / 0.50)",
+        "shadow-tint-weak": "oklch(0.05 0.02 280 / 0.32)",
+        "shadow-tint-strong": "oklch(0.02 0.01 280 / 0.65)",
+        "aurora-1": "oklch(0.60 0.20 288 / 0.34)",
+        "aurora-2": "oklch(0.62 0.18 33 / 0.26)",
+        "aurora-3": "oklch(0.60 0.13 205 / 0.26)",
     },
 }
 
@@ -199,14 +230,14 @@ def gradients(dark):
     """
     if dark:
         return {
-            "brand": ("oklch(0.614 0.150 41.1)", "oklch(0.616 0.130 12.0)"),
-            "accent": ("oklch(0.610 0.130 58.3)", "oklch(0.602 0.120 90.0)"),
-            "cool": ("oklch(0.592 0.100 221.7)", "oklch(0.602 0.110 265.0)"),
-            "surface": ("oklch(0.245 0.016 55.0)", "oklch(0.205 0.012 60.0)"),
+            "brand": ("oklch(0.603 0.190 286.0)", "oklch(0.608 0.190 33.0)"),
+            "accent": ("oklch(0.608 0.190 33.0)", "oklch(0.593 0.150 68.0)"),
+            "cool": ("oklch(0.568 0.120 205.0)", "oklch(0.603 0.190 286.0)"),
+            "surface": ("oklch(0.245 0.030 285.0)", "oklch(0.195 0.022 282.0)"),
         }
     return {
-            "brand": ("oklch(0.581 0.170 41.1)", "oklch(0.581 0.160 18.0)"),
-            "accent": ("oklch(0.573 0.150 58.3)", "oklch(0.563 0.140 90.0)"),
-            "cool": ("oklch(0.551 0.110 221.7)", "oklch(0.567 0.120 265.0)"),
-            "surface": ("oklch(0.995 0.010 80.0)", "oklch(0.975 0.018 60.0)"),
+            "brand": ("oklch(0.572 0.190 286.0)", "oklch(0.577 0.190 33.0)"),
+            "accent": ("oklch(0.577 0.190 33.0)", "oklch(0.562 0.150 68.0)"),
+            "cool": ("oklch(0.534 0.120 205.0)", "oklch(0.572 0.190 286.0)"),
+            "surface": ("oklch(0.995 0.006 285.0)", "oklch(0.972 0.012 286.0)"),
         }
