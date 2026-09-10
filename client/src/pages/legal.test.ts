@@ -56,9 +56,13 @@ describe("the legal pages are reachable signed out", () => {
   });
 
   it("is linked from the only screen a signed-out visitor sees", () => {
-    const home = read("Home.tsx");
-    expect(home).toContain('href="/privacy"');
-    expect(home).toContain('href="/terms"');
+    // That screen is `Landing.tsx`. It used to be a `LandingPage` function
+    // inside `Home.tsx`; Home now renders `<Landing />` when there is no
+    // session and the dashboard when there is. The requirement is unchanged —
+    // only the file that has to satisfy it moved.
+    const landing = read("Landing.tsx");
+    expect(landing).toContain('href="/privacy"');
+    expect(landing).toContain('href="/terms"');
   });
 });
 

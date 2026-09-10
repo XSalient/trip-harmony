@@ -1,10 +1,18 @@
-import { forwardRef, type ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { Children, forwardRef, isValidElement, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Tone } from "@/lib/taxonomy";
 import { tone as toneClasses } from "./tone";
-import { riseIn, stagger } from "./motion";
+
+/**
+ * No framer-motion in this file, deliberately.
+ *
+ * Home is eagerly imported by App.tsx (it is what an unauthenticated visitor
+ * lands on), so anything Home reaches pulls into the entry chunk — which is
+ * precisely what master's route-splitting work stripped out. These primitives
+ * animate with CSS instead; the heavier interactions that genuinely need a
+ * physics engine live in the lazily-loaded trip components.
+ */
 
 /* ============================================================ IconTile === */
 
@@ -148,12 +156,11 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(function Surface
   ref
 ) {
   const c = t ? toneClasses(t) : null;
-  const Comp = motion[as] as typeof motion.div;
-  const reduce = useReducedMotion();
+  const Comp = as;
 
   return (
     <Comp
-      ref={ref}
+      ref={ref as never}
       // Whole-card activation needs real button semantics, not just onClick.
       {...(onClick
         ? {
@@ -168,7 +175,6 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(function Surface
             },
           }
         : {})}
-      whileTap={onClick && !reduce ? { scale: 0.985 } : undefined}
       className={cn(
         "relative rounded-2xl text-card-foreground",
         // Glass brings its own border; the others get the standard hairline.
@@ -177,7 +183,8 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(function Surface
         selected ? cn("border-transparent ring-2", c?.ring ?? "ring-primary") : "border-border/70",
         t && !selected && c?.border,
         interactive &&
-          "transition-shadow duration-200 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "transition-[box-shadow,transform] duration-200 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        onClick && "active:scale-[0.99] motion-reduce:active:scale-100",
         className
       )}
       {...rest}
@@ -254,43 +261,43 @@ export function SectionHead({
 
 /* ============================================================ Stagger === */
 
-/** Wraps a list so children animate in sequence, respecting reduced motion. */
+/**
+ * Staggers its children in. Each child is handed its index as a `--i` custom
+ * property, which the `stagger-item` utility turns into an animation-delay,
+ * capped so a long list never leaves the last card waiting.
+ */
 export function StaggerList({
   children,
   className,
-  step = 0.04,
 }: {
   children: ReactNode;
   className?: string;
-  step?: number;
 }) {
-  const reduce = useReducedMotion();
   return (
-    <motion.div
-      initial={reduce ? false : "hidden"}
-      animate="show"
-      variants={reduce ? undefined : stagger(step)}
-      className={className}
-    >
-      {children}
-    </motion.div>
+    <div className={className}>
+      {Children.map(children, (child, i) =>
+        isValidElement<{ style?: React.CSSProperties }>(child)
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ({ ...child, props: { ...child.props, style: { ...child.props.style, ["--i" as never]: i } } } as never)
+          : child
+      )}
+    </div>
   );
 }
 
 export function StaggerItem({
   children,
   className,
+  style,
 }: {
   children: ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
-  const reduce = useReducedMotion();
-  // Under reduced motion the item simply renders in place — no variants at
-  // all, rather than an opacity fade, so content is never gated on animation.
   return (
-    <motion.div variants={reduce ? undefined : riseIn} className={className}>
+    <div className={cn("stagger-item", className)} style={style}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 

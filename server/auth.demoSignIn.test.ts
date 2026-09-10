@@ -279,7 +279,11 @@ describe("switching who the tab is signed in as", () => {
 
   it("runs on every path that starts a session", () => {
     // The demo seat picker, and the three ways to sign in for real.
-    expect(read("pages", "Home.tsx")).toContain("await switchSession()");
+    // The picker was a `DemoSeatDialog` function inside `pages/Home.tsx` and is
+    // now `components/DemoSeatDialog.tsx`; the requirement is unchanged.
+    expect(read("components", "DemoSeatDialog.tsx")).toContain(
+      "await switchSession()"
+    );
     const dialog = read("components", "AuthDialog.tsx");
     expect(dialog.match(/await switchSession\(\)/g) ?? []).toHaveLength(3);
     expect(read("pages", "MagicLinkVerify.tsx")).toContain(

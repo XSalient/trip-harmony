@@ -404,6 +404,41 @@
 }
 
 /* --------------------------------------------------------------------------
+   Entrance animation
+
+   CSS rather than JS. Two reasons: it keeps framer-motion out of the entry
+   chunk (Home is eager, so anything it imports ships on first paint), and a
+   CSS animation with fill-mode:both cannot leave content stuck part-way the
+   way a throttled requestAnimationFrame can.
+
+   Transform only — never opacity — so content is readable even if the
+   animation never runs at all.
+   -------------------------------------------------------------------------- */
+
+@keyframes harmony-rise {
+  from { transform: translateY(14px); }
+  to { transform: translateY(0); }
+}
+
+@utility animate-rise {
+  animation: harmony-rise var(--motion-base) var(--ease-out-soft) both;
+}
+
+/* Stagger via a custom property the caller sets per item:
+   style={{ "--i": index }} */
+@utility stagger-item {
+  animation: harmony-rise var(--motion-base) var(--ease-out-soft) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .stagger-item {
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Glass and gradient
 
    Blur is used only where it carries meaning — a surface with content behind
