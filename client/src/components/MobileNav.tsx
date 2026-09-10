@@ -1,7 +1,8 @@
-import { useLocation, Link } from "wouter";
-import { Home, Plus, Bell, User } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Bell, Home, Plus, User } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { cn } from "@/lib/utils";
 
 export default function MobileNav() {
   const [location] = useLocation();
@@ -30,34 +31,61 @@ export default function MobileNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border safe-area-bottom">
-      <div className="mx-auto flex h-16 max-w-2xl items-center justify-around px-2">
+    // A floating glass pill rather than a full-width slab: it reads as a
+    // control sitting above the content instead of a border welded to the
+    // bottom of the page, and it keeps every target inside the thumb arc.
+    // `pointer-events-none` on the wrapper so the gap either side of the pill
+    // does not swallow taps meant for the content behind it.
+    <nav
+      aria-label="Primary"
+      className="safe-area-bottom pointer-events-none fixed inset-x-0 bottom-0 z-50"
+    >
+      <div className="glass pointer-events-auto mx-auto mb-2 flex w-fit max-w-[calc(100%-1.5rem)] items-center gap-1 rounded-full p-1.5 shadow-e3">
         {navItems.map(item => {
           const isActive =
             item.href === "/"
               ? location === "/"
               : location.startsWith(item.href);
+
           return (
-            <Link key={item.href} href={item.href}>
-              <div
-                className={`flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition-all relative ${isActive ? "text-primary" : "text-muted-foreground"}`}
+            <Link key={item.href} href={item.href} asChild>
+              <a
+                aria-current={isActive ? "page" : undefined}
+                aria-label={
+                  item.badge && item.badge > 0
+                    ? `${item.label}, ${item.badge} unread`
+                    : item.label
+                }
+                className={cn(
+                  // >=44px in both directions, comfortably inside the thumb arc.
+                  "relative flex min-h-12 min-w-[4.25rem] flex-col items-center justify-center gap-0.5 rounded-full px-3 py-1.5",
+                  "transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                  // Fill + colour + weight, so the active tab never depends on
+                  // colour alone.
+                  isActive
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <div className="relative">
+                <span className="relative">
                   <item.icon
-                    className={`h-5 w-5 ${isActive ? "stroke-[2.5px]" : ""}`}
+                    className={cn("h-5 w-5", isActive && "stroke-[2.5px]")}
                   />
                   {item.badge && item.badge > 0 ? (
-                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
+                    <span className="tabular absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   ) : null}
-                </div>
+                </span>
                 <span
-                  className={`text-[10px] font-medium ${isActive ? "font-semibold" : ""}`}
+                  className={cn(
+                    "text-[10px]",
+                    isActive ? "font-semibold" : "font-medium"
+                  )}
                 >
                   {item.label}
                 </span>
-              </div>
+              </a>
             </Link>
           );
         })}

@@ -33,6 +33,22 @@ def theme_vars(D, status_fn, dark):
     return "\n".join(out)
 
 
+def glass_vars(key):
+    """Glass + gradient custom properties for one theme."""
+    g = GLASS[key]
+    dark = key == "dark"
+    L, C, H = g["tint"]
+    out = [
+        f'  --glass-bg: oklch({L:.3f} {C:.3f} {H:.1f} / {g["alpha"]});',
+        f'  --glass-hairline: {g["hairline"]};',
+        f'  --glass-blur: {g["blur"]};',
+        f'  --scrim: oklch(0 0 0 / {0.62 if dark else 0.45});',
+    ]
+    for name, (a, b) in gradients(dark).items():
+        out.append(f'  --grad-{name}: linear-gradient(135deg, {a} 0%, {b} 100%);')
+    return "\n".join(out)
+
+
 def theme_map():
     """Emit the @theme inline block mapping tokens onto Tailwind utilities."""
     out = []
@@ -110,6 +126,8 @@ CSS = f"""@import "tailwindcss";
 
 {theme_vars(LIGHT, status_light, False)}
 
+{glass_vars('light')}
+
   /* sidebar (shadcn compatibility) */
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
@@ -137,6 +155,8 @@ CSS = f"""@import "tailwindcss";
   --elevation-4: 0 20px 40px rgb(0 0 0 / 0.60);
 
 {theme_vars(DARK, status_dark, True)}
+
+{glass_vars('dark')}
 
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
@@ -236,6 +256,53 @@ CSS = f"""@import "tailwindcss";
 /* Offset for elements anchored just above the tab bar (FAB, sticky bars). */
 @utility bottom-nav {{
   bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+}}
+
+/* --------------------------------------------------------------------------
+   Glass and gradient
+
+   Blur is used only where it carries meaning — a surface with content behind
+   it (MASTER §4). The hairline is what stops a glass panel reading as a flat
+   translucent rectangle: a 1px light edge at the top catches the "pane".
+   -------------------------------------------------------------------------- */
+
+@utility glass {{
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-hairline);
+}}
+
+/* Glass without a full border — for bars that only need a bottom/top edge. */
+@utility glass-flat {{
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+}}
+
+@utility grad-brand {{
+  background-image: var(--grad-brand);
+}}
+
+@utility grad-accent {{
+  background-image: var(--grad-accent);
+}}
+
+@utility grad-cool {{
+  background-image: var(--grad-cool);
+}}
+
+@utility grad-surface {{
+  background-image: var(--grad-surface);
+}}
+
+/* Gradient lettering for a single hero line. Falls back to a solid colour
+   where background-clip:text is unsupported. */
+@utility text-grad-brand {{
+  background-image: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }}
 
 /* Expands the tappable area of a visually small control to >=44px without

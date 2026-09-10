@@ -49,7 +49,7 @@ export function BottomSheet({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
           className={cn(
-            "rounded-t-[1.75rem] border-border/70",
+            "glass-flat rounded-t-[1.75rem] border-t border-border/60",
             size === "tall" ? "max-h-[92dvh]" : "max-h-[88dvh]",
             className
           )}
@@ -80,7 +80,7 @@ export function BottomSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn("max-w-lg gap-4 rounded-2xl", size === "tall" && "max-h-[85dvh]", className)}
+        className={cn("glass-flat max-w-lg gap-4 rounded-2xl", size === "tall" && "max-h-[85dvh]", className)}
       >
         <DialogHeader>
           <DialogTitle className="font-display text-xl font-bold tracking-tight">

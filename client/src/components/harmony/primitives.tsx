@@ -122,6 +122,13 @@ export interface SurfaceProps {
   interactive?: boolean;
   selected?: boolean;
   tone?: Tone;
+  /**
+   * `solid`   — an opaque card. The default, and correct for list content.
+   * `glass`   — translucent + blurred. Only where there is content behind it
+   *             (bars, sheets, overlays); blur is meaning, not decoration.
+   * `gradient`— a subtle two-stop surface wash, for hero/summary cards.
+   */
+  variant?: "solid" | "glass" | "gradient";
   onClick?: () => void;
   as?: "div" | "article" | "li";
   "aria-label"?: string;
@@ -129,8 +136,15 @@ export interface SurfaceProps {
 
 const ELEVATION = ["", "shadow-e1", "shadow-e2", "shadow-e3"] as const;
 
+const VARIANT = {
+  solid: "bg-card",
+  glass: "glass",
+  gradient: "grad-surface",
+} as const;
+
 export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(function Surface(
-  { children, className, elevation = 1, interactive, selected, tone: t, onClick, as = "div", ...rest },
+  { children, className, elevation = 1, interactive, selected, tone: t,
+    variant = "solid", onClick, as = "div", ...rest },
   ref
 ) {
   const c = t ? toneClasses(t) : null;
@@ -156,7 +170,9 @@ export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(function Surface
         : {})}
       whileTap={onClick && !reduce ? { scale: 0.985 } : undefined}
       className={cn(
-        "relative rounded-2xl border bg-card text-card-foreground",
+        "relative rounded-2xl text-card-foreground",
+        // Glass brings its own border; the others get the standard hairline.
+        variant === "glass" ? VARIANT.glass : cn("border", VARIANT[variant]),
         ELEVATION[elevation],
         selected ? cn("border-transparent ring-2", c?.ring ?? "ring-primary") : "border-border/70",
         t && !selected && c?.border,

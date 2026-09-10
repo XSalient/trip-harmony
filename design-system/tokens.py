@@ -130,8 +130,83 @@ def verify(verbose=False):
             chk(theme, f"cat-{i+1}-on-soft / soft", rgb(on_soft), rgb(soft))
             chk(theme, f"cat-{i+1} / cat-{i+1}-soft", rgb(base), rgb(soft))
 
+    # Glass: verify against the composited colour, not the nominal token.
+    for theme, D, key in (("LIGHT", LIGHT, "light"), ("DARK", DARK, "dark")):
+        g = GLASS[key]
+        tint = rgb(g["tint"])
+        over_bg = composite(tint, g["alpha"], rgb(D["background"]))
+        over_card = composite(tint, g["alpha"], rgb(D["card"]))
+        chk(theme, "foreground / glass over background", rgb(D["foreground"]), over_bg)
+        chk(theme, "foreground / glass over card", rgb(D["foreground"]), over_card)
+        chk(theme, "muted-foreground / glass over background",
+            rgb(D["muted-foreground"]), over_bg)
+
+    # Gradient stops: a gradient button is only as accessible as its lightest
+    # stop, so both ends are checked against the text that sits on them.
+    import re as _re
+
+    def _parse(s):
+        m = _re.match(r"oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)", s)
+        return tuple(float(x) for x in m.groups())
+
+    for theme, dark, fg in (("LIGHT", False, (255, 255, 255)),
+                            ("DARK", True, rgb(DARK["primary-foreground"]))):
+        for name, (a, b) in gradients(dark).items():
+            if name == "surface":
+                continue
+            for label, stop in (("from", a), ("to", b)):
+                chk(theme, f"grad-{name} {label} / its text", fg, rgb(_parse(stop)))
+
     print(f"contrast checks: {n}   failures: {len(fails)}")
     for f in fails:
         print("  FAIL", f)
     return fails
 
+
+# --------------------------------------------------------------------------
+# Glass + gradient layer
+#
+# Translucency is only used where it means "there is content behind this":
+# the sticky header, the floating tab bar, sheets and their scrims. The alpha
+# is deliberately high (0.72-0.78) — low-alpha glass is what makes text on
+# these surfaces fail contrast once a photo scrolls underneath.
+# --------------------------------------------------------------------------
+
+GLASS = {
+    "light": {
+        "tint": (1.000, 0.000, 89.9),   # white
+        "alpha": 0.72,
+        "hairline": "oklch(1 0 0 / 0.65)",
+        "blur": "20px",
+    },
+    "dark": {
+        "tint": (0.245, 0.014, 60.0),
+        "alpha": 0.74,
+        "hairline": "oklch(1 0 0 / 0.10)",
+        "blur": "22px",
+    },
+}
+
+# Two-stop brand gradients. Hues stay inside the palette so a gradient never
+# introduces a colour the token system has not verified.
+def gradients(dark):
+    """Two-stop brand gradients.
+
+    Hues stay inside the palette, and the lightness of each stop is solved so
+    that the gradient's own foreground clears 4.5:1 at BOTH ends — a gradient
+    button is only as accessible as its lightest stop, which is the usual way
+    these fail. Verified by verify_tokens.py.
+    """
+    if dark:
+        return {
+            "brand": ("oklch(0.614 0.150 41.1)", "oklch(0.616 0.130 12.0)"),
+            "accent": ("oklch(0.610 0.130 58.3)", "oklch(0.602 0.120 90.0)"),
+            "cool": ("oklch(0.592 0.100 221.7)", "oklch(0.602 0.110 265.0)"),
+            "surface": ("oklch(0.245 0.016 55.0)", "oklch(0.205 0.012 60.0)"),
+        }
+    return {
+            "brand": ("oklch(0.581 0.170 41.1)", "oklch(0.581 0.160 18.0)"),
+            "accent": ("oklch(0.573 0.150 58.3)", "oklch(0.563 0.140 90.0)"),
+            "cool": ("oklch(0.551 0.110 221.7)", "oklch(0.567 0.120 265.0)"),
+            "surface": ("oklch(0.995 0.010 80.0)", "oklch(0.975 0.018 60.0)"),
+        }

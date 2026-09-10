@@ -45,3 +45,12 @@ def contrast(c1, c2):
     L1, L2 = lum(*c1), lum(*c2)
     hi, lo = max(L1,L2), min(L1,L2)
     return (hi+0.05)/(lo+0.05)
+
+
+def composite(fg, alpha, bg):
+    """Alpha-blend fg over bg in sRGB, the way a browser paints translucency.
+
+    Needed because a glass surface's real contrast is against the *composited*
+    colour, not against the token's nominal value.
+    """
+    return tuple(round(alpha * f + (1 - alpha) * b) for f, b in zip(fg, bg))

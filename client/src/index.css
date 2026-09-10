@@ -191,6 +191,15 @@
   --cat-6-soft: oklch(0.955 0.032 95.0);
   --cat-6-on-soft: oklch(0.420 0.100 95.0);
 
+  --glass-bg: oklch(1.000 0.000 89.9 / 0.72);
+  --glass-hairline: oklch(1 0 0 / 0.65);
+  --glass-blur: 20px;
+  --scrim: oklch(0 0 0 / 0.45);
+  --grad-brand: linear-gradient(135deg, oklch(0.581 0.170 41.1) 0%, oklch(0.581 0.160 18.0) 100%);
+  --grad-accent: linear-gradient(135deg, oklch(0.573 0.150 58.3) 0%, oklch(0.563 0.140 90.0) 100%);
+  --grad-cool: linear-gradient(135deg, oklch(0.551 0.110 221.7) 0%, oklch(0.567 0.120 265.0) 100%);
+  --grad-surface: linear-gradient(135deg, oklch(0.995 0.010 80.0) 0%, oklch(0.975 0.018 60.0) 100%);
+
   /* sidebar (shadcn compatibility) */
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
@@ -284,6 +293,15 @@
   --cat-6-foreground: oklch(0.185 0.020 95.0);
   --cat-6-soft: oklch(0.300 0.040 95.0);
   --cat-6-on-soft: oklch(0.880 0.060 95.0);
+
+  --glass-bg: oklch(0.245 0.014 60.0 / 0.74);
+  --glass-hairline: oklch(1 0 0 / 0.10);
+  --glass-blur: 22px;
+  --scrim: oklch(0 0 0 / 0.62);
+  --grad-brand: linear-gradient(135deg, oklch(0.614 0.150 41.1) 0%, oklch(0.616 0.130 12.0) 100%);
+  --grad-accent: linear-gradient(135deg, oklch(0.610 0.130 58.3) 0%, oklch(0.602 0.120 90.0) 100%);
+  --grad-cool: linear-gradient(135deg, oklch(0.592 0.100 221.7) 0%, oklch(0.602 0.110 265.0) 100%);
+  --grad-surface: linear-gradient(135deg, oklch(0.245 0.016 55.0) 0%, oklch(0.205 0.012 60.0) 100%);
 
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
@@ -383,6 +401,53 @@
 /* Offset for elements anchored just above the tab bar (FAB, sticky bars). */
 @utility bottom-nav {
   bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
+/* --------------------------------------------------------------------------
+   Glass and gradient
+
+   Blur is used only where it carries meaning — a surface with content behind
+   it (MASTER §4). The hairline is what stops a glass panel reading as a flat
+   translucent rectangle: a 1px light edge at the top catches the "pane".
+   -------------------------------------------------------------------------- */
+
+@utility glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  border: 1px solid var(--glass-hairline);
+}
+
+/* Glass without a full border — for bars that only need a bottom/top edge. */
+@utility glass-flat {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+}
+
+@utility grad-brand {
+  background-image: var(--grad-brand);
+}
+
+@utility grad-accent {
+  background-image: var(--grad-accent);
+}
+
+@utility grad-cool {
+  background-image: var(--grad-cool);
+}
+
+@utility grad-surface {
+  background-image: var(--grad-surface);
+}
+
+/* Gradient lettering for a single hero line. Falls back to a solid colour
+   where background-clip:text is unsupported. */
+@utility text-grad-brand {
+  background-image: var(--grad-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* Expands the tappable area of a visually small control to >=44px without

@@ -121,7 +121,7 @@ export function StickyActionBar({
         className
       )}
     >
-      <div className="mx-auto flex max-w-2xl items-center gap-2 rounded-2xl border border-border/70 bg-card/90 p-2 shadow-e3 backdrop-blur-lg lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+      <div className="glass mx-auto flex max-w-2xl items-center gap-2 rounded-2xl p-2 shadow-e3 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:backdrop-filter-none">
         {children}
       </div>
     </motion.div>
@@ -151,12 +151,15 @@ export function Fab({
       type="button"
       onClick={onClick}
       aria-label={label}
-      initial={reduce ? false : { opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
+      // Scale only. An opacity entrance leaves the control invisible if the
+      // animation never runs (throttled rAF in a background tab or low-power
+      // mode) — and this is the screen's primary action.
+      initial={reduce ? false : { scale: 0.85 }}
+      animate={{ scale: 1 }}
       whileTap={reduce ? undefined : { scale: 0.95 }}
       transition={{ type: "spring", stiffness: 400, damping: 30 }}
       className={cn(
-        "fixed bottom-nav right-4 z-40 inline-flex min-h-14 items-center gap-2 rounded-full bg-primary px-5",
+        "fixed bottom-nav right-4 z-40 inline-flex min-h-14 items-center gap-2 rounded-full grad-brand px-5",
         "font-display text-[15px] font-bold text-primary-foreground shadow-e3",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         className

@@ -9,7 +9,10 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default:
+          // Gradient rather than a flat fill. Both stops are contrast-verified
+          // against primary-foreground (design-system/verify_tokens.py).
+          "grad-brand text-primary-foreground shadow-e1 hover:brightness-[1.06] active:brightness-95",
         destructive:
           "bg-destructive text-primary-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:

@@ -34,11 +34,11 @@ export const riseIn: Variants = {
   exit: { y: 6, transition: { duration: DURATION.fast, ease: EASE_IN } },
 };
 
-/** Scale-in for medallions and badges. */
+/** Scale-in for medallions and badges. Transform only, same rule as riseIn. */
 export const popIn: Variants = {
-  hidden: { opacity: 0, scale: 0.9 },
-  show: { opacity: 1, scale: 1, transition: SPRING },
-  exit: { opacity: 0, scale: 0.96, transition: { duration: DURATION.fast } },
+  hidden: { scale: 0.9 },
+  show: { scale: 1, transition: SPRING },
+  exit: { scale: 0.96, transition: { duration: DURATION.fast } },
 };
 
 /** Plain cross-fade — the reduced-motion fallback for everything above. */
@@ -72,10 +72,9 @@ export const pressable = {
  * right, back from the left, so motion matches navigation direction.
  */
 export const slideVariants: Variants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir > 0 ? 32 : -32 }),
-  center: { opacity: 1, x: 0, transition: { duration: DURATION.base, ease: EASE_OUT } },
+  enter: (dir: number) => ({ x: dir > 0 ? 32 : -32 }),
+  center: { x: 0, transition: { duration: DURATION.base, ease: EASE_OUT } },
   exit: (dir: number) => ({
-    opacity: 0,
     x: dir > 0 ? -32 : 32,
     transition: { duration: DURATION.fast, ease: EASE_IN },
   }),

@@ -300,7 +300,7 @@ export default function TripPreferences() {
 
         {/* Save button — sits above the bottom nav bar (h-14 = 56px) */}
         {canContribute && (
-          <div className="fixed bottom-14 left-0 right-0 z-10 border-t border-border/50 bg-background/90 p-4 backdrop-blur">
+          <div className="glass fixed bottom-nav left-3 right-3 z-30 rounded-2xl p-3 shadow-e3">
             <div className="max-w-2xl mx-auto">
               <Button
                 className="h-11 w-full text-base font-medium"
