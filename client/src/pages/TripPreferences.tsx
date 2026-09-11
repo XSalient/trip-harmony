@@ -202,7 +202,7 @@ export default function TripPreferences() {
   if (isLoading) {
     return (
       <AppShell
-        title="My Trip Preferences"
+        title="My trip preferences"
         showBack
         backHref={`/trips/${tripId}`}
       >
@@ -222,7 +222,7 @@ export default function TripPreferences() {
 
   return (
     <AppShell
-      title="My Trip Preferences"
+      title="My trip preferences"
       showBack
       backHref={`/trips/${tripId}`}
     >
@@ -317,14 +317,14 @@ export default function TripPreferences() {
               >
                 {saved ? (
                   <span className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4" /> Saved!
+                    <CheckCircle2 className="size-4" /> Saved
                   </span>
                 ) : saveMutation.isPending ? (
                   "Saving…"
                 ) : existing ? (
-                  "Update My Preferences"
+                  "Update my preferences"
                 ) : (
-                  "Save My Preferences"
+                  "Save my preferences"
                 )}
               </Button>
             </div>

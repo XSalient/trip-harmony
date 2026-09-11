@@ -121,20 +121,6 @@ export default function TripReferee() {
   return (
     <AppShell title="AI Referee" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
-        {/* Referee intro */}
-        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
-          <CardContent className="p-4 text-center">
-            <div className="h-14 w-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
-              <Bot className="h-7 w-7" />
-            </div>
-            <h2 className="font-semibold text-base">WeVoTrip Referee</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              I analyze your group's preferences, detect conflicts, and suggest
-              fair compromises.
-            </p>
-          </CardContent>
-        </Card>
-
         {!canContribute && (
           <WatcherNotice>
             You're following this trip. The referee reads every member's
@@ -234,10 +220,15 @@ export default function TripReferee() {
             })}
           </div>
         ) : (
+          // One robot, not two. This screen opened on a card introducing the
+          // referee, directly above an empty state saying the referee had not
+          // run — the same icon and the same subject, twice, before anything
+          // actionable. The introduction belongs in the empty state, because
+          // the empty state is the only time anybody needs it.
           <EmptyState
             icon={Bot}
             title="The referee hasn't weighed in yet"
-            description="Run an analysis once your group has started voting."
+            description="It reads every member's preferences and every vote, finds the conflicts, and proposes a compromise. Run it once the group has started voting."
           />
         )}
       </div>

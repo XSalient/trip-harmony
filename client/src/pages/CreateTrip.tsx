@@ -62,7 +62,7 @@ export default function CreateTrip() {
   };
 
   return (
-    <AppShell title="New Trip" showBack backHref="/">
+    <AppShell title="New trip" showBack backHref="/">
       <form onSubmit={handleSubmit} className="px-4 py-5">
         <Card className="border-border/70">
           <CardContent className="space-y-6 p-5">
@@ -77,7 +77,7 @@ export default function CreateTrip() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Trip Name</Label>
+                <Label htmlFor="name">Trip name</Label>
                 <Input
                   id="name"
                   placeholder="e.g., Summer in Bali"
@@ -102,7 +102,7 @@ export default function CreateTrip() {
               <div className="space-y-2">
                 <Label>Currency</Label>
                 <Select value={currency} onValueChange={setCurrency}>
-                  <SelectTrigger className="h-12 rounded-xl">
+                  <SelectTrigger className="h-12 w-full rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -123,7 +123,7 @@ export default function CreateTrip() {
               className="h-12 w-full rounded-xl text-base font-semibold"
               disabled={createMutation.isPending}
             >
-              {createMutation.isPending ? "Creating..." : "Create Trip"}
+              {createMutation.isPending ? "Creating…" : "Create trip"}
             </Button>
           </CardContent>
         </Card>

@@ -557,7 +557,7 @@ export default function TripDashboard() {
             an admin — who can do something about it — sees the row. ── */}
         {shows("description") && (trip.description || isAdmin) && (
           <CollapsibleRow
-            title="Trip Description"
+            title="Trip description"
             subtitle={trip.description ? undefined : "Not set yet"}
             icon={<FileText className="h-5 w-5" />}
             iconClass="bg-cat-4-soft text-cat-4-on-soft"
@@ -584,7 +584,7 @@ export default function TripDashboard() {
         {/* ── My Trip Preferences ── */}
         {shows("preferences") && canContribute && (
           <CollapsibleRow
-            title={myPrefs ? "My Trip Preferences" : "Add My Trip Preferences"}
+            title={myPrefs ? "My trip preferences" : "Add my trip preferences"}
             subtitle={
               myPrefs
                 ? `Saved · ${prefCount?.count || 0}/${memberCount} members submitted`

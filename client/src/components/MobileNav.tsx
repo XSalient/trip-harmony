@@ -32,7 +32,7 @@ export default function MobileNav() {
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
-    { href: "/trips/new", icon: Plus, label: "New Trip", create: true },
+    { href: "/trips/new", icon: Plus, label: "New trip", create: true },
     { href: "/notifications", icon: Bell, label: "Alerts", badge: unreadCount },
     { href: "/profile", icon: User, label: "Profile" },
   ];
