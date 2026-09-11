@@ -196,7 +196,15 @@ export const authRouter = router({
       const delivery = await sendMagicLinkEmail(input.email, magicUrl);
       // Outside production the link is recoverable from the log, so a failed
       // send is not a dead end and the URL is handed back for convenience.
-      const isDev = !config.isProduction;
+      //
+      // `onDeployedPlatform` is the second half of that condition and not
+      // redundant: this procedure is public and takes any address, so the
+      // response is a working sign-in link for an account the caller has not
+      // proved anything about. `APP_ENV=development` set on the Vercel project
+      // made `isProduction` false on wevotrip.com, which handed that link to
+      // anyone who asked. A convenience for local work must not be reachable by
+      // setting a variable on a live deployment.
+      const isDev = !config.isProduction && !config.onDeployedPlatform;
       // Never report success when the email did not go out — otherwise the UI
       // tells people to check an inbox that will stay empty.
       if (!delivery.delivered && !isDev) {

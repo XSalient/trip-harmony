@@ -96,6 +96,33 @@ if (!process.env.NODE_ENV) {
 /** Deployed environments must have real secrets; local/test may run degraded. */
 const IS_DEPLOYED = APP_ENV === "production" || APP_ENV === "preview";
 
+/**
+ * Whether a hosting platform is running this process — as the platform says,
+ * not as `APP_ENV` claims.
+ *
+ * `APP_ENV` is a string somebody sets, and `resolveAppEnv` lets it win over
+ * `VERCEL_ENV` so a deployment can deliberately be run in another mode. That
+ * is useful, and it is also how wevotrip.com came to report
+ * `appEnv: "development"` from `/api/health`: `APP_ENV=development` was set on
+ * the Vercel project, so every "are we in development?" check answered yes on
+ * the live site.
+ *
+ * Two of those checks hand out things no public deployment may hand out — a
+ * magic-link URL in an API response, and raw internal error text. Neither is a
+ * mode anybody should be able to switch on with an environment variable, so
+ * they ask this instead: it is true whenever Vercel is running us, whatever
+ * `APP_ENV` says, and there is no value of `APP_ENV` that turns it off.
+ *
+ * Deliberately NOT used to widen `IS_DEPLOYED`, which gates the Zod schema's
+ * "deployed environments need real secrets" rules. Those throw at boot, and a
+ * throw at boot takes the whole API down — see
+ * [ADR-0026](../../docs/adr/0026-the-serverless-function-is-not-bundled.md) for
+ * what that looks like from the outside. Tightening validation under a
+ * deployment that is already running is a deliberate change with a migration,
+ * not a side effect of this one.
+ */
+const ON_DEPLOYED_PLATFORM = Boolean(process.env.VERCEL);
+
 const optionalUrl = z
   .string()
   .trim()
@@ -393,6 +420,11 @@ export const config = {
   appEnv: parsed.APP_ENV,
   isProduction: parsed.APP_ENV === "production",
   isDeployed: IS_DEPLOYED,
+  /**
+   * A hosting platform is running this, whatever `APP_ENV` says. Use it for
+   * anything that must not be unlockable by an environment variable.
+   */
+  onDeployedPlatform: ON_DEPLOYED_PLATFORM,
   isTest: parsed.APP_ENV === "test",
   port: parsed.PORT,
   publicBaseUrl: parsed.PUBLIC_BASE_URL,

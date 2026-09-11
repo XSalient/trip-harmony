@@ -8,6 +8,40 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-11 — A magic link stops coming back in the response
+
+### Fixed
+
+- **`auth.requestMagicLink` was returning the sign-in link to the caller.**
+  The procedure is public and accepts any address, so the response was a
+  working 15-minute sign-in link for an account the caller had proved nothing
+  about — an unauthenticated way into any account whose email address is known.
+
+  The `debugUrl` field is a local-development convenience gated on
+  `!config.isProduction`. It was reachable in production because `APP_ENV` was
+  set to `development` on the Vercel project, and `APP_ENV` wins over
+  `VERCEL_ENV` — `/api/health` on the production domain duly reported
+  `appEnv: "development"`. Found while verifying the sign-in fix above.
+
+  Same cause, same fix: `clientSafeMessage` was returning null, so the raw
+  wrapped error cause — pg error text included — went to the browser instead of
+  a reference id.
+
+  Both now also ask `config.onDeployedPlatform`, which reads Vercel's own
+  `VERCEL` variable. No value of `APP_ENV` switches it off, so neither
+  behaviour can be unlocked by an environment variable again;
+  `server/deployedPlatformLeaks.test.ts` pins both.
+
+  **The misconfiguration itself is still live and is not fixable from this
+  repository.** `APP_ENV=development` has to be removed from the Vercel
+  project's environment variables — until it is, production still runs with
+  debug logging, human-formatted log output where the pipeline expects JSON,
+  and invite-email failures that do not raise. Check `JWT_SECRET` is at least
+  32 characters before removing it, or the boot-time schema will fail the
+  function. See [runbooks/environments.md](runbooks/environments.md).
+
+---
+
 ## 2026-09-11 — Sign-in works again
 
 ### Fixed

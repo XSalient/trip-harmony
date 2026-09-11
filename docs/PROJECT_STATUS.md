@@ -40,6 +40,20 @@ finish a piece of work — the next person (or agent) starts here.
   the session cookie is `SameSite=None` and iOS drops it in a WebView, so the
   session JWT has to travel as a bearer token, and `passkeys.ts` derives `rpID`
   from the request Host, which is `localhost` there.
+- **Production is running as `APP_ENV=development`, and that is not fixed yet**
+  (2026-09-11). `/api/health` on www.wevotrip.com reports
+  `appEnv: "development"`, because `APP_ENV` is set on the Vercel project and it
+  wins over `VERCEL_ENV`. The two consequences that leaked are fixed in code —
+  `auth.requestMagicLink` was handing its sign-in link back in the response to
+  any caller, for any address, and internal error text was reaching browsers —
+  and both now key on `config.onDeployedPlatform`, which no environment variable
+  can switch off. **The variable itself still needs removing from the Vercel
+  project**; until then production keeps debug logging, human-formatted log
+  output, and invite-email failures that do not raise. Confirm `JWT_SECRET` is
+  ≥32 characters first — removing it starts enforcing the deployed schema, and
+  that schema throws at boot. See
+  [runbooks/environments.md](runbooks/environments.md).
+
 - **A relative import without a `.js` extension takes the whole API down**
   (2026-09-11). Vercel does not bundle `api/server.ts`; it runs the import graph
   as native ESM, which does not guess extensions. One such import in

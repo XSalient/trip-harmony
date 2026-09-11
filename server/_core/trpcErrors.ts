@@ -102,7 +102,10 @@ export function clientSafeMessage(
   if (error.code !== "INTERNAL_SERVER_ERROR") return null;
   // No cause means nobody wrapped anything: this message was written on purpose.
   if (!error.cause) return null;
-  if (!config.isDeployed) return null;
+  // Either signal is enough. `isDeployed` reads APP_ENV, which a deployment
+  // can set to "development" — and one did, so wevotrip.com was returning the
+  // raw wrapped cause (pg error text included) to browsers.
+  if (!config.isDeployed && !config.onDeployedPlatform) return null;
 
   return requestId
     ? `Something went wrong on our end. Please try again. (ref: ${requestId})`

@@ -39,6 +39,36 @@
 `NODE_ENV` is then derived from `APP_ENV` if it wasn't already set, so
 `pnpm dev` behaves identically on every OS without a shell-specific prefix.
 
+### Never set `APP_ENV` on a Vercel project
+
+Step 1 wins over step 2, so `APP_ENV=development` on the Vercel project makes a
+live deployment answer "we're in development" to every check in the table below.
+That is what wevotrip.com was doing, discovered 2026-09-11: `/api/health`
+reported `appEnv: "development"` from the production domain.
+
+Leave it unset on Vercel and let `VERCEL_ENV` decide. The only reason to set it
+there is to deliberately run a deployment in another mode, and it is worth
+saying out loud what that costs — debug logs, human-formatted output where the
+log pipeline expects JSON, and the boot-time secret rules switched off.
+
+**Check it after any change to the project's environment variables:**
+
+```bash
+curl -s https://www.wevotrip.com/api/health | jq .appEnv   # must be "production"
+```
+
+Two things that used to follow from this are now independent of it:
+`auth.requestMagicLink` returning the link in its response, and raw internal
+error text reaching the browser. Both ask `config.onDeployedPlatform`, which
+reads Vercel's own `VERCEL` variable and which no value of `APP_ENV` turns off.
+The boot-time secret rules are still keyed on `APP_ENV` alone, deliberately:
+they `throw`, and a throw at boot takes the whole API down rather than degrading
+it.
+
+**Before removing `APP_ENV=development`, confirm `JWT_SECRET` is at least 32
+characters on that project.** Flipping to `production` starts enforcing the
+table below, and a secret that fails the schema fails the boot.
+
 ## What changes between them
 
 |                           | development        | test     | preview            | production         |
