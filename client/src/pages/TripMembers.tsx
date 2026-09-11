@@ -5,7 +5,7 @@
  * Replaces the invite dialog that used to hang off the trip header, which could
  * send a link but could not tell you whether anyone had accepted it.
  */
-import { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SectionHead } from "@/components/harmony";
 import {
   Select,
   SelectContent,
@@ -77,7 +79,7 @@ function RoleBadge({ role }: { role: TripRole }) {
         ? "bg-muted text-muted-foreground border-border"
         : "bg-cat-2-soft text-cat-2-on-soft border-cat-2-soft";
   return (
-    <Badge variant="outline" className={`text-[10px] ${tone}`}>
+    <Badge variant="outline" className={`text-[11px] ${tone}`}>
       {TRIP_ROLE_LABELS[role]}
     </Badge>
   );
@@ -846,7 +848,7 @@ export default function TripMembers() {
             plus guests, mind the overlap". Pets are counted and shown, and
             never divided by. */}
         {headcount && (
-          <Card className="bg-muted/40 border-border/70">
+          <Card className="rounded-2xl border-border/70 bg-muted/40 shadow-e1">
             <CardContent className="p-3 flex items-center gap-2 text-sm">
               <Users className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>
@@ -862,12 +864,10 @@ export default function TripMembers() {
 
         {/* ── Groups ── */}
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Families and households
-          </h2>
+          <SectionHead title="Families and households" />
 
           {canContribute && (
-            <Card className="border-border/70">
+            <Card className="rounded-2xl border-border/70 shadow-e1">
               <CardContent className="p-3 space-y-3">
                 <div className="flex gap-2">
                   <Input
@@ -875,11 +875,11 @@ export default function TripMembers() {
                     value={newGroupName}
                     onChange={e => setNewGroupName(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && handleCreateGroup()}
-                    className="rounded-lg h-9"
+                    className="rounded-xl"
                   />
                   <Button
                     size="sm"
-                    className="rounded-lg shrink-0"
+                    className="shrink-0 rounded-xl"
                     onClick={handleCreateGroup}
                     disabled={createGroup.isPending}
                   >
@@ -887,12 +887,10 @@ export default function TripMembers() {
                   </Button>
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
+                <label className="flex min-h-9 items-center gap-2.5 text-[13px] text-muted-foreground">
+                  <Checkbox
                     checked={joinNewGroup}
-                    onChange={e => setJoinNewGroup(e.target.checked)}
-                    className="rounded"
+                    onCheckedChange={v => setJoinNewGroup(v === true)}
                   />
                   Put me in it
                 </label>
@@ -905,7 +903,7 @@ export default function TripMembers() {
                   <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/70">
                     <div className="min-w-0">
                       <p className="text-sm font-medium">One vote per family</p>
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="text-[12px] text-muted-foreground">
                         {(trip as any)?.votingUnit === "group"
                           ? "Each group casts one vote. Anyone in it can cast or change it."
                           : "Everyone votes for themselves."}
@@ -918,7 +916,7 @@ export default function TripMembers() {
                           : "outline"
                       }
                       size="sm"
-                      className="rounded-lg shrink-0 text-xs h-8"
+                      className="shrink-0 rounded-full text-xs"
                       onClick={() =>
                         handleVotingUnit(
                           (trip as any)?.votingUnit === "group"
@@ -946,7 +944,7 @@ export default function TripMembers() {
             <Card
               key={g.id}
               {...{ [DROP_ATTR]: String(g.id) }}
-              className={`transition-colors ${
+              className={`rounded-2xl shadow-e1 transition-colors ${
                 dragOver === g.id
                   ? "border-primary bg-primary/5"
                   : "border-border/70"
@@ -957,13 +955,16 @@ export default function TripMembers() {
                   <span className="text-sm font-medium flex-1 truncate">
                     {g.name}
                   </span>
-                  <span className="text-[11px] text-muted-foreground shrink-0">
+                  <span className="text-[12px] text-muted-foreground shrink-0">
                     {headcountLabels.get(String(g.id))}
                   </span>
                   {canAddTo(g.id) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
+                        <button
+                            aria-label="More"
+                            className="pressable touch-target flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
                           <MoreVertical className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
@@ -1027,7 +1028,7 @@ export default function TripMembers() {
                   {(movableCountByGroup.get(g.id) ?? 0) > 0 && (
                     <button
                       onClick={() => setAddToGroup(g.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                      className="pressable inline-flex min-h-8 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                     >
                       <Plus className="h-3 w-3" /> Add a member
                     </button>
@@ -1053,7 +1054,7 @@ export default function TripMembers() {
                   {canAddTo(g.id) && (
                     <button
                       onClick={() => openAddAttendee(g.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                      className="pressable inline-flex min-h-8 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                     >
                       <Plus className="h-3 w-3" /> Add without an account
                     </button>
@@ -1072,7 +1073,7 @@ export default function TripMembers() {
         {(someoneIsUngrouped || dragging !== null) && (
           <Card
             {...{ [DROP_ATTR]: "none" }}
-            className={`border-dashed transition-colors ${
+            className={`rounded-2xl border-dashed transition-colors ${
               dragOver === null && dragging !== null
                 ? "border-primary bg-primary/5"
                 : "border-border/70"
@@ -1083,7 +1084,7 @@ export default function TripMembers() {
                 <span className="text-sm font-medium flex-1">
                   Not in a group
                 </span>
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-[12px] text-muted-foreground">
                   {headcountLabels.get("none")}
                 </span>
               </div>
@@ -1112,7 +1113,7 @@ export default function TripMembers() {
                 ))}
                 {(membersByGroup.get("none") ?? []).length > 0 &&
                   (groups ?? []).length === 0 && (
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[12px] text-muted-foreground">
                       Add a family above to start grouping people.
                     </span>
                   )}
@@ -1137,7 +1138,7 @@ export default function TripMembers() {
                 {isAdmin && (
                   <button
                     onClick={() => openAddAttendee(null)}
-                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="pressable inline-flex min-h-8 items-center gap-1 rounded-full border border-dashed border-border px-2.5 text-[12px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                   >
                     <Plus className="h-3 w-3" /> Add without an account
                   </button>
@@ -1149,15 +1150,19 @@ export default function TripMembers() {
 
         {/* ── Members ── */}
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            On this trip · {accepted.length}
-          </h2>
-          {accepted.map((m: any) => {
+          <SectionHead title={<>On this trip · {accepted.length}</>} />
+          {accepted.map((m: any, i: number) => {
             const isMe = m.userId === user?.id;
             return (
-              <Card key={m.id ?? m.userId} className="border-border/70">
+              <Card
+                key={m.id ?? m.userId}
+                // The roster arrives in order rather than all at once: the
+                // sequence is what tells you it is a list and not a wall.
+                style={{ "--i": i } as React.CSSProperties}
+                className="stagger-item rounded-2xl border-border/70 shadow-e1"
+              >
                 <CardContent className="p-3 flex items-start gap-3">
-                  <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
                     {(m.user?.name || "?")[0].toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -1170,7 +1175,7 @@ export default function TripMembers() {
                       </span>
                       <RoleBadge role={m.role} />
                       {m.groupId != null && (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[11px]">
                           {groupName(m.groupId)}
                         </Badge>
                       )}
@@ -1183,7 +1188,7 @@ export default function TripMembers() {
                             {m.user.email}
                           </p>
                         )}
-                        <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <p className="text-[12px] text-muted-foreground mt-0.5 flex items-center gap-1">
                           <JoinedVia
                             via={m.joinedVia}
                             invitedByName={m.invitedByName}
@@ -1209,7 +1214,10 @@ export default function TripMembers() {
                         ((groups ?? []).length > 0 || m.groupId != null))) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="p-1 rounded hover:bg-muted text-muted-foreground shrink-0">
+                          <button
+                            aria-label="More"
+                            className="pressable touch-target flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
                             <MoreVertical className="h-4 w-4" />
                           </button>
                         </DropdownMenuTrigger>
@@ -1294,18 +1302,16 @@ export default function TripMembers() {
         {/* ── Pending invites ── */}
         {canSeeDetails && pendingInvites.length > 0 && (
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Invited · waiting to hear back
-            </h2>
+            <SectionHead title="Invited · waiting to hear back" />
             {pendingInvites.map((i: any) => (
-              <Card key={i.id} className="border-dashed border-border/60">
+              <Card key={i.id} className="rounded-2xl border-dashed border-border/60">
                 <CardContent className="p-3 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <Clock className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm truncate">{i.email}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[12px] text-muted-foreground">
                       Invited as {TRIP_ROLE_LABELS[i.role as TripRole]} ·{" "}
                       {format(new Date(i.sentAt), "d MMM yyyy")}
                     </p>
@@ -1314,7 +1320,7 @@ export default function TripMembers() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-8 text-xs"
+                      className="rounded-full text-xs"
                       onClick={async () => {
                         await revokeInvite.mutateAsync({
                           tripId,
@@ -1336,9 +1342,7 @@ export default function TripMembers() {
         {/* ── Answered invites: declined and revoked leave a record ── */}
         {canSeeDetails && answeredInvites.length > 0 && (
           <div className="space-y-2">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Earlier invites
-            </h2>
+            <SectionHead title="Earlier invites" />
             {answeredInvites.map((i: any) => (
               <div
                 key={i.id}
@@ -1359,11 +1363,9 @@ export default function TripMembers() {
         {/* ── Invite ── */}
         {canContribute && (
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              Invite someone
-            </h2>
+            <SectionHead title="Invite someone" />
 
-            <Card className="border-border/70">
+            <Card className="rounded-2xl border-border/70 shadow-e1">
               <CardContent className="p-3 space-y-3">
                 <div>
                   <Label className="text-xs">Join as</Label>
@@ -1372,7 +1374,7 @@ export default function TripMembers() {
                       value={inviteRole}
                       onValueChange={v => setInviteRole(v as TripRole)}
                     >
-                      <SelectTrigger className="mt-1 rounded-lg">
+                      <SelectTrigger className="mt-1 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1390,11 +1392,11 @@ export default function TripMembers() {
                       {TRIP_ROLE_LABELS.watcher}
                     </div>
                   )}
-                  <p className="text-[11px] text-muted-foreground mt-1">
+                  <p className="text-[12px] text-muted-foreground mt-1">
                     {TRIP_ROLE_DESCRIPTIONS[isAdmin ? inviteRole : "watcher"]}
                   </p>
                   {!isAdmin && (
-                    <p className="text-[11px] text-muted-foreground mt-1">
+                    <p className="text-[12px] text-muted-foreground mt-1">
                       Tripmates can add watchers — people who follow the trip
                       without voting, so no decision waits on them. Ask an admin
                       to add someone who votes.
@@ -1410,7 +1412,7 @@ export default function TripMembers() {
                       placeholder="friend@example.com"
                       value={inviteEmail}
                       onChange={e => setInviteEmail(e.target.value)}
-                      className="flex-1 rounded-lg"
+                      className="flex-1 rounded-xl"
                     />
                     <Button
                       size="icon"
@@ -1422,19 +1424,17 @@ export default function TripMembers() {
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
+                <label className="flex min-h-9 items-center gap-2.5 text-[13px] text-muted-foreground">
+                  <Checkbox
                     checked={saveToContacts}
-                    onChange={e => setSaveToContacts(e.target.checked)}
-                    className="rounded"
+                    onCheckedChange={v => setSaveToContacts(v === true)}
                   />
                   Save to my contacts so I don't type it again
                 </label>
 
                 <Button
                   variant="outline"
-                  className="w-full rounded-lg gap-2"
+                  className="w-full gap-2 rounded-xl"
                   onClick={() => setContactPickerOpen(true)}
                 >
                   <BookUser className="h-4 w-4" />
@@ -1448,14 +1448,14 @@ export default function TripMembers() {
                 makes tripmates, so handing it to a tripmate would hand out
                 votes — the one thing the loosened invite rule protects. */}
             {isAdmin && (
-              <Card className="border-border/70">
+              <Card className="rounded-2xl border-border/70 shadow-e1">
                 <CardContent className="p-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Or share this link. Anyone who follows it joins as a
                     Tripmate.
                   </p>
                   <div className="flex gap-2">
-                    <code className="flex-1 text-[11px] bg-muted p-2.5 rounded-lg break-all">
+                    <code className="flex-1 text-[12px] bg-muted p-2.5 rounded-lg break-all">
                       {inviteUrl}
                     </code>
                     <Button
@@ -1485,9 +1485,7 @@ export default function TripMembers() {
 
           {(contactGroups ?? []).length > 0 && (
             <div className="space-y-2 pt-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Saved families
-              </p>
+              <p className="text-[13px] font-semibold text-muted-foreground">Saved families</p>
               {(contactGroups ?? []).map((cg: any) => (
                 <div
                   key={cg.id}
@@ -1510,7 +1508,7 @@ export default function TripMembers() {
                     <UserPlus className="h-3 w-3" /> Add to trip
                   </Button>
                   <button
-                    className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                    className="pressable touch-target flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-on-soft"
                     aria-label={`Forget ${cg.name}`}
                     onClick={async () => {
                       await removeContactGroup.mutateAsync({ id: cg.id });
@@ -1549,7 +1547,7 @@ export default function TripMembers() {
                       </p>
                     </div>
                     {alreadyOn ? (
-                      <span className="text-[11px] text-muted-foreground shrink-0">
+                      <span className="text-[12px] text-muted-foreground shrink-0">
                         On this trip
                       </span>
                     ) : (
@@ -1567,7 +1565,7 @@ export default function TripMembers() {
                       </Button>
                     )}
                     <button
-                      className="p-1 text-muted-foreground hover:text-destructive shrink-0"
+                      className="pressable touch-target flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-danger-soft hover:text-danger-on-soft"
                       onClick={async () => {
                         await removeContact.mutateAsync({ id: c.id });
                         utils.contacts.list.invalidate();
@@ -1659,13 +1657,13 @@ export default function TripMembers() {
               <div className="flex gap-2 pt-1">
                 <Button
                   variant="outline"
-                  className="flex-1 rounded-lg"
+                  className="flex-1 rounded-xl"
                   onClick={() => setImportPlan(null)}
                 >
                   Cancel
                 </Button>
                 <Button
-                  className="flex-1 rounded-lg"
+                  className="flex-1 rounded-xl"
                   onClick={confirmImport}
                   disabled={importGroup.isPending}
                 >
@@ -1709,7 +1707,7 @@ export default function TripMembers() {
                       {m.userId === user?.id ? "You" : m.user?.name || "Member"}
                     </span>
                     {m.groupId != null && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-[11px]">
                         {groupName(m.groupId)}
                       </Badge>
                     )}

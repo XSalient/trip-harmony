@@ -11,6 +11,7 @@ import { CheckCircle2, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Disclosure } from "@/components/harmony/Disclosure";
 
 /**
  * Sends you to the section's own screen with its add dialog already open.
@@ -123,7 +124,7 @@ export default function SectionCard({
           <button
             onClick={onToggle}
             aria-expanded={open}
-            className="flex flex-1 min-w-0 items-center gap-3 text-left"
+            className="pressable-lg flex flex-1 min-w-0 items-center gap-3 text-left"
           >
             <div
               className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/12 text-primary"}`}
@@ -171,25 +172,32 @@ export default function SectionCard({
             />
           </button>
         </div>
-        {open && (
-          <>
-            {/* An empty list still arrives as `[]`, which is truthy — count the
-                rendered children rather than the expression that made them. */}
-            {React.Children.count(children) > 0 ? (
-              <div className="space-y-2 px-3.5 pb-3">{children}</div>
-            ) : (
-              <p className="px-3.5 pb-3 text-[13px] text-muted-foreground">
-                {emptyText}
-              </p>
-            )}
-            <Link href={href}>
-              <div className="flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/60 px-3.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
-                <span>View all details</span>
-                <ChevronRight className="h-3.5 w-3.5" />
-              </div>
-            </Link>
-          </>
-        )}
+        {/* Opening a section grows it rather than replacing the layout in one
+            frame, and its proposals arrive one after the other rather than all
+            at once — the order is the information (MASTER §7 `stagger-sequence`). */}
+        <Disclosure open={open}>
+          {/* An empty list still arrives as `[]`, which is truthy — count the
+              rendered children rather than the expression that made them. */}
+          {React.Children.count(children) > 0 ? (
+            <div className="space-y-2 px-3.5 pb-3">
+              {React.Children.map(children, (child, i) => (
+                <div className="stagger-item" style={{ "--i": i } as React.CSSProperties}>
+                  {child}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="px-3.5 pb-3 text-[13px] text-muted-foreground">
+              {emptyText}
+            </p>
+          )}
+          <Link href={href}>
+            <div className="pressable-lg flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/60 px-3.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+              <span>View all details</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </div>
+          </Link>
+        </Disclosure>
       </CardContent>
     </Card>
   );
@@ -222,7 +230,7 @@ export function CollapsibleRow({
         <button
           onClick={onToggle}
           aria-expanded={open}
-          className="flex min-h-[52px] w-full items-center gap-2.5 px-3.5 py-2.5 text-left"
+          className="pressable-lg flex min-h-[52px] w-full items-center gap-2.5 px-3.5 py-2.5 text-left"
         >
           <div
             className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${iconClass ?? "bg-primary/12 text-primary"}`}
@@ -239,7 +247,9 @@ export function CollapsibleRow({
             className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           />
         </button>
-        {open && <div className="px-3 pb-3">{children}</div>}
+        <Disclosure open={open}>
+          <div className="px-3 pb-3">{children}</div>
+        </Disclosure>
       </CardContent>
     </Card>
   );
