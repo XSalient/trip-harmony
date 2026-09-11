@@ -709,20 +709,21 @@ export default function TripBudget() {
                       />
                     )}
 
-                    <div className="mt-2 space-y-0.5">
+                    {/* Attribution and the finalise action share one row. They were four
+                        stacked full-width rows — "Added by", "Finalised by", the button,
+                        then comments — which is 140px of footer under every proposal. */}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
                       <AddedBy proposal={p} currentUserId={user?.id} />
                       <FinalisedBy
                         proposal={p}
                         members={members}
                         currentUserId={user?.id}
                       />
-                    </div>
-
-                    {isAdmin && (
+                      {isAdmin && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="w-full mt-2 text-primary text-xs"
+                        className="ml-auto rounded-full text-xs text-primary"
                         onClick={() => handleToggleLock(p.id, !p.selected)}
                         disabled={
                           setLockMutation.isPending ||
@@ -744,6 +745,7 @@ export default function TripBudget() {
                         )}
                       </Button>
                     )}
+                  </div>
 
                     <ProposalComments
                       proposalType="budget"

@@ -1410,8 +1410,8 @@ export default function TripAccommodations() {
                                 )}
                               </div>
                             ) : (
-                              <div className="rounded-xl border border-dashed border-border/60 p-2.5 flex items-start gap-2 text-xs text-muted-foreground">
-                                <Brain className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                              <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-3 py-2 text-[12px] text-muted-foreground">
+                                <Brain className="size-3.5 shrink-0" />
                                 {/*
                                 Says what has not happened, because importing a
                                 listing looks like analysis and is not: the
@@ -1420,17 +1420,16 @@ export default function TripAccommodations() {
                                 every field arrived from Booking.com still reads
                                 "not analysed", and that read as a failed import.
                               */}
-                                <span className="flex-1">
-                                  No AI match yet — it scores this stay against
-                                  every member's preferences. Imported listing
-                                  details don't include it
-                                  {isAdmin ? "" : "; an admin can run it"}.
+                                <span className="min-w-0 flex-1">
+                                  Not scored against the group's preferences
+                                  yet
+                                  {isAdmin ? "" : " — an admin can run it"}.
                                 </span>
                                 {isAdmin && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-6 text-xs shrink-0"
+                                    className="-mr-2 shrink-0 rounded-full text-xs text-primary"
                                     onClick={() => handleRefreshMatch(acc.id)}
                                     disabled={refreshing}
                                   >
@@ -1471,20 +1470,21 @@ export default function TripAccommodations() {
                       />
                     )}
 
-                    <div className="mt-2 space-y-0.5">
+                    {/* Attribution and the finalise action share one row. They were four
+                        stacked full-width rows — "Added by", "Finalised by", the button,
+                        then comments — which is 140px of footer under every proposal. */}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
                       <AddedBy proposal={acc} currentUserId={user?.id} />
                       <FinalisedBy
                         proposal={acc}
                         members={members}
                         currentUserId={user?.id}
                       />
-                    </div>
-
-                    {isAdmin && (
+                      {isAdmin && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="w-full mt-2 text-primary text-xs"
+                        className="ml-auto rounded-full text-xs text-primary"
                         onClick={() => handleToggleLock(acc.id, !acc.selected)}
                         disabled={
                           setLockMutation.isPending ||
@@ -1506,6 +1506,7 @@ export default function TripAccommodations() {
                         )}
                       </Button>
                     )}
+                  </div>
 
                     <ProposalComments
                       proposalType="accommodation"

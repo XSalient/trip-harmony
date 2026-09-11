@@ -41,10 +41,10 @@ export default function FinalisedBy({
   const validWhen = when && !Number.isNaN(when.getTime()) ? when : null;
 
   return (
-    <p className="mt-2 text-[11px] text-muted-foreground">
+    <span className="text-success">
       Finalised
       {who ? ` by ${who}` : ""}
       {validWhen ? ` · ${format(validWhen, "d MMM yyyy")}` : ""}
-    </p>
+    </span>
   );
 }

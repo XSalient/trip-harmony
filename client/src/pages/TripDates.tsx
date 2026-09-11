@@ -762,34 +762,33 @@ export default function TripDates() {
                       />
                     )}
 
-                    <div className="mt-2 space-y-0.5">
+                    {/* Attribution and the lock action share one row — see the
+                        other proposal screens. */}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
                       <AddedBy proposal={p} currentUserId={user?.id} />
                       <FinalisedBy
                         proposal={p}
                         members={members}
                         currentUserId={user?.id}
                       />
-                    </div>
-
-                    {isAdmin && !p.selected && (
-                      <>
+                      {isAdmin && !p.selected && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="w-full mt-2 text-primary text-xs"
+                          className="ml-auto rounded-full text-xs text-primary"
                           onClick={() => handleSelect(p.id)}
                           disabled={blockReason !== null}
                           title={blockReason ?? undefined}
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Lock
-                          these dates
+                          <CheckCircle2 className="mr-1 size-3.5" /> Lock these
+                          dates
                         </Button>
-                        {blockReason && (
-                          <p className="mt-1 text-center text-[11px] text-muted-foreground">
-                            {blockReason}
-                          </p>
-                        )}
-                      </>
+                      )}
+                    </div>
+                    {isAdmin && !p.selected && blockReason && (
+                      <p className="mt-1 text-right text-[12px] text-muted-foreground">
+                        {blockReason}
+                      </p>
                     )}
 
                     <ProposalComments

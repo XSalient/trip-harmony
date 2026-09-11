@@ -33,11 +33,13 @@ export default function AddedBy({
 
   if (!who && !validWhen) return null;
 
+  // A span, not a paragraph: this shares a line with `FinalisedBy` and the
+  // finalise action rather than owning one of its own.
   return (
-    <p className="text-[11px] text-muted-foreground">
+    <span>
       Added
       {who ? ` by ${who}` : ""}
       {validWhen ? ` · ${format(validWhen, "d MMM yyyy")}` : ""}
-    </p>
+    </span>
   );
 }
