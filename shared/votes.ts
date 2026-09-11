@@ -9,6 +9,8 @@
  * import it, exactly as they do `roles.ts` and `budget.ts`.
  */
 
+import { canContribute, type TripRole } from "./roles";
+
 /**
  * "I don't mind — go with the majority."
  *
@@ -114,4 +116,41 @@ export function finaliseBlockReason(
 ): string | null {
   if (!isAllMajority(votes)) return null;
   return "Everyone who voted chose “Go with the majority”, so there's no majority to go with. Ask someone to state a preference before finalising.";
+}
+
+
+/**
+ * How many proposals are still waiting on this person's vote.
+ *
+ * **Zero for a watcher, always.** A watcher cannot vote — the server refuses
+ * them (`requireTripRole`), every screen hides the controls, and the server
+ * already leaves them out of `vote_request` notifications. But the trip page
+ * derived its own count by filtering for "no vote from me yet", which is true
+ * of every open proposal when you are not allowed to vote on any of them: a
+ * watcher was met with "9 waiting on your vote" above a notice explaining that
+ * voting is for tripmates.
+ *
+ * It lives here, taking the role, so the count cannot be re-derived without
+ * the rule. `canContribute` is that rule and it already existed; what was
+ * missing was a single place that could not forget to ask it.
+ *
+ * A null role — still loading, or not a member — also counts zero. Assume the
+ * least until told otherwise, the same way `useTripRole` does.
+ */
+export function pendingVoteCount(
+  proposals:
+    | ReadonlyArray<{
+        selected?: boolean | null;
+        votes?: ReadonlyArray<{ userId: number }> | null;
+      }>
+    | null
+    | undefined,
+  viewerId: number | null | undefined,
+  role: TripRole | null | undefined
+): number {
+  if (!role || !canContribute(role)) return 0;
+  if (viewerId == null) return 0;
+  return (proposals ?? []).filter(
+    p => !p.selected && !p.votes?.some(v => v.userId === viewerId)
+  ).length;
 }

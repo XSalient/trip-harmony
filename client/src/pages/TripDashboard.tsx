@@ -39,6 +39,7 @@ import {
   ChoiceProposalRow,
   DateProposalRow,
 } from "@/components/trip/ProposalRow";
+import { pendingVoteCount } from "@shared/votes";
 import type { DateVote, PreferenceVote } from "@shared/votes";
 
 export default function TripDashboard() {
@@ -112,6 +113,7 @@ export default function TripDashboard() {
   // hook answers on every other trip screen, which is the point of it: this
   // rule used to live here and nowhere else.
   const {
+    role,
     canAdminister: isAdmin,
     canContribute,
     isWatcher,
@@ -196,15 +198,17 @@ export default function TripDashboard() {
   const hiddenSections: SectionKey[] = (trip as any)?.hiddenSections ?? [];
   const shows = (section: SectionKey) => !hiddenSections.includes(section);
 
+  // `pendingVoteCount` takes the role, so this count cannot be derived without
+  // asking whether the reader may vote at all. It used to filter for "no vote
+  // from me yet", which is true of every open proposal when you are a watcher —
+  // so a watcher was met with "9 waiting on your vote" directly above the
+  // notice explaining that voting is for tripmates.
   const unvoted = (rows: any[] | undefined) =>
-    rows?.filter(
-      (r: any) =>
-        !r.selected && !r.votes?.some((v: any) => v.userId === user?.id)
-    ).length || 0;
+    pendingVoteCount(rows, user?.id, role);
 
-  // A hidden section contributes nothing. Counting it would put "you have 3
-  // unvoted proposals — open a section below to vote" above a page with no
-  // such section on it, which is an instruction the reader cannot follow.
+  // A hidden section contributes nothing. Counting it would put "3 waiting on
+  // your vote" — and a link into that section — above a page the section is
+  // not on, which is an offer the reader cannot take up.
   const pendingVotes = {
     dates: shows("dates") ? unvoted(dateProposals) : 0,
     destinations: shows("suggestions") ? unvoted(destinations) : 0,

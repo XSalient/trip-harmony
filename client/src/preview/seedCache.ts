@@ -31,6 +31,34 @@ import * as fx from "./fixtures";
  */
 
 export const PREVIEW_FIXTURES_KEY = "preview-fixtures";
+const PREVIEW_ROLE_KEY = "preview-role";
+
+/**
+ * Which role the preview signs in as.
+ *
+ * Role-gated screens are the ones that go wrong quietly — a watcher was being
+ * told "9 waiting on your vote" above a notice saying voting is for tripmates,
+ * and nothing in the admin view could have shown that. So the harness can take
+ * any seat.
+ */
+export type PreviewRole = "admin" | "tripmate" | "watcher";
+
+export function previewRole(): PreviewRole {
+  try {
+    const stored = window.sessionStorage?.getItem(PREVIEW_ROLE_KEY);
+    return stored === "watcher" || stored === "tripmate" ? stored : "admin";
+  } catch {
+    return "admin";
+  }
+}
+
+export function setPreviewRole(role: PreviewRole): void {
+  try {
+    window.sessionStorage.setItem(PREVIEW_ROLE_KEY, role);
+  } catch {
+    /* see `fixturesRequested` */
+  }
+}
 
 /** Far enough ahead that `staleTime` never expires during a review session. */
 const NEVER_STALE = Date.now() + 365 * 24 * 60 * 60 * 1000;
@@ -62,7 +90,7 @@ export function seedFixtures(qc: QueryClient): void {
   put(getQueryKey(trpc.auth.me, undefined, "query"), fx.me);
   put(getQueryKey(trpc.trips.list, undefined, "query"), fx.tripsList);
   put(getQueryKey(trpc.trips.get, { id: fx.TRIP_ID }, "query"), fx.trip);
-  put(getQueryKey(trpc.trips.myRole, TRIP, "query"), { role: "admin" });
+  put(getQueryKey(trpc.trips.myRole, TRIP, "query"), { role: previewRole() });
   put(getQueryKey(trpc.trips.members, TRIP, "query"), fx.members);
   put(getQueryKey(trpc.trips.invites, TRIP, "query"), fx.invites);
   put(getQueryKey(trpc.groups.list, TRIP, "query"), fx.groups);

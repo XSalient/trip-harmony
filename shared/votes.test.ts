@@ -19,6 +19,7 @@ import {
   countAbstentions,
   finaliseBlockReason,
   isAllMajority,
+  pendingVoteCount,
   scoreVotes,
 } from "./votes.js";
 
@@ -73,5 +74,59 @@ describe("a proposal nobody has an opinion about is not decided", () => {
   it("stops blocking as soon as one person states a preference", () => {
     expect(isAllMajority(votes(MAJORITY_VOTE, "veto"))).toBe(false);
     expect(finaliseBlockReason(votes(MAJORITY_VOTE, "love"))).toBeNull();
+  });
+});
+
+
+/**
+ * Nobody is ever told to do something they are not allowed to do.
+ *
+ * The trip page derived "waiting on your vote" by filtering for proposals with
+ * no vote from the reader — which is every open proposal when the reader is a
+ * watcher, because a watcher cannot vote on any of them. The screen showed
+ * "9 waiting on your vote" directly above the notice saying voting is for
+ * tripmates.
+ *
+ * The count takes the role now, so the rule cannot be left out by accident.
+ * These are the boundaries worth pinning: the role gate, the loading state,
+ * and the two ways a proposal stops counting.
+ */
+describe("pendingVoteCount", () => {
+  const ME = 7;
+  const open = { selected: false, votes: [{ userId: 99 }] };
+  const mine = { selected: false, votes: [{ userId: 99 }, { userId: ME }] };
+  const finalised = { selected: true, votes: [{ userId: 99 }] };
+
+  it("is zero for a watcher, however many proposals are open", () => {
+    expect(pendingVoteCount([open, open, open], ME, "watcher")).toBe(0);
+  });
+
+  it("counts open proposals the member has not voted on", () => {
+    expect(pendingVoteCount([open, open, mine], ME, "tripmate")).toBe(2);
+    expect(pendingVoteCount([open, open, mine], ME, "admin")).toBe(2);
+  });
+
+  it("does not count a proposal the group has finalised", () => {
+    expect(pendingVoteCount([finalised, open], ME, "tripmate")).toBe(1);
+  });
+
+  it("is zero before the role is known, and for a non-member", () => {
+    expect(pendingVoteCount([open, open], ME, null)).toBe(0);
+    expect(pendingVoteCount([open, open], ME, undefined)).toBe(0);
+  });
+
+  it("is zero when there is no signed-in reader to be waiting on", () => {
+    expect(pendingVoteCount([open], undefined, "tripmate")).toBe(0);
+    expect(pendingVoteCount([open], null, "tripmate")).toBe(0);
+  });
+
+  it("handles an absent or empty proposal list", () => {
+    expect(pendingVoteCount(undefined, ME, "tripmate")).toBe(0);
+    expect(pendingVoteCount(null, ME, "tripmate")).toBe(0);
+    expect(pendingVoteCount([], ME, "tripmate")).toBe(0);
+  });
+
+  it("counts a proposal nobody has voted on at all", () => {
+    expect(pendingVoteCount([{ selected: false }], ME, "tripmate")).toBe(1);
   });
 });

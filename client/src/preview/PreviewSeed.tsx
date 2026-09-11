@@ -4,7 +4,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import * as fx from "./fixtures";
-import { requestFixtures, seedFixtures } from "./seedCache";
+import {
+  previewRole,
+  requestFixtures,
+  seedFixtures,
+  setPreviewRole,
+  type PreviewRole,
+} from "./seedCache";
 
 /**
  * The way in to the fixture preview: seeds the cache, remembers that it did,
@@ -22,11 +28,14 @@ export default function PreviewSeed() {
   const [, navigate] = useLocation();
   const [seeded, setSeeded] = useState(false);
 
+  const [role, setRole] = useState<PreviewRole>(previewRole);
+
   useEffect(() => {
     requestFixtures();
+    setPreviewRole(role);
     seedFixtures(qc);
     setSeeded(true);
-  }, [qc]);
+  }, [qc, role]);
 
   const screens: Array<[string, string]> = [
     ["Trip", `/trips/${fx.TRIP_ID}`],
@@ -56,6 +65,25 @@ export default function PreviewSeed() {
             rendering fixture data. Mutations will fail — this is for judging
             how it looks, not what it does.
           </p>
+        </div>
+
+        {/* Seat picker. A watcher sees a different app — no vote controls, no
+            member details, no attribution — and that is where role bugs hide. */}
+        <div className="flex gap-1 rounded-full bg-muted/70 p-1">
+          {(["admin", "tripmate", "watcher"] as const).map(r => (
+            <button
+              key={r}
+              onClick={() => setRole(r)}
+              aria-pressed={role === r}
+              className={`flex min-h-10 flex-1 items-center justify-center rounded-full text-[13px] capitalize transition-colors ${
+                role === r
+                  ? "bg-card font-semibold shadow-e1"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
