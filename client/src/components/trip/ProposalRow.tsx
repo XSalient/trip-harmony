@@ -91,9 +91,9 @@ function RowShell({
       {row.selected && (
         <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success" />
       )}
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex-1 min-w-0">{title}</div>
-        <div className="flex items-center gap-1 shrink-0 ml-1">
+      <div className="mb-1.5 flex items-start justify-between gap-1">
+        <div className="min-w-0 flex-1">{title}</div>
+        <div className="flex shrink-0 items-center gap-1">
           <LockToggle
             locked={row.selected}
             canLock={isAdmin}
@@ -361,12 +361,17 @@ export function DateProposalRow({
     <RowShell
       {...props}
       title={
-        <Link href={detailHref}>
-          <span className="cursor-pointer hover:underline">
+        // Two lines, not one wrapped one. Run together, a long label and its
+        // dates break mid-phrase — "First week of September · Aug 31 – / Sep 9,
+        // 2026 · 9n" — and the reader has to reassemble the date from two rows.
+        <Link href={detailHref} className="block">
+          <span className="block cursor-pointer">
             {row.label && (
-              <span className="font-medium mr-1">{row.label} · </span>
+              <span className="block truncate font-semibold hover:underline">
+                {row.label}
+              </span>
             )}
-            <span className="text-muted-foreground">
+            <span className="tabular block truncate text-muted-foreground">
               {format(new Date(row.startDate), "MMM d")} –{" "}
               {format(new Date(row.endDate), "MMM d, yyyy")} · {nights}n
             </span>
