@@ -395,7 +395,7 @@ export default function TripDates() {
                       <Plus className="h-4 w-4" /> Add
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                       <DialogTitle>Propose Dates</DialogTitle>
                     </DialogHeader>
@@ -864,7 +864,7 @@ export default function TripDates() {
 
       {/* Edit dialog — unreachable without the menu that opens it. */}
       <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit Date Proposal</DialogTitle>
           </DialogHeader>

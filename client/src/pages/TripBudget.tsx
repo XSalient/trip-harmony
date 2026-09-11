@@ -423,7 +423,7 @@ export default function TripBudget() {
                       <Plus className="h-4 w-4" /> Add
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                       <DialogTitle>Propose a budget</DialogTitle>
                     </DialogHeader>
@@ -813,7 +813,7 @@ export default function TripBudget() {
 
       {/* Edit dialog — unreachable without the menu that opens it. */}
       <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit budget</DialogTitle>
           </DialogHeader>
@@ -860,7 +860,7 @@ export default function TripBudget() {
       {/* The personal limit. It says which of the two it is setting, because on
           a trip of families the number belongs to the family, not the person. */}
       <Dialog open={capOpen && canContribute} onOpenChange={setCapOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
               {summary?.myCapIsGroup

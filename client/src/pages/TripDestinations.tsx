@@ -327,7 +327,7 @@ export default function TripDestinations() {
                       <Plus className="h-4 w-4" /> Add
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+                  <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                       <DialogTitle>Add a Suggestion</DialogTitle>
                     </DialogHeader>
@@ -640,7 +640,7 @@ export default function TripDestinations() {
 
       {/* Edit dialog — unreachable without the menu that opens it. */}
       <Dialog open={editOpen && canContribute} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit Suggestion</DialogTitle>
           </DialogHeader>

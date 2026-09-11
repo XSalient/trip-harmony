@@ -1,11 +1,12 @@
 import { type ReactNode } from "react";
-import { useIsMobile } from "@/hooks/useMobile";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle,
-} from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
 export interface BottomSheetProps {
@@ -22,15 +23,18 @@ export interface BottomSheetProps {
 }
 
 /**
- * A bottom sheet on phones, a centred dialog from `md` up.
+ * A titled sheet: a named wrapper over `Dialog`, which is already a bottom
+ * sheet on phones and a centred dialog from `sm` up (see the `sheet-surface`
+ * utility and `useSheetDrag`).
  *
- * The app had ~60 centred `Dialog`s, several of them long forms, which is a
- * poor fit for a 390px screen. vaul was already a dependency but only reachable
- * from an unrouted demo page.
+ * This used to render vaul's Drawer below `md` and Dialog above it. That gave
+ * the app two sheet implementations with two sets of physics and two
+ * breakpoints, reachable from the same screen — which is the kind of seam the
+ * eye reads as "assembled" rather than "designed". One presentation, one
+ * gesture, one breakpoint.
  *
- * Important: the variant is chosen by viewport and must not flip while open —
- * React would remount and lose child state. Every form here keeps its state at
- * page level, so a remount on rotation is harmless; keep it that way.
+ * Use this where the sheet has a title and a footer; use `Dialog` directly
+ * where it does not.
  */
 export function BottomSheet({
   open,
@@ -42,56 +46,19 @@ export function BottomSheet({
   size = "auto",
   className,
 }: BottomSheetProps) {
-  const isMobile = useIsMobile();
-
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent
-          className={cn(
-            "glass-flat rounded-t-[1.75rem] border-t border-border/60",
-            size === "tall" ? "max-h-[92dvh]" : "max-h-[88dvh]",
-            className
-          )}
-        >
-          <DrawerHeader className="px-5 pb-2 pt-1 text-left">
-            <DrawerTitle className="font-display text-xl font-bold tracking-tight">
-              {title}
-            </DrawerTitle>
-            {description && (
-              <DrawerDescription className="text-sm">{description}</DrawerDescription>
-            )}
-          </DrawerHeader>
-
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-2">
-            {children}
-          </div>
-
-          {footer && (
-            <DrawerFooter className="safe-area-bottom gap-2 border-t border-border/70 bg-card px-5 pt-3">
-              {footer}
-            </DrawerFooter>
-          )}
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn("glass-flat max-w-lg gap-4 rounded-2xl", size === "tall" && "max-h-[85dvh]", className)}
+        className={cn(size === "tall" && "max-h-[92dvh] sm:max-h-[85dvh]", className)}
       >
         <DialogHeader>
-          <DialogTitle className="font-display text-xl font-bold tracking-tight">
-            {title}
-          </DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className={cn("min-h-0", size === "tall" && "overflow-y-auto")}>{children}</div>
+        <div className="min-h-0">{children}</div>
 
-        {footer && <DialogFooter className="gap-2">{footer}</DialogFooter>}
+        {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>
   );

@@ -84,7 +84,7 @@ export default function VoteScore({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="glass-flat sm:max-w-sm rounded-2xl">
+        <DialogContent className="glass-flat sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Vote score {signed(score)}</DialogTitle>
           </DialogHeader>

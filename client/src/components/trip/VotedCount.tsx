@@ -88,7 +88,7 @@ export default function VotedCount({
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Who voted</DialogTitle>
           </DialogHeader>

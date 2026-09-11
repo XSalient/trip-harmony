@@ -124,7 +124,7 @@ export default function TripActionsMenu({
       </DropdownMenu>
 
       <Dialog open={cloneOpen} onOpenChange={setCloneOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Duplicate trip</DialogTitle>
           </DialogHeader>
@@ -155,7 +155,7 @@ export default function TripActionsMenu({
       </Dialog>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete this trip?</DialogTitle>
           </DialogHeader>

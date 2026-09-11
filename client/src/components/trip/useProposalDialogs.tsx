@@ -283,7 +283,7 @@ export function useProposalDialogs({
 
   const element = (
     <Dialog open={Boolean(spec)} onOpenChange={o => !o && setSpec(null)}>
-      <DialogContent className="sm:max-w-sm rounded-2xl">
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{spec?.title}</DialogTitle>
         </DialogHeader>

@@ -1478,7 +1478,7 @@ export default function TripMembers() {
 
       {/* ── Contact picker ── */}
       <Dialog open={contactPickerOpen} onOpenChange={setContactPickerOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>My contacts</DialogTitle>
           </DialogHeader>
@@ -1589,7 +1589,7 @@ export default function TripMembers() {
         open={importPlan !== null}
         onOpenChange={open => !open && setImportPlan(null)}
       >
-        <DialogContent className="sm:max-w-sm rounded-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Add {importPlan?.groupName} to this trip</DialogTitle>
           </DialogHeader>
@@ -1683,7 +1683,7 @@ export default function TripMembers() {
         open={addToGroup !== null}
         onOpenChange={open => !open && setAddToGroup(null)}
       >
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
               Add to {addToGroup != null ? groupName(addToGroup) : "group"}
@@ -1732,7 +1732,7 @@ export default function TripMembers() {
         open={attendeeFor !== undefined}
         onOpenChange={open => !open && closeAttendeeDialog()}
       >
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
               {attendeeEdit

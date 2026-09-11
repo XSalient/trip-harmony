@@ -530,6 +530,193 @@
 }
 
 /* --------------------------------------------------------------------------
+   Modal surfaces
+
+   A centred box that zooms in is a desktop idiom. On a phone the same content
+   belongs on a sheet that rises from the bottom edge, within thumb reach, with
+   a grabber that says "drag me down". `sheet-surface` is one utility that is a
+   sheet below `sm` and the familiar centred dialog above it, so every existing
+   Dialog call site gets the native behaviour without being rewritten.
+
+   The open/close animations hang off Radix's `data-state` rather than being a
+   bare `animation:` — Radix's Presence waits for a running animation before it
+   unmounts, so this is what makes the sheet slide back down instead of
+   vanishing.
+   -------------------------------------------------------------------------- */
+
+@keyframes sheet-up {
+  from { transform: translate3d(0, 100%, 0); }
+  to   { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes sheet-down {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 100%, 0); }
+}
+
+/* Transform only, never opacity. A keyframe that starts at opacity 0 leaves
+   the surface invisible if the animation never runs — and it does not run in a
+   background tab, in low-power mode, or in some in-app WebViews. Stuck at
+   `scale(0.96)` is still a readable dialog; stuck at `opacity: 0` is a bug
+   report. Same rule as `harmony-rise`. */
+@keyframes dialog-in {
+  from { transform: translate(-50%, -50%) scale(0.96); }
+  to   { transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes dialog-out {
+  from { transform: translate(-50%, -50%) scale(1); }
+  to   { transform: translate(-50%, -50%) scale(0.96); }
+}
+
+@utility sheet-surface {
+  position: fixed;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  width: 100%;
+  max-width: none;
+  max-height: 88dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: var(--card);
+  box-shadow: var(--shadow-e4);
+  padding: 0.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+
+  /* No fill mode on the entrance: `both` would hold the start frame — the
+     sheet parked a full height below the viewport — for as long as the
+     animation is pending, which in a throttled tab is forever. Without it the
+     resting position is the correct one and the animation is pure gravy. */
+  &[data-state="open"] {
+    animation: sheet-up var(--motion-slow) var(--ease-out-soft);
+  }
+  &[data-state="closed"] {
+    animation: sheet-down var(--motion-base) var(--ease-in-soft) forwards;
+  }
+
+  /* The grabber. Sticky so it stays put while the sheet's body scrolls. */
+  &::before {
+    content: "";
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: block;
+    width: 2.25rem;
+    height: 0.25rem;
+    margin: 0 auto 0.625rem;
+    border-radius: 999px;
+    background: var(--border);
+  }
+
+  @media (min-width: 40rem) {
+    left: 50%;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    max-width: 32rem;
+    max-height: 85dvh;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
+    padding: 1.5rem;
+
+    &[data-state="open"] {
+      animation: dialog-in var(--motion-base) var(--ease-out-soft);
+    }
+    &[data-state="closed"] {
+      animation: dialog-out var(--motion-fast) var(--ease-in-soft) forwards;
+    }
+    &::before { display: none; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-surface[data-state="open"],
+  .sheet-surface[data-state="closed"] {
+    animation-duration: 1ms;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Press feedback
+
+   The single clearest tell that a screen is a web page: tapping something and
+   watching nothing happen until the network answers. Every tappable surface
+   dips under the finger, immediately, on the compositor (MASTER S7).
+
+   `touch-action: manipulation` is part of the same job — it removes the 300ms
+   double-tap wait, so the dip and the action land together.
+   -------------------------------------------------------------------------- */
+
+@utility pressable {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--motion-fast) var(--ease-out-soft);
+
+  &:active {
+    transform: scale(0.97);
+  }
+}
+
+/* For large surfaces — a full-width card dipping 3% reads as a glitch. */
+@utility pressable-lg {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--motion-fast) var(--ease-out-soft);
+
+  &:active {
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable:active,
+  .pressable-lg:active {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Loading
+
+   A skeleton that pulses its opacity reads as a broken element. A sheen that
+   travels across it reads as work in progress, which is what it is.
+   -------------------------------------------------------------------------- */
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      var(--glass-hairline),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after { animation: none; }
+}
+
+/* --------------------------------------------------------------------------
    Glass and gradient
 
    Blur is used only where it carries meaning — a surface with content behind

@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { XIcon } from "lucide-react";
 import * as React from "react";
+import { useSheetDrag } from "@/hooks/useSheetDrag";
 
 // Context to track composition state across dialog children
 const DialogCompositionContext = React.createContext<{
@@ -99,6 +100,7 @@ function DialogContent({
   showCloseButton?: boolean;
 }) {
   const { isComposing } = useDialogComposition();
+  const { ref: sheetRef, closeRef } = useSheetDrag();
 
   const handleEscapeKeyDown = React.useCallback(
     (e: KeyboardEvent) => {
@@ -123,18 +125,26 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border/70 p-6 shadow-e4 duration-200 sm:max-w-lg",
-          className
-        )}
+        // `sheet-surface` carries the whole presentation: a bottom sheet with a
+        // grabber below `sm`, the familiar centred dialog above it. It is one
+        // utility rather than a pile of responsive classes so that a call site
+        // passing `className` cannot half-override the sheet into a centred box
+        // — Tailwind's merge only sees one class here, and it wins on order.
+        ref={sheetRef}
+        className={cn("sheet-surface grid gap-4", className)}
         onEscapeKeyDown={handleEscapeKeyDown}
         {...props}
       >
+        {/* The drag gesture dismisses through Radix's own close path rather
+            than unmounting anything itself — see `useSheetDrag`. */}
+        <DialogPrimitive.Close ref={closeRef} className="sr-only" tabIndex={-1}>
+          Close
+        </DialogPrimitive.Close>
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="focus:ring-ring text-muted-foreground absolute top-2.5 right-4 z-10 flex size-9 items-center justify-center rounded-full bg-muted/70 transition-[background-color,transform] duration-150 hover:bg-muted hover:text-foreground active:scale-90 focus:ring-2 focus:outline-hidden disabled:pointer-events-none sm:top-4 sm:size-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>
@@ -149,7 +159,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 text-center sm:text-left", className)}
+      className={cn("flex flex-col gap-1.5 pr-10 text-left", className)}
       {...props}
     />
   );
@@ -159,8 +169,12 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-footer"
+      // Full-width, stacked and bottom-anchored on a phone: on a sheet the
+      // footer is where the thumb already is. Reverts to a trailing button row
+      // from `sm` up, where the dialog is centred and the mouse is in charge.
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end sm:pt-0",
+        "[&>button]:w-full sm:[&>button]:w-auto",
         className
       )}
       {...props}
@@ -175,7 +189,10 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("text-lg leading-none font-semibold", className)}
+      className={cn(
+        "font-display text-xl font-bold tracking-tight sm:text-lg",
+        className
+      )}
       {...props}
     />
   );
