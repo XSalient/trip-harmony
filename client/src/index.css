@@ -124,10 +124,11 @@
      StickyActionBar and AppShell both read these; never hardcode pb-24.
 
      --nav-height is the floating bar's real box plus the 8px it floats above
-     the screen edge: MobileNav is p-1.5 (6px) + a 48px tab row + p-1.5, which
-     is 60px, plus its mb-2. It was 4rem when the bar was p-1. Changing the
-     bar's padding without changing this is what puts content back under it. */
-  --nav-height: 4.25rem;
+     the screen edge: MobileNav is p-1.5 (6px) + a 52px tab row + p-1.5 and a
+     hairline either side, measured at 66px, plus its mb-2 — so 74px. It was
+     4rem when the tabs were 48px in a p-1 bar. Changing the bar's padding or
+     its tab height without changing this is what puts content back under it. */
+  --nav-height: 4.625rem;
   --header-height: 3.5rem;
 
   /* motion (MASTER §7) */

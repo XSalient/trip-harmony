@@ -8,6 +8,38 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-11 — The tab bar spans the page
+
+### Changed
+
+- **The bottom tab bar divides the page instead of hugging its own contents.**
+  Adding a gap between the tabs was treating the symptom. The bar was `w-fit`
+  around four fixed 64px tabs — a ~294px bar floating under ~360px of content —
+  so the items were packed into something narrower than the page above it, and
+  the only ways to give a tab room were to make the bar wider than the content
+  or the label narrower than the word.
+
+  The bar now takes the content's own `px-4` gutter, matching `AppShell`'s
+  `<main>`, and each tab is `flex-1`. A tab is a quarter of the page: 86px on a
+  390px screen against 64px, 96px on a 430px one. Capped at 28rem, because a
+  quarter of a tablet is a long way for a thumb to reach Profile.
+
+  Equal cells also make the sliding indicator exact without measuring the DOM —
+  one cell is `100 / n` percent, so it steps by its own width at any screen
+  size. It is two elements now: an outer box one cell wide that slides, and an
+  inner one carrying the inset. Insetting the slider itself would make its step
+  narrower than a cell and it would drift further behind with every tab.
+
+  Labels go 10px → 11px, and the fills use the `lg` radius rather than `2xl`:
+  at 52px tall a 28px radius clamps to a half-round end, which on a narrow
+  screen turns the chip into a circle and pushes "New trip" outside its own
+  gradient.
+
+  `--nav-height` follows to 4.625rem. Checked at 320, 390 and 430px, light and
+  dark, each tab active in turn.
+
+---
+
 ## 2026-09-11 — The tab bar stops looking packed
 
 ### Changed

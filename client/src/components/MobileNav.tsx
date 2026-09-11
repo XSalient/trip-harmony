@@ -7,44 +7,25 @@ import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 /**
- * Every tab is the same width, which is what lets the active pill be placed by
- * arithmetic instead of by measuring the DOM: `translateX(index * TAB_PITCH)`.
- * Keep them equal — a label long enough to stretch its tab breaks the slide.
+ * The bar spans the page and divides it, rather than hugging its own contents.
  *
- * The two numbers are one decision. The tabs used to sit flush against each
- * other at 72px, which is what made the bar read as a packed strip rather than
- * four controls: the gradient "New trip" block touched its neighbours on both
- * sides, so there was no edge to tell them apart. The app-shell spec has always
- * asked for ≥8px between items (`design-system/pages/app-shell.md`) — this is
- * that gap, taken out of the tab width rather than added to the bar, so the
- * whole pill is *narrower* than before (292px against 296px) and still clears
- * a 320px screen with room either side.
+ * It used to be `w-fit` around four 64px tabs — a ~294px bar floating under
+ * ~360px of content, with the items packed into the narrower thing. Fixed tab
+ * widths are what force that: they decide the bar's size from the inside, so
+ * the only way to give an item room is to make the bar wider than the page or
+ * the item narrower than its label.
  *
- * 64px keeps every target past the 44px minimum, and the longest label ("New
- * trip", ~42px at 10px) still has room. Anything that changes either number
- * changes the pitch, which is why the pill reads `TAB_PITCH` and not `TAB_W`.
+ * Now the bar takes the content's own gutter (`px-4`, matching `AppShell`'s
+ * `<main>`) and each tab is `flex-1`, so a tab is a quarter of the page — about
+ * 88px on a 390px screen against the 64px it had. Nothing is packed because
+ * nothing is competing for a fixed budget.
+ *
+ * Equal `flex-1` cells are also what keeps the sliding indicator arithmetic
+ * honest without measuring the DOM: one cell is exactly `100 / n` percent, so
+ * the indicator is that wide and steps by exactly its own width. A tab that
+ * sized to its label would break both the maths and the rhythm.
  */
-const TAB_W = 64;
-const TAB_GAP = 8;
-const TAB_PITCH = TAB_W + TAB_GAP;
-
-/**
- * How far each filled shape sits inside its tab.
- *
- * The gap alone was not enough. Two of these tabs carry a *fill* — the active
- * pill and the gradient create chip — and they are adjacent, so at full tab
- * width the two blocks met across an 8px slot and the left half of the bar read
- * as one solid mass while the right half was bare icons. Insetting the fill
- * leaves the tap target at the full 64px and puts 20px of clear glass between
- * the two shapes (8 gap + 6 either side), which is what actually makes the bar
- * look like four controls.
- *
- * The create chip's fill is therefore an absolutely-positioned background,
- * exactly like the active pill, rather than a background on the link itself.
- * Both shapes are then the same size and inset by the same rule.
- */
-const FILL_INSET = 4;
-const FILL_W = TAB_W - FILL_INSET * 2;
+const MAX_BAR_W = "28rem";
 
 export default function MobileNav() {
   const [location] = useLocation();
@@ -96,106 +77,122 @@ export default function MobileNav() {
     // does not swallow taps meant for the content behind it.
     <nav
       aria-label="Primary"
-      className="safe-area-bottom pointer-events-none fixed inset-x-0 bottom-0 z-50"
+      // `px-4` is the content gutter from `AppShell`'s `<main>`. The bar lining
+      // up with the cards above it is most of why it now reads as part of the
+      // page rather than a widget dropped onto it.
+      className="safe-area-bottom pointer-events-none fixed inset-x-0 bottom-0 z-50 px-4"
     >
       <div
         // `p-1.5` rather than `p-1`: at 4px the 48px tabs — the filled create
-        // one especially — sat almost on the glass edge, so the bar looked like
-        // its contents had been pushed into it. The extra 2px a side is also
-        // what `--nav-height` accounts for; the two move together.
-        className="glass pointer-events-auto relative mx-auto mb-2 flex w-fit items-center rounded-full p-1.5 shadow-e3"
-        style={{ gap: TAB_GAP }}
+        // one especially — sat almost on the glass edge. The extra 2px a side is
+        // also what `--nav-height` accounts for; the two move together.
+        //
+        // Capped, because a quarter of a tablet is a very long way for a thumb
+        // to travel to reach `Profile`.
+        className="glass pointer-events-auto relative mx-auto mb-2 w-full rounded-full p-1.5 shadow-e3"
+        style={{ maxWidth: MAX_BAR_W }}
       >
-        {/* The active pill is one element that moves, not four that blink on
-            and off. Following the thumb from tab to tab is the difference
-            between a tab bar and four links (MASTER §7 `continuity`). */}
-        {activeIndex >= 0 && (
-          <span
-            aria-hidden
-            className={cn(
-              "bg-primary/15 absolute left-1.5 top-1.5 bottom-1.5 rounded-xl",
-              ready &&
-                "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
-            )}
-            style={{
-              width: FILL_W,
-              // Pitch, not width: the gap between tabs is part of the step.
-              // The inset is added once here rather than baked into `left-1.5`,
-              // so the pill and the create chip cannot drift apart.
-              transform: `translateX(${activeIndex * TAB_PITCH + FILL_INSET}px)`,
-            }}
-          />
-        )}
+        {/* The track is the positioning context for the indicator, so a
+            percentage there is a percentage of the tabs' own box and not of the
+            bar's padding box. */}
+        <div className="relative flex items-stretch">
+          {/* The active indicator is one element that moves, not four that blink
+              on and off. Following the thumb from tab to tab is the difference
+              between a tab bar and four links (MASTER §7 `continuity`).
 
-        {navItems.map((item, i) => {
-          const isActive = i === activeIndex;
+              Two elements, not one: the outer box is exactly one cell wide, so
+              `translateX(index * 100%)` steps by exactly one tab whatever the
+              screen is; the inner one carries the inset that keeps the fill off
+              its neighbours. Insetting the sliding element itself would make its
+              width — and therefore its own step — smaller than a cell, and the
+              indicator would drift further behind with every tab. */}
+          {activeIndex >= 0 && (
+            <span
+              aria-hidden
+              className={cn(
+                "absolute inset-y-0 left-0",
+                ready &&
+                  "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none"
+              )}
+              style={{
+                width: `${100 / navItems.length}%`,
+                transform: `translateX(${activeIndex * 100}%)`,
+              }}
+            >
+              <span className="bg-primary/15 absolute inset-y-0 left-1.5 right-1.5 rounded-lg" />
+            </span>
+          )}
 
-          return (
-            <Link key={item.href} href={item.href} asChild>
-              <a
-                onClick={() => {
-                  if (!isActive) haptic("select");
-                }}
-                aria-current={isActive ? "page" : undefined}
-                aria-label={
-                  item.badge && item.badge > 0
-                    ? `${item.label}, ${item.badge} unread`
-                    : item.label
-                }
-                className={cn(
-                  // >=44px in both directions, comfortably inside the thumb arc.
-                  "relative z-10 flex min-h-12 flex-col items-center justify-center gap-1 rounded-full py-1.5",
-                  "touch-manipulation transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
-                  // Fill + colour + weight, so the active tab never depends on
-                  // colour alone.
-                  // The create action is the raised, gradient one — the same
-                  // emphasis a centre FAB gives, without moving it in the bar.
-                  item.create
-                    ? "text-primary-foreground"
-                    : isActive
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-foreground"
-                )}
-                style={{ width: TAB_W }}
-              >
-                {/* The create action's fill, inset to match the active pill.
-                    A background on the link itself would be 64px wide and would
-                    collide with whatever fill sits beside it. */}
-                {item.create && (
-                  <span
-                    aria-hidden
-                    className="grad-brand absolute inset-y-0 rounded-xl shadow-e2"
-                    style={{ left: FILL_INSET, right: FILL_INSET }}
-                  />
-                )}
-                <span className="relative z-10">
-                  <item.icon
-                    className={cn(
-                      "h-5 w-5 transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-                      isActive && "-translate-y-px scale-110 stroke-[2.5px]"
-                    )}
-                  />
-                  {item.badge && item.badge > 0 ? (
-                    <span className="tabular animate-rise absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                      {item.badge > 99 ? "99+" : item.badge}
-                    </span>
-                  ) : null}
-                </span>
-                <span
+          {navItems.map((item, i) => {
+            const isActive = i === activeIndex;
+
+            return (
+              <Link key={item.href} href={item.href} asChild>
+                <a
+                  onClick={() => {
+                    if (!isActive) haptic("select");
+                  }}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-label={
+                    item.badge && item.badge > 0
+                      ? `${item.label}, ${item.badge} unread`
+                      : item.label
+                  }
                   className={cn(
-                    // Never wrap: a label that breaks onto a second line makes
-                    // one tab taller than the rest, and the pill is positioned
-                    // on the assumption that they match.
-                    "relative z-10 whitespace-nowrap text-[10px]",
-                    isActive ? "font-semibold" : "font-medium"
+                    // `flex-1 basis-0` — equal quarters of the bar, never sized to
+                    // the label. >=44px in both directions, inside the thumb arc.
+                    "relative z-10 flex min-h-13 flex-1 basis-0 flex-col items-center justify-center gap-1 rounded-2xl py-2",
+                    "touch-manipulation transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                    // Fill + colour + weight, so the active tab never depends on
+                    // colour alone.
+                    // The create action is the raised, gradient one — the same
+                    // emphasis a centre FAB gives, without moving it in the bar.
+                    item.create
+                      ? "text-primary-foreground"
+                      : isActive
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {item.label}
-                </span>
-              </a>
-            </Link>
-          );
-        })}
+                  {/* The create action's fill, inset by the same rule as the
+                    active indicator so the two shapes never meet. A background
+                    on the link itself would run the full cell and collide with
+                    whatever fill sits beside it. */}
+                  {item.create && (
+                    <span
+                      aria-hidden
+                      className="grad-brand absolute inset-y-0 left-1.5 right-1.5 rounded-lg shadow-e2"
+                    />
+                  )}
+                  <span className="relative z-10">
+                    <item.icon
+                      className={cn(
+                        "h-5 w-5 transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+                        isActive && "-translate-y-px scale-110 stroke-[2.5px]"
+                      )}
+                    />
+                    {item.badge && item.badge > 0 ? (
+                      <span className="tabular animate-rise absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                        {item.badge > 99 ? "99+" : item.badge}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span
+                    className={cn(
+                      // Never wrap: a label that breaks onto a second line makes
+                      // one tab taller than the rest, and the pill is positioned
+                      // on the assumption that they match.
+                      "relative z-10 whitespace-nowrap text-[11px] leading-none",
+                      isActive ? "font-semibold" : "font-medium"
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </a>
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </nav>
   );
