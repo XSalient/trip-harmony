@@ -605,8 +605,14 @@ export default function TripDates() {
               return (
                 <Card
                   key={p.id}
-                  className={`border ${p.selected ? "border-primary bg-primary/5" : "border-border/70"}`}
+                  className={`relative overflow-hidden rounded-2xl border shadow-e1 ${p.selected ? "border-success/40" : "border-border/70"}`}
                 >
+                  {p.selected && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 left-0 z-10 w-[3px] rounded-r-full bg-success"
+                    />
+                  )}
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 min-w-0">

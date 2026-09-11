@@ -13,6 +13,7 @@
  * their own line before anything is pushed off screen.
  */
 import React from "react";
+import { Check } from "lucide-react";
 
 export default function ScreenHeader({
   subtitle,
@@ -28,9 +29,13 @@ export default function ScreenHeader({
     <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
       <div className="min-w-0 flex-1 basis-40">
         <p className="text-sm text-muted-foreground">{subtitle}</p>
+        {/* Success, not brand: this line is always the settled choice, and
+            "settled" is green everywhere else in the app. A `Check` in front
+            of it so the state does not rest on colour alone. */}
         {highlight ? (
-          <p className="text-xs text-primary font-medium mt-0.5 line-clamp-2">
-            {highlight}
+          <p className="mt-1 flex items-start gap-1.5 text-[12px] font-medium text-success">
+            <Check className="mt-px size-3.5 shrink-0" aria-hidden />
+            <span className="line-clamp-2">{highlight}</span>
           </p>
         ) : null}
       </div>

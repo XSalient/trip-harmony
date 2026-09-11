@@ -423,8 +423,18 @@ export default function TripDestinations() {
               return (
                 <Card
                   key={dest.id}
-                  className={`overflow-hidden ${dest.selected ? "border-primary ring-1 ring-primary" : "border-border/70"}`}
+                  // Finalised is the success tone here as it is everywhere else. The
+                  // brand ring said "important", which every card on a page of
+                  // proposals already is — the one the group settled on is a
+                  // different statement.
+                  className={`relative overflow-hidden rounded-2xl shadow-e1 ${dest.selected ? "border-success/40" : "border-border/70"}`}
                 >
+                  {dest.selected && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 left-0 z-10 w-[3px] rounded-r-full bg-success"
+                    />
+                  )}
                   {dest.imageUrl && (
                     <div className="h-36 bg-muted overflow-hidden">
                       <img
@@ -456,7 +466,7 @@ export default function TripDestinations() {
                         )}
                         <VoteScore votes={dest.votes} />
                         {dest.selected && (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                          <CheckCircle2 className="size-5 text-success" />
                         )}
                         {canManage && !dest.selected && (
                           <DropdownMenu>
@@ -498,13 +508,12 @@ export default function TripDestinations() {
                       </div>
                     </div>
 
+                    {/* No dollar glyph: the currency code is already in the
+                        string, and "$ GBP220" is two currencies. */}
                     {dest.estimatedCost && (
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground mb-3">
-                        <DollarSign className="h-3.5 w-3.5" />
-                        <span>
-                          ~{trip?.currency || "$"}
-                          {parseFloat(dest.estimatedCost).toFixed(0)}/person
-                        </span>
+                      <div className="tabular mb-3 text-[13px] text-muted-foreground">
+                        ~{trip?.currency || "$"}
+                        {parseFloat(dest.estimatedCost).toFixed(0)} per person
                       </div>
                     )}
 

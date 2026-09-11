@@ -72,8 +72,8 @@ export function PasskeySection() {
     <Card className="border-border/50">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-3">
-          <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <Fingerprint className="h-4 w-4" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-cat-3-soft text-cat-3-on-soft">
+            <Fingerprint className="size-[18px]" />
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold">Passkeys</h3>

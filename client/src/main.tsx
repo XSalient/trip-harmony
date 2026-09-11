@@ -84,16 +84,6 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   window.location.replace(LOGIN_PATH);
 };
 
-// The fixture preview seeds the cache at boot rather than only on its own
-// page: the cache is in memory, so a reload would otherwise land on an empty
-// one. `import.meta.env.DEV` is a build-time constant, so neither the check nor
-// the fixtures reach a production bundle.
-if (import.meta.env.DEV) {
-  void import("./preview/seedCache").then(m => {
-    if (m.fixturesRequested()) m.seedFixtures(queryClient);
-  });
-}
-
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;
@@ -200,6 +190,18 @@ const trpcClient = trpc.createClient({
 
 // Before the first render, so the entry the document loaded on is counted.
 trackNavigationDepth(window, window.history);
+
+// The fixture preview seeds the cache at boot rather than only on its own
+// page: the cache is in memory, so a reload would otherwise land on an empty
+// one. Awaited rather than fired off, because the first render asks for
+// `auth.me` and an answer that arrives a tick later has already been read as
+// "signed out" — which is how a seeded session still landed on the marketing
+// page. `import.meta.env.DEV` is a build-time constant, so neither the check
+// nor the fixtures reach a production bundle.
+if (import.meta.env.DEV) {
+  const seed = await import("./preview/seedCache");
+  if (seed.fixturesRequested()) seed.seedFixtures(queryClient);
+}
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>

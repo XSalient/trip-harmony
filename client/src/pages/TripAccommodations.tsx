@@ -1060,8 +1060,14 @@ export default function TripAccommodations() {
               return (
                 <Card
                   key={acc.id}
-                  className={`overflow-hidden ${acc.selected ? "border-primary ring-1 ring-primary" : "border-border/70"}`}
+                  className={`relative overflow-hidden rounded-2xl shadow-e1 ${acc.selected ? "border-success/40" : "border-border/70"}`}
                 >
+                  {acc.selected && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-y-0 left-0 z-10 w-[3px] rounded-r-full bg-success"
+                    />
+                  )}
                   {acc.imageUrl && (
                     <div className="h-40 bg-muted overflow-hidden">
                       <img
@@ -1093,7 +1099,7 @@ export default function TripAccommodations() {
                         )}
                         <VoteScore votes={acc.votes} />
                         {acc.selected && (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
+                          <CheckCircle2 className="size-5 text-success" />
                         )}
                         {canManage && !acc.selected && (
                           <DropdownMenu>

@@ -9,6 +9,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
+import { SectionHead } from "@/components/harmony";
 import { PasskeySection } from "@/components/PasskeySection";
 import { SetPasswordDialog } from "@/components/SetPasswordDialog";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
@@ -28,11 +29,13 @@ function ProfileHeader() {
   const joined = user?.createdAt ? new Date(user.createdAt) : null;
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-      <CardContent className="p-4 flex items-center gap-4">
-        <Avatar className="h-14 w-14 border">
+    <Card className="rounded-2xl border-primary/20 bg-gradient-to-br from-primary/8 to-accent/8 shadow-e1">
+      <CardContent className="flex items-center gap-4 p-4">
+        <Avatar className="size-14 border-0">
           {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt="" />}
-          <AvatarFallback className="text-lg font-semibold">
+          {/* The same medallion the member roster uses, so a person looks like
+              a person on both screens rather than a grey disc on one. */}
+          <AvatarFallback className="bg-primary/12 text-xl font-semibold text-primary">
             {initial}
           </AvatarFallback>
         </Avatar>
@@ -65,26 +68,23 @@ function SignInMethods() {
 
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-        Sign-in &amp; security
-      </h2>
+      <SectionHead title="Sign-in & security" />
 
       <Card className="border-border/70">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-start gap-3">
-            <div className="size-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-              <KeyRound className="h-4 w-4" />
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-cat-1-soft text-cat-1-on-soft">
+              <KeyRound className="size-[18px]" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold">Password</h3>
                 <Badge
-                  variant="secondary"
-                  className={
+                  className={`rounded-md border-0 px-1.5 text-[11px] font-semibold ${
                     hasPassword
-                      ? "text-[10px]"
-                      : "text-[10px] bg-cat-6-soft text-cat-6-on-soft"
-                  }
+                      ? "bg-success-soft text-success-on-soft"
+                      : "bg-muted text-muted-foreground"
+                  }`}
                 >
                   {hasPassword ? "Set" : "Not set"}
                 </Badge>

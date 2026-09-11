@@ -7,16 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
-import {
-  EmptyState,
-  IconTile,
-  Meta,
-  ProgressRing,
-  StaggerItem,
-  StaggerList,
-  StatusPill,
-  Surface,
-} from "@/components/harmony";
+import { EmptyState, IconTile, Meta, ProgressRing, StaggerItem, StaggerList, StatusPill, Surface, TONES } from "@/components/harmony";
 import type { Tone } from "@/lib/taxonomy";
 import Landing from "./Landing";
 import { PaywallDialog } from "@/components/PaywallDialog";
@@ -74,17 +65,21 @@ function TripCard({ trip }: { trip: any }) {
     finalized: "success",
   };
 
+  const tone: Tone = phaseTone[trip.phase] ?? "neutral";
   const step = Math.max(0, PHASE_ORDER.indexOf(trip.phase));
   const progress = ((step + 1) / PHASE_ORDER.length) * 100;
 
   return (
     <Link href={`/trips/${trip.id}`} className="block">
       <Surface interactive className="overflow-hidden">
-        {/* Gradient spine: gives the row an anchor on the left and carries the
-            brand into the list without tinting the whole card. */}
+        {/* The spine carries the trip's phase, in the same tone as the pill
+            below it. It used to be the brand gradient on every card, which
+            looked deliberate and said nothing — and a spine means status
+            everywhere else in the app, so a decorative one here spent a
+            vocabulary the rest of the design relies on. */}
         <span
           aria-hidden
-          className="grad-brand absolute inset-y-3 left-0 w-1 rounded-r-full"
+          className={`absolute inset-y-3 left-0 w-1 rounded-r-full ${TONES[tone].solid}`}
         />
         <div className="flex items-center gap-3 p-4 pl-5">
           <div className="min-w-0 flex-1">
@@ -97,7 +92,7 @@ function TripCard({ trip }: { trip: any }) {
               </p>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <StatusPill tone={phaseTone[trip.phase] ?? "neutral"}>
+              <StatusPill tone={tone}>
                 {phaseLabels[trip.phase] || trip.phase}
               </StatusPill>
               {trip.memberRole === "organizer" && (
