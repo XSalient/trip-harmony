@@ -8,6 +8,36 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-11 — Sign-in works again
+
+### Fixed
+
+- **Every sign-in method was failing**, with the browser reporting
+  `Unexpected token 'A', "A server e"... is not valid JSON`. Password, magic
+  link, passkey and the demo all went down together, and so did the rest of the
+  API — `/api/health` included. The SPA kept loading, because its assets are
+  static, so the app looked alive while nothing behind it answered.
+
+  It was not an auth bug. `shared/votes.ts` imported `./roles` without a file
+  extension. Vercel does not bundle the serverless function — it runs the import
+  graph as native ESM, where Node does not guess extensions — so the function
+  threw at module load, before registering a single route, and every request got
+  Vercel's plain-text `A server error has occurred`. The client parsed that as
+  JSON and produced the message above, which names neither the file nor the
+  import.
+
+  `tsc`, `pnpm dev` and `pnpm build` all resolve the extensionless form, so
+  `pnpm verify` passed throughout. Relative imports under `api/`, `server/`,
+  `shared/` and `drizzle/` now carry an explicit `.js`, and
+  `server/serverlessImports.test.ts` fails the build if one stops doing so. See
+  [ADR-0026](adr/0026-the-serverless-function-is-not-bundled.md).
+
+  Two more imports were fixed with it — in `shared/types.ts`, which no server
+  file imports yet, and the lazy `./vite` load in `server/_core/app.ts`, which
+  the function never reaches. Neither had fired.
+
+---
+
 ## 2026-09-09 — Trip settings, and a header that stops moving
 
 ### Added

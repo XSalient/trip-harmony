@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-08-30
+- **Last updated:** 2026-09-11
 - **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
   that). The domain is `wevotrip.com`, with the marketing demo at
   `demo.wevotrip.com`. Three identifiers still read the older names because they
@@ -40,6 +40,19 @@ finish a piece of work — the next person (or agent) starts here.
   the session cookie is `SameSite=None` and iOS drops it in a WebView, so the
   session JWT has to travel as a bearer token, and `passkeys.ts` derives `rpID`
   from the request Host, which is `localhost` there.
+- **A relative import without a `.js` extension takes the whole API down**
+  (2026-09-11). Vercel does not bundle `api/server.ts`; it runs the import graph
+  as native ESM, which does not guess extensions. One such import in
+  `shared/votes.ts` killed the function at module load, so every request —
+  sign-in, `/api/health`, all of it — got Vercel's plain-text `A server error has
+occurred`, which the client reported as `Unexpected token 'A'... is not valid
+JSON`. `tsc`, tsx and esbuild all accept the extensionless form, so `pnpm
+verify` was green the whole time. Imports under `api/`, `server/`, `shared/`
+  and `drizzle/` now carry `.js`, and `server/serverlessImports.test.ts` is the
+  gate — [ADR-0026](adr/0026-the-serverless-function-is-not-bundled.md). **When
+  the API returns something that is not JSON, read the Vercel function log
+  first**: a cold-start crash is invisible from the outside and mentions no file.
+
 - **A trip chooses its own sections** (2026-09-09). An admin switches sections
   off from ⋮ → Trip settings, because not every trip needs all eight — a one-day
   trip has no accommodation to vote on. The set lives in `trips.hiddenSections`

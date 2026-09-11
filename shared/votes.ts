@@ -9,7 +9,7 @@
  * import it, exactly as they do `roles.ts` and `budget.ts`.
  */
 
-import { canContribute, type TripRole } from "./roles";
+import { canContribute, type TripRole } from "./roles.js";
 
 /**
  * "I don't mind — go with the majority."
@@ -117,7 +117,6 @@ export function finaliseBlockReason(
   if (!isAllMajority(votes)) return null;
   return "Everyone who voted chose “Go with the majority”, so there's no majority to go with. Ask someone to state a preference before finalising.";
 }
-
 
 /**
  * How many proposals are still waiting on this person's vote.

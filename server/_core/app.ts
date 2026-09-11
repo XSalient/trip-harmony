@@ -97,7 +97,7 @@ export async function createApp({
   if (serveClient) {
     // Imported lazily: this module pulls in Vite, which must not be bundled
     // into the serverless function.
-    const { serveStatic, setupVite } = await import("./vite");
+    const { serveStatic, setupVite } = await import("./vite.js");
     if (config.appEnv === "development") {
       await setupVite(app, server);
     } else {

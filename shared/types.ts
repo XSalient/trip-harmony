@@ -3,6 +3,6 @@
  * Import shared types from this single entry point.
  */
 
-export type * from "../drizzle/schema";
-export * from "./_core/errors";
-export * from "./roles";
+export type * from "../drizzle/schema.js";
+export * from "./_core/errors.js";
+export * from "./roles.js";
