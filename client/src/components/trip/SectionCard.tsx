@@ -110,33 +110,39 @@ export default function SectionCard({
   // is dead space on a collapsed section, and every section starts collapsed.
   return (
     <Card
-      className={`overflow-hidden rounded-2xl border py-0 shadow-e1 transition-shadow hover:shadow-e2 ${locked ? "border-success-border bg-success-soft" : "border-border/70"} ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-2xl border border-border/70 py-0 shadow-e1 transition-shadow hover:shadow-e2 ${className ?? ""}`}
     >
+      {locked && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success"
+        />
+      )}
       <CardContent className="p-0">
-        <div className="flex items-center gap-3 px-4 pb-2.5 pt-3.5">
+        <div className="flex items-center gap-2.5 px-3.5 pb-2 pt-3">
           <button
             onClick={onToggle}
             aria-expanded={open}
             className="flex flex-1 min-w-0 items-center gap-3 text-left"
           >
             <div
-              className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/10 text-primary"}`}
+              className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/12 text-primary"}`}
             >
               {locked ? (
-                <CheckCircle2 className="h-5 w-5" />
+                <CheckCircle2 className="h-[18px] w-[18px]" />
               ) : (
-                <Icon className="h-5 w-5" />
+                <Icon className="h-[18px] w-[18px]" />
               )}
             </div>
             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-              <span className="font-display text-[15px] font-bold tracking-tight">{title}</span>
+              <span className="text-[15px] font-semibold tracking-tight">{title}</span>
               {locked && (
-                <Badge className="text-[10px] bg-success-soft text-success-on-soft border-success-border px-1.5">
+                <Badge className="rounded-md border-0 bg-success-soft px-1.5 text-[11px] font-semibold text-success-on-soft">
                   {singleLock ? "Decided" : `${lockedCount} finalised`}
                 </Badge>
               )}
               {!locked && pendingCount && pendingCount > 0 ? (
-                <Badge className="text-[10px] bg-warning-soft text-warning-on-soft border-warning-border px-1.5">
+                <Badge className="rounded-md border-0 bg-warning-soft px-1.5 text-[11px] font-semibold text-warning-on-soft">
                   {pendingCount} to vote
                 </Badge>
               ) : null}
@@ -170,14 +176,14 @@ export default function SectionCard({
             {/* An empty list still arrives as `[]`, which is truthy — count the
                 rendered children rather than the expression that made them. */}
             {React.Children.count(children) > 0 ? (
-              <div className="space-y-2 px-4 pb-3">{children}</div>
+              <div className="space-y-2 px-3.5 pb-3">{children}</div>
             ) : (
-              <p className="px-4 pb-3.5 text-[13px] text-muted-foreground">
+              <p className="px-3.5 pb-3 text-[13px] text-muted-foreground">
                 {emptyText}
               </p>
             )}
             <Link href={href}>
-              <div className="flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/70 px-4 py-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+              <div className="flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/60 px-3.5 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
                 <span>View all details</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </div>
@@ -216,10 +222,10 @@ export function CollapsibleRow({
         <button
           onClick={onToggle}
           aria-expanded={open}
-          className="flex min-h-14 w-full items-center gap-3 p-3.5 text-left"
+          className="flex min-h-[52px] w-full items-center gap-2.5 px-3.5 py-2.5 text-left"
         >
           <div
-            className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconClass ?? "bg-primary/10 text-primary"}`}
+            className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${iconClass ?? "bg-primary/12 text-primary"}`}
           >
             {icon}
           </div>

@@ -40,6 +40,7 @@ def glass_vars(key):
     L, C, H = g["tint"]
     out = [
         f'  --glass-bg: oklch({L:.3f} {C:.3f} {H:.1f} / {g["alpha"]});',
+        f'  --glass-bg-strong: oklch({L:.3f} {C:.3f} {H:.1f} / {g["alpha-strong"]});',
         f'  --glass-hairline: {g["hairline"]};',
         f'  --glass-blur: {g["blur"]};',
         f'  --scrim: oklch(0 0 0 / {0.62 if dark else 0.45});',
@@ -381,8 +382,10 @@ CSS = f"""@import "tailwindcss";
 }}
 
 /* Glass without a full border — for bars that only need a bottom/top edge. */
+/* Full-width bars sit directly over scrolling text, where a light tint lets
+   content ghost through. Denser, and still translucent enough to read as glass. */
 @utility glass-flat {{
-  background: var(--glass-bg);
+  background: var(--glass-bg-strong);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
 }}

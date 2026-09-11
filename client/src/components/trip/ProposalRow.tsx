@@ -85,8 +85,11 @@ function RowShell({
 }) {
   return (
     <div
-      className={`rounded-2xl border p-3.5 text-sm shadow-e1 transition-shadow hover:shadow-e2 ${row.selected ? "border-success-border bg-success-soft" : "border-border/70 bg-card"}`}
+      className={`relative overflow-hidden rounded-xl border border-border/70 bg-card p-3 text-[13px] shadow-e1 transition-shadow hover:shadow-e2`}
     >
+      {row.selected && (
+        <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success" />
+      )}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex-1 min-w-0">{title}</div>
         <div className="flex items-center gap-1 shrink-0 ml-1">
@@ -161,7 +164,7 @@ function VoteButtons<T extends string>({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex gap-1 rounded-full bg-muted/70 p-1">
         {options.map(btn => (
           <button
             key={btn.vote}
@@ -170,7 +173,7 @@ function VoteButtons<T extends string>({
               onVote(btn.vote);
             }}
             aria-pressed={myVote === btn.vote}
-            className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${myVote === btn.vote ? `${btn.active} font-semibold shadow-e1` : "border-border/70 text-muted-foreground hover:border-foreground/25 hover:text-foreground"}`}
+            className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${myVote === btn.vote ? `${btn.active} font-semibold shadow-e1` : "text-muted-foreground hover:text-foreground"}`}
           >
             {btn.icon && <btn.icon className="h-4 w-4 shrink-0" />}
             {btn.label}
@@ -185,10 +188,10 @@ function VoteButtons<T extends string>({
           onVote(MAJORITY_VOTE as T);
         }}
         aria-pressed={myVote === MAJORITY_VOTE}
-        className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
+        className={`flex min-h-9 w-full items-center justify-center gap-1.5 rounded-full text-[12px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
           myVote === MAJORITY_VOTE
-            ? "border-foreground/20 bg-muted font-semibold text-foreground"
-            : "border-border/70 text-muted-foreground hover:border-foreground/25 hover:text-foreground"
+            ? "bg-muted font-semibold text-foreground"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         <Users className="h-4 w-4 shrink-0" />

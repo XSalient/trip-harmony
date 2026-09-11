@@ -22,6 +22,7 @@ import Home from "./pages/Home";
  * the second is the fallback, which should never itself fail to load.
  */
 const Preview = lazy(() => import("./pages/Preview"));
+const PreviewTrip = lazy(() => import("./pages/PreviewTrip"));
 const CreateTrip = lazy(() => import("./pages/CreateTrip"));
 const JoinTrip = lazy(() => import("./pages/JoinTrip"));
 const TripDashboard = lazy(() => import("./pages/TripDashboard"));
@@ -81,6 +82,9 @@ function Router() {
           cannot route to it however the URL is typed — and there is nothing to
           remember to remove later. A deployed build shows the 404 instead. */}
       {import.meta.env.DEV && <Route path="/preview" component={Preview} />}
+      {import.meta.env.DEV && (
+        <Route path="/preview/trip" component={PreviewTrip} />
+      )}
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

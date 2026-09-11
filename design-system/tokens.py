@@ -183,12 +183,14 @@ GLASS = {
     "light": {
         "tint": (1.000, 0.000, 89.9),   # white
         "alpha": 0.78,
+        "alpha-strong": 0.94,
         "hairline": "oklch(1 0 0 / 0.70)",
         "blur": "20px",
     },
     "dark": {
         "tint": (0.240, 0.026, 283.0),  # violet-tinted, matching the surfaces
         "alpha": 0.80,
+        "alpha-strong": 0.95,
         "hairline": "oklch(1 0 0 / 0.09)",
         "blur": "20px",
     },

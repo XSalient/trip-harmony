@@ -7,7 +7,7 @@
  */
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { CalendarCheck, ChevronDown } from "lucide-react";
+import { CalendarCheck, Check, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { SectionKey } from "@shared/sections";
 
@@ -29,12 +29,20 @@ function Line({
 }) {
   return (
     <Link href={href} className="block">
-      <div className="flex items-baseline justify-between gap-3 text-sm py-0.5 rounded cursor-pointer hover:bg-muted/40 transition-colors">
-        <span className="text-muted-foreground shrink-0">{label}</span>
-        <span
-          className={`text-right font-medium truncate ${done ? "text-success" : "text-muted-foreground"}`}
-        >
-          {value}
+      <div className="-mx-2 flex min-h-9 items-center justify-between gap-3 rounded-lg px-2 text-[14px] transition-colors hover:bg-muted/50">
+        <span className="shrink-0 text-muted-foreground">{label}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {done && (
+            <Check
+              className="size-3.5 shrink-0 text-success"
+              aria-label="settled"
+            />
+          )}
+          <span
+            className={`truncate text-right tabular ${done ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+          >
+            {value}
+          </span>
         </span>
       </div>
     </Link>

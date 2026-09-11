@@ -200,6 +200,7 @@
   --cat-6-on-soft: oklch(0.420 0.100 68.0);
 
   --glass-bg: oklch(1.000 0.000 89.9 / 0.78);
+  --glass-bg-strong: oklch(1.000 0.000 89.9 / 0.94);
   --glass-hairline: oklch(1 0 0 / 0.70);
   --glass-blur: 20px;
   --scrim: oklch(0 0 0 / 0.45);
@@ -308,6 +309,7 @@
   --cat-6-on-soft: oklch(0.880 0.060 68.0);
 
   --glass-bg: oklch(0.240 0.026 283.0 / 0.8);
+  --glass-bg-strong: oklch(0.240 0.026 283.0 / 0.95);
   --glass-hairline: oklch(1 0 0 / 0.09);
   --glass-blur: 20px;
   --scrim: oklch(0 0 0 / 0.62);
@@ -543,8 +545,10 @@
 }
 
 /* Glass without a full border — for bars that only need a bottom/top edge. */
+/* Full-width bars sit directly over scrolling text, where a light tint lets
+   content ghost through. Denser, and still translucent enough to read as glass. */
 @utility glass-flat {
-  background: var(--glass-bg);
+  background: var(--glass-bg-strong);
   backdrop-filter: blur(var(--glass-blur)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
 }
