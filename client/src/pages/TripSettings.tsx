@@ -12,15 +12,50 @@
  */
 import { useParams, useLocation } from "wouter";
 import { toast } from "sonner";
-import { Settings2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  Calendar,
+  DollarSign,
+  FileText,
+  Home,
+  Lightbulb,
+  ClipboardList,
+  Settings2,
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import AppShell from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Notice } from "@/components/harmony/Notice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { HIDEABLE_SECTIONS, type SectionKey } from "@shared/sections";
+
+/**
+ * The icon and hue each section wears on the trip page.
+ *
+ * Repeated here rather than shared with `TripDashboard` on purpose: that page
+ * passes them to `SectionCard` per call site, and a shared map would have to be
+ * keyed by something both pages agree on, which is a refactor of the dashboard
+ * rather than of this screen. If a third screen needs them, move them into
+ * `shared/sections.ts` — where the labels already live.
+ */
+const SECTION_STYLE: Partial<
+  Record<SectionKey, { icon: typeof Calendar; tone: string }>
+> = {
+  description: { icon: FileText, tone: "bg-cat-4-soft text-cat-4-on-soft" },
+  preferences: { icon: ClipboardList, tone: "bg-cat-3-soft text-cat-3-on-soft" },
+  dates: { icon: Calendar, tone: "bg-cat-1-soft text-cat-1-on-soft" },
+  accommodations: { icon: Home, tone: "bg-cat-5-soft text-cat-5-on-soft" },
+  suggestions: { icon: Lightbulb, tone: "bg-cat-2-soft text-cat-2-on-soft" },
+  budget: { icon: DollarSign, tone: "bg-cat-6-soft text-cat-6-on-soft" },
+  // The referee is the brand feature, so it wears the brand rather than a
+  // seventh category hue there are only six of.
+  referee: { icon: Bot, tone: "bg-primary/12 text-primary" },
+};
 
 export default function TripSettings() {
   useAuth({ redirectOnUnauthenticated: true });
@@ -67,56 +102,63 @@ export default function TripSettings() {
   return (
     <AppShell title="Trip settings" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
-        <Card className="border-border/70">
-          <CardContent className="p-4 flex items-start gap-3">
-            <div className="size-10 rounded-xl bg-primary/12 text-primary flex items-center justify-center shrink-0">
-              <Settings2 className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Sections on the trip page</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Turn off what this trip does not need. Everyone on the trip sees
-                the same set.{" "}
-                <strong className="font-medium text-foreground">
-                  Nothing is deleted
-                </strong>{" "}
-                — proposals and votes in a section you switch off come back
-                exactly as they were when you switch it on again.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* One explanatory paragraph does not need a card around it, and a
+            card is what made this screen open on a wall of small grey text
+            before the first control. */}
+        <Notice
+          tone="info"
+          title="Sections on the trip page"
+          icon={<Settings2 className="size-4" />}
+        >
+          Turn off what this trip does not need. Everyone on the trip sees the
+          same set.{" "}
+          <strong className="font-medium text-foreground">
+            Nothing is deleted
+          </strong>{" "}
+          — proposals and votes in a section you switch off come back exactly
+          as they were when you switch it on again.
+        </Notice>
 
         {!canAdminister && (
-          <Card className="border-border/70">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">
-                Only a trip admin can change these. This is what the trip is set
-                to.
-              </p>
-            </CardContent>
-          </Card>
+          <Notice tone="quiet">
+            Only a trip admin can change these. This is what the trip is set to.
+          </Notice>
         )}
 
         <Card className="border-border/70 py-0">
           <CardContent className="p-0 divide-y divide-border/40">
             {HIDEABLE_SECTIONS.map(section => {
               const visible = !hidden.includes(section.key);
+              const style = SECTION_STYLE[section.key];
+              const Glyph = style?.icon ?? Settings2;
               return (
                 <div
                   key={section.key}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  className="flex min-h-14 items-center justify-between gap-3 px-3.5 py-2.5"
                 >
+                  {/* The same tile and hue the section carries on the trip
+                      page, so this list reads as that page rather than as an
+                      unrelated set of switches. */}
                   <label
                     htmlFor={`section-${section.key}`}
-                    className="text-sm min-w-0"
+                    className="flex min-w-0 flex-1 items-center gap-3"
                   >
-                    {section.label}
-                    {!visible && (
-                      <span className="block text-xs text-muted-foreground">
-                        Hidden on the trip page
+                    <span
+                      aria-hidden
+                      className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-opacity ${style?.tone ?? "bg-primary/12 text-primary"} ${visible ? "" : "opacity-40"}`}
+                    >
+                      <Glyph className="size-[18px]" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[15px] font-semibold tracking-tight">
+                        {section.label}
                       </span>
-                    )}
+                      {!visible && (
+                        <span className="block text-[12px] text-muted-foreground">
+                          Hidden on the trip page
+                        </span>
+                      )}
+                    </span>
                   </label>
                   <Switch
                     id={`section-${section.key}`}
@@ -135,12 +177,14 @@ export default function TripSettings() {
           is going yet.
         </p>
 
-        <button
+        <Button
+          variant="outline"
+          className="w-full gap-2 rounded-xl"
           onClick={() => navigate(`/trips/${tripId}`)}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors px-1"
         >
+          <ArrowLeft className="size-4" />
           Back to the trip
-        </button>
+        </Button>
       </div>
     </AppShell>
   );

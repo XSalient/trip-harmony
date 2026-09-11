@@ -1,12 +1,11 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
 import { EmptyState } from "@/components/harmony";
 import { useLocation } from "wouter";
+import { relativeTime } from "@/lib/format";
 import { toast } from "sonner";
 import {
   Bell,
@@ -96,7 +95,7 @@ export default function Notifications() {
         ) : null
       }
     >
-      <div className="px-4 py-4 space-y-3">
+      <div className="space-y-2 px-4 py-4">
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4].map(i => (
@@ -104,47 +103,48 @@ export default function Notifications() {
             ))}
           </div>
         ) : notifications && notifications.length > 0 ? (
-          notifications.map((notif: any) => {
+          notifications.map((notif: any, i: number) => {
             const Icon = typeIcons[notif.type] || Info;
             const colorClass =
               typeColors[notif.type] || "bg-muted text-muted-foreground";
             return (
-              <Card
+              <button
                 key={notif.id}
-                className={`border-border/70 cursor-pointer transition-all hover:shadow-sm ${!notif.read ? "bg-primary/[0.02] border-primary/20" : ""}`}
                 onClick={() => handleClick(notif)}
+                style={{ "--i": i } as React.CSSProperties}
+                // Unread is carried by a spine and the title weight, not by a
+                // 2% tint nobody can see and a dot the size of a full stop.
+                className={`stagger-item pressable-lg relative flex w-full items-start gap-3 overflow-hidden rounded-2xl border border-border/70 bg-card p-3 pl-4 text-left shadow-e1 transition-shadow hover:shadow-e2 ${
+                  notif.read ? "" : "border-primary/25"
+                }`}
               >
-                <CardContent className="p-4 flex gap-3">
-                  <div
-                    className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p
-                        className={`text-sm truncate ${!notif.read ? "font-semibold" : "font-medium"}`}
-                      >
-                        {notif.title}
-                      </p>
-                      {!notif.read && (
-                        <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {notif.message}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {new Date(notif.createdAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                {!notif.read && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-primary"
+                  />
+                )}
+                <span
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${colorClass} ${notif.read ? "opacity-60" : ""}`}
+                >
+                  <Icon className="size-[18px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline gap-2">
+                    <span
+                      className={`min-w-0 flex-1 truncate text-[15px] tracking-tight ${notif.read ? "font-medium text-muted-foreground" : "font-semibold"}`}
+                    >
+                      {notif.title}
+                    </span>
+                    <span className="tabular shrink-0 text-[12px] text-muted-foreground">
+                      {relativeTime(notif.createdAt)}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 line-clamp-2 block text-[13px] text-muted-foreground">
+                    {notif.message}
+                  </span>
+                </span>
+              </button>
             );
           })
         ) : (

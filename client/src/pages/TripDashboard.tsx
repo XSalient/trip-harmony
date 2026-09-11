@@ -600,7 +600,7 @@ export default function TripDashboard() {
             iconClass={
               myPrefs
                 ? "bg-success-soft text-success-on-soft"
-                : "bg-cat-2-soft text-cat-2-on-soft"
+                : "bg-cat-3-soft text-cat-3-on-soft"
             }
             open={isOpen("preferences")}
             onToggle={() => toggle("preferences")}
@@ -820,7 +820,7 @@ export default function TripDashboard() {
           <CollapsibleRow
             title="AI Referee"
             icon={<Bot className="h-5 w-5" />}
-            iconClass="bg-cat-3-soft text-cat-3-on-soft"
+            iconClass="bg-primary/12 text-primary"
             open={isOpen("referee")}
             onToggle={() => toggle("referee")}
           >
