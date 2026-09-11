@@ -42,8 +42,14 @@ export function CardMedia({
       style={{ aspectRatio: ratio }}
     >
       {showFallback ? (
-        <div className={cn("flex size-full items-center justify-center", c.soft)}>
-          <Icon className={cn("size-8 opacity-50", c.onSoft)} strokeWidth={1.5} aria-hidden />
+        <div
+          className={cn("flex size-full items-center justify-center", c.soft)}
+        >
+          <Icon
+            className={cn("size-8 opacity-50", c.onSoft)}
+            strokeWidth={1.5}
+            aria-hidden
+          />
         </div>
       ) : (
         <img
@@ -166,26 +172,39 @@ export function ProposalCard({
             )}
 
             {meta && (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">{meta}</div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {meta}
+              </div>
             )}
           </div>
 
           {actions && <div className="-mr-1 -mt-1 shrink-0">{actions}</div>}
         </div>
 
-        {children && <div className={cn(condensed ? "mt-2.5" : "mt-3")}>{children}</div>}
+        {children && (
+          <div className={cn(condensed ? "mt-2.5" : "mt-3")}>{children}</div>
+        )}
 
-        {bar && <div className={cn(condensed ? "mt-2.5" : "mt-3.5")}>{bar}</div>}
+        {bar && (
+          <div className={cn(condensed ? "mt-2.5" : "mt-3.5")}>{bar}</div>
+        )}
 
         {(vote || voters) && (
-          <div className={cn("flex items-center gap-3", condensed ? "mt-2.5" : "mt-3.5")}>
+          <div
+            className={cn(
+              "flex items-center gap-3",
+              condensed ? "mt-2.5" : "mt-3.5"
+            )}
+          >
             {vote && <div className="min-w-0 flex-1">{vote}</div>}
             {voters}
           </div>
         )}
       </div>
 
-      {footer && <div className="border-t border-border/70 px-4 py-2.5">{footer}</div>}
+      {footer && (
+        <div className="border-t border-border/70 px-4 py-2.5">{footer}</div>
+      )}
     </Surface>
   );
 }

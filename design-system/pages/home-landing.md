@@ -20,9 +20,9 @@
    - `display` headline, two lines, second line in `--primary`.
    - `body` sub-line, max 60 characters per line.
    - Primary CTA full-width (≥52 px tall), secondary text link "See how it works" scrolling to §3.
-   - Background: one soft radial wash in `--primary` at ~8% over `--background` — a *single* gradient, not three overlaid.
+   - Background: one soft radial wash in `--primary` at ~8% over `--background` — a _single_ gradient, not three overlaid.
 3. **Social proof strip** — `AvatarStack` of sample members plus "Planning trips for groups of 2–12". Low contrast, `body-sm`.
-4. **How it works** — three numbered steps in a vertical timeline: *Everyone votes → Harmony finds the overlap → You book it.* Each step is an icon tile in a `--cat-*` soft surface plus title plus one line.
+4. **How it works** — three numbered steps in a vertical timeline: _Everyone votes → Harmony finds the overlap → You book it._ Each step is an icon tile in a `--cat-*` soft surface plus title plus one line.
 5. **Feature grid** — 2 columns, four `SectionCard`s in compact form (Travel DNA, Smart Voting, AI Referee, Budget Guard). Icon tile uses `--cat-1..4` soft surfaces; no inline colour strings.
 6. **Closing CTA** — repeat of the primary action on a `--secondary` band.
 7. **Footer** — minimal: wordmark, copyright.

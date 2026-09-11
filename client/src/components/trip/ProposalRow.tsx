@@ -89,7 +89,10 @@ function RowShell({
       className={`relative overflow-hidden rounded-xl border border-border/70 bg-card p-3 text-[13px] shadow-e1 transition-shadow hover:shadow-e2`}
     >
       {row.selected && (
-        <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success" />
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success"
+        />
       )}
       <div className="mb-1.5 flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">{title}</div>
@@ -110,7 +113,10 @@ function RowShell({
           {canManage && !row.selected && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button aria-label="Proposal actions" className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors touch-target hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <button
+                  aria-label="Proposal actions"
+                  className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors touch-target hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <MoreVertical className="h-4 w-4" />
                 </button>
               </DropdownMenuTrigger>
@@ -378,9 +384,7 @@ export function DateProposalRow({
           </span>
         </Link>
       }
-      tally={
-        <VoteTally options={DATE_OPTIONS} votes={row.votes} />
-      }
+      tally={<VoteTally options={DATE_OPTIONS} votes={row.votes} />}
       votes={
         <VoteSegments options={DATE_OPTIONS} myVote={myVote} onVote={onVote} />
       }
@@ -428,11 +432,13 @@ export function BudgetProposalRow({
           </div>
         </>
       }
-      tally={
-        <VoteTally options={CHOICE_OPTIONS} votes={row.votes} />
-      }
+      tally={<VoteTally options={CHOICE_OPTIONS} votes={row.votes} />}
       votes={
-        <VoteSegments options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
+        <VoteSegments
+          options={CHOICE_OPTIONS}
+          myVote={myVote}
+          onVote={onVote}
+        />
       }
     />
   );
@@ -471,11 +477,13 @@ export function ChoiceProposalRow({
           )}
         </>
       }
-      tally={
-        <VoteTally options={CHOICE_OPTIONS} votes={row.votes} />
-      }
+      tally={<VoteTally options={CHOICE_OPTIONS} votes={row.votes} />}
       votes={
-        <VoteSegments options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
+        <VoteSegments
+          options={CHOICE_OPTIONS}
+          myVote={myVote}
+          onVote={onVote}
+        />
       }
     />
   );

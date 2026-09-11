@@ -29,7 +29,7 @@
      - While the analysis is running: a skeleton with "Analysing in the background…", not a dashed placeholder.
    - `VoteBar` + `VoteControl scale={PREFERENCE_SCALE}`.
    - Overflow menu; organiser "Select this stay"; `ProposalComments` footer.
-4. **Add / Edit** — a **tall** `BottomSheet` with the long form split into three `SectionCard`s: *Paste a link* (URL auto-fill, the primary path), *Details* (name, description, image, price), *Rooms and amenities* (the grid, switches, amenities). A `StickyActionBar` holds Cancel/Save so the primary action is always reachable.
+4. **Add / Edit** — a **tall** `BottomSheet` with the long form split into three `SectionCard`s: _Paste a link_ (URL auto-fill, the primary path), _Details_ (name, description, image, price), _Rooms and amenities_ (the grid, switches, amenities). A `StickyActionBar` holds Cancel/Save so the primary action is always reachable.
 
 ## Components
 

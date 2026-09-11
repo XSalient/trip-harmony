@@ -15,15 +15,15 @@
 ## Layout (mobile, top → bottom)
 
 1. **Header** — back + "Your preferences".
-2. **Context card** — trip name, "N of M members submitted" as a `StatusPill`, and a saved-state indicator. An `AvatarStack` shows *who* has submitted, which is the social pressure that actually gets these filled in.
+2. **Context card** — trip name, "N of M members submitted" as a `StatusPill`, and a saved-state indicator. An `AvatarStack` shows _who_ has submitted, which is the social pressure that actually gets these filled in.
 3. **Tip callout** — a `SectionCard tone="info"` with a Lightbulb icon, replacing the bespoke amber div: one line on why this helps the AI.
 4. **Four preference sections** — one `SectionCard` each, from the existing `SECTIONS` config:
-   - *Must-haves* — `--success` tone
-   - *Strong preferences* — `--info` tone
-   - *Avoids* — `--danger` tone
-   - *Anything else* — neutral
-   Each carries an icon, a one-line prompt, a `Textarea` (≥16 px text, auto-growing, min 3 rows), and a soft character counter that only appears past 80% of the limit.
-   Above the textarea sits a `ChipPicker multiple` of common suggestions (quiet area, near transit, step-free access, pet friendly…) that append to the text — this makes the screen usable in fifteen seconds instead of five minutes, which is the real conversion problem.
+   - _Must-haves_ — `--success` tone
+   - _Strong preferences_ — `--info` tone
+   - _Avoids_ — `--danger` tone
+   - _Anything else_ — neutral
+     Each carries an icon, a one-line prompt, a `Textarea` (≥16 px text, auto-growing, min 3 rows), and a soft character counter that only appears past 80% of the limit.
+     Above the textarea sits a `ChipPicker multiple` of common suggestions (quiet area, near transit, step-free access, pet friendly…) that append to the text — this makes the screen usable in fifteen seconds instead of five minutes, which is the real conversion problem.
 5. **`StickyActionBar`** — Save, full-width, correctly offset by `--nav-height` + `env(safe-area-inset-bottom)`. Shows "Saved" with a check for 2 s after success.
 
 ## Components

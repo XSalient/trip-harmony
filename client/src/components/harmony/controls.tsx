@@ -79,7 +79,9 @@ export function ChipPicker({
             className={cn(
               "inline-flex shrink-0 items-center gap-1.5 rounded-full border font-medium transition-colors duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              size === "md" ? "min-h-10 px-3.5 text-sm touch-target" : "min-h-9 px-3 text-[13px] touch-target",
+              size === "md"
+                ? "min-h-10 px-3.5 text-sm touch-target"
+                : "min-h-9 px-3 text-[13px] touch-target",
               active
                 ? cn(c.soft, c.onSoft, "border-transparent")
                 : "border-border bg-card text-muted-foreground hover:border-foreground/20 hover:text-foreground"
@@ -88,7 +90,9 @@ export function ChipPicker({
             {active ? (
               <Check className="size-3.5 shrink-0" strokeWidth={2.5} />
             ) : (
-              opt.icon && <opt.icon className="size-3.5 shrink-0" strokeWidth={2} />
+              opt.icon && (
+                <opt.icon className="size-3.5 shrink-0" strokeWidth={2} />
+              )
             )}
             {opt.label}
           </motion.button>
@@ -119,7 +123,11 @@ export function StickyActionBar({
     <motion.div
       initial={false}
       animate={{ y: visible ? 0 : 120, opacity: visible ? 1 : 0 }}
-      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 400, damping: 34 }}
+      transition={
+        reduce
+          ? { duration: 0 }
+          : { type: "spring", stiffness: 400, damping: 34 }
+      }
       className={cn(
         "fixed inset-x-0 bottom-nav z-30 px-4 lg:static lg:px-0 lg:pb-0",
         className
@@ -211,7 +219,12 @@ export function StatusScreen({
         animate={{ scale: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 28 }}
       >
-        <IconTile icon={icon} tone={t} size="xl" iconClassName={spinning ? "animate-spin" : undefined} />
+        <IconTile
+          icon={icon}
+          tone={t}
+          size="xl"
+          iconClassName={spinning ? "animate-spin" : undefined}
+        />
       </motion.div>
 
       <motion.div
@@ -220,8 +233,12 @@ export function StatusScreen({
         transition={{ delay: 0.06, duration: 0.22 }}
         className="max-w-[34ch] space-y-2 text-center"
       >
-        <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
-        {description && <p className="text-[15px] text-muted-foreground">{description}</p>}
+        <h1 className="font-display text-2xl font-bold tracking-tight">
+          {title}
+        </h1>
+        {description && (
+          <p className="text-[15px] text-muted-foreground">{description}</p>
+        )}
       </motion.div>
 
       {(action || secondaryAction) && (

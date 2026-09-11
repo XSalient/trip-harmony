@@ -407,7 +407,10 @@ export const headcount = {
     "101": { adults: 2, children: 1, pets: 0, people: 3 },
     "102": { adults: 2, children: 0, pets: 1, people: 2 },
     none: { adults: 2, children: 0, pets: 0, people: 2 },
-  } as Record<string, { adults: number; children: number; pets: number; people: number }>,
+  } as Record<
+    string,
+    { adults: number; children: number; pets: number; people: number }
+  >,
 };
 
 export const budgetSummary = {
@@ -482,8 +485,22 @@ export const tripsList = [
 ];
 
 export const contacts = [
-  { id: 1001, ownerUserId: ME, name: "Jonah Prentice", email: "jonah@example.com", contactUserId: null, createdAt: iso("2026-05-02") },
-  { id: 1002, ownerUserId: ME, name: "Kit Osei", email: "kit@example.com", contactUserId: null, createdAt: iso("2026-05-02") },
+  {
+    id: 1001,
+    ownerUserId: ME,
+    name: "Jonah Prentice",
+    email: "jonah@example.com",
+    contactUserId: null,
+    createdAt: iso("2026-05-02"),
+  },
+  {
+    id: 1002,
+    ownerUserId: ME,
+    name: "Kit Osei",
+    email: "kit@example.com",
+    contactUserId: null,
+    createdAt: iso("2026-05-02"),
+  },
 ];
 
 export const contactGroups = [
@@ -493,8 +510,26 @@ export const contactGroups = [
     name: "The Prentices",
     createdAt: iso("2026-05-02"),
     members: [
-      { id: 1, groupId: 1101, contactId: 1001, name: "Jonah Prentice", email: "jonah@example.com", kind: "adult", age: null, createdAt: iso("2026-05-02") },
-      { id: 2, groupId: 1101, contactId: null, name: "Ada Prentice", email: null, kind: "child", age: 5, createdAt: iso("2026-05-02") },
+      {
+        id: 1,
+        groupId: 1101,
+        contactId: 1001,
+        name: "Jonah Prentice",
+        email: "jonah@example.com",
+        kind: "adult",
+        age: null,
+        createdAt: iso("2026-05-02"),
+      },
+      {
+        id: 2,
+        groupId: 1101,
+        contactId: null,
+        name: "Ada Prentice",
+        email: null,
+        kind: "child",
+        age: 5,
+        createdAt: iso("2026-05-02"),
+      },
     ],
   },
 ];

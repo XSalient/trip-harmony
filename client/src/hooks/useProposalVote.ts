@@ -38,7 +38,8 @@ export function useProposalVote<TWire extends string>(opts: {
   submitUnvote: (proposalId: number, cb: MutationCallbacks) => void;
   errorMessage?: string;
 }) {
-  const { user, writeList, settle, submitVote, submitUnvote, errorMessage } = opts;
+  const { user, writeList, settle, submitVote, submitUnvote, errorMessage } =
+    opts;
 
   return useCallback(
     (proposalId: number, wire: TWire, isUnvote: boolean) => {
@@ -46,14 +47,19 @@ export function useProposalVote<TWire extends string>(opts: {
         if (!old) return old;
         return old.map((p: any) => {
           if (p.id !== proposalId) return p;
-          const others = p.votes?.filter((v: any) => v.userId !== user?.id) ?? [];
+          const others =
+            p.votes?.filter((v: any) => v.userId !== user?.id) ?? [];
           return {
             ...p,
             votes: isUnvote
               ? others
               : [
                   ...others,
-                  { userId: user?.id, vote: wire, user: { id: user?.id, name: user?.name } },
+                  {
+                    userId: user?.id,
+                    vote: wire,
+                    user: { id: user?.id, name: user?.name },
+                  },
                 ],
           };
         });
@@ -70,6 +76,14 @@ export function useProposalVote<TWire extends string>(opts: {
       if (isUnvote) submitUnvote(proposalId, cb);
       else submitVote(proposalId, wire, cb);
     },
-    [user?.id, user?.name, writeList, settle, submitVote, submitUnvote, errorMessage]
+    [
+      user?.id,
+      user?.name,
+      writeList,
+      settle,
+      submitVote,
+      submitUnvote,
+      errorMessage,
+    ]
   );
 }

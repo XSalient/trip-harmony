@@ -91,7 +91,12 @@ export function AvatarStack({
   );
 
   const cls = cn("flex shrink-0 items-center", className);
-  const aria = label ?? `${people.length} members: ${people.map(p => p.name).filter(Boolean).join(", ")}`;
+  const aria =
+    label ??
+    `${people.length} members: ${people
+      .map(p => p.name)
+      .filter(Boolean)
+      .join(", ")}`;
 
   if (onClick) {
     return (

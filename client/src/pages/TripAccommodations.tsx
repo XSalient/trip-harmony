@@ -1,5 +1,9 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { VoteTally, VoteSegments, CHOICE_OPTIONS } from "@/components/trip/ProposalRow";
+import {
+  VoteTally,
+  VoteSegments,
+  CHOICE_OPTIONS,
+} from "@/components/trip/ProposalRow";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -1421,8 +1425,7 @@ export default function TripAccommodations() {
                                 "not analysed", and that read as a failed import.
                               */}
                                 <span className="min-w-0 flex-1">
-                                  Not scored against the group's preferences
-                                  yet
+                                  Not scored against the group's preferences yet
                                   {isAdmin ? "" : " — an admin can run it"}.
                                 </span>
                                 {isAdmin && (
@@ -1481,32 +1484,37 @@ export default function TripAccommodations() {
                         currentUserId={user?.id}
                       />
                       {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto rounded-full text-xs text-primary"
-                        onClick={() => handleToggleLock(acc.id, !acc.selected)}
-                        disabled={
-                          setLockMutation.isPending ||
-                          (!acc.selected && blockReason !== null)
-                        }
-                        title={
-                          acc.selected ? undefined : (blockReason ?? undefined)
-                        }
-                      >
-                        {acc.selected ? (
-                          <>
-                            <Unlock className="h-3.5 w-3.5 mr-1" /> Un-finalise
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
-                            Finalise this accommodation
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto rounded-full text-xs text-primary"
+                          onClick={() =>
+                            handleToggleLock(acc.id, !acc.selected)
+                          }
+                          disabled={
+                            setLockMutation.isPending ||
+                            (!acc.selected && blockReason !== null)
+                          }
+                          title={
+                            acc.selected
+                              ? undefined
+                              : (blockReason ?? undefined)
+                          }
+                        >
+                          {acc.selected ? (
+                            <>
+                              <Unlock className="h-3.5 w-3.5 mr-1" />{" "}
+                              Un-finalise
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
+                              Finalise this accommodation
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
 
                     <ProposalComments
                       proposalType="accommodation"

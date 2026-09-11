@@ -17,7 +17,7 @@
 2. **Summary** — two `StatCard`s side by side, tabular numerals throughout:
    - **Total spend** — large figure, currency-formatted via `lib/format.ts`.
    - **Per person** — the derived figure, with the limit as `hint` ("of £600").
-   When over the limit the per-person card takes `tone="danger"` **and** gains an AlertTriangle icon plus the words "over budget" — never colour alone.
+     When over the limit the per-person card takes `tone="danger"` **and** gains an AlertTriangle icon plus the words "over budget" — never colour alone.
 3. **Budget health** — a single horizontal meter: spent vs limit, with a marker at 100%. Segment colours come from `--success` / `--warning` / `--danger`, each labelled.
 4. **By category** — a `SectionCard` holding a **recharts donut** (`ui/chart`), each arc a `--cat-*` hue, with a legend that doubles as the list: icon tile, category name, amount, share. Legend entries toggle their arc.
    Below 5 categories a donut is fine; the guard against overuse is that we never exceed the 6-hue ramp.

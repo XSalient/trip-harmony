@@ -8,8 +8,17 @@ import type { Transition, Variants } from "framer-motion";
  * `useReducedMotionSafe` below.
  */
 
-export const SPRING: Transition = { type: "spring", stiffness: 400, damping: 32, mass: 0.7 };
-export const SPRING_SOFT: Transition = { type: "spring", stiffness: 260, damping: 30 };
+export const SPRING: Transition = {
+  type: "spring",
+  stiffness: 400,
+  damping: 32,
+  mass: 0.7,
+};
+export const SPRING_SOFT: Transition = {
+  type: "spring",
+  stiffness: 260,
+  damping: 30,
+};
 
 export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 export const EASE_IN = [0.7, 0, 0.84, 0] as const;
@@ -56,7 +65,11 @@ export function stagger(step = 0.04, delay = 0): Variants {
   return {
     hidden: {},
     show: {
-      transition: { staggerChildren: step, delayChildren: delay, staggerDirection: 1 },
+      transition: {
+        staggerChildren: step,
+        delayChildren: delay,
+        staggerDirection: 1,
+      },
     },
   };
 }

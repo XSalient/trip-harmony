@@ -49,7 +49,10 @@ export function BottomSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(size === "tall" && "max-h-[92dvh] sm:max-h-[85dvh]", className)}
+        className={cn(
+          size === "tall" && "max-h-[92dvh] sm:max-h-[85dvh]",
+          className
+        )}
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

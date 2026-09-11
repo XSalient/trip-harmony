@@ -1,7 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
-  STANCES, STANCE_TONE, stanceOf, VOTE_LABELS, type Tally, type VoteScale,
+  STANCES,
+  STANCE_TONE,
+  stanceOf,
+  VOTE_LABELS,
+  type Tally,
+  type VoteScale,
   type VoteStance,
 } from "@/lib/voting";
 import { tone as toneClasses } from "./tone";
@@ -76,7 +81,9 @@ export function VoteControl({
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               "disabled:cursor-not-allowed disabled:opacity-50",
               // >=44px on mobile even in the compact layout.
-              size === "md" ? "min-h-11 flex-1 px-3 text-sm" : "min-h-10 flex-1 px-2.5 text-[13px]",
+              size === "md"
+                ? "min-h-11 flex-1 px-3 text-sm"
+                : "min-h-10 flex-1 px-2.5 text-[13px]",
               layout === "icon" && "min-w-11 flex-none px-3",
               active
                 ? cn(c.soft, c.onSoft, "shadow-e1")
@@ -87,7 +94,11 @@ export function VoteControl({
               className={cn(size === "md" ? "size-4" : "size-3.5", "shrink-0")}
               strokeWidth={active ? 2.5 : 2}
               // Filled heart/check reads as "chosen" without relying on colour.
-              fill={active && stance === "up" && scale.id === "preference" ? "currentColor" : "none"}
+              fill={
+                active && stance === "up" && scale.id === "preference"
+                  ? "currentColor"
+                  : "none"
+              }
             />
             {layout === "labeled" && <span className="truncate">{label}</span>}
           </motion.button>
@@ -156,15 +167,23 @@ export function VoteBar({
                 key={stance}
                 className="inline-flex items-center gap-1 text-[12px] text-muted-foreground"
               >
-                <span className={cn("size-1.5 rounded-full", c.solid)} aria-hidden />
-                <span className="tabular font-medium text-foreground">{tally[stance]}</span>
+                <span
+                  className={cn("size-1.5 rounded-full", c.solid)}
+                  aria-hidden
+                />
+                <span className="tabular font-medium text-foreground">
+                  {tally[stance]}
+                </span>
                 {VOTE_LABELS[scale.byStance[stance]] ?? stance}
               </span>
             );
           })}
           {pending > 0 && (
             <span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
-              <span className="size-1.5 rounded-full bg-muted-foreground/30" aria-hidden />
+              <span
+                className="size-1.5 rounded-full bg-muted-foreground/30"
+                aria-hidden
+              />
               <span className="tabular font-medium">{pending}</span> waiting
             </span>
           )}

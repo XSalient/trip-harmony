@@ -117,7 +117,9 @@ export default function AppShell({
 
       {/* pb-nav resolves to the nav height plus the safe-area inset from one
           token, so no screen has to guess it. */}
-      <main className={cn("mx-auto w-full max-w-2xl flex-1", !hideNav && "pb-nav")}>
+      <main
+        className={cn("mx-auto w-full max-w-2xl flex-1", !hideNav && "pb-nav")}
+      >
         {largeTitle && title && (
           <div className="px-4 pb-1 pt-2 sm:px-5">
             <h2 className="font-display text-[28px] font-extrabold leading-tight tracking-tight">

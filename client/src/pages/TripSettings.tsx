@@ -47,7 +47,10 @@ const SECTION_STYLE: Partial<
   Record<SectionKey, { icon: typeof Calendar; tone: string }>
 > = {
   description: { icon: FileText, tone: "bg-cat-4-soft text-cat-4-on-soft" },
-  preferences: { icon: ClipboardList, tone: "bg-cat-3-soft text-cat-3-on-soft" },
+  preferences: {
+    icon: ClipboardList,
+    tone: "bg-cat-3-soft text-cat-3-on-soft",
+  },
   dates: { icon: Calendar, tone: "bg-cat-1-soft text-cat-1-on-soft" },
   accommodations: { icon: Home, tone: "bg-cat-5-soft text-cat-5-on-soft" },
   suggestions: { icon: Lightbulb, tone: "bg-cat-2-soft text-cat-2-on-soft" },
@@ -115,8 +118,8 @@ export default function TripSettings() {
           <strong className="font-medium text-foreground">
             Nothing is deleted
           </strong>{" "}
-          — proposals and votes in a section you switch off come back exactly
-          as they were when you switch it on again.
+          — proposals and votes in a section you switch off come back exactly as
+          they were when you switch it on again.
         </Notice>
 
         {!canAdminister && (

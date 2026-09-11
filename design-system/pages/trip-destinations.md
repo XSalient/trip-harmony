@@ -2,7 +2,7 @@
 
 **Route:** `/trips/:id/destinations`
 **Source:** `client/src/pages/TripDestinations.tsx` (382 lines)
-**Tier:** 2 — second screen redesigned; the structural clone of Dates on the *other* vote scale.
+**Tier:** 2 — second screen redesigned; the structural clone of Dates on the _other_ vote scale.
 
 ## Why it goes second
 
@@ -37,7 +37,7 @@ Scoring comes from `tally()` in `lib/voting.ts` — the local `reduce` is delete
 
 ## States
 
-- **Loading** — three media-card skeletons *including* the image block, so the reserved aspect ratio is visible before load.
+- **Loading** — three media-card skeletons _including_ the image block, so the reserved aspect ratio is visible before load.
 - **Empty** — `EmptyState` with a MapPin icon: "No destinations suggested yet".
 - **Broken image** — the tinted fallback tile described above.
 

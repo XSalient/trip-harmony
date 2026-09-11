@@ -150,49 +150,63 @@ const VARIANT = {
   gradient: "grad-surface",
 } as const;
 
-export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(function Surface(
-  { children, className, elevation = 1, interactive, selected, tone: t,
-    variant = "solid", onClick, as = "div", ...rest },
-  ref
-) {
-  const c = t ? toneClasses(t) : null;
-  const Comp = as;
+export const Surface = forwardRef<HTMLDivElement, SurfaceProps>(
+  function Surface(
+    {
+      children,
+      className,
+      elevation = 1,
+      interactive,
+      selected,
+      tone: t,
+      variant = "solid",
+      onClick,
+      as = "div",
+      ...rest
+    },
+    ref
+  ) {
+    const c = t ? toneClasses(t) : null;
+    const Comp = as;
 
-  return (
-    <Comp
-      ref={ref as never}
-      // Whole-card activation needs real button semantics, not just onClick.
-      {...(onClick
-        ? {
-            role: "button",
-            tabIndex: 0,
-            onClick,
-            onKeyDown: (e: React.KeyboardEvent) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onClick();
-              }
-            },
-          }
-        : {})}
-      className={cn(
-        "relative rounded-2xl text-card-foreground",
-        // Glass brings its own border; the others get the standard hairline.
-        variant === "glass" ? VARIANT.glass : cn("border", VARIANT[variant]),
-        ELEVATION[elevation],
-        selected ? cn("border-transparent ring-2", c?.ring ?? "ring-primary") : "border-border/70",
-        t && !selected && c?.border,
-        interactive &&
-          "transition-[box-shadow,transform] duration-200 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-        onClick && "active:scale-[0.99] motion-reduce:active:scale-100",
-        className
-      )}
-      {...rest}
-    >
-      {children}
-    </Comp>
-  );
-});
+    return (
+      <Comp
+        ref={ref as never}
+        // Whole-card activation needs real button semantics, not just onClick.
+        {...(onClick
+          ? {
+              role: "button",
+              tabIndex: 0,
+              onClick,
+              onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onClick();
+                }
+              },
+            }
+          : {})}
+        className={cn(
+          "relative rounded-2xl text-card-foreground",
+          // Glass brings its own border; the others get the standard hairline.
+          variant === "glass" ? VARIANT.glass : cn("border", VARIANT[variant]),
+          ELEVATION[elevation],
+          selected
+            ? cn("border-transparent ring-2", c?.ring ?? "ring-primary")
+            : "border-border/70",
+          t && !selected && c?.border,
+          interactive &&
+            "transition-[box-shadow,transform] duration-200 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          onClick && "active:scale-[0.99] motion-reduce:active:scale-100",
+          className
+        )}
+        {...rest}
+      >
+        {children}
+      </Comp>
+    );
+  }
+);
 
 /* ========================================================== EmptyState === */
 
@@ -221,11 +235,18 @@ export function EmptyState({
     >
       <IconTile icon={Icon} size={size === "sm" ? "md" : "lg"} tone="neutral" />
       <div className="space-y-1">
-        <p className={cn("font-display font-bold", size === "sm" ? "text-base" : "text-lg")}>
+        <p
+          className={cn(
+            "font-display font-bold",
+            size === "sm" ? "text-base" : "text-lg"
+          )}
+        >
           {title}
         </p>
         {description && (
-          <p className="mx-auto max-w-[36ch] text-sm text-muted-foreground">{description}</p>
+          <p className="mx-auto max-w-[36ch] text-sm text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       {action && <div className="pt-1">{action}</div>}
@@ -247,11 +268,15 @@ export function SectionHead({
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-center justify-between gap-3 px-1", className)}>
+    <div
+      className={cn("flex items-center justify-between gap-3 px-1", className)}
+    >
       <h2 className="font-display text-[17px] font-bold tracking-tight">
         {title}
         {count != null && (
-          <span className="ml-1.5 tabular text-sm font-medium text-muted-foreground">{count}</span>
+          <span className="ml-1.5 tabular text-sm font-medium text-muted-foreground">
+            {count}
+          </span>
         )}
       </h2>
       {action}
@@ -278,7 +303,13 @@ export function StaggerList({
       {Children.map(children, (child, i) =>
         isValidElement<{ style?: React.CSSProperties }>(child)
           ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ({ ...child, props: { ...child.props, style: { ...child.props.style, ["--i" as never]: i } } } as never)
+            ({
+              ...child,
+              props: {
+                ...child.props,
+                style: { ...child.props.style, ["--i" as never]: i },
+              },
+            } as never)
           : child
       )}
     </div>
@@ -308,7 +339,13 @@ export function StaggerItem({
  * PageGrid children even though it is a no-op on phones — that is what keeps
  * the desktop pass a matter of tuning rather than restructuring (MASTER §5).
  */
-export function PageGrid({ children, className }: { children: ReactNode; className?: string }) {
+export function PageGrid({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div
       className={cn(
@@ -322,6 +359,12 @@ export function PageGrid({ children, className }: { children: ReactNode; classNa
 }
 
 /** A PageGrid child that spans both columns on desktop. */
-export function GridSpan({ children, className }: { children: ReactNode; className?: string }) {
+export function GridSpan({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return <div className={cn("lg:col-span-2", className)}>{children}</div>;
 }

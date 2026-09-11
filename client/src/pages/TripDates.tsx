@@ -1,5 +1,9 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { VoteTally, VoteSegments, DATE_OPTIONS } from "@/components/trip/ProposalRow";
+import {
+  VoteTally,
+  VoteSegments,
+  DATE_OPTIONS,
+} from "@/components/trip/ProposalRow";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";

@@ -77,7 +77,6 @@ describe("a proposal nobody has an opinion about is not decided", () => {
   });
 });
 
-
 /**
  * Nobody is ever told to do something they are not allowed to do.
  *

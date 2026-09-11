@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import {
-  ArrowRight, CalendarCheck, ClipboardList, DollarSign, Eye, Scale, Shield,
-  Sparkles, Vote,
+  ArrowRight,
+  CalendarCheck,
+  ClipboardList,
+  DollarSign,
+  Eye,
+  Scale,
+  Shield,
+  Sparkles,
+  Vote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -53,8 +60,18 @@ const FEATURES = [
     tone: "cat-5" as const,
     wide: true,
   },
-  { icon: Vote, title: "Smart voting", body: "Love, fine or veto on every option.", tone: "cat-1" as const },
-  { icon: Shield, title: "AI referee", body: "Spots conflicts, suggests compromises.", tone: "cat-4" as const },
+  {
+    icon: Vote,
+    title: "Smart voting",
+    body: "Love, fine or veto on every option.",
+    tone: "cat-1" as const,
+  },
+  {
+    icon: Shield,
+    title: "AI referee",
+    body: "Spots conflicts, suggests compromises.",
+    tone: "cat-4" as const,
+  },
   {
     icon: DollarSign,
     title: "Budget guard",
@@ -153,7 +170,11 @@ export default function Landing() {
             className="animate-rise mt-7 w-full max-w-xs space-y-3"
             style={{ animationDelay: "135ms" }}
           >
-            <Button size="lg" className="h-13 w-full text-base" onClick={() => setAuthOpen(true)}>
+            <Button
+              size="lg"
+              className="h-13 w-full text-base"
+              onClick={() => setAuthOpen(true)}
+            >
               Start a trip
               <ArrowRight />
             </Button>
@@ -192,7 +213,11 @@ export default function Landing() {
 
           <ol className="mt-8 space-y-3">
             {STEPS.map((step, i) => (
-              <li key={step.title} className="stagger-item" style={{ ["--i" as never]: i }}>
+              <li
+                key={step.title}
+                className="stagger-item"
+                style={{ ["--i" as never]: i }}
+              >
                 <Surface className="flex gap-4 p-4" elevation={1}>
                   <IconTile icon={step.icon} tone={step.tone} size="lg" />
                   <div className="min-w-0 flex-1 pt-0.5">
@@ -232,10 +257,17 @@ export default function Landing() {
               >
                 <Surface
                   variant={f.wide ? "gradient" : "solid"}
-                  className={cn("h-full p-4", f.wide && "flex items-center gap-4")}
+                  className={cn(
+                    "h-full p-4",
+                    f.wide && "flex items-center gap-4"
+                  )}
                   elevation={1}
                 >
-                  <IconTile icon={f.icon} tone={f.tone} size={f.wide ? "lg" : "md"} />
+                  <IconTile
+                    icon={f.icon}
+                    tone={f.tone}
+                    size={f.wide ? "lg" : "md"}
+                  />
                   <div className={cn(!f.wide && "mt-3")}>
                     <h3 className="font-display text-[15px] font-bold tracking-tight">
                       {f.title}
@@ -254,14 +286,22 @@ export default function Landing() {
       {/* ------------------------------------------------------- closing CTA */}
       <section className="px-5 pb-16">
         <div className="mx-auto max-w-lg">
-          <Surface variant="gradient" elevation={2} className="overflow-hidden p-6 text-center">
+          <Surface
+            variant="gradient"
+            elevation={2}
+            className="overflow-hidden p-6 text-center"
+          >
             <h2 className="text-balance font-display text-xl font-bold tracking-tight">
               Everyone gets a say. Somebody still has to book it.
             </h2>
             <p className="mx-auto mt-2 max-w-[32ch] text-sm text-muted-foreground">
               Free to start. Invite your group with one link.
             </p>
-            <Button size="lg" className="mt-5 h-13 w-full max-w-xs" onClick={() => setAuthOpen(true)}>
+            <Button
+              size="lg"
+              className="mt-5 h-13 w-full max-w-xs"
+              onClick={() => setAuthOpen(true)}
+            >
               Start a trip
               <ArrowRight />
             </Button>

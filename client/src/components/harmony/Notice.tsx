@@ -54,14 +54,19 @@ export function Notice({
     >
       <span
         aria-hidden
-        className={cn("absolute inset-y-0 left-0 w-[3px] rounded-r-full", t.spine)}
+        className={cn(
+          "absolute inset-y-0 left-0 w-[3px] rounded-r-full",
+          t.spine
+        )}
       />
       <span aria-hidden className={cn("mt-px shrink-0", t.icon)}>
         {icon ?? <Glyph className="size-4" />}
       </span>
       <div className="min-w-0 flex-1">
         {title && (
-          <p className="font-semibold tracking-tight text-foreground">{title}</p>
+          <p className="font-semibold tracking-tight text-foreground">
+            {title}
+          </p>
         )}
         {children && <div className="text-muted-foreground">{children}</div>}
       </div>

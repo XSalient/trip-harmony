@@ -1,18 +1,52 @@
 import { useState } from "react";
 import {
-  Bed, Bath, CalendarDays, Check, DollarSign, Home, Lightbulb, MapPin, Moon,
-  MoreVertical, Plus, Sun, Users, Wallet,
+  Bed,
+  Bath,
+  CalendarDays,
+  Check,
+  DollarSign,
+  Home,
+  Lightbulb,
+  MapPin,
+  Moon,
+  MoreVertical,
+  Plus,
+  Sun,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AVAILABILITY_SCALE, PREFERENCE_SCALE, tally } from "@/lib/voting";
 import { dateRange, money, nights, signed } from "@/lib/format";
-import { BUDGET_CATEGORIES, budgetCategory, notificationType } from "@/lib/taxonomy";
 import {
-  AvatarStack, BottomSheet, CardMedia, ChipPicker, EmptyState, Fab, GridSpan,
-  IconTile, Meta, Meter, PageGrid, ProposalCard, ScoreChip, SectionCard,
-  SectionHead, StaggerItem, StaggerList, StatCard, StatusPill, Surface,
-  VoteBar, VoteControl,
+  BUDGET_CATEGORIES,
+  budgetCategory,
+  notificationType,
+} from "@/lib/taxonomy";
+import {
+  AvatarStack,
+  BottomSheet,
+  CardMedia,
+  ChipPicker,
+  EmptyState,
+  Fab,
+  GridSpan,
+  IconTile,
+  Meta,
+  Meter,
+  PageGrid,
+  ProposalCard,
+  ScoreChip,
+  SectionCard,
+  SectionHead,
+  StaggerItem,
+  StaggerList,
+  StatCard,
+  StatusPill,
+  Surface,
+  VoteBar,
+  VoteControl,
 } from "@/components/harmony";
 
 /**
@@ -33,13 +67,20 @@ const PEOPLE = [
 ];
 
 const DATE_VOTES = [
-  { vote: "available" }, { vote: "available" }, { vote: "available" },
-  { vote: "maybe" }, { vote: "unavailable" },
+  { vote: "available" },
+  { vote: "available" },
+  { vote: "available" },
+  { vote: "maybe" },
+  { vote: "unavailable" },
 ];
 
 const PREF_VOTES = [
-  { vote: "love" }, { vote: "love" }, { vote: "love" }, { vote: "love" },
-  { vote: "fine" }, { vote: "veto" },
+  { vote: "love" },
+  { vote: "love" },
+  { vote: "love" },
+  { vote: "love" },
+  { vote: "fine" },
+  { vote: "veto" },
 ];
 
 const VIBES = [
@@ -51,7 +92,13 @@ const VIBES = [
   { value: "quiet", label: "Quiet" },
 ];
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <GridSpan className="space-y-3">
       <SectionHead title={title} />
@@ -96,7 +143,9 @@ export default function Preview() {
         {/* ------------------------------------------------------- tones -- */}
         <Section title="Status & category tones">
           <Surface className="flex flex-wrap gap-2 p-4">
-            <StatusPill tone="success" icon={Check}>Locked</StatusPill>
+            <StatusPill tone="success" icon={Check}>
+              Locked
+            </StatusPill>
             <StatusPill tone="warning">3 to vote</StatusPill>
             <StatusPill tone="danger">Over budget</StatusPill>
             <StatusPill tone="info">Invite</StatusPill>
@@ -126,21 +175,34 @@ export default function Preview() {
           hint="of £600 limit"
           tone="danger"
         />
-        <StatCard icon={CalendarDays} label="Trip dates" value={dateRange(start, end)} />
-        <StatCard icon={MapPin} label="Destination" value="Lisbon" tone="cat-5" />
+        <StatCard
+          icon={CalendarDays}
+          label="Trip dates"
+          value={dateRange(start, end)}
+        />
+        <StatCard
+          icon={MapPin}
+          label="Destination"
+          value="Lisbon"
+          tone="cat-5"
+        />
 
         {/* ------------------------------------------------------- votes -- */}
         <Section title="Voting — availability scale">
           <Surface className="space-y-3 p-4">
-            <VoteBar tally={dateTally} memberCount={7} scale={AVAILABILITY_SCALE} />
+            <VoteBar
+              tally={dateTally}
+              memberCount={7}
+              scale={AVAILABILITY_SCALE}
+            />
             <VoteControl
               scale={AVAILABILITY_SCALE}
               value={dateVote as never}
               onVote={(wire, isUnvote) => setDateVote(isUnvote ? null : wire)}
             />
             <p className="text-xs text-muted-foreground">
-              Tapping the active option clears the vote — the control decides that,
-              not the caller.
+              Tapping the active option clears the vote — the control decides
+              that, not the caller.
             </p>
           </Surface>
         </Section>
@@ -173,17 +235,39 @@ export default function Preview() {
                 overlay={<ScoreChip score={prefTally.score} />}
               />
             }
-            badges={<StatusPill tone="success" icon={Check}>Locked</StatusPill>}
+            badges={
+              <StatusPill tone="success" icon={Check}>
+                Locked
+              </StatusPill>
+            }
             meta={
               <>
-                <Meta icon={DollarSign} numeric>{money(180, "GBP")}/night</Meta>
-                <Meta icon={Bed} numeric>3 beds</Meta>
-                <Meta icon={Bath} numeric>2 baths</Meta>
+                <Meta icon={DollarSign} numeric>
+                  {money(180, "GBP")}/night
+                </Meta>
+                <Meta icon={Bed} numeric>
+                  3 beds
+                </Meta>
+                <Meta icon={Bath} numeric>
+                  2 baths
+                </Meta>
                 <Meta icon={MapPin}>Alfama</Meta>
               </>
             }
-            bar={<VoteBar tally={prefTally} memberCount={7} scale={PREFERENCE_SCALE} />}
-            vote={<VoteControl scale={PREFERENCE_SCALE} value={null} onVote={() => {}} />}
+            bar={
+              <VoteBar
+                tally={prefTally}
+                memberCount={7}
+                scale={PREFERENCE_SCALE}
+              />
+            }
+            vote={
+              <VoteControl
+                scale={PREFERENCE_SCALE}
+                value={null}
+                onVote={() => {}}
+              />
+            }
             voters={<AvatarStack people={PEOPLE} size="xs" max={3} />}
             actions={
               <Button variant="ghost" size="icon-sm" aria-label="More actions">
@@ -202,7 +286,11 @@ export default function Preview() {
           <Surface className="space-y-2 p-3">
             {[
               { t: "Easter week", d: dateRange(start, end), locked: true },
-              { t: "Late April", d: dateRange(new Date(2027, 3, 22), new Date(2027, 3, 29)), locked: false },
+              {
+                t: "Late April",
+                d: dateRange(new Date(2027, 3, 22), new Date(2027, 3, 29)),
+                locked: false,
+              },
             ].map(row => (
               <ProposalCard
                 key={row.t}
@@ -210,12 +298,27 @@ export default function Preview() {
                 title={row.t}
                 meta={
                   <>
-                    <Meta icon={CalendarDays} numeric>{row.d}</Meta>
+                    <Meta icon={CalendarDays} numeric>
+                      {row.d}
+                    </Meta>
                     <Meta numeric>{nights(start, end)} nights</Meta>
                   </>
                 }
-                badges={row.locked ? <StatusPill tone="success" icon={Check}>Locked</StatusPill> : undefined}
-                bar={<VoteBar tally={dateTally} memberCount={7} scale={AVAILABILITY_SCALE} showLegend={false} />}
+                badges={
+                  row.locked ? (
+                    <StatusPill tone="success" icon={Check}>
+                      Locked
+                    </StatusPill>
+                  ) : undefined
+                }
+                bar={
+                  <VoteBar
+                    tally={dateTally}
+                    memberCount={7}
+                    scale={AVAILABILITY_SCALE}
+                    showLegend={false}
+                  />
+                }
                 vote={
                   <VoteControl
                     scale={AVAILABILITY_SCALE}
@@ -300,7 +403,13 @@ export default function Preview() {
         {/* -------------------------------------------------- taxonomy -- */}
         <Section title="Notification types">
           <Surface className="divide-y divide-border/70">
-            {["invite", "vote_request", "budget_alert", "consensus", "phase_change"].map(t => {
+            {[
+              "invite",
+              "vote_request",
+              "budget_alert",
+              "consensus",
+              "phase_change",
+            ].map(t => {
               const meta = notificationType(t);
               return (
                 <div key={t} className="flex items-center gap-3 p-3.5">
@@ -311,7 +420,9 @@ export default function Preview() {
                       Priya proposed a new set of dates for Lisbon
                     </p>
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">2h</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    2h
+                  </span>
                 </div>
               );
             })}
@@ -324,7 +435,12 @@ export default function Preview() {
             icon={MapPin}
             title="No destinations yet"
             description="Suggest a place and the group can start voting on it."
-            action={<Button><Plus />Suggest a place</Button>}
+            action={
+              <Button>
+                <Plus />
+                Suggest a place
+              </Button>
+            }
           />
         </Section>
 
@@ -333,7 +449,11 @@ export default function Preview() {
           <StaggerList className="space-y-2">
             {["Lisbon", "Porto", "Seville", "Valencia"].map(city => (
               <StaggerItem key={city}>
-                <Surface className="flex items-center gap-3 p-3.5" interactive onClick={() => {}}>
+                <Surface
+                  className="flex items-center gap-3 p-3.5"
+                  interactive
+                  onClick={() => {}}
+                >
                   <IconTile icon={MapPin} tone="cat-5" size="md" />
                   <span className="flex-1 font-display font-bold">{city}</span>
                   <ScoreChip score={Math.floor(Math.random() * 14) - 3} />
@@ -365,7 +485,11 @@ export default function Preview() {
         size="tall"
         footer={
           <>
-            <Button variant="outline" className="flex-1" onClick={() => setSheetOpen(false)}>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setSheetOpen(false)}
+            >
               Cancel
             </Button>
             <Button className="flex-1" onClick={() => setSheetOpen(false)}>
@@ -375,7 +499,13 @@ export default function Preview() {
         }
       >
         <div className="space-y-4 py-2">
-          <ChipPicker options={VIBES} value={vibes} onChange={setVibes} multiple label="Vibes" />
+          <ChipPicker
+            options={VIBES}
+            value={vibes}
+            onChange={setVibes}
+            multiple
+            label="Vibes"
+          />
           <EmptyState
             icon={Lightbulb}
             size="sm"

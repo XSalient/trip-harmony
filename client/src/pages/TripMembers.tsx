@@ -82,7 +82,9 @@ function RoleBadge({ role }: { role: TripRole }) {
         ? "bg-muted text-muted-foreground"
         : "bg-cat-5-soft text-cat-5-on-soft";
   return (
-    <Badge className={`rounded-md border-0 px-1.5 text-[11px] font-semibold ${tone}`}>
+    <Badge
+      className={`rounded-md border-0 px-1.5 text-[11px] font-semibold ${tone}`}
+    >
       {TRIP_ROLE_LABELS[role]}
     </Badge>
   );
@@ -848,14 +850,14 @@ export default function TripMembers() {
         {/* A line, not a card — same reasoning as the budget screen. */}
         {headcount && (
           <div className="flex items-center gap-2 px-1 text-[13px] text-muted-foreground">
-              <Users className="size-4 shrink-0" />
-              <span>
-                {headcount.adults} {headcount.adults === 1 ? "adult" : "adults"}
-                {headcount.children > 0 &&
-                  ` · ${headcount.children} ${headcount.children === 1 ? "child" : "children"}`}
-                {headcount.pets > 0 &&
-                  ` · ${headcount.pets} ${headcount.pets === 1 ? "pet" : "pets"}`}
-              </span>
+            <Users className="size-4 shrink-0" />
+            <span>
+              {headcount.adults} {headcount.adults === 1 ? "adult" : "adults"}
+              {headcount.children > 0 &&
+                ` · ${headcount.children} ${headcount.children === 1 ? "child" : "children"}`}
+              {headcount.pets > 0 &&
+                ` · ${headcount.pets} ${headcount.pets === 1 ? "pet" : "pets"}`}
+            </span>
           </div>
         )}
 
@@ -957,9 +959,9 @@ export default function TripMembers() {
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
-                            aria-label="More"
-                            className="pressable touch-target flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          >
+                          aria-label="More"
+                          className="pressable touch-target flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        >
                           <MoreVertical className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
@@ -1295,7 +1297,10 @@ export default function TripMembers() {
           <div className="space-y-2">
             <SectionHead title="Invited · waiting to hear back" />
             {pendingInvites.map((i: any) => (
-              <Card key={i.id} className="rounded-2xl border-dashed border-border/60">
+              <Card
+                key={i.id}
+                className="rounded-2xl border-dashed border-border/60"
+              >
                 <CardContent className="p-3 flex items-center gap-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                     <Clock className="h-4 w-4" />
@@ -1474,7 +1479,9 @@ export default function TripMembers() {
 
           {(contactGroups ?? []).length > 0 && (
             <div className="space-y-2 pt-1">
-              <p className="text-[13px] font-semibold text-muted-foreground">Saved families</p>
+              <p className="text-[13px] font-semibold text-muted-foreground">
+                Saved families
+              </p>
               {(contactGroups ?? []).map((cg: any) => (
                 <div
                   key={cg.id}
@@ -1587,14 +1594,14 @@ export default function TripMembers() {
                   <div className="space-y-1 text-[12px]">
                     {importPlan.conflicts.map((c: any) => (
                       <p key={c.userId}>
-                        {c.name} is already on this trip in{" "}
-                        {c.currentGroupName}. Adding this group moves them into{" "}
+                        {c.name} is already on this trip in {c.currentGroupName}
+                        . Adding this group moves them into{" "}
                         {importPlan.groupName}.
                       </p>
                     ))}
                     <p>
-                      A group casts one vote, so moving somebody can drop a
-                      vote that has become a duplicate.
+                      A group casts one vote, so moving somebody can drop a vote
+                      that has become a duplicate.
                     </p>
                   </div>
                 </Notice>

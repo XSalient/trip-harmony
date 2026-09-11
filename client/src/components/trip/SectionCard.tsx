@@ -158,7 +158,9 @@ export default function SectionCard({
               )}
             </div>
             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-              <span className="text-[15px] font-semibold tracking-tight">{title}</span>
+              <span className="text-[15px] font-semibold tracking-tight">
+                {title}
+              </span>
               {locked && (
                 <Badge className="rounded-md border-0 bg-success-soft px-1.5 text-[11px] font-semibold text-success-on-soft">
                   {singleLock ? "Decided" : `${lockedCount} finalised`}
@@ -203,7 +205,10 @@ export default function SectionCard({
           {React.Children.count(children) > 0 ? (
             <div className="space-y-2 px-3.5 pb-3">
               {React.Children.map(children, (child, i) => (
-                <div className="stagger-item" style={{ "--i": i } as React.CSSProperties}>
+                <div
+                  className="stagger-item"
+                  style={{ "--i": i } as React.CSSProperties}
+                >
                   {child}
                 </div>
               ))}

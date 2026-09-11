@@ -1,5 +1,9 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { VoteTally, VoteSegments, CHOICE_OPTIONS } from "@/components/trip/ProposalRow";
+import {
+  VoteTally,
+  VoteSegments,
+  CHOICE_OPTIONS,
+} from "@/components/trip/ProposalRow";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -550,34 +554,37 @@ export default function TripDestinations() {
                         currentUserId={user?.id}
                       />
                       {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto rounded-full text-xs text-primary"
-                        onClick={() =>
-                          handleToggleLock(dest.id, !dest.selected)
-                        }
-                        disabled={
-                          setLockMutation.isPending ||
-                          (!dest.selected && blockReason !== null)
-                        }
-                        title={
-                          dest.selected ? undefined : (blockReason ?? undefined)
-                        }
-                      >
-                        {dest.selected ? (
-                          <>
-                            <Unlock className="h-3.5 w-3.5 mr-1" /> Un-finalise
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
-                            Finalise this
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto rounded-full text-xs text-primary"
+                          onClick={() =>
+                            handleToggleLock(dest.id, !dest.selected)
+                          }
+                          disabled={
+                            setLockMutation.isPending ||
+                            (!dest.selected && blockReason !== null)
+                          }
+                          title={
+                            dest.selected
+                              ? undefined
+                              : (blockReason ?? undefined)
+                          }
+                        >
+                          {dest.selected ? (
+                            <>
+                              <Unlock className="h-3.5 w-3.5 mr-1" />{" "}
+                              Un-finalise
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
+                              Finalise this
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
 
                     <ProposalComments
                       proposalType="destination"

@@ -7,7 +7,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
-import { EmptyState, IconTile, Meta, ProgressRing, StaggerItem, StaggerList, StatusPill, Surface, TONES } from "@/components/harmony";
+import {
+  EmptyState,
+  IconTile,
+  Meta,
+  ProgressRing,
+  StaggerItem,
+  StaggerList,
+  StatusPill,
+  Surface,
+  TONES,
+} from "@/components/harmony";
 import type { Tone } from "@/lib/taxonomy";
 import Landing from "./Landing";
 import { PaywallDialog } from "@/components/PaywallDialog";
@@ -102,7 +112,10 @@ function TripCard({ trip }: { trip: any }) {
           </div>
 
           <ProgressRing value={progress} label={`${trip.name} progress`} />
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ChevronRight
+            className="size-4 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
         </div>
       </Surface>
     </Link>
@@ -162,7 +175,9 @@ function Dashboard() {
               <Plus className="size-5" />
             </span>
             <span>
-              <span className="block font-display text-[17px] font-bold">New trip</span>
+              <span className="block font-display text-[17px] font-bold">
+                New trip
+              </span>
               <span className="block text-sm opacity-80">Start planning</span>
             </span>
           </button>
@@ -194,7 +209,9 @@ function Dashboard() {
               <button
                 type="button"
                 onClick={() =>
-                  billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+                  billing?.atLimit
+                    ? setPaywallOpen(true)
+                    : navigate("/trips/new")
                 }
                 className="inline-flex min-h-9 items-center gap-1 rounded-full px-2 text-[13px] font-semibold text-primary touch-target"
               >
@@ -226,7 +243,9 @@ function Dashboard() {
               action={
                 <Button
                   onClick={() =>
-                    billing?.atLimit ? setPaywallOpen(true) : navigate("/trips/new")
+                    billing?.atLimit
+                      ? setPaywallOpen(true)
+                      : navigate("/trips/new")
                   }
                 >
                   <Plus />

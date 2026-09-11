@@ -73,7 +73,12 @@ export function StatCard({
           </p>
         )}
         {hint && (
-          <p className={cn("mt-0.5 text-xs", emphasised ? cn(c.onSoft, "opacity-80") : "text-muted-foreground")}>
+          <p
+            className={cn(
+              "mt-0.5 text-xs",
+              emphasised ? cn(c.onSoft, "opacity-80") : "text-muted-foreground"
+            )}
+          >
             {hint}
           </p>
         )}
@@ -92,7 +97,10 @@ export function StatCard({
       )}
 
       {navigational && (
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <ChevronRight
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
       )}
     </Surface>
   );
@@ -144,13 +152,19 @@ export function SectionCard({
       {icon && <IconTile icon={icon} tone={t} size="md" />}
       <div className="min-w-0 flex-1 text-left">
         <div className="flex items-center gap-1.5">
-          <h3 className="truncate font-display text-[15px] font-bold tracking-tight">{title}</h3>
+          <h3 className="truncate font-display text-[15px] font-bold tracking-tight">
+            {title}
+          </h3>
           {count != null && (
-            <span className="tabular text-sm font-medium text-muted-foreground">{count}</span>
+            <span className="tabular text-sm font-medium text-muted-foreground">
+              {count}
+            </span>
           )}
         </div>
         {description && (
-          <p className="mt-0.5 line-clamp-1 text-[13px] text-muted-foreground">{description}</p>
+          <p className="mt-0.5 line-clamp-1 text-[13px] text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -169,7 +183,11 @@ export function SectionCard({
   return (
     <Surface
       elevation={1}
-      className={cn("overflow-hidden", t !== "neutral" && cn(c.border), className)}
+      className={cn(
+        "overflow-hidden",
+        t !== "neutral" && cn(c.border),
+        className
+      )}
     >
       <div className={cn("p-4", expanded && "pb-3")}>
         {collapsible ? (
@@ -242,14 +260,21 @@ export function Meter({
     <div className={cn("space-y-1.5", className)}>
       {(label || valueLabel) && (
         <div className="flex items-baseline justify-between gap-2">
-          {label && <span className="text-[13px] text-muted-foreground">{label}</span>}
+          {label && (
+            <span className="text-[13px] text-muted-foreground">{label}</span>
+          )}
           {valueLabel && (
-            <span className="tabular text-[13px] font-semibold">{valueLabel}</span>
+            <span className="tabular text-[13px] font-semibold">
+              {valueLabel}
+            </span>
           )}
         </div>
       )}
       <div
-        className={cn("relative w-full overflow-hidden rounded-full bg-muted", size === "md" ? "h-2.5" : "h-1.5")}
+        className={cn(
+          "relative w-full overflow-hidden rounded-full bg-muted",
+          size === "md" ? "h-2.5" : "h-1.5"
+        )}
         role="progressbar"
         aria-valuenow={Math.round(pct)}
         aria-valuemin={0}

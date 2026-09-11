@@ -22,7 +22,9 @@ export default function MagicLinkVerify() {
   const params = useParams<{ token: string }>();
   const [, navigate] = useLocation();
   const calledRef = useRef(false);
-  const redirectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const redirectRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  );
   const [authOpen, setAuthOpen] = useState(false);
   const [startWithPassword, setStartWithPassword] = useState(false);
   const switchSession = useSessionSwitch();

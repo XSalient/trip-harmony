@@ -1,7 +1,21 @@
 import { useState } from "react";
 import {
-  Bell, CalendarDays, Check, ChevronDown, ChevronRight, FileText, Home,
-  HelpCircle, MapPin, MessageCircle, MoreVertical, Plus, User, Users, Wallet, X,
+  Bell,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Home,
+  HelpCircle,
+  MapPin,
+  MessageCircle,
+  MoreVertical,
+  Plus,
+  User,
+  Users,
+  Wallet,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,13 +77,22 @@ function CollapsibleRow({
   return (
     <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-e1">
       <button className="flex min-h-[52px] w-full items-center gap-2.5 px-3.5 py-2.5 text-left">
-        <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-[10px]", tone)}>
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-[10px]",
+            tone
+          )}
+        >
           <Icon className="h-[18px] w-[18px]" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold tracking-tight">{title}</span>
+          <span className="block text-[15px] font-semibold tracking-tight">
+            {title}
+          </span>
           {subtitle && (
-            <span className="block truncate text-[13px] text-muted-foreground">{subtitle}</span>
+            <span className="block truncate text-[13px] text-muted-foreground">
+              {subtitle}
+            </span>
           )}
         </span>
         <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
@@ -99,20 +122,40 @@ function VoteRow({
 }) {
   const [vote, setVote] = useState(mine);
   const options = [
-    { key: "yes" as const, label: "Yes", icon: Check, active: "bg-success-soft text-success-on-soft" },
-    { key: "maybe" as const, label: "Maybe", icon: HelpCircle, active: "bg-warning-soft text-warning-on-soft" },
-    { key: "no" as const, label: "No", icon: X, active: "bg-danger-soft text-danger-on-soft" },
+    {
+      key: "yes" as const,
+      label: "Yes",
+      icon: Check,
+      active: "bg-success-soft text-success-on-soft",
+    },
+    {
+      key: "maybe" as const,
+      label: "Maybe",
+      icon: HelpCircle,
+      active: "bg-warning-soft text-warning-on-soft",
+    },
+    {
+      key: "no" as const,
+      label: "No",
+      icon: X,
+      active: "bg-danger-soft text-danger-on-soft",
+    },
   ];
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-border/70 bg-card p-3 text-[13px] shadow-e1">
       {selected && (
-        <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success" />
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success"
+        />
       )}
       <div className="mb-1.5 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-[14px] font-semibold">{title}</p>
-          <p className="tabular truncate text-[12px] text-muted-foreground">{meta}</p>
+          <p className="tabular truncate text-[12px] text-muted-foreground">
+            {meta}
+          </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 text-muted-foreground">
           <span className="flex items-center gap-0.5 text-[12px]">
@@ -137,7 +180,9 @@ function VoteRow({
           <X className="size-3.5" />
           <span className="tabular font-semibold">{no}</span>
         </span>
-        <span className="tabular ml-auto text-[12px] text-muted-foreground">{voted}</span>
+        <span className="tabular ml-auto text-[12px] text-muted-foreground">
+          {voted}
+        </span>
       </div>
 
       <div className="space-y-1.5">
@@ -148,7 +193,9 @@ function VoteRow({
               onClick={() => setVote(o.key)}
               className={cn(
                 "flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-[13px] font-medium transition-colors",
-                vote === o.key ? cn(o.active, "font-semibold shadow-e1") : "text-muted-foreground"
+                vote === o.key
+                  ? cn(o.active, "font-semibold shadow-e1")
+                  : "text-muted-foreground"
               )}
             >
               <o.icon className="size-4" />
@@ -207,7 +254,10 @@ export default function PreviewTrip() {
         {/* Settled sections are marked by a spine and a pill — not a tint that
             recolours everything nested inside them. */}
         <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card shadow-e1">
-          <span aria-hidden className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success" />
+          <span
+            aria-hidden
+            className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-success"
+          />
           <div className="flex items-center gap-2.5 px-3.5 pb-2 pt-3">
             <button
               onClick={() => setOpen(o => !o)}
@@ -217,18 +267,29 @@ export default function PreviewTrip() {
                 <CalendarDays className="h-[18px] w-[18px]" />
               </span>
               <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <span className="text-[15px] font-semibold tracking-tight">Dates</span>
+                <span className="text-[15px] font-semibold tracking-tight">
+                  Dates
+                </span>
                 <Badge className="rounded-md border-0 bg-success-soft px-1.5 text-[11px] font-semibold text-success-on-soft">
                   Decided
                 </Badge>
               </span>
             </button>
-            <Button size="sm" variant="outline" className="h-9 shrink-0 gap-1 rounded-full text-xs">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 shrink-0 gap-1 rounded-full text-xs"
+            >
               <Plus className="size-3.5" />
               Add
             </Button>
             <button className="-m-1 flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground">
-              <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
+              <ChevronDown
+                className={cn(
+                  "size-4 transition-transform",
+                  open && "rotate-180"
+                )}
+              />
             </button>
           </div>
 
@@ -267,7 +328,9 @@ export default function PreviewTrip() {
               <MapPin className="h-[18px] w-[18px]" />
             </span>
             <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-              <span className="text-[15px] font-semibold tracking-tight">Suggestions</span>
+              <span className="text-[15px] font-semibold tracking-tight">
+                Suggestions
+              </span>
               <Badge className="rounded-md border-0 bg-warning-soft px-1.5 text-[11px] font-semibold text-warning-on-soft">
                 3 to vote
               </Badge>
@@ -279,7 +342,12 @@ export default function PreviewTrip() {
           </div>
         </div>
 
-        <CollapsibleRow icon={Wallet} title="Budget" subtitle="Not finalised" tone="bg-cat-6-soft text-cat-6-on-soft" />
+        <CollapsibleRow
+          icon={Wallet}
+          title="Budget"
+          subtitle="Not finalised"
+          tone="bg-cat-6-soft text-cat-6-on-soft"
+        />
       </main>
 
       {/* Nav, at the real size so collisions show up here rather than on a phone. */}
@@ -302,8 +370,15 @@ export default function PreviewTrip() {
                     : "text-muted-foreground"
               )}
             >
-              <item.icon className={cn("h-5 w-5", item.active && "stroke-[2.5px]")} />
-              <span className={cn("text-[10px]", item.active ? "font-semibold" : "font-medium")}>
+              <item.icon
+                className={cn("h-5 w-5", item.active && "stroke-[2.5px]")}
+              />
+              <span
+                className={cn(
+                  "text-[10px]",
+                  item.active ? "font-semibold" : "font-medium"
+                )}
+              >
                 {item.label}
               </span>
             </span>

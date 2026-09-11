@@ -21,11 +21,11 @@ The single worst file in the codebase.
 1. **Trip header** — large title (trip name), collapsing on scroll. Subtitle: destination plus locked date range, tabular numerals. Right: overflow menu (Invite, Preferences, Edit, Leave/Delete — destructive last and separated by a divider).
 2. **Trip pulse** — one full-width card:
    - `AvatarStack` of members with an "Invite" affordance appended as a dashed +N tile.
-   - Four-step phase tracker (Dates → Destination → Stay → Booked) with the current step marked by *both* colour and a filled dot plus label.
+   - Four-step phase tracker (Dates → Destination → Stay → Booked) with the current step marked by _both_ colour and a filled dot plus label.
 3. **Needs you** — rendered only when non-zero. A `StatCard tone="warning"` per outstanding section: "3 dates need your vote". Tapping scrolls to that section. This replaces the current always-visible orange alert card.
 4. **Planning sections** — three `SectionCard`s (Dates, Destinations, Stays). Each:
    - Icon tile, title, count, and a `StatusPill tone="success"` reading "Locked" when settled.
-   - Up to three `ProposalCard density="condensed"` rows — the *same* component the detail pages use at `density="full"`.
+   - Up to three `ProposalCard density="condensed"` rows — the _same_ component the detail pages use at `density="full"`.
    - A `VoteBar` per row plus `VoteControl layout="icon"`.
    - Footer: "View all N" link and a "+ Add" action opening a `BottomSheet`.
    - `collapsible`, defaulting open, remembering state per section.

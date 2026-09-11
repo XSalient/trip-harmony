@@ -14,11 +14,11 @@
 
 ## Layout (mobile, top → bottom)
 
-1. **Large-title header** — "Hi, {firstName}" as `title-lg`, collapsing to a compact `title` bar on scroll. Right side: avatar button opening a menu (Travel DNA, Theme, Sign out). Logout is *not* a bare icon in the header — destructive actions belong behind the menu, spatially separated.
+1. **Large-title header** — "Hi, {firstName}" as `title-lg`, collapsing to a compact `title` bar on scroll. Right side: avatar button opening a menu (Travel DNA, Theme, Sign out). Logout is _not_ a bare icon in the header — destructive actions belong behind the menu, spatially separated.
 2. **Attention row** — a horizontal `StatCard` pair, only rendered when non-zero:
    - "N votes waiting" → `tone="warning"`, deep-links to the first trip needing votes.
    - "Travel DNA incomplete" → `tone="info"`, links to `/quiz`.
-   This replaces the current always-on nudge card, so a caught-up user sees a clean screen.
+     This replaces the current always-on nudge card, so a caught-up user sees a clean screen.
 3. **Your trips** — section heading with a count, then a vertical list of trip cards:
    - Cover band tinted from the trip's phase.
    - Trip name (`subtitle`), destination and date range (`body-sm`, tabular numerals).

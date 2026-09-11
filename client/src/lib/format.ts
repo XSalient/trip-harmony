@@ -1,4 +1,9 @@
-import { format, formatDistanceToNowStrict, isSameMonth, isSameYear } from "date-fns";
+import {
+  format,
+  formatDistanceToNowStrict,
+  isSameMonth,
+  isSameYear,
+} from "date-fns";
 
 /**
  * Shared formatting. Previously re-inlined across Budget, Dates,
@@ -7,7 +12,13 @@ import { format, formatDistanceToNowStrict, isSameMonth, isSameYear } from "date
 
 /** Currency codes the app offers, mapped to their symbol. */
 const SYMBOLS: Record<string, string> = {
-  USD: "$", EUR: "€", GBP: "£", INR: "₹", AUD: "A$", CAD: "C$", JPY: "¥",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  INR: "₹",
+  AUD: "A$",
+  CAD: "C$",
+  JPY: "¥",
 };
 
 export function currencySymbol(code?: string | null): string {
@@ -46,7 +57,9 @@ function toDate(value: Date | string | number): Date {
 }
 
 /** "12 Mar" / "12 Mar 2027" when the year differs from now. */
-export function shortDate(value: Date | string | number | null | undefined): string {
+export function shortDate(
+  value: Date | string | number | null | undefined
+): string {
   if (!value) return "—";
   const d = toDate(value);
   return format(d, isSameYear(d, new Date()) ? "d MMM" : "d MMM yyyy");
@@ -83,7 +96,9 @@ export function nights(
 }
 
 /** "3h ago", "2d ago". */
-export function relativeTime(value: Date | string | number | null | undefined): string {
+export function relativeTime(
+  value: Date | string | number | null | undefined
+): string {
   if (!value) return "";
   return `${formatDistanceToNowStrict(toDate(value))} ago`;
 }

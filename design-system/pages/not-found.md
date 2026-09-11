@@ -10,7 +10,9 @@ check that tokens, `dvh` and safe areas also reach the shell-less code path.
 ## Current problems
 
 ### NotFound
+
 **Completely off the design system.** Zero semantic tokens in the entire file:
+
 - `:14` `bg-gradient-to-br from-slate-50 to-slate-100` and `min-h-screen`
 - `:15` `bg-white/80`
 - `:24`, `:26`, `:30` `text-slate-900` / `text-slate-700` / `text-slate-600`
@@ -20,6 +22,7 @@ It would be unreadable the moment dark mode is switched on. It needs a straight
 rewrite, not a migration.
 
 ### MagicLinkVerify
+
 - Three ad-hoc states (spinner / green check / red X) with no shared shape.
 - The success state does not say what happens next or auto-continue.
 - `min-h-screen`.
@@ -38,12 +41,12 @@ padding on both ends:
 
 ## Screen states
 
-| Screen | Tone | Icon | Title | Action |
-|---|---|---|---|---|
-| Not found | `neutral` | Compass | "We can't find that page" | "Go home" |
-| Magic link — verifying | `info` | Spinner | "Signing you in…" | none |
-| Magic link — success | `success` | CheckCircle | "You're signed in" | "Continue" *(auto-redirects after 1.5 s)* |
-| Magic link — failed | `danger` | XCircle | "This link has expired" | "Send a new link" + "Back to home" |
+| Screen                 | Tone      | Icon        | Title                     | Action                                    |
+| ---------------------- | --------- | ----------- | ------------------------- | ----------------------------------------- |
+| Not found              | `neutral` | Compass     | "We can't find that page" | "Go home"                                 |
+| Magic link — verifying | `info`    | Spinner     | "Signing you in…"         | none                                      |
+| Magic link — success   | `success` | CheckCircle | "You're signed in"        | "Continue" _(auto-redirects after 1.5 s)_ |
+| Magic link — failed    | `danger`  | XCircle     | "This link has expired"   | "Send a new link" + "Back to home"        |
 
 Copy note: the 404 avoids blaming the user, and the expired-link state names the
 cause and offers the fix, per the error-recovery rule.

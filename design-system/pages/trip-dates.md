@@ -8,7 +8,7 @@
 
 It has one of everything — proposal list, votes, the only segmented vote bar,
 comments, add/edit sheets, empty state — at a third of the dashboard's size.
-Critically it uses the *odd* vote scale (`available | maybe | unavailable`), so
+Critically it uses the _odd_ vote scale (`available | maybe | unavailable`), so
 building `VoteScale` against it proves the abstraction immediately rather than
 discovering the mismatch four screens later.
 
@@ -32,7 +32,7 @@ discovering the mismatch four screens later.
    - Overflow menu: Edit, Clone, Delete (destructive, separated).
    - Footer: `ProposalComments` with a count.
    - Organiser only: "Lock this date" as a full-width secondary action.
-4. **Add** — a `BottomSheet` opened by a FAB. Keeps the existing two `Tabs`: *Manual* (two date fields plus a label) and *Smart* (natural-language parse). The tab list scrolls horizontally if it ever overflows.
+4. **Add** — a `BottomSheet` opened by a FAB. Keeps the existing two `Tabs`: _Manual_ (two date fields plus a label) and _Smart_ (natural-language parse). The tab list scrolls horizontally if it ever overflows.
 
 ## Components
 

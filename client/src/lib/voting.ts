@@ -1,4 +1,12 @@
-import { Ban, Check, Heart, HelpCircle, type LucideIcon, Users, X } from "lucide-react";
+import {
+  Ban,
+  Check,
+  Heart,
+  HelpCircle,
+  type LucideIcon,
+  Users,
+  X,
+} from "lucide-react";
 import {
   DATE_VOTES,
   MAJORITY_VOTE,
@@ -57,7 +65,10 @@ export const PREFERENCE_SCALE: VoteScale = {
 export const STANCES = ["up", "mid", "down"] as const;
 
 /** Which stance a wire value represents, for tone and grouping. */
-export function stanceOf(scale: VoteScale, wire: string | null | undefined): VoteStance | undefined {
+export function stanceOf(
+  scale: VoteScale,
+  wire: string | null | undefined
+): VoteStance | undefined {
   if (!wire) return undefined;
   if (wire === MAJORITY_VOTE) return "abstain";
   const found = STANCES.find(s => scale.byStance[s] === wire);
@@ -65,7 +76,10 @@ export function stanceOf(scale: VoteScale, wire: string | null | undefined): Vot
 }
 
 /** Semantic tone per stance, so status colour is never chosen ad hoc. */
-export const STANCE_TONE: Record<VoteStance, "success" | "warning" | "danger" | "neutral"> = {
+export const STANCE_TONE: Record<
+  VoteStance,
+  "success" | "warning" | "danger" | "neutral"
+> = {
   up: "success",
   mid: "warning",
   down: "danger",

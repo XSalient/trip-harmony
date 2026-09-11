@@ -16,7 +16,7 @@
 1. **Header** — back + "AI Referee".
 2. **Referee card** — the one place `--brand-teal` leads. A compact card: bot mark, one line explaining what the referee does, and the state of the last analysis ("Last run 2 days ago" or "Never run"). The primary action lives here, full-width, ≥52 px: "Get referee analysis".
 3. **Message feed** — newest first, each message a card:
-   - A type tile (conflict / suggestion / nudge / consensus) in the matching `--cat-*` soft surface, with a `StatusPill` naming the type — icon *and* word.
+   - A type tile (conflict / suggestion / nudge / consensus) in the matching `--cat-*` soft surface, with a `StatusPill` naming the type — icon _and_ word.
    - Relative timestamp as `caption`.
    - Body rendered as markdown with a real typographic scale: headings map to `subtitle`, lists get proper indents and markers, `strong` picks up weight 600. Configure `@tailwindcss/typography` (already a devDependency) against the tokens rather than leaving `prose` unstyled.
    - Long messages clamp at ~12 lines with a "Read more" expander.

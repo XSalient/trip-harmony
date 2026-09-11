@@ -12,7 +12,11 @@
  * both what was written and what it comes to for the trip, because two
  * proposals in different units cannot otherwise be compared.
  */
-import { VoteTally, VoteSegments, CHOICE_OPTIONS } from "@/components/trip/ProposalRow";
+import {
+  VoteTally,
+  VoteSegments,
+  CHOICE_OPTIONS,
+} from "@/components/trip/ProposalRow";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
@@ -499,17 +503,17 @@ export default function TripBudget() {
             padded surface reads as a component that failed to load. */}
         {summary && (
           <div className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
-              <Users className="size-3.5 shrink-0" />
-              <span>
-                {summary.headcount.adults}{" "}
-                {summary.headcount.adults === 1 ? "adult" : "adults"}
-                {summary.headcount.children > 0 &&
-                  ` · ${summary.headcount.children} ${summary.headcount.children === 1 ? "child" : "children"}`}
-                {summary.headcount.pets > 0 &&
-                  ` · ${summary.headcount.pets} ${summary.headcount.pets === 1 ? "pet" : "pets"}`}
-                {summary.headcount.groups > 0 &&
-                  ` · ${summary.headcount.groups} ${summary.headcount.groups === 1 ? "family" : "families"}`}
-              </span>
+            <Users className="size-3.5 shrink-0" />
+            <span>
+              {summary.headcount.adults}{" "}
+              {summary.headcount.adults === 1 ? "adult" : "adults"}
+              {summary.headcount.children > 0 &&
+                ` · ${summary.headcount.children} ${summary.headcount.children === 1 ? "child" : "children"}`}
+              {summary.headcount.pets > 0 &&
+                ` · ${summary.headcount.pets} ${summary.headcount.pets === 1 ? "pet" : "pets"}`}
+              {summary.headcount.groups > 0 &&
+                ` · ${summary.headcount.groups} ${summary.headcount.groups === 1 ? "family" : "families"}`}
+            </span>
           </div>
         )}
 
@@ -720,32 +724,33 @@ export default function TripBudget() {
                         currentUserId={user?.id}
                       />
                       {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto rounded-full text-xs text-primary"
-                        onClick={() => handleToggleLock(p.id, !p.selected)}
-                        disabled={
-                          setLockMutation.isPending ||
-                          (!p.selected && blockReason !== null)
-                        }
-                        title={
-                          p.selected ? undefined : (blockReason ?? undefined)
-                        }
-                      >
-                        {p.selected ? (
-                          <>
-                            <Unlock className="h-3.5 w-3.5 mr-1" /> Un-finalise
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
-                            Finalise this
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-auto rounded-full text-xs text-primary"
+                          onClick={() => handleToggleLock(p.id, !p.selected)}
+                          disabled={
+                            setLockMutation.isPending ||
+                            (!p.selected && blockReason !== null)
+                          }
+                          title={
+                            p.selected ? undefined : (blockReason ?? undefined)
+                          }
+                        >
+                          {p.selected ? (
+                            <>
+                              <Unlock className="h-3.5 w-3.5 mr-1" />{" "}
+                              Un-finalise
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" />{" "}
+                              Finalise this
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
 
                     <ProposalComments
                       proposalType="budget"

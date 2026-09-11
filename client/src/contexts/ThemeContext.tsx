@@ -1,4 +1,10 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 /** What the user picked. "system" follows the OS. */
 export type ThemeSetting = "light" | "dark" | "system";
@@ -21,14 +27,17 @@ const STORAGE_KEY = "theme";
 
 function systemTheme(): ResolvedTheme {
   if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
 }
 
 function readStored(fallback: ThemeSetting): ThemeSetting {
   // Private windows and blocked site data make storage throw, not just return null.
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark" || stored === "system") return stored;
+    if (stored === "light" || stored === "dark" || stored === "system")
+      return stored;
   } catch {
     /* ignore */
   }
@@ -40,10 +49,17 @@ interface ThemeProviderProps {
   defaultTheme?: ThemeSetting;
 }
 
-export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<ThemeSetting>(() => readStored(defaultTheme));
+export function ThemeProvider({
+  children,
+  defaultTheme = "system",
+}: ThemeProviderProps) {
+  const [theme, setThemeState] = useState<ThemeSetting>(() =>
+    readStored(defaultTheme)
+  );
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    readStored(defaultTheme) === "system" ? systemTheme() : (readStored(defaultTheme) as ResolvedTheme)
+    readStored(defaultTheme) === "system"
+      ? systemTheme()
+      : (readStored(defaultTheme) as ResolvedTheme)
   );
 
   // Apply the resolved theme to <html> and keep it in sync with the OS while
@@ -75,7 +91,8 @@ export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProvid
 
   const toggleTheme = useCallback(() => {
     setThemeState(prev => {
-      const next: ThemeSetting = prev === "light" ? "dark" : prev === "dark" ? "system" : "light";
+      const next: ThemeSetting =
+        prev === "light" ? "dark" : prev === "dark" ? "system" : "light";
       try {
         localStorage.setItem(STORAGE_KEY, next);
       } catch {
@@ -86,7 +103,9 @@ export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProvid
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, resolvedTheme, setTheme, toggleTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );

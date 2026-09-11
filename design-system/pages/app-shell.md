@@ -49,20 +49,21 @@ Not a screen, but the chrome every screen inherits. Read this before any page sp
 - Padded with `env(safe-area-inset-bottom)` via a **real** utility defined in `index.css`.
 - Three destinations, all genuine top-level places:
 
-  | Tab | Route | Icon |
-  |---|---|---|
-  | Trips | `/` | Home |
-  | DNA | `/quiz` | Compass |
+  | Tab    | Route            | Icon         |
+  | ------ | ---------------- | ------------ |
+  | Trips  | `/`              | Home         |
+  | DNA    | `/quiz`          | Compass      |
   | Alerts | `/notifications` | Bell + badge |
 
   **"New Trip" is removed** and becomes a FAB on Home. It is an action, not a
   destination: as a tab it broke the back stack and left nothing highlighted.
 
   The earlier draft of this spec called for a separate `/trips` destination.
-  That was dropped: the Home screen *is* the trips list, so a second tab would
+  That was dropped: the Home screen _is_ the trips list, so a second tab would
   have duplicated it and required a route that does not exist. The Home tab is
   labelled "Trips" instead, and its match includes `/trips/*` so deep trip
   routes highlight it correctly. Three tabs is within the ≤5 limit.
+
 - Each item is a `<button>` (or `<Link>` rendering one) at ≥44×44 px with ≥8 px spacing, carrying `aria-current="page"` when active.
 - Active state uses **three** signals: `--primary` colour, weight 600 label, and a filled indicator pill behind the icon. Never colour alone.
 - The Trips tab matches `/` exactly plus any `/trips/*` route, so deep trip screens keep it highlighted. Other tabs match by prefix.
