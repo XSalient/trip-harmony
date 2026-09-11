@@ -71,37 +71,34 @@ export default function PreferencesSummary({
   };
 
   return (
-    <Card className="border-border/70">
-      <CardContent className="p-4 space-y-3">
+    <Card className="rounded-2xl border-border/70 shadow-e1">
+      <CardContent className="space-y-3 p-3.5">
         <div className="flex items-start gap-3">
-          <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-            <ClipboardList className="h-5 w-5" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-cat-3-soft text-cat-3-on-soft">
+            <ClipboardList className="size-[18px]" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-sm">{tripName}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tell the group what matters to you for this specific trip. The AI
-              uses these to score every accommodation and place proposal —
-              showing exactly how well each option fits you.
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[17px] font-bold tracking-tight">
+              {tripName}
+            </p>
+            {/* Three sentences cut to one. The page below it is three labelled
+                fields with their own hints — this only has to say why. */}
+            <p className="mt-0.5 text-[13px] text-muted-foreground">
+              What matters to you on this trip. Every stay and place is scored
+              against it.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="text-xs gap-1">
-                <Users className="h-3 w-3" />
-                {submittedCount}/{memberCount} members submitted
+              <Badge className="gap-1 rounded-md border-0 bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
+                <Users className="size-3" />
+                {submittedCount}/{memberCount} submitted
               </Badge>
               {savedAt ? (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-success border-success-border gap-1"
-                >
-                  <CheckCircle2 className="h-3 w-3" />
+                <Badge className="gap-1 rounded-md border-0 bg-success-soft px-1.5 text-[11px] font-semibold text-success-on-soft">
+                  <CheckCircle2 className="size-3" />
                   Saved {format(new Date(savedAt), "d MMM")}
                 </Badge>
               ) : (
-                <Badge
-                  variant="outline"
-                  className="text-xs text-muted-foreground"
-                >
+                <Badge className="rounded-md border-0 bg-warning-soft px-1.5 text-[11px] font-semibold text-warning-on-soft">
                   Not saved yet
                 </Badge>
               )}

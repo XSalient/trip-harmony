@@ -5,7 +5,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import AppShell from "@/components/AppShell";
 import SectionOffNotice from "@/components/trip/SectionOffNotice";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import type { Suggestion } from "@shared/suggestions";
 import PreferencesSummary from "@/components/trip/PreferencesSummary";
 import ProposalSuggestions from "@/components/trip/ProposalSuggestions";
 import WatcherNotice from "@/components/trip/WatcherNotice";
+import { Notice } from "@/components/harmony/Notice";
 import {
   CheckCircle2,
   ClipboardList,
@@ -29,32 +30,35 @@ import {
 const SECTIONS = [
   {
     key: "mustHaves" as const,
-    label: "Must-Haves / Hard Constraints",
+    label: "Must-haves",
     icon: CheckCircle2,
     color: "text-success",
     bg: "bg-success-soft",
+    onBg: "text-success-on-soft",
     border: "border-success-border",
     placeholder:
       "e.g. Ground floor or elevator only (bad knee), minimum 3 attached bathrooms, EV charger required, full kitchen with pressure cooker…",
-    hint: "These will be enforced. Any proposal failing these will be flagged with a warning.",
+    hint: "Enforced. Anything that fails one of these is flagged.",
   },
   {
     key: "strongPreferences" as const,
-    label: "Strong Preferences",
+    label: "Nice to have",
     icon: Star,
     color: "text-info",
     bg: "bg-info-soft",
+    onBg: "text-info-on-soft",
     border: "border-info-border",
     placeholder:
       "e.g. Pool essential for the kids, large kitchen with 4+ burners, secure bike storage for 4 adults, near beach…",
-    hint: "Important but not absolute. The AI uses these for scoring.",
+    hint: "Weighted, not enforced — these move the match score.",
   },
   {
     key: "avoids" as const,
-    label: "Avoids / Dealbreakers",
+    label: "Dealbreakers",
     icon: ThumbsDown,
     color: "text-danger",
     bg: "bg-danger-soft",
+    onBg: "text-danger-on-soft",
     border: "border-danger-border",
     placeholder:
       "e.g. No more than 10 stairs, avoid car-free parks (long luggage walk), no high energy-cost cottages, not too remote…",
@@ -250,36 +254,40 @@ export default function TripPreferences() {
           </WatcherNotice>
         )}
 
-        {/* AI tip */}
-        <div className="flex gap-2 rounded-xl border border-border/70 bg-muted/40 p-3">
-          <Lightbulb className="h-4 w-4 text-warning shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Tip:</span> Be
-            specific. "Ground floor or elevator only" is more useful than
-            "accessibility". The more detail you add, the more accurate the AI
-            match scores will be for every proposal.
-          </p>
-        </div>
+        <Notice tone="warning" icon={<Lightbulb className="size-4" />}>
+          Be specific. "Ground floor or elevator only" scores better than
+          "accessibility" — the detail is what the match runs on.
+        </Notice>
 
         {/* Preference sections */}
         {SECTIONS.map(section => {
           const Icon = section.icon;
           return (
+            // The header used to be a full-bleed bar in the section's own
+            // colour — three saturated slabs down the screen, each louder than
+            // the field it introduced. The colour lives in the icon tile now,
+            // which is how every other list on the app is headed.
             <Card
               key={section.key}
-              className={`overflow-hidden rounded-2xl border ${section.border}`}
+              className="overflow-hidden rounded-2xl border-border/70 shadow-e1"
             >
-              <CardHeader
-                className={`${section.bg} space-y-1.5 border-b px-4 py-3`}
-              >
-                <CardTitle className="flex items-center gap-2 text-[1.05rem] leading-tight">
-                  <Icon className={`h-4 w-4 ${section.color}`} />
-                  <span>{section.label}</span>
-                </CardTitle>
-                <p className="text-sm leading-snug text-muted-foreground">
-                  {section.hint}
-                </p>
-              </CardHeader>
+              {/* A plain row, not `CardHeader`: that component is a grid in
+                  this version of shadcn, so a tile beside a title stacks. */}
+              <div className="flex items-start gap-3 px-3.5 pb-2.5 pt-3">
+                <span
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${section.bg} ${section.onBg}`}
+                >
+                  <Icon className="size-[18px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-display text-[17px] font-bold tracking-tight">
+                    {section.label}
+                  </span>
+                  <span className="mt-0.5 block text-[13px] leading-snug text-muted-foreground">
+                    {section.hint}
+                  </span>
+                </span>
+              </div>
               <CardContent className="p-0">
                 <Textarea
                   value={form[section.key]}
@@ -291,7 +299,7 @@ export default function TripPreferences() {
                   }
                   placeholder={section.placeholder}
                   readOnly={!canContribute}
-                  className="min-h-[130px] resize-none border-0 bg-background px-4 py-3 text-base leading-relaxed shadow-none focus-visible:ring-0"
+                  className="min-h-[120px] resize-none border-0 border-t border-border/50 bg-transparent px-3.5 py-3 text-base leading-relaxed shadow-none focus-visible:ring-0"
                 />
               </CardContent>
             </Card>

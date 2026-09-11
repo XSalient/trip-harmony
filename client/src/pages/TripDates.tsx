@@ -715,11 +715,14 @@ export default function TripDates() {
                       />
                     </div>
 
+                    {/* The bar uses the same three fills the segmented control
+                        does, so the amber in "Maybe" and the amber in the bar
+                        are one amber. */}
                     {totalVotes > 0 && (
-                      <div className="flex h-2 rounded-full overflow-hidden mb-3 bg-muted">
+                      <div className="mb-3 flex h-2 overflow-hidden rounded-full bg-muted">
                         {available > 0 && (
                           <div
-                            className="bg-success"
+                            className="bg-success-pick"
                             style={{
                               width: `${(available / Math.max(1, voterCount)) * 100}%`,
                             }}
@@ -727,7 +730,7 @@ export default function TripDates() {
                         )}
                         {maybe > 0 && (
                           <div
-                            className="bg-warning"
+                            className="bg-warning-pick"
                             style={{
                               width: `${(maybe / Math.max(1, voterCount)) * 100}%`,
                             }}
@@ -735,7 +738,7 @@ export default function TripDates() {
                         )}
                         {unavailable > 0 && (
                           <div
-                            className="bg-danger"
+                            className="bg-danger-pick"
                             style={{
                               width: `${(unavailable / Math.max(1, voterCount)) * 100}%`,
                             }}

@@ -71,10 +71,23 @@ STATUS_C = {'success':0.140,'warning':0.140,'danger':0.200,'info':0.160}
 #   white-on-base >= 4.5  (base used as a solid fill with white text)
 #   base-on-soft  >= 4.5  (base used as text inside its own soft surface)
 STATUS_L = {H_SUCCESS:0.504, H_WARN:0.530, H_DANGER:0.545, H_INFO:0.520}
+# `-pick` is the "you chose this" fill: a segmented control's selected segment,
+# a toggled chip. It is a THIRD surface, not the base and not the soft one, and
+# it exists because neither of those works in both themes.
+#
+#   - The base is solved against WHITE text, which forces it dark in light mode.
+#     A dark ochre pill labelled "Maybe" reads as mud, not as amber.
+#   - The soft fill is nearly the page colour in light mode, so a selected
+#     segment on a muted track barely separates from it.
+#
+# `-pick` is lighter and fully saturated, and carries DARK text — which is what
+# lets the lightness go up. Same treatment in both themes, so the control looks
+# like itself either way.
 def status_light(h,c):
     return {'':(STATUS_L[h],c,h), '-foreground':(1.000,0.000,89.9),
             '-soft':(0.955,min(c*0.22,0.035),h), '-on-soft':(0.420,c*0.72,h),
-            '-border':(0.885,min(c*0.35,0.055),h)}
+            '-border':(0.885,min(c*0.35,0.055),h),
+            '-pick':(0.800,min(c*1.00,0.145),h), '-on-pick':(0.300,c*0.55,h)}
 def status_dark(h,c):
     # Dark soft fills are darker and MORE chromatic than the first pass, which
     # used L 0.300 at a chroma capped near 0.045. On a card at L 0.21 that read
@@ -85,7 +98,8 @@ def status_dark(h,c):
     # base (L 0.72) both sit above it, so darkening the fill widens both pairs.
     return {'':(0.720,c*0.88,h), '-foreground':(0.185,c*0.18,h),
             '-soft':(0.262,min(c*0.44,0.062),h), '-on-soft':(0.880,c*0.42,h),
-            '-border':(0.355,min(c*0.55,0.082),h)}
+            '-border':(0.355,min(c*0.55,0.082),h),
+            '-pick':(0.760,min(c*0.95,0.140),h), '-on-pick':(0.230,c*0.30,h)}
 # category ramp (budget categories / notification types / itinerary item types)
 CAT_H = [286.0, 33.0, 178.0, 320.0, 205.0, 68.0]
 CAT_L = [0.500,0.544,0.504,0.548,0.503,0.530]  # same two constraints as STATUS_L
@@ -135,6 +149,7 @@ def verify(verbose=False):
             s = fn(h, STATUS_C[name])
             chk(theme, f"{name}-foreground / {name}", rgb(s["-foreground"]), rgb(s[""]))
             chk(theme, f"{name}-on-soft / {name}-soft", rgb(s["-on-soft"]), rgb(s["-soft"]))
+            chk(theme, f"{name}-on-pick / {name}-pick", rgb(s["-on-pick"]), rgb(s["-pick"]))
             # base used as text inside its own soft surface
             chk(theme, f"{name} / {name}-soft", rgb(s[""]), rgb(s["-soft"]))
             chk(theme, f"{name} / background (UI)", rgb(s[""]), rgb(D["background"]), 3.0)

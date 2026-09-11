@@ -289,21 +289,21 @@ export const DATE_OPTIONS = [
     icon: Check,
     label: "Yes",
     tone: "text-success",
-    active: "bg-success text-success-foreground",
+    active: "bg-success-pick text-success-on-pick",
   },
   {
     vote: "maybe" as const,
     icon: HelpCircle,
     label: "Maybe",
     tone: "text-warning",
-    active: "bg-warning text-warning-foreground",
+    active: "bg-warning-pick text-warning-on-pick",
   },
   {
     vote: "unavailable" as const,
     icon: X,
     label: "No",
     tone: "text-danger",
-    active: "bg-danger text-danger-foreground",
+    active: "bg-danger-pick text-danger-on-pick",
   },
 ] as const;
 
@@ -313,21 +313,21 @@ export const CHOICE_OPTIONS = [
     icon: Heart,
     label: "Yes",
     tone: "text-success",
-    active: "bg-success text-success-foreground",
+    active: "bg-success-pick text-success-on-pick",
   },
   {
     vote: "fine" as const,
     icon: HelpCircle,
     label: "Maybe",
     tone: "text-warning",
-    active: "bg-warning text-warning-foreground",
+    active: "bg-warning-pick text-warning-on-pick",
   },
   {
     vote: "veto" as const,
     icon: Ban,
     label: "No",
     tone: "text-danger",
-    active: "bg-danger text-danger-foreground",
+    active: "bg-danger-pick text-danger-on-pick",
   },
 ] as const;
 

@@ -60,7 +60,7 @@ def theme_map():
         out.append(f"  --color-{k}: var(--{k});")
     out.append("")
     for name in STATUS_H:
-        for suf in ("", "-foreground", "-soft", "-on-soft", "-border"):
+        for suf in ("", "-foreground", "-soft", "-on-soft", "-border", "-pick", "-on-pick"):
             out.append(f"  --color-{name}{suf}: var(--{name}{suf});")
     out.append("")
     for i in range(6):
