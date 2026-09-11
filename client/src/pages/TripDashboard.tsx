@@ -17,10 +17,11 @@ import {
   CheckCircle2,
   Bot,
   Plus,
-  AlertCircle,
+  ChevronRight,
   ClipboardList,
   FileText,
 } from "lucide-react";
+import { haptic } from "@/lib/haptics";
 import TripSummary from "@/components/trip/TripSummary";
 import EditTripDialog from "@/components/trip/EditTripDialog";
 import TripActionsMenu from "@/components/trip/TripActionsMenu";
@@ -131,7 +132,7 @@ export default function TripDashboard() {
     refetchDests: refetchDest,
     refetchAccs: refetchAcc,
   });
-  const { isOpen, toggle } = useSectionState(tripId);
+  const { isOpen, toggle, openSection } = useSectionState(tripId);
 
   if (isLoading) {
     return (
@@ -215,6 +216,20 @@ export default function TripDashboard() {
     pendingVotes.destinations +
     pendingVotes.accommodations +
     pendingVotes.budgets;
+
+  // Where "waiting on your vote" sends you: the first section with outstanding
+  // votes, in the order the sections appear on the page rather than the order
+  // this object happens to be written in.
+  const firstPending = (
+    [
+      ["dates", "Dates", pendingVotes.dates],
+      ["accommodations", "Stays", pendingVotes.accommodations],
+      ["suggestions", "Suggestions", pendingVotes.destinations],
+      ["budget", "Budget", pendingVotes.budgets],
+    ] as const
+  )
+    .filter(([, , n]) => n > 0)
+    .map(([section, label]) => ({ section: section as SectionKey, label }))[0];
 
   /**
    * Finalise or un-finalise from the dashboard.
@@ -480,22 +495,46 @@ export default function TripDashboard() {
       <div className="px-4 py-4 space-y-4">
         {isWatcher && <WatcherNotice />}
 
-        {/* Pending votes alert */}
-        {totalPending > 0 && (
-          <Card className="border-warning-border bg-warning-soft">
-            <CardContent className="p-3 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-warning shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-warning">
-                  You have {totalPending} unvoted proposal
-                  {totalPending > 1 ? "s" : ""}
-                </p>
-                <p className="text-xs text-warning">
-                  Open a section below to vote
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Waiting on you.
+
+            This used to be a full-height card that said "open a section below
+            to vote" — a hundred and twenty pixels of instruction sitting on
+            top of the thing it was describing, on a screen where the first
+            actionable control was already below the fold. It is now one row
+            that does the opening itself: tap it and the first section with
+            outstanding votes expands and scrolls under your thumb. */}
+        {totalPending > 0 && firstPending && (
+          <button
+            onClick={() => {
+              openSection(firstPending.section);
+              haptic("select");
+              // After the section has been told to open — its height animates,
+              // so the target is only where it belongs a frame later.
+              requestAnimationFrame(() =>
+                document
+                  .getElementById(`section-${firstPending.section}`)
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" })
+              );
+            }}
+            className="pressable-lg relative flex min-h-12 w-full items-center gap-2.5 overflow-hidden rounded-2xl border border-border/70 bg-card px-3.5 py-2 pl-4 text-left shadow-e1"
+          >
+            {/* A spine and a live dot rather than a filled amber panel. A soft
+                fill at this size is a slab of colour with no edge to it — and
+                in dark mode an amber one is brown. The spine is the same
+                vocabulary a settled section uses, in the other tone. */}
+            <span
+              aria-hidden
+              className="absolute inset-y-0 left-0 w-[3px] rounded-r-full bg-warning"
+            />
+            <span aria-hidden className="live-dot bg-warning" />
+            <span className="flex-1 text-[14px] font-semibold">
+              {totalPending} waiting on your vote
+            </span>
+            <span className="text-[13px] font-medium text-warning">
+              {firstPending.label}
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+          </button>
         )}
 
         {/* ── Summary — the only section open by default ── */}
@@ -521,6 +560,7 @@ export default function TripDashboard() {
             title="Trip Description"
             subtitle={trip.description ? undefined : "Not set yet"}
             icon={<FileText className="h-5 w-5" />}
+            iconClass="bg-cat-4-soft text-cat-4-on-soft"
             open={isOpen("description")}
             onToggle={() => toggle("description")}
           >
@@ -560,7 +600,7 @@ export default function TripDashboard() {
             iconClass={
               myPrefs
                 ? "bg-success-soft text-success-on-soft"
-                : undefined
+                : "bg-cat-2-soft text-cat-2-on-soft"
             }
             open={isOpen("preferences")}
             onToggle={() => toggle("preferences")}
@@ -580,6 +620,7 @@ export default function TripDashboard() {
           <SectionCard
             title="Dates"
             icon={Calendar}
+            tone="bg-cat-1-soft text-cat-1-on-soft"
             href={`/trips/${tripId}/dates`}
             lockedCount={lockedDate ? 1 : 0}
             singleLock
@@ -591,6 +632,7 @@ export default function TripDashboard() {
             }
             emptyText="No dates proposed yet — add the first one above!"
             open={isOpen("dates")}
+            id="section-dates"
             onToggle={() => toggle("dates")}
           >
             {topDates.map((p: any) => (
@@ -624,6 +666,7 @@ export default function TripDashboard() {
           <SectionCard
             title="Accommodations"
             icon={HomeIcon}
+            tone="bg-cat-5-soft text-cat-5-on-soft"
             href={`/trips/${tripId}/accommodations`}
             lockedCount={lockedAccs.length}
             pendingCount={pendingVotes.accommodations}
@@ -636,6 +679,7 @@ export default function TripDashboard() {
             }
             emptyText="No accommodations suggested yet — add an option!"
             open={isOpen("accommodations")}
+            id="section-accommodations"
             onToggle={() => toggle("accommodations")}
           >
             {topAccs.map((a: any) => (
@@ -676,6 +720,7 @@ export default function TripDashboard() {
           <SectionCard
             title="Suggestions"
             icon={Lightbulb}
+            tone="bg-cat-2-soft text-cat-2-on-soft"
             href={`/trips/${tripId}/suggestions`}
             lockedCount={lockedDests.length}
             pendingCount={pendingVotes.destinations}
@@ -688,6 +733,7 @@ export default function TripDashboard() {
             }
             emptyText="No suggestions yet — add the first one!"
             open={isOpen("suggestions")}
+            id="section-suggestions"
             onToggle={() => toggle("suggestions")}
           >
             {topDests.map((d: any) => (
@@ -723,6 +769,7 @@ export default function TripDashboard() {
           <SectionCard
             title="Budget"
             icon={DollarSign}
+            tone="bg-cat-6-soft text-cat-6-on-soft"
             href={`/trips/${tripId}/budget`}
             lockedCount={lockedBudget ? 1 : 0}
             singleLock
@@ -734,6 +781,7 @@ export default function TripDashboard() {
             }
             emptyText="No budget proposed yet — put a number on the table."
             open={isOpen("budget")}
+            id="section-budget"
             onToggle={() => toggle("budget")}
           >
             {topBudgets.map((b: any) => (
@@ -772,6 +820,7 @@ export default function TripDashboard() {
           <CollapsibleRow
             title="AI Referee"
             icon={<Bot className="h-5 w-5" />}
+            iconClass="bg-cat-3-soft text-cat-3-on-soft"
             open={isOpen("referee")}
             onToggle={() => toggle("referee")}
           >

@@ -42,9 +42,28 @@ const queryClient = new QueryClient({
 
 const LOGIN_PATH = "/";
 
+/**
+ * The fixture preview seeds answers into the cache for screens that are
+ * otherwise unreachable without a database (`client/src/preview/`). Every
+ * procedure it did not seed still goes to the network, comes back
+ * unauthorised, and would bounce the review straight back to the landing page.
+ *
+ * A build-time constant, so this check and the flag it reads are both gone
+ * from a production bundle.
+ */
+const inFixturePreview = () => {
+  if (!import.meta.env.DEV || typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage?.getItem("preview-fixtures") === "1";
+  } catch {
+    return false;
+  }
+};
+
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
   if (typeof window === "undefined") return;
+  if (inFixturePreview()) return;
 
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
 
@@ -64,6 +83,16 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   // a back button with no way out. Replacing drops the screen we are leaving.
   window.location.replace(LOGIN_PATH);
 };
+
+// The fixture preview seeds the cache at boot rather than only on its own
+// page: the cache is in memory, so a reload would otherwise land on an empty
+// one. `import.meta.env.DEV` is a build-time constant, so neither the check nor
+// the fixtures reach a production bundle.
+if (import.meta.env.DEV) {
+  void import("./preview/seedCache").then(m => {
+    if (m.fixturesRequested()) m.seedFixtures(queryClient);
+  });
+}
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {

@@ -76,15 +76,24 @@ def status_light(h,c):
             '-soft':(0.955,min(c*0.22,0.035),h), '-on-soft':(0.420,c*0.72,h),
             '-border':(0.885,min(c*0.35,0.055),h)}
 def status_dark(h,c):
+    # Dark soft fills are darker and MORE chromatic than the first pass, which
+    # used L 0.300 at a chroma capped near 0.045. On a card at L 0.21 that read
+    # as a pale brown or grey patch sitting on the surface rather than as a
+    # tint of the status colour — amber in particular came out mud. Chroma is
+    # what carries hue at low lightness, so the fix is to drop L towards the
+    # card and let C rise. Contrast only improves: `-on-soft` (L 0.88) and the
+    # base (L 0.72) both sit above it, so darkening the fill widens both pairs.
     return {'':(0.720,c*0.88,h), '-foreground':(0.185,c*0.18,h),
-            '-soft':(0.300,min(c*0.26,0.045),h), '-on-soft':(0.880,c*0.42,h),
-            '-border':(0.380,min(c*0.40,0.065),h)}
+            '-soft':(0.262,min(c*0.44,0.062),h), '-on-soft':(0.880,c*0.42,h),
+            '-border':(0.355,min(c*0.55,0.082),h)}
 # category ramp (budget categories / notification types / itinerary item types)
 CAT_H = [286.0, 33.0, 178.0, 320.0, 205.0, 68.0]
 CAT_L = [0.500,0.544,0.504,0.548,0.503,0.530]  # same two constraints as STATUS_L
 def cat(i, dark):
     h = CAT_H[i]
-    return ((0.700,0.120,h),(0.185,0.020,h),(0.300,0.040,h),(0.880,0.060,h)) if dark \
+    # Same reasoning as `status_dark`: soft fills sit near the card's lightness
+    # and carry their hue in chroma rather than in lightness.
+    return ((0.700,0.120,h),(0.185,0.020,h),(0.262,0.058,h),(0.880,0.060,h)) if dark \
       else ((CAT_L[i],0.140,h),(1.000,0.000,89.9),(0.955,0.032,h),(0.420,0.100,h))
 
 

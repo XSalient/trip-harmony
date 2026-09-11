@@ -264,48 +264,48 @@
 
   --success: oklch(0.720 0.123 178.0);
   --success-foreground: oklch(0.185 0.025 178.0);
-  --success-soft: oklch(0.300 0.036 178.0);
+  --success-soft: oklch(0.262 0.062 178.0);
   --success-on-soft: oklch(0.880 0.059 178.0);
-  --success-border: oklch(0.380 0.056 178.0);
+  --success-border: oklch(0.355 0.077 178.0);
   --warning: oklch(0.720 0.123 68.0);
   --warning-foreground: oklch(0.185 0.025 68.0);
-  --warning-soft: oklch(0.300 0.036 68.0);
+  --warning-soft: oklch(0.262 0.062 68.0);
   --warning-on-soft: oklch(0.880 0.059 68.0);
-  --warning-border: oklch(0.380 0.056 68.0);
+  --warning-border: oklch(0.355 0.077 68.0);
   --danger: oklch(0.720 0.176 24.0);
   --danger-foreground: oklch(0.185 0.036 24.0);
-  --danger-soft: oklch(0.300 0.045 24.0);
+  --danger-soft: oklch(0.262 0.062 24.0);
   --danger-on-soft: oklch(0.880 0.084 24.0);
-  --danger-border: oklch(0.380 0.065 24.0);
+  --danger-border: oklch(0.355 0.082 24.0);
   --info: oklch(0.720 0.141 255.0);
   --info-foreground: oklch(0.185 0.029 255.0);
-  --info-soft: oklch(0.300 0.042 255.0);
+  --info-soft: oklch(0.262 0.062 255.0);
   --info-on-soft: oklch(0.880 0.067 255.0);
-  --info-border: oklch(0.380 0.064 255.0);
+  --info-border: oklch(0.355 0.082 255.0);
 
   --cat-1: oklch(0.700 0.120 286.0);
   --cat-1-foreground: oklch(0.185 0.020 286.0);
-  --cat-1-soft: oklch(0.300 0.040 286.0);
+  --cat-1-soft: oklch(0.262 0.058 286.0);
   --cat-1-on-soft: oklch(0.880 0.060 286.0);
   --cat-2: oklch(0.700 0.120 33.0);
   --cat-2-foreground: oklch(0.185 0.020 33.0);
-  --cat-2-soft: oklch(0.300 0.040 33.0);
+  --cat-2-soft: oklch(0.262 0.058 33.0);
   --cat-2-on-soft: oklch(0.880 0.060 33.0);
   --cat-3: oklch(0.700 0.120 178.0);
   --cat-3-foreground: oklch(0.185 0.020 178.0);
-  --cat-3-soft: oklch(0.300 0.040 178.0);
+  --cat-3-soft: oklch(0.262 0.058 178.0);
   --cat-3-on-soft: oklch(0.880 0.060 178.0);
   --cat-4: oklch(0.700 0.120 320.0);
   --cat-4-foreground: oklch(0.185 0.020 320.0);
-  --cat-4-soft: oklch(0.300 0.040 320.0);
+  --cat-4-soft: oklch(0.262 0.058 320.0);
   --cat-4-on-soft: oklch(0.880 0.060 320.0);
   --cat-5: oklch(0.700 0.120 205.0);
   --cat-5-foreground: oklch(0.185 0.020 205.0);
-  --cat-5-soft: oklch(0.300 0.040 205.0);
+  --cat-5-soft: oklch(0.262 0.058 205.0);
   --cat-5-on-soft: oklch(0.880 0.060 205.0);
   --cat-6: oklch(0.700 0.120 68.0);
   --cat-6-foreground: oklch(0.185 0.020 68.0);
-  --cat-6-soft: oklch(0.300 0.040 68.0);
+  --cat-6-soft: oklch(0.262 0.058 68.0);
   --cat-6-on-soft: oklch(0.880 0.060 68.0);
 
   --glass-bg: oklch(0.240 0.026 283.0 / 0.8);
@@ -679,6 +679,43 @@
   .pressable-lg:active {
     transform: none;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Live dot
+
+   A small solid dot with a ring expanding out of it: the one place in the app
+   where a looping animation earns its keep, because "something is waiting on
+   you" is a state rather than an event and the loop is what says so.
+   -------------------------------------------------------------------------- */
+
+@keyframes live-ping {
+  0%   { transform: scale(1); opacity: 0.55; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+@utility live-dot {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    background: inherit;
+    animation: live-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot::after { animation: none; opacity: 0; }
 }
 
 /* --------------------------------------------------------------------------

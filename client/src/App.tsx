@@ -23,6 +23,7 @@ import Home from "./pages/Home";
  */
 const Preview = lazy(() => import("./pages/Preview"));
 const PreviewTrip = lazy(() => import("./pages/PreviewTrip"));
+const PreviewSeed = lazy(() => import("./preview/PreviewSeed"));
 const CreateTrip = lazy(() => import("./pages/CreateTrip"));
 const JoinTrip = lazy(() => import("./pages/JoinTrip"));
 const TripDashboard = lazy(() => import("./pages/TripDashboard"));
@@ -84,6 +85,12 @@ function Router() {
       {import.meta.env.DEV && <Route path="/preview" component={Preview} />}
       {import.meta.env.DEV && (
         <Route path="/preview/trip" component={PreviewTrip} />
+      )}
+      {/* Seeds a trip into the query cache and hands off to the real screens,
+          which are otherwise unreachable without a database. Same build-time
+          gate as the gallery above. */}
+      {import.meta.env.DEV && (
+        <Route path="/preview/seed" component={PreviewSeed} />
       )}
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

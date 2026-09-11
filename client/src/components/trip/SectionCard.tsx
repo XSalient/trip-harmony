@@ -7,7 +7,7 @@
  */
 import React from "react";
 import { useLocation, Link } from "wouter";
-import { CheckCircle2, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,7 +62,15 @@ export function SectionLink({
 }
 
 type SectionCardProps = {
+  /** Anchor, so something elsewhere on the page can scroll this into view. */
+  id?: string;
   title: string;
+  /**
+   * Tile colour, from the category ramp — `bg-cat-3-soft text-cat-3-on-soft`.
+   * Every section painted in the one brand violet made the page a single
+   * column of identical rows; a hue per section is what makes it scannable.
+   */
+  tone?: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
   /**
@@ -93,7 +101,9 @@ type SectionCardProps = {
  * on your vote.
  */
 export default function SectionCard({
+  id,
   title,
+  tone,
   icon: Icon,
   href,
   lockedCount = 0,
@@ -111,7 +121,10 @@ export default function SectionCard({
   // is dead space on a collapsed section, and every section starts collapsed.
   return (
     <Card
-      className={`relative overflow-hidden rounded-2xl border border-border/70 py-0 shadow-e1 transition-shadow hover:shadow-e2 ${className ?? ""}`}
+      id={id}
+      // `scroll-mt` keeps the sticky header from covering the section this
+      // lands on when something scrolls it into view.
+      className={`relative scroll-mt-20 overflow-hidden rounded-2xl border border-border/70 py-0 shadow-e1 transition-shadow hover:shadow-e2 ${className ?? ""}`}
     >
       {locked && (
         <span
@@ -126,13 +139,22 @@ export default function SectionCard({
             aria-expanded={open}
             className="pressable-lg flex flex-1 min-w-0 items-center gap-3 text-left"
           >
+            {/* The section keeps its own icon once it is decided.
+                It used to be replaced by a tick, which meant every settled
+                section looked identical — four rows of the same green circle,
+                and no way to find dates without reading. The tick is now a
+                corner mark on the tile, so the row still says what it is. */}
             <div
-              className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${locked ? "bg-success-soft text-success-on-soft" : "bg-primary/12 text-primary"}`}
+              className={`relative flex size-9 shrink-0 items-center justify-center rounded-[10px] ${tone ?? "bg-primary/12 text-primary"}`}
             >
-              {locked ? (
-                <CheckCircle2 className="h-[18px] w-[18px]" />
-              ) : (
-                <Icon className="h-[18px] w-[18px]" />
+              <Icon className="h-[18px] w-[18px]" />
+              {locked && (
+                <span
+                  aria-hidden
+                  className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-success text-success-foreground ring-2 ring-card"
+                >
+                  <Check className="size-2.5 stroke-[3px]" />
+                </span>
               )}
             </div>
             <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">

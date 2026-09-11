@@ -49,10 +49,33 @@ export function useSectionState(tripId: number) {
     [tripId]
   );
 
+  /**
+   * Open a section, whether or not it already is.
+   *
+   * `toggle` is wrong for anything that means "take me there" — the pending
+   * votes bar on the trip page closes the section it is sending you to, half
+   * the time, if it toggles.
+   */
+  const openSection = useCallback(
+    (section: SectionKey) => {
+      setOpen(prev => {
+        if (prev[section]) return prev;
+        const next = { ...prev, [section]: true };
+        try {
+          window.localStorage.setItem(keyFor(tripId), JSON.stringify(next));
+        } catch {
+          // Not remembering is survivable; failing to open is not.
+        }
+        return next;
+      });
+    },
+    [tripId]
+  );
+
   const isOpen = useCallback(
     (section: SectionKey) => open[section] ?? false,
     [open]
   );
 
-  return { isOpen, toggle };
+  return { isOpen, toggle, openSection };
 }

@@ -519,6 +519,43 @@ CSS = f"""@import "tailwindcss";
 }}
 
 /* --------------------------------------------------------------------------
+   Live dot
+
+   A small solid dot with a ring expanding out of it: the one place in the app
+   where a looping animation earns its keep, because "something is waiting on
+   you" is a state rather than an event and the loop is what says so.
+   -------------------------------------------------------------------------- */
+
+@keyframes live-ping {{
+  0%   {{ transform: scale(1); opacity: 0.55; }}
+  70%  {{ transform: scale(2.6); opacity: 0; }}
+  100% {{ transform: scale(2.6); opacity: 0; }}
+}}
+
+@utility live-dot {{
+  position: relative;
+  display: block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+
+  &::after {{
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: currentColor;
+    background: inherit;
+    animation: live-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }}
+}}
+
+@media (prefers-reduced-motion: reduce) {{
+  .live-dot::after {{ animation: none; opacity: 0; }}
+}}
+
+/* --------------------------------------------------------------------------
    Loading
 
    A skeleton that pulses its opacity reads as a broken element. A sheen that
