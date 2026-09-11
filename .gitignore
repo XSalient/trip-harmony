@@ -114,3 +114,8 @@ client/public/__manus__/version.json
 # Cursor: share the project rules, keep personal cursor state out.
 .cursor/*
 !.cursor/rules/
+
+# Python bytecode. design-system/ holds the token and colour generators; their
+# compiled output is regenerated on every run and one .pyc had already landed.
+__pycache__/
+*.py[cod]
