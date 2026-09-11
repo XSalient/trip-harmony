@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckField } from "@/components/harmony/Check";
 import { SectionHead } from "@/components/harmony";
+import { Notice } from "@/components/harmony/Notice";
 import {
   Select,
   SelectContent,
@@ -844,10 +845,10 @@ export default function TripMembers() {
             Members are attendees too, so this is one count and not "members
             plus guests, mind the overlap". Pets are counted and shown, and
             never divided by. */}
+        {/* A line, not a card — same reasoning as the budget screen. */}
         {headcount && (
-          <Card className="rounded-2xl border-border/70 bg-muted/40 shadow-e1">
-            <CardContent className="p-3 flex items-center gap-2 text-sm">
-              <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-2 px-1 text-[13px] text-muted-foreground">
+              <Users className="size-4 shrink-0" />
               <span>
                 {headcount.adults} {headcount.adults === 1 ? "adult" : "adults"}
                 {headcount.children > 0 &&
@@ -855,8 +856,7 @@ export default function TripMembers() {
                 {headcount.pets > 0 &&
                   ` · ${headcount.pets} ${headcount.pets === 1 ? "pet" : "pets"}`}
               </span>
-            </CardContent>
-          </Card>
+          </div>
         )}
 
         {/* ── Groups ── */}
@@ -1583,24 +1583,21 @@ export default function TripMembers() {
           {importPlan && (
             <div className="space-y-3 pt-1 text-sm">
               {importPlan.conflicts.length > 0 && (
-                <div className="rounded-lg border border-warning-border bg-warning-soft p-3 space-y-1.5">
-                  <p className="font-medium text-warning-on-soft">
-                    Already in another group
-                  </p>
-                  {importPlan.conflicts.map((c: any) => (
-                    <p
-                      key={c.userId}
-                      className="text-xs text-warning-on-soft"
-                    >
-                      {c.name} is already on this trip in {c.currentGroupName}.
-                      Adding this group moves them into {importPlan.groupName}.
+                <Notice tone="warning" title="Already in another group">
+                  <div className="space-y-1 text-[12px]">
+                    {importPlan.conflicts.map((c: any) => (
+                      <p key={c.userId}>
+                        {c.name} is already on this trip in{" "}
+                        {c.currentGroupName}. Adding this group moves them into{" "}
+                        {importPlan.groupName}.
+                      </p>
+                    ))}
+                    <p>
+                      A group casts one vote, so moving somebody can drop a
+                      vote that has become a duplicate.
                     </p>
-                  ))}
-                  <p className="text-xs text-warning-on-soft">
-                    A group casts one vote, so moving somebody can drop a vote
-                    that has become a duplicate.
-                  </p>
-                </div>
+                  </div>
+                </Notice>
               )}
 
               <ul className="space-y-1 text-muted-foreground text-xs">

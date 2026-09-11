@@ -12,6 +12,7 @@
  * both what was written and what it comes to for the trip, because two
  * proposals in different units cannot otherwise be compared.
  */
+import { VoteTally, VoteSegments, CHOICE_OPTIONS } from "@/components/trip/ProposalRow";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
@@ -22,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { Notice } from "@/components/harmony/Notice";
 import { EmptyState } from "@/components/harmony";
 import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import ScreenHeader from "@/components/trip/ScreenHeader";
@@ -31,7 +33,6 @@ import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
-import AbstainButton from "@/components/trip/AbstainButton";
 import ProposalSuggestions from "@/components/trip/ProposalSuggestions";
 import type { Suggestion } from "@shared/suggestions";
 import {
@@ -494,10 +495,11 @@ export default function TripBudget() {
         )}
 
         {/* Who is being charged. Pets are counted and shown, but never divided by. */}
+        {/* A line, not a card. One muted sentence inside its own bordered,
+            padded surface reads as a component that failed to load. */}
         {summary && (
-          <Card className="bg-muted/40">
-            <CardContent className="p-3 flex items-center gap-2 text-xs text-muted-foreground">
-              <Users className="h-3.5 w-3.5 shrink-0" />
+          <div className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
+              <Users className="size-3.5 shrink-0" />
               <span>
                 {summary.headcount.adults}{" "}
                 {summary.headcount.adults === 1 ? "adult" : "adults"}
@@ -508,23 +510,20 @@ export default function TripBudget() {
                 {summary.headcount.groups > 0 &&
                   ` · ${summary.headcount.groups} ${summary.headcount.groups === 1 ? "family" : "families"}`}
               </span>
-            </CardContent>
-          </Card>
+          </div>
         )}
 
         {/* A count, never a name: enough to reopen the conversation, without
             publishing anybody's finances to the group. */}
         {summary && summary.votersOverCap ? (
-          <Card className="border-warning-border bg-warning-soft">
-            <CardContent className="p-3 text-xs">
-              {summary.votersOverCap === 1
-                ? "One person is above the limit they set."
-                : `${summary.votersOverCap} people are above the limit they set.`}{" "}
-              {finalised
-                ? "It might be worth another look."
-                : "Worth knowing before this is finalised."}
-            </CardContent>
-          </Card>
+          <Notice tone="warning">
+            {summary.votersOverCap === 1
+              ? "One person is above the limit they set."
+              : `${summary.votersOverCap} people are above the limit they set.`}{" "}
+            {finalised
+              ? "It might be worth another look."
+              : "Worth knowing before this is finalised."}
+          </Notice>
         ) : null}
 
         {isLoading ? (
@@ -684,15 +683,7 @@ export default function TripBudget() {
                     )}
 
                     <div className="flex gap-4 text-xs mb-3 items-center">
-                      <span className="text-cat-4 font-medium flex items-center gap-1">
-                        <Heart className="h-3 w-3" /> {loves}
-                      </span>
-                      <span className="text-info font-medium flex items-center gap-1">
-                        <HelpCircle className="h-3 w-3" /> {fines}
-                      </span>
-                      <span className="text-danger font-medium flex items-center gap-1">
-                        <Ban className="h-3 w-3" /> {vetos}
-                      </span>
+                      <VoteTally options={CHOICE_OPTIONS} votes={p.votes} />
                       <VotedCount
                         className="ml-auto"
                         tripId={tripId}
@@ -706,47 +697,11 @@ export default function TripBudget() {
                     </div>
 
                     {canContribute && !p.selected && (
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          {[
-                            {
-                              vote: "love" as const,
-                              icon: Heart,
-                              label: "Yes",
-                              active:
-                                "bg-success-soft text-success-on-soft border-success-border",
-                            },
-                            {
-                              vote: "fine" as const,
-                              icon: HelpCircle,
-                              label: "Maybe",
-                              active:
-                                "bg-warning-soft text-warning-on-soft border-warning-border",
-                            },
-                            {
-                              vote: "veto" as const,
-                              icon: Ban,
-                              label: "No",
-                              active: "bg-danger-soft text-danger-on-soft border-danger-border",
-                            },
-                          ].map(btn => (
-                            <Button
-                              key={btn.vote}
-                              variant="outline"
-                              size="sm"
-                              className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                              onClick={() => handleVote(p.id, btn.vote)}
-                            >
-                              <btn.icon className="h-3.5 w-3.5 mr-1" />
-                              {btn.label}
-                            </Button>
-                          ))}
-                        </div>
-                        <AbstainButton
-                          active={myVote === MAJORITY_VOTE}
-                          onVote={() => handleVote(p.id, MAJORITY_VOTE)}
-                        />
-                      </div>
+                      <VoteSegments
+                        options={CHOICE_OPTIONS}
+                        myVote={myVote}
+                        onVote={v => handleVote(p.id, v)}
+                      />
                     )}
 
                     <div className="mt-2 space-y-0.5">

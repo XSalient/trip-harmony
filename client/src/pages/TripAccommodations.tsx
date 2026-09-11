@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { VoteTally, VoteSegments, CHOICE_OPTIONS } from "@/components/trip/ProposalRow";
 import { useTripRole } from "@/_core/hooks/useTripRole";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,6 @@ import AddedBy from "@/components/trip/AddedBy";
 import VotedCount from "@/components/trip/VotedCount";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import VoteScore, { scoreVotes } from "@/components/trip/VoteScore";
-import AbstainButton from "@/components/trip/AbstainButton";
 import {
   MAJORITY_VOTE,
   finaliseBlockReason,
@@ -1443,15 +1443,7 @@ export default function TripAccommodations() {
 
                     {/* Vote counts */}
                     <div className="flex gap-4 text-xs mb-3 items-center">
-                      <span className="text-cat-4 font-medium flex items-center gap-1">
-                        <Heart className="h-3 w-3" /> {loves}
-                      </span>
-                      <span className="text-info font-medium flex items-center gap-1">
-                        <ThumbsUp className="h-3 w-3" /> {fines}
-                      </span>
-                      <span className="text-danger font-medium flex items-center gap-1">
-                        <Ban className="h-3 w-3" /> {vetos}
-                      </span>
+                      <VoteTally options={CHOICE_OPTIONS} votes={acc.votes} />
                       <VotedCount
                         className="ml-auto"
                         tripId={tripId}
@@ -1466,47 +1458,11 @@ export default function TripAccommodations() {
 
                     {/* Vote buttons */}
                     {canContribute && !acc.selected && (
-                      <div className="space-y-2">
-                        <div className="flex gap-2">
-                          {[
-                            {
-                              vote: "love" as const,
-                              icon: Heart,
-                              label: "Yes",
-                              active:
-                                "bg-success-soft text-success-on-soft border-success-border",
-                            },
-                            {
-                              vote: "fine" as const,
-                              icon: HelpCircle,
-                              label: "Maybe",
-                              active:
-                                "bg-warning-soft text-warning-on-soft border-warning-border",
-                            },
-                            {
-                              vote: "veto" as const,
-                              icon: Ban,
-                              label: "No",
-                              active: "bg-danger-soft text-danger-on-soft border-danger-border",
-                            },
-                          ].map(btn => (
-                            <Button
-                              key={btn.vote}
-                              variant="outline"
-                              size="sm"
-                              className={`flex-1 rounded-lg text-xs h-9 ${myVote === btn.vote ? btn.active : ""}`}
-                              onClick={() => handleVote(acc.id, btn.vote)}
-                            >
-                              <btn.icon className="h-3.5 w-3.5 mr-1" />
-                              {btn.label}
-                            </Button>
-                          ))}
-                        </div>
-                        <AbstainButton
-                          active={myVote === MAJORITY_VOTE}
-                          onVote={() => handleVote(acc.id, MAJORITY_VOTE)}
-                        />
-                      </div>
+                      <VoteSegments
+                        options={CHOICE_OPTIONS}
+                        myVote={myVote}
+                        onVote={v => handleVote(acc.id, v)}
+                      />
                     )}
 
                     <div className="mt-2 space-y-0.5">

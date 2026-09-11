@@ -20,6 +20,7 @@ import {
   X,
   Users,
   Heart,
+  Ban,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -148,7 +149,15 @@ function RowShell({
   );
 }
 
-function VoteButtons<T extends string>({
+/**
+ * The three-way vote, as a segmented control on one track.
+ *
+ * Exported because the four detail screens each carried their own copy —
+ * forty lines of outlined pills, identical but for the wire values — so the
+ * trip page and the screen you reached from it asked the same question in two
+ * different shapes. One control, four call sites.
+ */
+export function VoteSegments<T extends string>({
   options,
   myVote,
   onVote,
@@ -232,42 +241,93 @@ function TallyChip({
   );
 }
 
-const DATE_OPTIONS = [
+/**
+ * The three answers, once.
+ *
+ * `tone` lives here rather than beside each tally because the tally and the
+ * control have to agree: the icon and colour you vote with should be the icon
+ * and colour you are counted in. They did not — one screen counted "love" as a
+ * coral heart and another as a green tick, and the budget row used a third set
+ * again.
+ */
+/**
+ * A proposal's running count, one chip per answer.
+ *
+ * Takes the same option list the vote control takes, so a screen cannot show
+ * a tally that disagrees with the buttons under it.
+ */
+export function VoteTally({
+  options,
+  votes,
+}: {
+  options: ReadonlyArray<{
+    vote: string;
+    label: string;
+    tone: string;
+    icon?: React.ComponentType<{ className?: string }>;
+  }>;
+  votes: Array<{ vote: string }> | undefined;
+}) {
+  return (
+    <>
+      {options.map(o => (
+        <TallyChip
+          key={o.vote}
+          icon={o.icon ?? Check}
+          count={votes?.filter(v => v.vote === o.vote).length ?? 0}
+          label={o.label}
+          tone={o.tone}
+        />
+      ))}
+    </>
+  );
+}
+
+export const DATE_OPTIONS = [
   {
     vote: "available" as const,
     icon: Check,
     label: "Yes",
-    active: "bg-success-soft text-success-on-soft border-success-border",
+    tone: "text-success",
+    active: "bg-success text-success-foreground",
   },
   {
     vote: "maybe" as const,
     icon: HelpCircle,
     label: "Maybe",
-    active: "bg-warning-soft text-warning-on-soft border-warning-border",
+    tone: "text-warning",
+    active: "bg-warning text-warning-foreground",
   },
   {
     vote: "unavailable" as const,
     icon: X,
     label: "No",
-    active: "bg-danger-soft text-danger-on-soft border-danger-border",
+    tone: "text-danger",
+    active: "bg-danger text-danger-foreground",
   },
 ] as const;
 
-const CHOICE_OPTIONS = [
+export const CHOICE_OPTIONS = [
   {
     vote: "love" as const,
+    icon: Heart,
     label: "Yes",
-    active: "bg-success-soft text-success-on-soft border-success-border",
+    tone: "text-success",
+    active: "bg-success text-success-foreground",
   },
   {
     vote: "fine" as const,
+    icon: HelpCircle,
     label: "Maybe",
-    active: "bg-warning-soft text-warning-on-soft border-warning-border",
+    tone: "text-warning",
+    active: "bg-warning text-warning-foreground",
   },
   {
     vote: "veto" as const,
+    icon: Ban,
     label: "No",
-    active: "bg-danger-soft text-danger-on-soft border-danger-border",
+    tone: "text-danger",
+    active: "bg-danger text-danger-foreground",
   },
 ] as const;
 
@@ -314,14 +374,10 @@ export function DateProposalRow({
         </Link>
       }
       tally={
-        <>
-          <TallyChip icon={Check} count={countVotes(row, "available")} label="available" tone="text-success" />
-          <TallyChip icon={HelpCircle} count={countVotes(row, "maybe")} label="maybe" tone="text-warning" />
-          <TallyChip icon={X} count={countVotes(row, "unavailable")} label="unavailable" tone="text-danger" />
-        </>
+        <VoteTally options={DATE_OPTIONS} votes={row.votes} />
       }
       votes={
-        <VoteButtons options={DATE_OPTIONS} myVote={myVote} onVote={onVote} />
+        <VoteSegments options={DATE_OPTIONS} myVote={myVote} onVote={onVote} />
       }
     />
   );
@@ -368,14 +424,10 @@ export function BudgetProposalRow({
         </>
       }
       tally={
-        <>
-          <TallyChip icon={Check} count={countVotes(row, "love")} label="love it" tone="text-success" />
-          <TallyChip icon={HelpCircle} count={countVotes(row, "fine")} label="fine" tone="text-warning" />
-          <TallyChip icon={X} count={countVotes(row, "veto")} label="veto" tone="text-danger" />
-        </>
+        <VoteTally options={CHOICE_OPTIONS} votes={row.votes} />
       }
       votes={
-        <VoteButtons options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
+        <VoteSegments options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
       }
     />
   );
@@ -415,14 +467,10 @@ export function ChoiceProposalRow({
         </>
       }
       tally={
-        <>
-          <TallyChip icon={Heart} count={countVotes(row, "love")} label="love it" tone="text-cat-4" />
-          <TallyChip icon={Check} count={countVotes(row, "fine")} label="fine" tone="text-info" />
-          <TallyChip icon={X} count={countVotes(row, "veto")} label="veto" tone="text-danger" />
-        </>
+        <VoteTally options={CHOICE_OPTIONS} votes={row.votes} />
       }
       votes={
-        <VoteButtons options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
+        <VoteSegments options={CHOICE_OPTIONS} myVote={myVote} onVote={onVote} />
       }
     />
   );
