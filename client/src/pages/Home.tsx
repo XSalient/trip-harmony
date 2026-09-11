@@ -163,7 +163,7 @@ function Dashboard() {
             }
             className="grad-brand glow flex min-h-[8.5rem] flex-col items-start justify-between rounded-2xl p-4 text-left text-primary-foreground transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background motion-reduce:active:scale-100"
           >
-            <span className="flex size-11 items-center justify-center rounded-full bg-white/20">
+            <span className="flex size-11 items-center justify-center rounded-full bg-primary-foreground/20">
               <Plus className="size-5" />
             </span>
             <span>

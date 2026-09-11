@@ -153,11 +153,11 @@
   --lagoon: oklch(0.537 0.120 205.0);
   --lagoon-foreground: oklch(0.990 0.000 89.9);
 
-  --success: oklch(0.515 0.140 158.0);
+  --success: oklch(0.504 0.140 178.0);
   --success-foreground: oklch(1.000 0.000 89.9);
-  --success-soft: oklch(0.955 0.031 158.0);
-  --success-on-soft: oklch(0.420 0.101 158.0);
-  --success-border: oklch(0.885 0.049 158.0);
+  --success-soft: oklch(0.955 0.031 178.0);
+  --success-on-soft: oklch(0.420 0.101 178.0);
+  --success-border: oklch(0.885 0.049 178.0);
   --warning: oklch(0.530 0.140 68.0);
   --warning-foreground: oklch(1.000 0.000 89.9);
   --warning-soft: oklch(0.955 0.031 68.0);
@@ -182,10 +182,10 @@
   --cat-2-foreground: oklch(1.000 0.000 89.9);
   --cat-2-soft: oklch(0.955 0.032 33.0);
   --cat-2-on-soft: oklch(0.420 0.100 33.0);
-  --cat-3: oklch(0.515 0.140 158.0);
+  --cat-3: oklch(0.504 0.140 178.0);
   --cat-3-foreground: oklch(1.000 0.000 89.9);
-  --cat-3-soft: oklch(0.955 0.032 158.0);
-  --cat-3-on-soft: oklch(0.420 0.100 158.0);
+  --cat-3-soft: oklch(0.955 0.032 178.0);
+  --cat-3-on-soft: oklch(0.420 0.100 178.0);
   --cat-4: oklch(0.548 0.140 320.0);
   --cat-4-foreground: oklch(1.000 0.000 89.9);
   --cat-4-soft: oklch(0.955 0.032 320.0);
@@ -261,11 +261,11 @@
   --lagoon: oklch(0.720 0.110 205.0);
   --lagoon-foreground: oklch(0.170 0.035 205.0);
 
-  --success: oklch(0.720 0.123 158.0);
-  --success-foreground: oklch(0.185 0.025 158.0);
-  --success-soft: oklch(0.300 0.036 158.0);
-  --success-on-soft: oklch(0.880 0.059 158.0);
-  --success-border: oklch(0.380 0.056 158.0);
+  --success: oklch(0.720 0.123 178.0);
+  --success-foreground: oklch(0.185 0.025 178.0);
+  --success-soft: oklch(0.300 0.036 178.0);
+  --success-on-soft: oklch(0.880 0.059 178.0);
+  --success-border: oklch(0.380 0.056 178.0);
   --warning: oklch(0.720 0.123 68.0);
   --warning-foreground: oklch(0.185 0.025 68.0);
   --warning-soft: oklch(0.300 0.036 68.0);
@@ -290,10 +290,10 @@
   --cat-2-foreground: oklch(0.185 0.020 33.0);
   --cat-2-soft: oklch(0.300 0.040 33.0);
   --cat-2-on-soft: oklch(0.880 0.060 33.0);
-  --cat-3: oklch(0.700 0.120 158.0);
-  --cat-3-foreground: oklch(0.185 0.020 158.0);
-  --cat-3-soft: oklch(0.300 0.040 158.0);
-  --cat-3-on-soft: oklch(0.880 0.060 158.0);
+  --cat-3: oklch(0.700 0.120 178.0);
+  --cat-3-foreground: oklch(0.185 0.020 178.0);
+  --cat-3-soft: oklch(0.300 0.040 178.0);
+  --cat-3-on-soft: oklch(0.880 0.060 178.0);
   --cat-4: oklch(0.700 0.120 320.0);
   --cat-4-foreground: oklch(0.185 0.020 320.0);
   --cat-4-soft: oklch(0.300 0.040 320.0);

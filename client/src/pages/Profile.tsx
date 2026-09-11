@@ -83,7 +83,7 @@ function SignInMethods() {
                   className={
                     hasPassword
                       ? "text-[10px]"
-                      : "text-[10px] bg-chart-4/10 text-chart-4"
+                      : "text-[10px] bg-cat-6-soft text-cat-6-on-soft"
                   }
                 >
                   {hasPassword ? "Set" : "Not set"}

@@ -11,7 +11,7 @@ def ok(L,C,H): return f'oklch({L:.3f} {C:.3f} {H:.1f})'
 # violet-tinted neutrals. Lightness is re-solved here so every pair clears WCAG
 # AA — that verification is what this file adds on top of the reference.
 H_BRAND, H_CORAL, H_LAGOON = 286.0, 33.0, 205.0
-H_SUCCESS, H_WARN, H_DANGER, H_INFO = 158.0, 68.0, 24.0, 255.0
+H_SUCCESS, H_WARN, H_DANGER, H_INFO = 178.0, 68.0, 24.0, 255.0
 NEUTRAL_H, NEUTRAL_C = 285.0, 0.008     # violet-tinted neutral ramp
 
 LIGHT = {
@@ -70,7 +70,7 @@ STATUS_C = {'success':0.140,'warning':0.140,'danger':0.200,'info':0.160}
 # Lightness solved so BOTH hold in light mode:
 #   white-on-base >= 4.5  (base used as a solid fill with white text)
 #   base-on-soft  >= 4.5  (base used as text inside its own soft surface)
-STATUS_L = {H_SUCCESS:0.515, H_WARN:0.530, H_DANGER:0.545, H_INFO:0.520}
+STATUS_L = {H_SUCCESS:0.504, H_WARN:0.530, H_DANGER:0.545, H_INFO:0.520}
 def status_light(h,c):
     return {'':(STATUS_L[h],c,h), '-foreground':(1.000,0.000,89.9),
             '-soft':(0.955,min(c*0.22,0.035),h), '-on-soft':(0.420,c*0.72,h),
@@ -80,8 +80,8 @@ def status_dark(h,c):
             '-soft':(0.300,min(c*0.26,0.045),h), '-on-soft':(0.880,c*0.42,h),
             '-border':(0.380,min(c*0.40,0.065),h)}
 # category ramp (budget categories / notification types / itinerary item types)
-CAT_H = [286.0, 33.0, 158.0, 320.0, 205.0, 68.0]
-CAT_L = [0.500,0.544,0.515,0.548,0.503,0.530]  # same two constraints as STATUS_L
+CAT_H = [286.0, 33.0, 178.0, 320.0, 205.0, 68.0]
+CAT_L = [0.500,0.544,0.504,0.548,0.503,0.530]  # same two constraints as STATUS_L
 def cat(i, dark):
     h = CAT_H[i]
     return ((0.700,0.120,h),(0.185,0.020,h),(0.300,0.040,h),(0.880,0.060,h)) if dark \

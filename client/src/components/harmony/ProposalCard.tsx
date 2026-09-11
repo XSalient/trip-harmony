@@ -60,7 +60,7 @@ export function CardMedia({
           {/* Scrim so an overlaid chip stays legible on any photo. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/35 to-transparent"
+            className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[var(--scrim)] to-transparent"
           />
           <div className="absolute right-2.5 top-2.5">{overlay}</div>
         </>

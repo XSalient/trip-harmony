@@ -75,7 +75,7 @@ function RoleBadge({ role }: { role: TripRole }) {
       ? "bg-primary/10 text-primary border-primary/20"
       : role === "watcher"
         ? "bg-muted text-muted-foreground border-border"
-        : "bg-chart-2/10 text-chart-2 border-chart-2/20";
+        : "bg-cat-2-soft text-cat-2-on-soft border-cat-2-soft";
   return (
     <Badge variant="outline" className={`text-[10px] ${tone}`}>
       {TRIP_ROLE_LABELS[role]}
