@@ -8,6 +8,37 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-11 — The tab bar stops looking packed
+
+### Changed
+
+- **The bottom tab bar is spaced like four controls instead of one strip.**
+  The four tabs sat flush against each other at 72px with no gap, and the two
+  that carry a fill — the active pill and the gradient "New trip" chip — were
+  therefore touching, so the bar read as a solid mass on one side and bare
+  icons on the other.
+
+  Three changes, one decision: an 8px gap between tabs, taken out of the tab
+  width rather than added to the bar (so the whole pill is 294px, slightly
+  _narrower_ than the 296px it was, and still clears a 320px screen with 13px
+  either side); the fills inset 4px inside their tabs, so the tap target stays
+  the full 64px while the shapes have 16px of clear glass between them; and 6px
+  of padding inside the bar instead of 4, so nothing sits on the glass edge.
+
+  The fills are `rounded-xl` rather than fully round. At 56×48 a full round is
+  an ellipse that narrows exactly where the label sits, and "New trip" spilled
+  over its own gradient.
+
+  `--nav-height` moves 4rem → 4.25rem with the bar's real height. It is what
+  `pb-nav` and `bottom-nav` read, so changing the bar's padding without it is
+  what puts content back underneath the bar.
+
+  This is the app-shell spec's existing "≥8 px spacing" rule
+  ([design-system/pages/app-shell.md](../design-system/pages/app-shell.md)),
+  which the implementation had never met.
+
+---
+
 ## 2026-09-11 — A magic link stops coming back in the response
 
 ### Fixed

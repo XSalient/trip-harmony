@@ -121,8 +121,13 @@
   --radius: 1rem;
 
   /* chrome metrics — the single source for nav clearance.
-     StickyActionBar and AppShell both read these; never hardcode pb-24. */
-  --nav-height: 4rem;
+     StickyActionBar and AppShell both read these; never hardcode pb-24.
+
+     --nav-height is the floating bar's real box plus the 8px it floats above
+     the screen edge: MobileNav is p-1.5 (6px) + a 48px tab row + p-1.5, which
+     is 60px, plus its mb-2. It was 4rem when the bar was p-1. Changing the
+     bar's padding without changing this is what puts content back under it. */
+  --nav-height: 4.25rem;
   --header-height: 3.5rem;
 
   /* motion (MASTER §7) */
