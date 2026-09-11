@@ -67,9 +67,9 @@ export default function TripSettings() {
   return (
     <AppShell title="Trip settings" showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4 space-y-4">
-        <Card className="border-border/50">
+        <Card className="border-border/70">
           <CardContent className="p-4 flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-xl bg-primary/12 text-primary flex items-center justify-center shrink-0">
               <Settings2 className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -88,7 +88,7 @@ export default function TripSettings() {
         </Card>
 
         {!canAdminister && (
-          <Card className="border-border/50">
+          <Card className="border-border/70">
             <CardContent className="p-4">
               <p className="text-sm text-muted-foreground">
                 Only a trip admin can change these. This is what the trip is set
@@ -98,7 +98,7 @@ export default function TripSettings() {
           </Card>
         )}
 
-        <Card className="border-border/50 py-0">
+        <Card className="border-border/70 py-0">
           <CardContent className="p-0 divide-y divide-border/40">
             {HIDEABLE_SECTIONS.map(section => {
               const visible = !hidden.includes(section.key);

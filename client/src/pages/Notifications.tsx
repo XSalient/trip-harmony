@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { EmptyState } from "@/components/harmony";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import {
@@ -110,7 +111,7 @@ export default function Notifications() {
             return (
               <Card
                 key={notif.id}
-                className={`border-border/50 cursor-pointer transition-all hover:shadow-sm ${!notif.read ? "bg-primary/[0.02] border-primary/20" : ""}`}
+                className={`border-border/70 cursor-pointer transition-all hover:shadow-sm ${!notif.read ? "bg-primary/[0.02] border-primary/20" : ""}`}
                 onClick={() => handleClick(notif)}
               >
                 <CardContent className="p-4 flex gap-3">
@@ -147,14 +148,11 @@ export default function Notifications() {
             );
           })
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-8 text-center">
-              <BellOff className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                No notifications yet. They'll appear as your trip progresses!
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={BellOff}
+            title="You're all caught up"
+            description="Votes, invites and budget alerts land here as your trips move along."
+          />
         )}
       </div>
     </AppShell>

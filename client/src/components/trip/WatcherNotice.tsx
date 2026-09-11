@@ -14,7 +14,7 @@ export default function WatcherNotice({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+    <div className="flex items-start gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
       <Eye className="h-3.5 w-3.5 mt-0.5 shrink-0" />
       <span>{children}</span>
     </div>

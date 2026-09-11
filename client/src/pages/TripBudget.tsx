@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { EmptyState } from "@/components/harmony";
 import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
@@ -798,16 +799,15 @@ export default function TripBudget() {
             })}
           </div>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-8 text-center">
-              <DollarSign className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                {canContribute
-                  ? "No budget on the table yet. Put a number on it — it is easier to argue with a figure than without one."
-                  : "No budget has been proposed yet."}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={DollarSign}
+            title="No budget on the table yet"
+            description={
+              canContribute
+                ? "Put a number on it — it is easier to argue with a figure than without one."
+                : "Nobody has proposed a budget so far."
+            }
+          />
         )}
       </div>
 

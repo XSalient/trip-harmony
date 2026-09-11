@@ -71,10 +71,10 @@ export default function PreferencesSummary({
   };
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/70">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <ClipboardList className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -109,7 +109,7 @@ export default function PreferencesSummary({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 border-t border-border/50 pt-3">
+        <div className="flex items-center gap-2 border-t border-border/70 pt-3">
           <Wallet className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm text-muted-foreground flex-1">
             My budget cap

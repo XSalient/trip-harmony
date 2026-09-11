@@ -44,7 +44,7 @@ function AttendeePill({
   onDragEnd: (dragId: string, info: PanInfo) => void;
 }) {
   const base =
-    "inline-flex items-center gap-1 rounded-full border border-border/60 px-2 py-0.5 text-[11px]";
+    "inline-flex items-center gap-1 rounded-full border border-border/70 px-2 py-0.5 text-[11px]";
 
   const body = (
     <>

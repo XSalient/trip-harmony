@@ -605,7 +605,7 @@ export default function TripDates() {
               return (
                 <Card
                   key={p.id}
-                  className={`border ${p.selected ? "border-primary bg-primary/5" : "border-border/50"}`}
+                  className={`border ${p.selected ? "border-primary bg-primary/5" : "border-border/70"}`}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">

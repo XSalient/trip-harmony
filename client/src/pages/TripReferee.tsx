@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { EmptyState } from "@/components/harmony";
 import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import WatcherNotice from "@/components/trip/WatcherNotice";
 import { useParams } from "wouter";
@@ -206,7 +207,7 @@ export default function TripReferee() {
               const colorClass =
                 typeColors[msg.messageType] || "bg-muted text-muted-foreground";
               return (
-                <Card key={msg.id} className="border-border/50">
+                <Card key={msg.id} className="border-border/70">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <div
@@ -233,14 +234,11 @@ export default function TripReferee() {
             })}
           </div>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-8 text-center">
-              <Bot className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                No referee messages yet. Click above to get your first analysis!
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Bot}
+            title="The referee hasn't weighed in yet"
+            description="Run an analysis once your group has started voting."
+          />
         )}
       </div>
     </AppShell>

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import AppShell from "@/components/AppShell";
+import { EmptyState } from "@/components/harmony";
 import SectionOffNotice from "@/components/trip/SectionOffNotice";
 import ScreenHeader from "@/components/trip/ScreenHeader";
 import ProposalComments from "@/components/ProposalComments";
@@ -422,7 +423,7 @@ export default function TripDestinations() {
               return (
                 <Card
                   key={dest.id}
-                  className={`overflow-hidden ${dest.selected ? "border-primary ring-1 ring-primary" : "border-border/50"}`}
+                  className={`overflow-hidden ${dest.selected ? "border-primary ring-1 ring-primary" : "border-border/70"}`}
                 >
                   {dest.imageUrl && (
                     <div className="h-36 bg-muted overflow-hidden">
@@ -625,16 +626,15 @@ export default function TripDestinations() {
             })}
           </div>
         ) : (
-          <Card className="border-dashed">
-            <CardContent className="p-8 text-center">
-              <Lightbulb className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">
-                {canContribute
-                  ? "Nothing suggested yet. Add the first one!"
-                  : "Nothing suggested yet."}
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={Lightbulb}
+            title="Nothing suggested yet"
+            description={
+              canContribute
+                ? "Throw the first idea in and see what the group thinks."
+                : "Nobody has suggested anything so far."
+            }
+          />
         )}
       </div>
 

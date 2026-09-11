@@ -99,14 +99,14 @@ export default function TripSummary({
   const shows = (section: SectionKey) => !hiddenSections.includes(section);
 
   return (
-    <Card className="border-border/50 py-0">
+    <Card className="border-border/70 py-0">
       <CardContent className="p-0">
         <button
           onClick={onToggle}
           aria-expanded={open}
           className="flex w-full items-center gap-3 p-3 text-left"
         >
-          <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <CalendarCheck className="h-5 w-5" />
           </div>
           <p className="flex-1 text-sm font-medium">Summary</p>

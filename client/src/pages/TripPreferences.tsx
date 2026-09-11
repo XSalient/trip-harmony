@@ -251,7 +251,7 @@ export default function TripPreferences() {
         )}
 
         {/* AI tip */}
-        <div className="flex gap-2 rounded-xl border border-border/50 bg-muted/40 p-3">
+        <div className="flex gap-2 rounded-xl border border-border/70 bg-muted/40 p-3">
           <Lightbulb className="h-4 w-4 text-warning shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Tip:</span> Be

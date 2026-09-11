@@ -34,9 +34,9 @@ export default function SectionOffNotice({
   return (
     <AppShell title={label} showBack backHref={`/trips/${tripId}`}>
       <div className="px-4 py-4">
-        <Card className="border-border/50">
+        <Card className="border-border/70">
           <CardContent className="p-4 flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-xl bg-muted text-muted-foreground flex items-center justify-center shrink-0">
               <EyeOff className="h-5 w-5" />
             </div>
             <div className="min-w-0 space-y-2">

@@ -71,7 +71,7 @@ export default function ProposalSuggestions({
           return (
             <div
               key={s.fingerprint}
-              className="rounded-xl border border-border/60 bg-background p-3 space-y-2"
+              className="rounded-xl border border-border/70 bg-background p-3 space-y-2"
             >
               <div className="flex items-start gap-2">
                 {s.kind === "budget" ? (

@@ -54,7 +54,7 @@ function DraggableMemberChip({
   onDragEnd: (dragId: string, info: PanInfo) => void;
 }) {
   const base = `inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
-    isMe ? "border-primary/40 bg-primary/5" : "border-border/60"
+    isMe ? "border-primary/40 bg-primary/5" : "border-border/70"
   }`;
 
   const body = (

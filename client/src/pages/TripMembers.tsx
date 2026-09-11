@@ -846,7 +846,7 @@ export default function TripMembers() {
             plus guests, mind the overlap". Pets are counted and shown, and
             never divided by. */}
         {headcount && (
-          <Card className="bg-muted/40 border-border/50">
+          <Card className="bg-muted/40 border-border/70">
             <CardContent className="p-3 flex items-center gap-2 text-sm">
               <Users className="h-4 w-4 text-muted-foreground shrink-0" />
               <span>
@@ -867,7 +867,7 @@ export default function TripMembers() {
           </h2>
 
           {canContribute && (
-            <Card className="border-border/50">
+            <Card className="border-border/70">
               <CardContent className="p-3 space-y-3">
                 <div className="flex gap-2">
                   <Input
@@ -902,7 +902,7 @@ export default function TripMembers() {
                     can be seen. Admin-only even though the card is not: it
                     changes every vote denominator on the trip. */}
                 {isAdmin && (
-                  <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/50">
+                  <div className="flex items-center justify-between gap-3 pt-1 border-t border-border/70">
                     <div className="min-w-0">
                       <p className="text-sm font-medium">One vote per family</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -949,7 +949,7 @@ export default function TripMembers() {
               className={`transition-colors ${
                 dragOver === g.id
                   ? "border-primary bg-primary/5"
-                  : "border-border/50"
+                  : "border-border/70"
               }`}
             >
               <CardContent className="p-3">
@@ -1075,7 +1075,7 @@ export default function TripMembers() {
             className={`border-dashed transition-colors ${
               dragOver === null && dragging !== null
                 ? "border-primary bg-primary/5"
-                : "border-border/50"
+                : "border-border/70"
             }`}
           >
             <CardContent className="p-3">
@@ -1155,7 +1155,7 @@ export default function TripMembers() {
           {accepted.map((m: any) => {
             const isMe = m.userId === user?.id;
             return (
-              <Card key={m.id ?? m.userId} className="border-border/50">
+              <Card key={m.id ?? m.userId} className="border-border/70">
                 <CardContent className="p-3 flex items-start gap-3">
                   <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
                     {(m.user?.name || "?")[0].toUpperCase()}
@@ -1363,7 +1363,7 @@ export default function TripMembers() {
               Invite someone
             </h2>
 
-            <Card className="border-border/50">
+            <Card className="border-border/70">
               <CardContent className="p-3 space-y-3">
                 <div>
                   <Label className="text-xs">Join as</Label>
@@ -1448,7 +1448,7 @@ export default function TripMembers() {
                 makes tripmates, so handing it to a tripmate would hand out
                 votes — the one thing the loosened invite rule protects. */}
             {isAdmin && (
-              <Card className="border-border/50">
+              <Card className="border-border/70">
                 <CardContent className="p-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Or share this link. Anyone who follows it joins as a
@@ -1491,7 +1491,7 @@ export default function TripMembers() {
               {(contactGroups ?? []).map((cg: any) => (
                 <div
                   key={cg.id}
-                  className="flex items-center gap-2 p-2 rounded-lg border border-border/50"
+                  className="flex items-center gap-2 p-2 rounded-lg border border-border/70"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{cg.name}</p>
@@ -1521,7 +1521,7 @@ export default function TripMembers() {
                   </button>
                 </div>
               ))}
-              <div className="border-t border-border/50 pt-1" />
+              <div className="border-t border-border/70 pt-1" />
             </div>
           )}
 
@@ -1540,7 +1540,7 @@ export default function TripMembers() {
                 return (
                   <div
                     key={c.id}
-                    className="flex items-center gap-2 p-2 rounded-lg border border-border/50"
+                    className="flex items-center gap-2 p-2 rounded-lg border border-border/70"
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{c.name}</p>

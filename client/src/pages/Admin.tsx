@@ -46,7 +46,7 @@ function DemoResetCard() {
   });
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/70">
       <CardContent className="p-4 space-y-3">
         <div>
           <h3 className="font-semibold">Demo data</h3>
@@ -121,7 +121,7 @@ function ReportQueueCard() {
   });
 
   return (
-    <Card className="border-border/50">
+    <Card className="border-border/70">
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">

@@ -1060,7 +1060,7 @@ export default function TripAccommodations() {
               return (
                 <Card
                   key={acc.id}
-                  className={`overflow-hidden ${acc.selected ? "border-primary ring-1 ring-primary" : "border-border/50"}`}
+                  className={`overflow-hidden ${acc.selected ? "border-primary ring-1 ring-primary" : "border-border/70"}`}
                 >
                   {acc.imageUrl && (
                     <div className="h-40 bg-muted overflow-hidden">

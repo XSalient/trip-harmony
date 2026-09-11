@@ -177,7 +177,7 @@ export default function SectionCard({
               </p>
             )}
             <Link href={href}>
-              <div className="flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/50 px-4 py-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
+              <div className="flex min-h-11 cursor-pointer items-center justify-between rounded-b-2xl border-t border-border/70 px-4 py-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground">
                 <span>View all details</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </div>

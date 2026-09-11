@@ -96,7 +96,7 @@ export default function VotedCount({
           {isLoading ? (
             <div className="space-y-2 pt-1">
               {[1, 2, 3].map(i => (
-                <Skeleton key={i} className="h-9 rounded-lg" />
+                <Skeleton key={i} className="h-10 rounded-full touch-target" />
               ))}
             </div>
           ) : (
@@ -131,7 +131,7 @@ export default function VotedCount({
               )}
 
               {(data?.notVoted.length ?? 0) > 0 && (
-                <div className="space-y-1 border-t border-border/50 pt-2">
+                <div className="space-y-1 border-t border-border/70 pt-2">
                   <p className="text-xs font-medium text-muted-foreground">
                     Still to vote
                   </p>

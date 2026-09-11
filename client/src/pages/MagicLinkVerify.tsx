@@ -1,16 +1,28 @@
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useParams } from "wouter";
+import { CheckCircle2, Home, Loader2, MailWarning } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { rememberSession } from "@/lib/session";
-import { useParams, useLocation } from "wouter";
-import { useEffect, useRef, useState } from "react";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { useSessionSwitch } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { AuthDialog } from "@/components/AuthDialog";
-import { useSessionSwitch } from "@/_core/hooks/useAuth";
+import { StatusScreen } from "@/components/harmony";
 
+const REDIRECT_MS = 1500;
+
+/**
+ * One of only two screens that bypass AppShell, which makes it the check that
+ * tokens and safe areas reach the shell-less code path too.
+ *
+ * The three states now share one shape — the same StatusScreen the 404 uses —
+ * rather than three ad-hoc stacks. Behaviour is unchanged: the same mutation,
+ * the same session switch, and the same two routes out of an expired link.
+ */
 export default function MagicLinkVerify() {
   const params = useParams<{ token: string }>();
   const [, navigate] = useLocation();
   const calledRef = useRef(false);
+  const redirectRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [authOpen, setAuthOpen] = useState(false);
   const [startWithPassword, setStartWithPassword] = useState(false);
   const switchSession = useSessionSwitch();
@@ -21,7 +33,7 @@ export default function MagicLinkVerify() {
       // A magic link can land in a tab that is already signed in as somebody
       // else — it is the likeliest place for that to happen, in fact.
       await switchSession();
-      setTimeout(() => navigate("/"), 1500);
+      redirectRef.current = setTimeout(() => navigate("/"), REDIRECT_MS);
     },
   });
 
@@ -32,81 +44,97 @@ export default function MagicLinkVerify() {
     }
   }, [params.token]);
 
-  const isPending = verifyMutation.isPending;
-  const isSuccess = verifyMutation.isSuccess;
-  const isError = verifyMutation.isError;
+  // Leaving before the redirect fires must not navigate afterwards.
+  useEffect(() => () => clearTimeout(redirectRef.current), []);
 
-  return (
-    <div className="min-h-dvh flex items-center justify-center bg-background p-4">
-      <div className="text-center space-y-4 max-w-sm w-full">
-        {isPending && (
-          <>
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <h2 className="text-xl font-semibold">Signing you in…</h2>
-            <p className="text-muted-foreground text-sm">
-              Just a moment while we verify your link.
-            </p>
-          </>
-        )}
-        {isSuccess && (
-          <>
-            <CheckCircle className="h-12 w-12 text-success mx-auto" />
-            <h2 className="text-xl font-semibold">You're in!</h2>
-            <p className="text-muted-foreground text-sm">
-              Redirecting you to your dashboard…
-            </p>
-          </>
-        )}
-        {isError && (
-          <>
-            <XCircle className="h-12 w-12 text-destructive mx-auto" />
-            <h2 className="text-xl font-semibold">
-              This magic link has expired
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Magic links expire after 15 minutes for your security, and each
-              one can only be used once.
-            </p>
-            <div className="space-y-2 pt-2">
-              <Button
-                className="w-full"
-                onClick={() => {
-                  setStartWithPassword(false);
-                  setAuthOpen(true);
-                }}
-              >
-                Request a New Link
-              </Button>
+  const goHomeNow = () => {
+    clearTimeout(redirectRef.current);
+    navigate("/");
+  };
+
+  const dialog = (
+    <AuthDialog
+      open={authOpen}
+      onOpenChange={setAuthOpen}
+      onSuccess={() => {
+        setAuthOpen(false);
+        navigate("/");
+      }}
+      startWithPassword={startWithPassword}
+    />
+  );
+
+  if (verifyMutation.isError) {
+    return (
+      <>
+        <StatusScreen
+          icon={MailWarning}
+          tone="danger"
+          title="This magic link has expired"
+          description="Magic links expire after 15 minutes for your security, and each one can only be used once."
+          action={
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => {
+                setStartWithPassword(false);
+                setAuthOpen(true);
+              }}
+            >
+              Request a new link
+            </Button>
+          }
+          secondaryAction={
+            <>
               <Button
                 variant="outline"
+                size="lg"
                 className="w-full"
                 onClick={() => {
                   setStartWithPassword(true);
                   setAuthOpen(true);
                 }}
               >
-                Enter Password to Log In
+                Enter password to log in
               </Button>
-              <button
-                type="button"
-                className="text-sm text-muted-foreground hover:underline pt-1"
-                onClick={() => navigate("/")}
-              >
+              <Button variant="ghost" size="sm" onClick={() => navigate("/")}>
                 Back to home
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-      <AuthDialog
-        open={authOpen}
-        onOpenChange={setAuthOpen}
-        onSuccess={() => {
-          setAuthOpen(false);
-          navigate("/");
-        }}
-        startWithPassword={startWithPassword}
-      />
-    </div>
+              </Button>
+            </>
+          }
+        />
+        {dialog}
+      </>
+    );
+  }
+
+  if (verifyMutation.isSuccess) {
+    return (
+      <>
+        <StatusScreen
+          icon={CheckCircle2}
+          tone="success"
+          title="You're signed in"
+          description="Taking you to your trips…"
+          action={
+            <Button size="lg" className="w-full" onClick={goHomeNow}>
+              <Home />
+              Continue
+            </Button>
+          }
+        />
+        {dialog}
+      </>
+    );
+  }
+
+  return (
+    <StatusScreen
+      icon={Loader2}
+      spinning
+      tone="info"
+      title="Signing you in…"
+      description="Just a moment while we verify your link."
+    />
   );
 }

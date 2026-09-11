@@ -108,7 +108,7 @@ export default function VoteScore({
                 </div>
               );
             })}
-            <div className="flex items-center gap-2 border-t border-border/50 pt-1.5 font-semibold">
+            <div className="flex items-center gap-2 border-t border-border/70 pt-1.5 font-semibold">
               <span className="flex-1">Total</span>
               <span className={`w-10 text-right ${tone}`}>{signed(score)}</span>
             </div>
