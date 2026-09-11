@@ -222,6 +222,41 @@ CSS = f"""@import "tailwindcss";
   button, [role="button"], a {{
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    /* Long-pressing a control should not offer to copy its label or show the
+       iOS link callout — that is document behaviour, not app behaviour. */
+    -webkit-touch-callout: none;
+    user-select: none;
+  }}
+
+  /* Chrome is furniture: you do not select a tab bar's labels. Content stays
+     selectable, so anything worth copying still can be. */
+  nav, header, [role="tablist"], [data-slot="badge"] {{
+    user-select: none;
+    -webkit-user-select: none;
+  }}
+
+  html {{
+    /* No rubber-band past the ends of the document. In a browser this reveals
+       the page background; in a WebView it reveals the native scroll view. Both
+       read as "this is a web page inside something". */
+    overscroll-behavior-y: none;
+    /* A scrollbar track down the side of a phone screen is a website tell. */
+    scrollbar-width: none;
+  }}
+
+  html::-webkit-scrollbar {{
+    display: none;
+  }}
+
+  body {{
+    overscroll-behavior-y: none;
+  }}
+
+  /* Anything that scrolls inside the page keeps its momentum and does not
+     chain its overscroll to the document underneath. */
+  [data-scroll], .overflow-y-auto, .overflow-auto {{
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }}
 }}
 
@@ -259,6 +294,40 @@ CSS = f"""@import "tailwindcss";
 /* Offset for elements anchored just above the tab bar (FAB, sticky bars). */
 @utility bottom-nav {{
   bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 0.75rem);
+}}
+
+/* --------------------------------------------------------------------------
+   Screen transitions
+
+   A single-page app that simply repaints on navigation reads as a website.
+   Real apps move: forward slides in from the trailing edge, back from the
+   leading one. Transform and opacity only, and the incoming screen is animated
+   rather than cross-fading two trees, so nothing is ever left mounted twice.
+   -------------------------------------------------------------------------- */
+
+@keyframes screen-in-forward {{
+  from {{ transform: translate3d(18px, 0, 0); opacity: 0.4; }}
+  to   {{ transform: translate3d(0, 0, 0); opacity: 1; }}
+}}
+
+@keyframes screen-in-back {{
+  from {{ transform: translate3d(-18px, 0, 0); opacity: 0.4; }}
+  to   {{ transform: translate3d(0, 0, 0); opacity: 1; }}
+}}
+
+@utility screen-forward {{
+  animation: screen-in-forward 260ms var(--ease-out-soft) both;
+}}
+
+@utility screen-back {{
+  animation: screen-in-back 260ms var(--ease-out-soft) both;
+}}
+
+@media (prefers-reduced-motion: reduce) {{
+  .screen-forward,
+  .screen-back {{
+    animation: none;
+  }}
 }}
 
 /* --------------------------------------------------------------------------

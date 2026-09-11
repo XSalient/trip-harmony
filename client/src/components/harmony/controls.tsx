@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { Tone } from "@/lib/taxonomy";
 import { tone as toneClasses } from "./tone";
 import { IconTile } from "./primitives";
+import { haptic } from "@/lib/haptics";
 
 /* =========================================================== ChipPicker === */
 
@@ -70,7 +71,10 @@ export function ChipPicker({
             type="button"
             role={multiple ? "checkbox" : "radio"}
             aria-checked={active}
-            onClick={() => toggle(opt.value)}
+            onClick={() => {
+              haptic("select");
+              toggle(opt.value);
+            }}
             whileTap={reduce ? undefined : { scale: 0.96 }}
             className={cn(
               "inline-flex shrink-0 items-center gap-1.5 rounded-full border font-medium transition-colors duration-150",
@@ -149,7 +153,10 @@ export function Fab({
   return (
     <motion.button
       type="button"
-      onClick={onClick}
+      onClick={() => {
+        haptic("impact");
+        onClick();
+      }}
       aria-label={label}
       // Scale only. An opacity entrance leaves the control invisible if the
       // animation never runs (throttled rAF in a background tab or low-power
@@ -198,7 +205,7 @@ export function StatusScreen({
 }) {
   const reduce = useReducedMotion();
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-background px-6 safe-area-top safe-area-bottom">
+    <div className="screen-forward flex min-h-dvh flex-col items-center justify-center gap-5 bg-background px-6 safe-area-top safe-area-bottom">
       <motion.div
         initial={reduce ? false : { scale: 0.9 }}
         animate={{ scale: 1 }}

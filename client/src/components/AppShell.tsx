@@ -68,7 +68,12 @@ export default function AppShell({
   };
 
   return (
-    <div className="min-h-dvh bg-background flex flex-col">
+    // `screen-forward` gives each screen an entrance. It lives here rather
+    // than around the router because AppShell remounts on every route change,
+    // so the animation cannot fail to fire; a wrapper above the router has to
+    // observe navigation, and doing that reliably means racing wouter's own
+    // location subscription.
+    <div className="screen-forward min-h-dvh bg-background flex flex-col">
       {/* `safe-area-top` keeps the title clear of the notch: the WebView draws
           under the status bar, so without it the header sits behind the clock.
           Zero on the web and on a phone without one.

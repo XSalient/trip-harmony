@@ -36,6 +36,7 @@ import {
 } from "@shared/votes";
 import LockToggle from "./LockToggle";
 import VotedCount from "./VotedCount";
+import { haptic } from "@/lib/haptics";
 
 type ProposalType = "date" | "destination" | "accommodation" | "budget";
 
@@ -164,7 +165,10 @@ function VoteButtons<T extends string>({
         {options.map(btn => (
           <button
             key={btn.vote}
-            onClick={() => onVote(btn.vote)}
+            onClick={() => {
+              haptic("select");
+              onVote(btn.vote);
+            }}
             aria-pressed={myVote === btn.vote}
             className={`flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${myVote === btn.vote ? `${btn.active} font-semibold shadow-e1` : "border-border/70 text-muted-foreground hover:border-foreground/25 hover:text-foreground"}`}
           >
@@ -176,7 +180,10 @@ function VoteButtons<T extends string>({
       {/* Its own row, not a fourth chip: it is a different kind of answer,
           and four buttons across a phone read as none. */}
       <button
-        onClick={() => onVote(MAJORITY_VOTE as T)}
+        onClick={() => {
+          haptic("select");
+          onVote(MAJORITY_VOTE as T);
+        }}
         aria-pressed={myVote === MAJORITY_VOTE}
         className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
           myVote === MAJORITY_VOTE

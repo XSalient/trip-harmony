@@ -5,6 +5,7 @@ import {
   type VoteStance,
 } from "@/lib/voting";
 import { tone as toneClasses } from "./tone";
+import { haptic } from "@/lib/haptics";
 
 /* ========================================================= VoteControl === */
 
@@ -66,7 +67,10 @@ export function VoteControl({
             aria-label={VOTE_LABELS[wire] ?? wire}
             disabled={disabled}
             whileTap={reduce || disabled ? undefined : { scale: 0.94 }}
-            onClick={() => onVote(wire, active)}
+            onClick={() => {
+              haptic("select");
+              onVote(wire, active);
+            }}
             className={cn(
               "relative flex items-center justify-center gap-1.5 rounded-full font-medium transition-colors duration-150",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
