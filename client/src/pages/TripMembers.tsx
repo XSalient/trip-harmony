@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
+import { CheckField } from "@/components/harmony/Check";
 import { SectionHead } from "@/components/harmony";
 import {
   Select,
@@ -56,8 +56,6 @@ import {
   UserPlus,
   BookUser,
   Trash2,
-  Link2,
-  Mail,
   Clock,
   Check,
   X,
@@ -72,43 +70,42 @@ import {
 } from "@shared/roles";
 
 function RoleBadge({ role }: { role: TripRole }) {
+  // Tripmate is the ordinary role — the one most rows carry — so it gets the
+  // calm hue. It used to take the coral ramp, which at dark-mode lightness is
+  // maroon, and a roster where everybody is badged dark red reads as a list of
+  // problems.
   const tone =
     role === "admin"
-      ? "bg-primary/10 text-primary border-primary/20"
+      ? "bg-primary/12 text-primary"
       : role === "watcher"
-        ? "bg-muted text-muted-foreground border-border"
-        : "bg-cat-2-soft text-cat-2-on-soft border-cat-2-soft";
+        ? "bg-muted text-muted-foreground"
+        : "bg-cat-5-soft text-cat-5-on-soft";
   return (
-    <Badge variant="outline" className={`text-[11px] ${tone}`}>
+    <Badge className={`rounded-md border-0 px-1.5 text-[11px] font-semibold ${tone}`}>
       {TRIP_ROLE_LABELS[role]}
     </Badge>
   );
 }
 
 /** How someone arrived, in words rather than an enum value. */
-function JoinedVia({
-  via,
-  invitedByName,
-}: {
-  via: string | null | undefined;
-  invitedByName?: string | null;
-}) {
-  if (via === "creator")
-    return <span className="flex items-center gap-1">Created the trip</span>;
+/**
+ * How someone arrived, in words rather than an enum value.
+ *
+ * A string, not a node: it shares one truncating meta line with the email, the
+ * group and the date, and a flex child in that line competes for width with
+ * everything beside it — which is how an email came out as "t..".
+ */
+function joinedVia(
+  via: string | null | undefined,
+  invitedByName?: string | null
+): string | null {
+  if (via === "creator") return "Created the trip";
   if (via === "email")
-    return (
-      <span className="flex items-center gap-1">
-        <Mail className="h-3 w-3" /> Email invite
-        {invitedByName ? ` from ${invitedByName}` : ""}
-      </span>
-    );
-  if (via === "link")
-    return (
-      <span className="flex items-center gap-1">
-        <Link2 className="h-3 w-3" /> Invite link
-      </span>
-    );
-  return <span className="text-muted-foreground/70">Not recorded</span>;
+    return invitedByName
+      ? `Invited by ${invitedByName.split(" ")[0]}`
+      : "Email invite";
+  if (via === "link") return "Invite link";
+  return null;
 }
 
 /**
@@ -887,13 +884,11 @@ export default function TripMembers() {
                   </Button>
                 </div>
 
-                <label className="flex min-h-9 items-center gap-2.5 text-[13px] text-muted-foreground">
-                  <Checkbox
-                    checked={joinNewGroup}
-                    onCheckedChange={v => setJoinNewGroup(v === true)}
-                  />
-                  Put me in it
-                </label>
+                <CheckField
+                  checked={joinNewGroup}
+                  onChange={setJoinNewGroup}
+                  label="Put me in it"
+                />
 
                 {/* The switch lives here, beside the groups, because it is a
                     statement about the people and this is where its effect
@@ -1161,45 +1156,41 @@ export default function TripMembers() {
                 style={{ "--i": i } as React.CSSProperties}
                 className="stagger-item rounded-2xl border-border/70 shadow-e1"
               >
-                <CardContent className="p-3 flex items-start gap-3">
+                {/* Two lines, not four. Name and role on the first; everything
+                    else — email, group, how they arrived — reduced to one meta
+                    line underneath. Six members at four stacked lines each was
+                    a screen and a half of roster before the invite form. */}
+                <CardContent className="flex items-center gap-3 p-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-sm font-semibold text-primary">
                     {(m.user?.name || "?")[0].toUpperCase()}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium truncate">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-[15px] font-semibold tracking-tight">
                         {m.user?.name || "Member"}
                         {isMe && (
-                          <span className="text-muted-foreground"> (you)</span>
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            (you)
+                          </span>
                         )}
                       </span>
                       <RoleBadge role={m.role} />
-                      {m.groupId != null && (
-                        <Badge variant="outline" className="text-[11px]">
-                          {groupName(m.groupId)}
-                        </Badge>
-                      )}
                     </div>
                     {/* Watchers get names and roles; everything below is detail. */}
                     {canSeeDetails && (
-                      <>
-                        {m.user?.email && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {m.user.email}
-                          </p>
-                        )}
-                        <p className="text-[12px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <JoinedVia
-                            via={m.joinedVia}
-                            invitedByName={m.invitedByName}
-                          />
-                          {m.joinedAt && (
-                            <span>
-                              · {format(new Date(m.joinedAt), "d MMM yyyy")}
-                            </span>
-                          )}
-                        </p>
-                      </>
+                      <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+                        {[
+                          m.user?.email,
+                          m.groupId != null ? groupName(m.groupId) : null,
+                          joinedVia(m.joinedVia, m.invitedByName),
+                          m.joinedAt
+                            ? format(new Date(m.joinedAt), "d MMM yyyy")
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
                     )}
                   </div>
                   {/* Tripmates get this menu too, for saving someone they are
@@ -1424,13 +1415,11 @@ export default function TripMembers() {
                   </div>
                 </div>
 
-                <label className="flex min-h-9 items-center gap-2.5 text-[13px] text-muted-foreground">
-                  <Checkbox
-                    checked={saveToContacts}
-                    onCheckedChange={v => setSaveToContacts(v === true)}
-                  />
-                  Save to my contacts so I don't type it again
-                </label>
+                <CheckField
+                  checked={saveToContacts}
+                  onChange={setSaveToContacts}
+                  label="Save to my contacts so I don't type it again"
+                />
 
                 <Button
                   variant="outline"

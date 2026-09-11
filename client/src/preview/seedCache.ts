@@ -67,6 +67,9 @@ export function seedFixtures(qc: QueryClient): void {
   put(getQueryKey(trpc.trips.invites, TRIP, "query"), fx.invites);
   put(getQueryKey(trpc.groups.list, TRIP, "query"), fx.groups);
   put(getQueryKey(trpc.groups.attendees, TRIP, "query"), fx.attendees);
+  put(getQueryKey(trpc.groups.headcount, TRIP, "query"), fx.headcount);
+  put(getQueryKey(trpc.contacts.list, undefined, "query"), fx.contacts);
+  put(getQueryKey(trpc.contacts.groups, undefined, "query"), fx.contactGroups);
   put(getQueryKey(trpc.dates.list, TRIP, "query"), fx.dates);
   put(getQueryKey(trpc.destinations.list, TRIP, "query"), fx.destinations);
   put(getQueryKey(trpc.accommodations.list, TRIP, "query"), fx.accommodations);

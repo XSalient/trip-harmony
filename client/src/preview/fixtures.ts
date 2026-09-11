@@ -330,7 +330,7 @@ export const members = users.map((u, i) => ({
   groupId: i < 2 ? 101 : i < 4 ? 102 : null,
   budgetMax: i === 2 ? "450.00" : null,
   invitedBy: i === 0 ? null : 1,
-  joinedVia: i === 0 ? "created" : i % 2 ? "invite_email" : "invite_link",
+  joinedVia: i === 0 ? "creator" : i % 2 ? "email" : "link",
   invitedByName: i === 0 ? null : "Ava Bennett",
   respondedAt: iso("2026-02-14"),
   joinedAt: iso("2026-02-14"),
@@ -406,7 +406,19 @@ export const invites = [
   },
 ];
 
-const headcount = { adults: 6, children: 1, pets: 1, people: 7, groups: 2 };
+/** `groups.headcount` — the same totals, plus a breakdown per group. */
+export const headcount = {
+  adults: 6,
+  children: 1,
+  pets: 1,
+  people: 7,
+  groups: 2,
+  byGroup: {
+    "101": { adults: 2, children: 1, pets: 0, people: 3 },
+    "102": { adults: 2, children: 0, pets: 1, people: 2 },
+    none: { adults: 2, children: 0, pets: 0, people: 2 },
+  } as Record<string, { adults: number; children: number; pets: number; people: number }>,
+};
 
 export const budgetSummary = {
   headcount,
@@ -475,5 +487,23 @@ export const tripsList = [
     endDate: iso("2027-01-30"),
     memberCount: 5,
     role: "tripmate",
+  },
+];
+
+export const contacts = [
+  { id: 1001, ownerUserId: ME, name: "Jonah Prentice", email: "jonah@example.com", contactUserId: null, createdAt: iso("2026-05-02") },
+  { id: 1002, ownerUserId: ME, name: "Kit Osei", email: "kit@example.com", contactUserId: null, createdAt: iso("2026-05-02") },
+];
+
+export const contactGroups = [
+  {
+    id: 1101,
+    ownerUserId: ME,
+    name: "The Prentices",
+    createdAt: iso("2026-05-02"),
+    members: [
+      { id: 1, groupId: 1101, contactId: 1001, name: "Jonah Prentice", email: "jonah@example.com", kind: "adult", age: null, createdAt: iso("2026-05-02") },
+      { id: 2, groupId: 1101, contactId: null, name: "Ada Prentice", email: null, kind: "child", age: 5, createdAt: iso("2026-05-02") },
+    ],
   },
 ];
