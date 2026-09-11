@@ -31,7 +31,8 @@
     "db:migrate:doppler": "doppler run --config prd -- drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "logs:tail": "tail -f logs/*.jsonl"
+    "logs:tail": "tail -f logs/*.jsonl",
+    "check:ui": "node scripts/check-ui.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",
