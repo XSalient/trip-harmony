@@ -166,7 +166,16 @@ export async function sendMagicLinkEmail(
       <p style="color:#9ca3af;font-size:12px">If you didn't request this, you can safely ignore this email.</p>
     </div>`;
 
-  return deliver({ to, subject, text, html }, "magic link", { magicUrl });
+  // The URL is a live 15-minute credential, so it goes in the failure log only
+  // where the log is the developer's own terminal. That is the whole reason the
+  // context exists — recovering the link when no provider is configured locally
+  // — and `deliver` logs its context at ERROR on total failure, which on a
+  // deployment means writing a working sign-in link into the platform's log
+  // stream and any drain attached to it. `onDeployedPlatform` rather than
+  // `isProduction` for the reason given in `_core/env.ts`: APP_ENV is a string
+  // somebody sets, and on this project it said "development" in production.
+  const context = config.onDeployedPlatform ? {} : { magicUrl };
+  return deliver({ to, subject, text, html }, "magic link", context);
 }
 
 export async function sendTripInviteEmail(

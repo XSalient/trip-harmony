@@ -32,6 +32,18 @@ is built, run or deployed.
   behaviour can be unlocked by an environment variable again;
   `server/deployedPlatformLeaks.test.ts` pins both.
 
+- **The magic link was also being written to the production log.** When no
+  provider accepts the send, `deliver` logs its context at ERROR — and for a
+  magic link that context was the URL, a live 15-minute credential, landing in
+  the platform's log stream and any drain attached to it. `magicUrl` is not one
+  of the logger's redacted keys, and adding it there would blank it locally too,
+  where recovering the link from the log is the entire point. It is now passed
+  as log context only when not running on a deployed platform.
+
+  This is not hypothetical: magic-link delivery is currently failing in
+  production (`resend … reason: "fetch failed"` — the function cannot reach
+  `api.resend.com`), so every attempt took that path.
+
   **The misconfiguration itself is still live and is not fixable from this
   repository.** `APP_ENV=development` has to be removed from the Vercel
   project's environment variables — until it is, production still runs with

@@ -78,6 +78,27 @@ describe("the magic link never comes back in the response", () => {
   });
 });
 
+describe("the magic link never reaches the log on a deployment", () => {
+  /**
+   * `deliver` logs its `context` at ERROR when no provider accepted the send,
+   * which is exactly when a magic-link send fails — so the link would be
+   * written to the platform's log stream, and to any drain attached to it,
+   * as a live 15-minute credential. `magicUrl` is not in the logger's
+   * `REDACT_KEYS`, and adding it there would also blank it locally, where
+   * recovering the link from the log is the point.
+   */
+  it("passes the URL as log context only when not deployed", () => {
+    const src = read("./utils/mailer.ts");
+    expect(src).toContain(
+      "const context = config.onDeployedPlatform ? {} : { magicUrl };"
+    );
+    expect(
+      src,
+      "the URL must not be handed to deliver() unconditionally"
+    ).not.toContain('"magic link", { magicUrl }');
+  });
+});
+
 describe("internal error text never reaches the browser", () => {
   it("produces the safe message on a deployed platform too", () => {
     const src = read("./_core/trpcErrors.ts");
