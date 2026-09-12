@@ -38,6 +38,7 @@ const TripSettings = lazy(() => import("./pages/TripSettings"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const MagicLinkVerify = lazy(() => import("./pages/MagicLinkVerify"));
 const Admin = lazy(() => import("@/pages/Admin"));
+const Health = lazy(() => import("@/pages/Health"));
 const Profile = lazy(() => import("./pages/Profile"));
 // Reachable without an account, and that is the requirement: a store reviewer
 // opens the privacy URL signed out. See `components/LegalPage.tsx`.
@@ -74,6 +75,7 @@ function Router() {
       <Route path="/notifications" component={Notifications} />
       <Route path="/profile" component={Profile} />
       <Route path="/admin" component={Admin} />
+      <Route path="/admin/health" component={Health} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       {/* Design-system gallery: every other screen is auth-gated, so this is

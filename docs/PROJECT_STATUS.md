@@ -70,21 +70,22 @@ finish a piece of work — the next person (or agent) starts here.
 
   What the code can do about it is done: failures now raise to the user, are
   retried three times, and name the underlying errno rather than `fetch failed`
-  (see [CHANGELOG](CHANGELOG.md), 2026-09-12). **What remains is an operator
-  check, and it needs the next occurrence's log line** — the errno will say
-  which it is:
+  (see [CHANGELOG](CHANGELOG.md), 2026-09-12). **`/admin/health` now answers
+  this without reading logs at all** — it calls Resend live and reports whether
+  it is reachable, whether the key is good, and whether `wevotrip.com` is
+  verified. Open that first. The errno it shows, or the next log line, says
+  which of these it is:
   - `ENOTFOUND` / `EAI_AGAIN` → DNS from the function. Nothing in the app.
   - `ECONNREFUSED` / `ECONNRESET` / `UND_ERR_CONNECT_TIMEOUT` → egress to
     Cloudflare-fronted `api.resend.com` from the Vercel runtime; check
     [resend-status.com](https://resend-status.com) against the timestamp.
   - A certificate error → the runtime's trust store.
 
-  Also worth confirming in the Resend dashboard while waiting: that
-  `wevotrip.com` is a **verified** domain and not merely typed into `MAIL_FROM`.
-  `canEmailAnyRecipient()` only checks that `MAIL_FROM` is not the sandbox
-  sender — it cannot tell a verified domain from an unverified one, so
-  `email: "configured"` is not evidence of verification. That is the wall the
-  next attempt hits if the transport problem clears on its own.
+  The other wall, if the transport problem clears on its own, is domain
+  verification: `canEmailAnyRecipient()` only checks that `MAIL_FROM` is not the
+  sandbox sender, so `email: "configured"` on `/api/health` is not evidence that
+  `wevotrip.com` is verified. `/admin/health` is the check that can tell the
+  difference.
 
   Until it is delivering, the invite link on the members page still works when
   shared by hand — the invite row and its token are written before the send.

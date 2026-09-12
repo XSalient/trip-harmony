@@ -26,8 +26,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { Flag, RotateCcw } from "lucide-react";
+import { Activity, ChevronRight, Flag, RotateCcw } from "lucide-react";
 
 function DemoResetCard() {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -194,6 +195,33 @@ function ReportQueueCard() {
   );
 }
 
+/**
+ * The way in to the diagnostics screen.
+ *
+ * A link rather than the checks themselves: running them costs an outbound
+ * request per dependency, and the admin screen is opened to deal with reports,
+ * not to bill a rate limit every time.
+ */
+function HealthCard() {
+  return (
+    <Link href="/admin/health">
+      <Card className="border-border/70 transition-colors hover:bg-accent/40">
+        <CardContent className="p-4 flex items-center gap-3">
+          <Activity className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-sm">Health</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Asks the database, the mail provider and the AI vendor whether
+              they are actually working — not whether their variables are set.
+            </p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
 export default function Admin() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
 
@@ -216,6 +244,7 @@ export default function Admin() {
     <AppShell title="Admin" showBack backHref="/profile">
       <div className="px-4 py-4 space-y-6">
         <ReportQueueCard />
+        <HealthCard />
         <DemoResetCard />
       </div>
     </AppShell>

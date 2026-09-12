@@ -8,6 +8,48 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-12 — A health page that asks, instead of assuming
+
+### Added
+
+- **`/admin/health` — the live state of every dependency**, admin-only. Each
+  row is measured by talking to the thing it describes:
+
+  | Check           | What it actually does                                                                  |
+  | --------------- | -------------------------------------------------------------------------------------- |
+  | Database        | `select 1`, with the round-trip time                                                   |
+  | Migrations      | Reads `drizzle.__drizzle_migrations` for the applied count and newest timestamp        |
+  | Email delivery  | Calls Resend's domains API — reachable? key valid? is the `MAIL_FROM` domain verified? |
+  | AI              | Looks the configured `AI_MODEL` up against the key, which is how a retired model shows |
+  | Environment     | Flags a deployment whose `APP_ENV` does not say `production`                           |
+  | Sessions        | Whether `JWT_SECRET` meets the 32-character floor the deployed schema enforces         |
+  | Scraper/billing | Off on purpose, never set up, or working                                               |
+  | Store readiness | Support address, legal block, native identifiers                                       |
+
+  This exists because the cheap answer kept being the wrong one.
+  `/api/health` reports whether a variable is set, and that has twice read
+  "configured" while the thing behind it was dead — `ai: configured` while
+  every request 404'd on a retired model, and `email: configured` while Resend
+  was unreachable and a trip's invitations went nowhere. `/api/health` is
+  unchanged and still answers the cheap question for uptime probes.
+
+  The page keeps `unknown` as a first-class state rather than rounding it to
+  either side: a send-only Resend key cannot list domains, and reporting that
+  as healthy — or as broken — would both be lies.
+
+  **Gated twice over.** `system.diagnostics` is an `adminProcedure`, and the
+  page renders as a 404 for anyone else. The report names which secrets are
+  set, which model is in use and where the session secret is weak; and running
+  it costs an outbound request per dependency, so an unauthenticated version
+  would let anyone spend this deployment's rate limits. A test asserts that a
+  non-admin caller is refused _before_ any check runs, not merely that the
+  response is a 403.
+
+  Checks run on demand — opening the page, or the refresh control — never on a
+  poll.
+
+---
+
 ## 2026-09-12 — Invite emails fail loudly, retry, and stop lying
 
 ### Fixed

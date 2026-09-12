@@ -52,7 +52,8 @@ is compiled and with no tsx on the path.
 | `_core/cookies.ts`       |    51 | Cookie options (secure/sameSite per environment).                                          |
 | `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                               |
 | `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                                    |
-| `_core/systemRouter.ts`  |    29 | Built-in system procedures.                                                                |
+| `_core/systemRouter.ts`  |     — | Built-in system procedures, including the admin-only `diagnostics` query.                  |
+| `_core/healthChecks.ts`  |     — | Live probes of every dependency — what works, not what is configured. Admin-only.          |
 | `db.ts`                  |  1883 | Every database query. Large but flat — jump to the function you need.                      |
 | `routers/`               |     — | The API surface, one file per domain (below).                                              |
 | `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                             |
@@ -106,8 +107,9 @@ open only its domain file.
 | `src/pages/ComponentShowcase.tsx` | **Demo gallery (1,437 lines), not app code. Skip it.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 Pages worth knowing: `TripDashboard.tsx` (691 lines — the hub),
-`TripAccommodations.tsx` (810 lines — the most complex screen) and
-`Profile.tsx` (the account screen: password, passkeys, sign out).
+`TripAccommodations.tsx` (810 lines — the most complex screen),
+`Profile.tsx` (the account screen: password, passkeys, sign out) and
+`Health.tsx` (`/admin/health` — the live diagnostics screen, admin-only).
 
 `DashboardLayout.tsx` is scaffold from the project template — no route renders
 it. Don't add features there expecting anyone to see them.

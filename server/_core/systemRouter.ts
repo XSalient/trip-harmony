@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { config } from "./env.js";
+import { runHealthChecks } from "./healthChecks.js";
 import { notifyOwner } from "./notification.js";
 import { adminProcedure, publicProcedure, router } from "./trpc.js";
 
@@ -36,6 +37,21 @@ export const systemRouter = router({
     jurisdiction: config.legal.jurisdiction || null,
     address: config.legal.address || null,
   })),
+
+  /**
+   * The live state of every dependency, for the admin diagnostics screen.
+   *
+   * `adminProcedure`, not `publicProcedure`, for two independent reasons and
+   * either would be enough. It reports which secrets are set, which model is
+   * in use, how far behind the migrations are and why mail is failing — a map
+   * of where to push. And it makes an outbound request per check, so an
+   * unauthenticated version would let anyone spend this deployment's Resend
+   * and Google rate limit by holding down F5.
+   *
+   * The public `/api/health` stays where it is and keeps answering the cheap
+   * question for uptime probes. This one is the honest, expensive answer.
+   */
+  diagnostics: adminProcedure.query(() => runHealthChecks()),
 
   notifyOwner: adminProcedure
     .input(

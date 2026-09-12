@@ -60,7 +60,7 @@ class TransientSendError extends Error {
  * indistinguishable — which is exactly the hole a production outage falls
  * into. Walk the chain so the log names the thing that actually broke.
  */
-function describeError(err: unknown): string {
+export function describeError(err: unknown): string {
   const parts: string[] = [];
   let current: unknown = err;
   for (let depth = 0; current instanceof Error && depth < 4; depth++) {
@@ -294,6 +294,236 @@ export async function sendTripInviteEmail(
     : { tripName, inviteUrl };
 
   return deliver({ to, subject, text, html }, "trip invite", context);
+}
+
+/**
+ * The domain an address belongs to, from either `a@b.com` or `Name <a@b.com>`.
+ * Null when `from` is not an address at all, which is itself worth reporting.
+ */
+function senderDomain(from: string): string | null {
+  const angled = from.match(/<([^>]+)>/);
+  const address = (angled ? angled[1] : from).trim();
+  const at = address.lastIndexOf("@");
+  if (at <= 0 || at === address.length - 1) return null;
+  return address.slice(at + 1).toLowerCase();
+}
+
+/**
+ * What a *live* look at the mail provider says, as opposed to what the
+ * environment variables claim.
+ *
+ * `canEmailAnyRecipient()` only knows that `MAIL_FROM` is not Resend's sandbox
+ * address. It cannot tell a verified domain from one somebody typed in, and it
+ * cannot tell whether the provider is reachable at all — which is how a run of
+ * invites came to be reported as sent while `api.resend.com` was unreachable.
+ * This asks.
+ *
+ * Never throws, and never sends anything: the point is to answer the question
+ * without putting mail in anyone's inbox.
+ */
+export type EmailProbe = {
+  /** The provider a send would actually use right now. */
+  provider: "resend" | "smtp" | "none";
+  /** `unknown` when the provider answered but would not say — see `detail`. */
+  verdict: "ok" | "unknown" | "broken";
+  summary: string;
+  detail?: string;
+  sender: string;
+  facts: Record<string, string | number | null>;
+};
+
+async function probeResend(apiKey: string): Promise<EmailProbe> {
+  const sender = config.mail.from;
+  const domain = senderDomain(sender);
+  const facts: Record<string, string | number | null> = {
+    sender,
+    senderDomain: domain,
+  };
+
+  let res: Response;
+  const startedAt = Date.now();
+  try {
+    res = await fetch("https://api.resend.com/domains", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+  } catch (err) {
+    // The exact shape of the invite outage: no response at all. Naming the
+    // errno is the whole point — "fetch failed" on its own sends people to
+    // rotate a key that was never the problem.
+    return {
+      provider: "resend",
+      verdict: "broken",
+      summary: "Resend is unreachable from this server",
+      detail: `${describeError(err)}. Nothing will be delivered until this clears. This is not an API key or a sender-domain problem — neither of those can stop the request reaching Resend.`,
+      sender,
+      facts,
+    };
+  }
+  facts.latencyMs = Date.now() - startedAt;
+
+  if (res.status === 401) {
+    return {
+      provider: "resend",
+      verdict: "broken",
+      summary: "Resend rejected the API key",
+      detail:
+        "RESEND_API_KEY is wrong, revoked, or belongs to a different account. Every send will fail with 401.",
+      sender,
+      facts,
+    };
+  }
+
+  // A send-only key cannot list domains. That is a perfectly good key for
+  // sending, so it must not be reported as a broken one — but it does mean
+  // this check cannot see whether the sender domain is verified.
+  if (res.status === 403 || res.status === 422) {
+    return {
+      provider: "resend",
+      verdict: "unknown",
+      summary: "Resend is reachable, but this key cannot list domains",
+      detail:
+        "A sending-only API key has no domains:read permission, so whether the sender domain is verified could not be checked here. Confirm it in the Resend dashboard, or use a full-access key.",
+      sender,
+      facts,
+    };
+  }
+
+  if (!res.ok) {
+    return {
+      provider: "resend",
+      verdict: "broken",
+      summary: `Resend responded ${res.status}`,
+      detail: (await res.text().catch(() => "")).slice(0, 300) || undefined,
+      sender,
+      facts,
+    };
+  }
+
+  type ResendDomain = { name?: string; status?: string; region?: string };
+  let domains: ResendDomain[] = [];
+  try {
+    const body = (await res.json()) as { data?: ResendDomain[] };
+    domains = Array.isArray(body.data) ? body.data : [];
+  } catch {
+    return {
+      provider: "resend",
+      verdict: "unknown",
+      summary: "Resend is reachable, but its domain list could not be read",
+      sender,
+      facts,
+    };
+  }
+  facts.domainsInAccount = domains.length;
+
+  if (!domain) {
+    return {
+      provider: "resend",
+      verdict: "broken",
+      summary: "MAIL_FROM is not an email address",
+      detail: `Resend has nothing to send as. Set MAIL_FROM to an address on a verified domain, either "you@example.com" or "Name <you@example.com>".`,
+      sender,
+      facts,
+    };
+  }
+
+  const match = domains.find(d => d.name?.toLowerCase() === domain);
+  if (!match) {
+    return {
+      provider: "resend",
+      verdict: "broken",
+      summary: `${domain} is not a domain in this Resend account`,
+      detail: `Resend will refuse every send to anyone but the account owner. The account has ${domains.length === 0 ? "no domains" : `: ${domains.map(d => d.name).join(", ")}`}. Add and verify ${domain}, or point MAIL_FROM at one that is already there.`,
+      sender,
+      facts,
+    };
+  }
+
+  facts.domainStatus = match.status ?? null;
+  facts.domainRegion = match.region ?? null;
+
+  if (match.status !== "verified") {
+    return {
+      provider: "resend",
+      verdict: "broken",
+      summary: `${domain} is "${match.status ?? "unknown"}", not verified`,
+      detail:
+        "Resend only delivers to third parties from a verified domain; until the DNS records are in place, invites reach the account owner and nobody else. Finish verification in the Resend dashboard.",
+      sender,
+      facts,
+    };
+  }
+
+  return {
+    provider: "resend",
+    verdict: "ok",
+    summary: `Resend reachable, ${domain} verified`,
+    sender,
+    facts,
+  };
+}
+
+async function probeSmtp(): Promise<EmailProbe> {
+  const sender = config.mail.from;
+  const facts: Record<string, string | number | null> = {
+    sender,
+    host: config.mail.smtp.host,
+    port: config.mail.smtp.port,
+  };
+  const transport = getSmtpTransport();
+  if (!transport) {
+    return {
+      provider: "smtp",
+      verdict: "broken",
+      summary: "SMTP is only half configured",
+      detail: "All of SMTP_HOST, SMTP_USER and SMTP_PASS are needed.",
+      sender,
+      facts,
+    };
+  }
+  const startedAt = Date.now();
+  try {
+    // Connects and authenticates. Sends nothing.
+    await transport.verify();
+    facts.latencyMs = Date.now() - startedAt;
+    return {
+      provider: "smtp",
+      verdict: "ok",
+      summary: `SMTP reachable and authenticated at ${config.mail.smtp.host}`,
+      sender,
+      facts,
+    };
+  } catch (err) {
+    facts.latencyMs = Date.now() - startedAt;
+    return {
+      provider: "smtp",
+      verdict: "broken",
+      summary: "SMTP would not accept this server",
+      detail: describeError(err),
+      sender,
+      facts,
+    };
+  }
+}
+
+export async function probeEmail(): Promise<EmailProbe> {
+  const providers = getProviders();
+  if (providers.length === 0) {
+    return {
+      provider: "none",
+      verdict: "broken",
+      summary: "No email provider is configured",
+      detail:
+        "Nothing can be delivered: sign-in links and invites are written to the log instead. Set RESEND_API_KEY, or SMTP_HOST/SMTP_USER/SMTP_PASS.",
+      sender: config.mail.from,
+      facts: {},
+    };
+  }
+
+  // The first provider is the one a send would use; probing a fallback that
+  // would never be reached first would report a health the app does not have.
+  return providers[0].name === "resend"
+    ? probeResend(config.mail.resendApiKey)
+    : probeSmtp();
 }
 
 // Re-exported so routers can ask about email capability without reaching into
