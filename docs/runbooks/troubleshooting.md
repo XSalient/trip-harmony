@@ -99,8 +99,43 @@ pnpm logs:tail | grep magic
 | `owner-only` | Resend is configured but `MAIL_FROM` is still its sandbox sender, so it only delivers to the Resend account owner. Set a verified domain. |
 | `configured` | Mail can reach any recipient.                                                                                                             |
 
-In production a failed send surfaces as an error to the user rather than a false
-"check your inbox" — look for `mailer` in the logs for the provider's reason.
+On any deployed platform a failed send surfaces as an error to the user rather
+than a false "check your inbox" — look for `mailer` in the logs for the
+provider's reason. (`onDeployedPlatform`, not `APP_ENV`: see
+[PROJECT_STATUS](../PROJECT_STATUS.md) for why that distinction is load-bearing
+here.)
+
+### An invite says it was sent but nothing arrives
+
+`/api/health` reporting `email: "configured"` is **not** evidence that mail is
+being delivered. It checks only that a provider key exists and that `MAIL_FROM`
+is not Resend's sandbox sender — it cannot reach Resend to ask whether the
+domain in `MAIL_FROM` is verified. Read the logs, not the health check:
+
+```bash
+pnpm logs:tail | grep mailer     # locally
+```
+
+On Vercel, filter runtime logs for `mailer`. The failure line names what broke:
+
+| Log line                           | Meaning                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `Resend responded 401`             | The API key is wrong or revoked.                                                                                 |
+| `Resend responded 403`             | Reached Resend, refused the send — almost always an unverified sender domain. Verify it in the Resend dashboard. |
+| `Resend responded 429` / `5xx`     | Rate limit or Resend's own outage. Retried automatically; if it still fails, check resend-status.com.            |
+| `Resend was unreachable (<errno>)` | The request never got a response. Not an auth or domain problem — see the errno below.                           |
+
+`ENOTFOUND`/`EAI_AGAIN` is DNS from the runtime; `ECONNREFUSED`/`ECONNRESET`/
+`UND_ERR_CONNECT_TIMEOUT` is egress or the provider's edge; a certificate error
+is the runtime's trust store. None of these are fixed by changing a key.
+
+The errno matters enough that the mailer walks `err.cause` to find it — Node's
+`fetch` reports every one of them as the same `"fetch failed"`, which is
+undiagnosable on its own.
+
+Meanwhile the invite is not lost: the invite row and its token are written
+before the send, so the members page can still show who was invited, and the
+link on that page works when shared by hand.
 
 ---
 

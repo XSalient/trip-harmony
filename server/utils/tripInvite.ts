@@ -85,9 +85,17 @@ export async function sendInvite({
     inviteUrl
   );
 
-  // Outside production the link is in the log, so a failed send is
-  // recoverable; in production, say so rather than implying it arrived.
-  if (!delivery.delivered && config.isProduction && throwOnFailure) {
+  // On a developer's own machine the link is in the log, so a failed send is
+  // recoverable and silence is fine. On a deployment nobody can read that log
+  // in time, so say so rather than implying the invite arrived.
+  //
+  // `onDeployedPlatform`, not `isProduction`: `isProduction` is `APP_ENV ===
+  // "production"` and APP_ENV has said "development" in production on this
+  // project (see `_core/env.ts`). That is not a hypothetical: it is how a batch
+  // of real invites came to be reported as sent while Resend was unreachable
+  // and nothing was delivered. A hosting platform is running this whatever an
+  // environment variable claims.
+  if (!delivery.delivered && config.onDeployedPlatform && throwOnFailure) {
     throw new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
       message:

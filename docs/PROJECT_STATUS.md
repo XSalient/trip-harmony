@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-09-11
+- **Last updated:** 2026-09-12
 - **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
   that). The domain is `wevotrip.com`, with the marketing demo at
   `demo.wevotrip.com`. Three identifiers still read the older names because they
@@ -47,12 +47,47 @@ finish a piece of work — the next person (or agent) starts here.
   `auth.requestMagicLink` was handing its sign-in link back in the response to
   any caller, for any address, and internal error text was reaching browsers —
   and both now key on `config.onDeployedPlatform`, which no environment variable
-  can switch off. **The variable itself still needs removing from the Vercel
-  project**; until then production keeps debug logging, human-formatted log
-  output, and invite-email failures that do not raise. Confirm `JWT_SECRET` is
+  can switch off. A third consequence — invite-email failures that did not raise,
+  so the UI said "Invite sent" for an email nobody sent — was found the same way
+  on 2026-09-12 and moved onto `onDeployedPlatform` too. **The variable itself
+  still needs removing from the Vercel project**; until then production keeps
+  debug logging and human-formatted log output. Confirm `JWT_SECRET` is
   ≥32 characters first — removing it starts enforcing the deployed schema, and
   that schema throws at boot. See
   [runbooks/environments.md](runbooks/environments.md).
+
+- **⚠️ Invite emails are not reaching anyone in production, and the cause is
+  outside this repository** (2026-09-12). Two invites sent from
+  www.wevotrip.com logged
+  `trip invite failed to send {"provider":"resend","reason":"fetch failed"}`
+  and then `was not delivered by any provider`, 9 seconds apart, both from the
+  same deployment. `fetch failed` is a transport-level failure: the request to
+  `api.resend.com` never got a response, so this is neither a bad key (that is
+  a `401`) nor an unverified domain (a `403`). `/api/health` reports
+  `email: "configured"`, and the sender in the log is
+  `WeVoTrip <hello@wevotrip.com>`, so `RESEND_API_KEY` and `MAIL_FROM` are both
+  set on the Vercel project.
+
+  What the code can do about it is done: failures now raise to the user, are
+  retried three times, and name the underlying errno rather than `fetch failed`
+  (see [CHANGELOG](CHANGELOG.md), 2026-09-12). **What remains is an operator
+  check, and it needs the next occurrence's log line** — the errno will say
+  which it is:
+  - `ENOTFOUND` / `EAI_AGAIN` → DNS from the function. Nothing in the app.
+  - `ECONNREFUSED` / `ECONNRESET` / `UND_ERR_CONNECT_TIMEOUT` → egress to
+    Cloudflare-fronted `api.resend.com` from the Vercel runtime; check
+    [resend-status.com](https://resend-status.com) against the timestamp.
+  - A certificate error → the runtime's trust store.
+
+  Also worth confirming in the Resend dashboard while waiting: that
+  `wevotrip.com` is a **verified** domain and not merely typed into `MAIL_FROM`.
+  `canEmailAnyRecipient()` only checks that `MAIL_FROM` is not the sandbox
+  sender — it cannot tell a verified domain from an unverified one, so
+  `email: "configured"` is not evidence of verification. That is the wall the
+  next attempt hits if the transport problem clears on its own.
+
+  Until it is delivering, the invite link on the members page still works when
+  shared by hand — the invite row and its token are written before the send.
 
 - **A relative import without a `.js` extension takes the whole API down**
   (2026-09-11). Vercel does not bundle `api/server.ts`; it runs the import graph

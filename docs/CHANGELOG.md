@@ -8,6 +8,50 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-12 — Invite emails fail loudly, retry, and stop lying
+
+### Fixed
+
+- **An invite whose email never left the building no longer reports success.**
+  Trip invites to a real trip were logged in production as
+  `trip invite was not delivered by any provider` — Resend was unreachable at
+  the transport layer — while the API returned `200`, the mutation returned
+  `{ success: true }` and the UI said "Invite sent to …". Nobody found out
+  until a guest asked why they had heard nothing.
+
+  The gate was `config.isProduction`, which is `APP_ENV === "production"`, and
+  APP_ENV reads `development` on the production deployment — `/api/health` says
+  so. So the one branch that tells the user a send failed was the one branch
+  production could never reach. It now gates on `config.onDeployedPlatform`,
+  which an environment variable cannot switch off, and
+  `trips.sendInviteEmail` returns `delivered` rather than an unconditional
+  `success: true`. This is the second bug APP_ENV has caused by saying
+  `development` in production; the first is the reason `onDeployedPlatform`
+  exists.
+
+- **A single failed connection no longer loses an invitation.** The mailer
+  attempted each provider exactly once. A transport failure or a 429/5xx is now
+  retried up to three times (250ms, 1s) before the next provider; a refusal —
+  bad key, unverified domain — still fails on the first attempt, because
+  retrying a refusal only fails three times instead of once.
+
+- **Mail failures name the errno.** Node's `fetch` collapses every transport
+  failure into `"fetch failed"` and hides the real cause on `err.cause`, so the
+  production logs could not distinguish a DNS failure from a refused connection
+  or an expired certificate. The mailer now walks the `cause` chain, so a log
+  line reads `fetch failed (ENOTFOUND) <- getaddrinfo ENOTFOUND api.resend.com`
+  instead.
+
+### Security
+
+- **A live invite link no longer goes into a deployment's log stream.** The
+  invite token grants membership of the trip at the role it was issued for, and
+  a failed send wrote the whole URL to the platform's logs and any drain
+  attached. It now follows the rule the magic link already follows: logged only
+  where the log is a developer's own terminal.
+
+---
+
 ## 2026-09-11 — The tab bar spans the page
 
 ### Changed

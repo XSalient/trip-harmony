@@ -87,7 +87,7 @@ export const tripsRouter = router({
       if (!trip)
         throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
 
-      await sendInvite({
+      const { delivered } = await sendInvite({
         trip,
         email: input.email,
         role: input.role,
@@ -104,7 +104,10 @@ export const tripsRouter = router({
         actorUserId: ctx.user.id,
         metadata: { role: input.role },
       });
-      return { success: true };
+      // `delivered`, not a bare `success: true`. Off a deployed platform a
+      // failed send does not throw — the link is in the log — and the client
+      // must not announce an invite that is sitting in a terminal.
+      return { success: true, delivered };
     }),
   invites: protectedProcedure
     .input(z.object({ tripId: z.number() }))

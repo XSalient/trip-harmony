@@ -41,24 +41,102 @@ function getSmtpTransport() {
   });
 }
 
+/**
+ * A send worth trying again: the request never reached the provider, or the
+ * provider asked us to back off. A refusal (bad key, unverified domain) is not
+ * one of these — retrying that just fails three times instead of once.
+ */
+class TransientSendError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "TransientSendError";
+  }
+}
+
+/**
+ * Node's `fetch` collapses every transport failure into the same useless
+ * `"fetch failed"` and puts the real errno on `cause`. Logging the message
+ * alone makes a DNS failure, a refused connection and an expired certificate
+ * indistinguishable — which is exactly the hole a production outage falls
+ * into. Walk the chain so the log names the thing that actually broke.
+ */
+function describeError(err: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = err;
+  for (let depth = 0; current instanceof Error && depth < 4; depth++) {
+    const code = (current as NodeJS.ErrnoException).code;
+    parts.push(code ? `${current.message} (${code})` : current.message);
+    current = current.cause;
+  }
+  return parts.length > 0 ? parts.join(" <- ") : String(err);
+}
+
+/** Connection-level errnos, for the SMTP path — nodemailer sets `code`. */
+const TRANSIENT_CODES = new Set([
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "EPIPE",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "ESOCKET",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
+
+function isTransient(err: unknown): boolean {
+  if (err instanceof TransientSendError) return true;
+  let current: unknown = err;
+  for (let depth = 0; current instanceof Error && depth < 4; depth++) {
+    const code = (current as NodeJS.ErrnoException).code;
+    if (code && TRANSIENT_CODES.has(code)) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * One connection failure used to lose an invitation permanently — the send was
+ * attempted once, the caller was told it succeeded, and nobody found out until
+ * a guest asked why they had heard nothing. Short and bounded: the invite is
+ * sent inside a request somebody is waiting on.
+ */
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = [250, 1000];
+
 async function sendViaResend(apiKey: string, msg: Message) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: config.mail.from,
-      to: [msg.to],
-      subject: msg.subject,
-      text: msg.text,
-      html: msg.html,
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: config.mail.from,
+        to: [msg.to],
+        subject: msg.subject,
+        text: msg.text,
+        html: msg.html,
+      }),
+    });
+  } catch (err) {
+    // The API was never reached. Nothing was sent, so a retry cannot duplicate.
+    throw new TransientSendError("Resend was unreachable", { cause: err });
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`Resend responded ${res.status}: ${body.slice(0, 500)}`);
+    const message = `Resend responded ${res.status}: ${body.slice(0, 500)}`;
+    // 429 is a rate limit and 5xx is their side failing; both pass on a retry.
+    // Everything else is a refusal that will be refused again.
+    if (res.status === 429 || res.status >= 500)
+      throw new TransientSendError(message);
+    throw new Error(message);
   }
 }
 
@@ -127,17 +205,28 @@ async function deliver(
 
   let lastError = "";
   for (const provider of providers) {
-    try {
-      await provider.send(msg);
-      log.info(`${kind} sent`, { to: msg.to, provider: provider.name });
-      return { delivered: true };
-    } catch (err) {
-      lastError = err instanceof Error ? err.message : String(err);
-      log.error(`${kind} failed to send`, {
-        to: msg.to,
-        provider: provider.name,
-        reason: lastError,
-      });
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        await provider.send(msg);
+        log.info(`${kind} sent`, {
+          to: msg.to,
+          provider: provider.name,
+          ...(attempt > 1 ? { attempt } : {}),
+        });
+        return { delivered: true };
+      } catch (err) {
+        lastError = describeError(err);
+        const willRetry = isTransient(err) && attempt < MAX_ATTEMPTS;
+        log.error(`${kind} failed to send`, {
+          to: msg.to,
+          provider: provider.name,
+          attempt,
+          reason: lastError,
+          willRetry,
+        });
+        if (!willRetry) break;
+        await sleep(RETRY_DELAY_MS[attempt - 1]);
+      }
     }
   }
 
@@ -194,10 +283,17 @@ export async function sendTripInviteEmail(
       <p style="color:#6b7280;font-size:13px">Or paste this link in your browser:<br/><code>${inviteUrl}</code></p>
     </div>`;
 
-  return deliver({ to, subject, text, html }, "trip invite", {
-    tripName,
-    inviteUrl,
-  });
+  // The invite token grants membership of the trip at the role it was issued
+  // for, so it is a credential and it follows the same rule as the magic link:
+  // logged where the log is a developer's own terminal and a failed send has to
+  // stay recoverable, never into a deployment's log stream. Same
+  // `onDeployedPlatform` reasoning too — APP_ENV said "development" in
+  // production on this project, so `isProduction` would not have held.
+  const context = config.onDeployedPlatform
+    ? { tripName }
+    : { tripName, inviteUrl };
+
+  return deliver({ to, subject, text, html }, "trip invite", context);
 }
 
 // Re-exported so routers can ask about email capability without reaching into

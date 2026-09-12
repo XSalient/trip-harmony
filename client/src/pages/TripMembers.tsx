@@ -491,8 +491,19 @@ export default function TripMembers() {
       // from the picker, so a stale selection cannot post a role the server
       // will refuse.
       const role: TripRole = isAdmin ? inviteRole : "watcher";
-      await sendInvite.mutateAsync({ tripId, email, role });
-      toast.success(`Invite sent to ${email}`);
+      const { delivered } = await sendInvite.mutateAsync({
+        tripId,
+        email,
+        role,
+      });
+      // The server throws on a deployment when the email did not go, so this
+      // only splits locally — but "invite sent" for an email nobody sent is the
+      // exact lie this whole path was fixed to stop telling.
+      if (delivered) toast.success(`Invite sent to ${email}`);
+      else
+        toast.success(
+          `${email} was invited — no email went out, so share the invite link with them`
+        );
       if (saveToContacts && name !== undefined) {
         // A contact saved here is a convenience only — it grants nothing.
         await addContact.mutateAsync({ name: name || email, email });
