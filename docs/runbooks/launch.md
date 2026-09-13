@@ -168,9 +168,15 @@ and the Android SDK.
 ```bash
 pnpm build
 npx cap add ios && npx cap add android   # once only
+npx @capacitor/assets generate --assetPath resources   # once, and whenever the art changes
 npx cap sync                             # after every pnpm build
 npx cap open ios                         # or: npx cap open android
 ```
+
+The `generate` step writes every icon size into `ios/` and `android/` from the
+three 1024px sources in `resources/` — see [resources/README.md](../../resources/README.md),
+which also says why there is no splash-screen art yet. Skip it and both apps
+ship with Capacitor's placeholder icon, which is a rejection on iOS.
 
 **Commit `ios/` and `android/` once they exist.** They carry the icons, the
 splash screens and the signing configuration, and regenerating them loses all

@@ -83,6 +83,15 @@ table below, and a secret that fails the schema fails the boot.
 | Log format                | human + JSONL file | —        | JSON stdout        | JSON stdout        |
 | Local `.env` files loaded | yes                | **no**   | no                 | no                 |
 | Client assets             | Vite dev server    | —        | prebuilt static    | prebuilt static    |
+| Favicon and app icon      | pale purple        | —        | magenta            | brand purple       |
+
+**The icon is the one that does not consult `APP_ENV`.** `iconEnvPlugin` in
+`vite.config.ts` picks the tint from the Vite command and `VERCEL_ENV` alone:
+dev server → `dev-`, preview build → `staging-`, anything else → production.
+Reading `APP_ENV` would have put the pale dev icon on wevotrip.com for as long
+as the misconfiguration above lasted, which is precisely the window in which you
+most want the tab to be telling the truth. The three sets live in
+`client/public/icons/`.
 
 Two of these are deliberate safety choices:
 

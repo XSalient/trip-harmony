@@ -13,12 +13,15 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *
  * ```bash
  * pnpm build && npx cap add ios && npx cap add android
+ * npx @capacitor/assets generate --assetPath resources   # icons, from resources/
  * npx cap sync            # after every pnpm build
  * npx cap open ios        # or: npx cap open android
  * ```
  *
  * Commit them once they exist: they carry the icons, the splash screens and the
- * signing configuration, and regenerating them loses all three.
+ * signing configuration, and regenerating them loses all three. The icons
+ * themselves are generated from `resources/` — the app's own icon art lives
+ * there, not in the native projects, so it survives a regeneration.
  */
 const config: CapacitorConfig = {
   /**

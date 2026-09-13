@@ -7,6 +7,61 @@
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
     <title>WeVoTrip: AI Cultural Mediator for Group Trips</title>
+
+    <!--
+      The placeholder in the icon paths below is replaced at build time by
+      `iconEnvPlugin` in vite.config.ts: empty for production, `dev-` on the
+      dev server, `staging-` on a Vercel preview. The three sets differ only in
+      tint, so a non-production tab is never mistaken for the live app.
+      `/favicon.ico` is unprefixed on purpose — it is the path browsers request
+      without being told to, and so the one path a build cannot vary.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="/icons/{{ICON_PREFIX}}favicon-16x16.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/icons/{{ICON_PREFIX}}favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="48x48"
+      href="/icons/{{ICON_PREFIX}}favicon-48x48.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="96x96"
+      href="/icons/{{ICON_PREFIX}}favicon-96x96.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/icons/{{ICON_PREFIX}}apple-touch-icon.png"
+    />
+    <link rel="manifest" href="/{{ICON_PREFIX}}manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="WeVoTrip" />
+    <meta name="application-name" content="WeVoTrip" />
+
+    <!-- Matches `--background` in client/src/index.css, both themes. -->
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#f9fafe"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#0d0d17"
+    />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

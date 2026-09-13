@@ -1,0 +1,39 @@
+{
+  "id": "/",
+  "name": "WeVoTrip Dev",
+  "short_name": "WT Dev",
+  "description": "A non-production build of WeVoTrip. The icon is tinted so an installed copy is never mistaken for the live app.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "lang": "en",
+  "theme_color": "#f9fafe",
+  "background_color": "#f9fafe",
+  "icons": [
+    {
+      "src": "/icons/dev-favicon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/dev-favicon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/dev-android-icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/dev-android-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

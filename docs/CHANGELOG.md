@@ -8,6 +8,32 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-13 — The app gets a face
+
+### Added
+
+- **A favicon, an apple-touch icon and a web app manifest.** The tab, the
+  bookmark and the home-screen shortcut showed the browser's blank page glyph;
+  they now show the mark. Add to Home Screen produces a real icon with a real
+  name. This is the "nothing to install" row in
+  [docs/product/onboarding-and-import-strategy.md](product/onboarding-and-import-strategy.md)
+  half discharged — a service worker, and with it web push, is still missing.
+
+- **Source icons for the native builds**, in `resources/`, with the one command
+  that turns them into the iOS and Android icon sets written down in
+  [runbooks/launch.md](runbooks/launch.md). `ios/` and `android/` are generated
+  on a developer's machine and are not in this repository, so art that lived
+  only inside them would be lost the first time somebody regenerated them.
+
+- **Non-production builds get a tinted icon** — pale for a dev server, magenta
+  for a Vercel preview — so a preview tab, a bookmark or an installed copy is
+  not mistaken for the live site. The tint is chosen from the Vite command and
+  `VERCEL_ENV`, never from `APP_ENV`: `APP_ENV` is set to `development` on the
+  live Vercel project, and reading it would have put the dev icon on
+  wevotrip.com.
+
+---
+
 ## 2026-09-13 — The health page stops contradicting its own evidence
 
 ### Fixed
