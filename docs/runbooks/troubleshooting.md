@@ -91,7 +91,9 @@ With no provider configured this is expected — the link is written to the log 
 pnpm logs:tail | grep magic
 ```
 
-`/api/health` reports one of three states:
+`/api/health` reports one of three states — **to an admin**; anonymously it
+answers `{"status":"ok"}` and nothing else. `/admin/health` shows the same
+three states, plus a button that sends a real test email to your own address:
 
 | `email`      | Meaning                                                                                                                                   |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -107,10 +109,15 @@ here.)
 
 ### An invite says it was sent but nothing arrives
 
+**Open `/admin/health` first.** Its Email row calls Resend live — reachable?
+key valid? is the `MAIL_FROM` domain actually verified? — and its test button
+sends a real email to your own address, which is the only thing that settles
+delivery end to end.
+
 `/api/health` reporting `email: "configured"` is **not** evidence that mail is
 being delivered. It checks only that a provider key exists and that `MAIL_FROM`
 is not Resend's sandbox sender — it cannot reach Resend to ask whether the
-domain in `MAIL_FROM` is verified. Read the logs, not the health check:
+domain in `MAIL_FROM` is verified. Failing that, read the logs:
 
 ```bash
 pnpm logs:tail | grep mailer     # locally

@@ -526,6 +526,37 @@ export async function probeEmail(): Promise<EmailProbe> {
     : probeSmtp();
 }
 
+/**
+ * The one email nobody has to interpret: it either lands in your inbox or it
+ * does not.
+ *
+ * Every other check in the diagnostics screen reasons about delivery — the
+ * provider answers, the key is good, the domain is verified. All three can be
+ * true while mail still fails somewhere past the API: a suspended account, a
+ * sending limit, a recipient's provider refusing the sender. This is the end
+ * to end one.
+ *
+ * The caller passes its own signed-in address and nothing else can be passed.
+ * An admin-only endpoint that sends to an arbitrary address is a relay with a
+ * login on it, and it would be the first thing worth abusing here.
+ */
+export async function sendHealthTestEmail(
+  to: string,
+  requestedBy: string
+): Promise<DeliveryResult> {
+  const sentAt = new Date().toISOString();
+  const subject = "WeVoTrip health check";
+  const text = `This is a test email from the WeVoTrip health page, sent at ${sentAt} because ${requestedBy} asked for it.\n\nIf you are reading it, outbound email works: provider reachable, sender accepted, delivery completed.`;
+  const html = `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+      <h2 style="color:#10b981">Email is working</h2>
+      <p>Sent from the WeVoTrip health page at <strong>${sentAt}</strong>, because ${requestedBy} asked for it.</p>
+      <p style="color:#6b7280;font-size:13px">If you are reading this, outbound email works end to end — the provider was reachable, the sender was accepted, and delivery completed. Nothing else about this message matters.</p>
+    </div>`;
+
+  return deliver({ to, subject, text, html }, "health test", {});
+}
+
 // Re-exported so routers can ask about email capability without reaching into
 // the config module directly.
 export { isEmailConfigured, canEmailAnyRecipient } from "../_core/env.js";

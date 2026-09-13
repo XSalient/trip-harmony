@@ -130,8 +130,10 @@ better fixed early than late.
 and `VITE_REVENUECAT_ANDROID_KEY`, all from the RevenueCat dashboard. Leave
 `BILLING_ENABLED` empty — empty means on.
 
-**Check they took:** open `https://<your-domain>/api/health`. It should report
-`supportEmail`, `legal`, `nativeIds` and `billing` as `configured`.
+**Check they took:** open `/admin/health` (or curl `/api/health` with an admin
+session cookie — anonymously it returns only `{"status":"ok"}`). The Store
+readiness and Billing rows should be green, which is `supportEmail`, `legal`,
+`nativeIds` and `billing` all `configured`.
 
 ## 3. Have a lawyer read two pages
 

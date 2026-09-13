@@ -39,30 +39,31 @@ is compiled and with no tsx on the path.
 
 ## `server/` — API
 
-| File                     | Lines | What it is                                                                                 |
-| ------------------------ | ----: | ------------------------------------------------------------------------------------------ |
-| `_core/app.ts`           |    78 | Builds the Express app. The only place middleware is registered.                           |
-| `_core/index.ts`         |    25 | Long-running server entrypoint (local, containers).                                        |
-| `_core/env.ts`           |   553 | **All** server configuration, Zod-validated. Start here for anything config-related.       |
-| `_core/logger.ts`        |   170 | Structured logger, levels, secret redaction.                                               |
-| `_core/httpLogging.ts`   |    75 | Request-id middleware, error handler, crash handlers.                                      |
-| `_core/trpc.ts`          |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.             |
-| `_core/context.ts`       |    38 | Per-request context: user, request id, bound logger.                                       |
-| `_core/sdk.ts`           |   300 | Session JWTs, cookie auth, OAuth client.                                                   |
-| `_core/cookies.ts`       |    51 | Cookie options (secure/sameSite per environment).                                          |
-| `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                               |
-| `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                                    |
-| `_core/systemRouter.ts`  |     — | Built-in system procedures, including the admin-only `diagnostics` query.                  |
-| `_core/healthChecks.ts`  |     — | Live probes of every dependency — what works, not what is configured. Admin-only.          |
-| `db.ts`                  |  1883 | Every database query. Large but flat — jump to the function you need.                      |
-| `routers/`               |     — | The API surface, one file per domain (below).                                              |
-| `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                             |
-| `utils/tripInvite.ts`    |     — | Recording and sending one invite. Both invite paths go through it; authorisation does not. |
-| `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).              |
-| `utils/listingSource.ts` |   180 | The import ladder in order: paste → page → scraper → place → url. Start here.              |
-| `utils/scraper/`         |     — | The optional unblocking-service rung. `providers.ts` is the vendor-as-config table.        |
-| `replit_integrations/`   |     — | **Legacy, unused.** Don't read or extend.                                                  |
-| `prompts/referee.ts`     |   508 | The AI Referee's prompt, its version, and the facts it may reason about.                   |
+| File                     | Lines | What it is                                                                                  |
+| ------------------------ | ----: | ------------------------------------------------------------------------------------------- |
+| `_core/app.ts`           |    78 | Builds the Express app. The only place middleware is registered.                            |
+| `_core/index.ts`         |    25 | Long-running server entrypoint (local, containers).                                         |
+| `_core/env.ts`           |   553 | **All** server configuration, Zod-validated. Start here for anything config-related.        |
+| `_core/logger.ts`        |   170 | Structured logger, levels, secret redaction.                                                |
+| `_core/httpLogging.ts`   |    75 | Request-id middleware, error handler, crash handlers.                                       |
+| `_core/trpc.ts`          |    75 | Procedure builders: `publicProcedure`, `protectedProcedure`, `adminProcedure`.              |
+| `_core/context.ts`       |    38 | Per-request context: user, request id, bound logger.                                        |
+| `_core/sdk.ts`           |   300 | Session JWTs, cookie auth, OAuth client.                                                    |
+| `_core/cookies.ts`       |    51 | Cookie options (secure/sameSite per environment).                                           |
+| `_core/vite.ts`          |    67 | Vite dev middleware and static file serving.                                                |
+| `_core/llm.ts`           |   184 | LLM invocation wrapper.                                                                     |
+| `_core/systemRouter.ts`  |     — | Built-in system procedures, including the admin-only `diagnostics` query.                   |
+| `_core/healthChecks.ts`  |     — | Live probes of every dependency — what works, not what is configured. Admin-only.           |
+| `_core/healthTests.ts`   |     — | Exercises a service for real (sends the mail, writes the row, calls the model). Admin-only. |
+| `db.ts`                  |  1883 | Every database query. Large but flat — jump to the function you need.                       |
+| `routers/`               |     — | The API surface, one file per domain (below).                                               |
+| `utils/mailer.ts`        |    65 | Magic-link and invite emails; logs instead when SMTP is unset.                              |
+| `utils/tripInvite.ts`    |     — | Recording and sending one invite. Both invite paths go through it; authorisation does not.  |
+| `utils/listingPage.ts`   |   720 | Listing URL → facts for the accommodation extractor (fetch, HTML, URL hints).               |
+| `utils/listingSource.ts` |   180 | The import ladder in order: paste → page → scraper → place → url. Start here.               |
+| `utils/scraper/`         |     — | The optional unblocking-service rung. `providers.ts` is the vendor-as-config table.         |
+| `replit_integrations/`   |     — | **Legacy, unused.** Don't read or extend.                                                   |
+| `prompts/referee.ts`     |   508 | The AI Referee's prompt, its version, and the facts it may reason about.                    |
 
 ### `server/routers/`
 

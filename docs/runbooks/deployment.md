@@ -79,11 +79,13 @@ you enable those features — see [secrets.md](secrets.md).
 ### 4. Verify
 
 ```bash
-curl -s https://<domain>/api/health
+curl -s https://<domain>/api/health            # anyone: {"status":"ok"}
+curl -s -b "$COOKIE" https://<domain>/api/health   # admin: the full summary
 ```
 
-Expect `status: ok`, the right `appEnv`, and `database: configured`,
-`sessionSecret: configured`. Then:
+The first proves the deployment is up. For the second — the right `appEnv`, and
+`database: configured`, `sessionSecret: configured` — sign in as an admin, or
+just open `/admin/health`. Then:
 
 - load the app and register an account
 - create a trip and add a date proposal

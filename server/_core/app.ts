@@ -11,6 +11,7 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import type { User } from "../../drizzle/schema.js";
 import { appRouter } from "../routers/index.js";
 import { createContext } from "./context.js";
 import { withRequestCache } from "./requestCache.js";
@@ -19,6 +20,7 @@ import { errorLogging, requestLogging } from "./httpLogging.js";
 import { handleRevenueCatWebhook } from "../utils/revenueCatWebhook.js";
 import { registerWellKnownRoutes } from "./wellKnown.js";
 import { registerOAuthRoutes } from "./oauth.js";
+import { sdk } from "./sdk.js";
 import { logTrpcError } from "./trpcErrors.js";
 
 export type CreateAppOptions = {
@@ -45,8 +47,39 @@ export async function createApp({
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-  // Liveness/readiness probe. Intentionally leaks nothing sensitive.
-  app.get("/api/health", (_req, res) => {
+  /**
+   * Liveness probe, and — for an admin only — the configuration summary.
+   *
+   * It used to return `describeConfig()` to anybody who asked, under a comment
+   * claiming it leaked nothing sensitive. That was wrong. Unauthenticated, it
+   * handed out which variable supplied the database URL and the AI key, the
+   * model in use, the connection cap, the log level, which scraper vendor is
+   * in the path, whether billing and OAuth are wired up, and the exact commit
+   * running — a map of what this deployment is made of and where it is soft,
+   * free, to anyone who typed the path.
+   *
+   * A probe needs none of that: it needs to know the process is up. So the
+   * public answer is the status and nothing else, and the detail is behind the
+   * same session cookie and the same `role === "admin"` check as
+   * `system.diagnostics`. Same URL, because the runbooks point at it and
+   * uptime checks are already configured against it.
+   *
+   * `authenticateRequest` throws for every signed-out verdict; a probe has no
+   * cookie, so the catch is the normal path, not an error case.
+   */
+  app.get("/api/health", async (req, res) => {
+    let user: User | null = null;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch {
+      user = null;
+    }
+
+    if (user?.role !== "admin") {
+      res.json({ status: "ok" });
+      return;
+    }
+
     res.json({
       status: "ok",
       ...describeConfig(),

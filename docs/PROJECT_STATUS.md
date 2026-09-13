@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-09-12
+- **Last updated:** 2026-09-13
 - **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
   that). The domain is `wevotrip.com`, with the marketing demo at
   `demo.wevotrip.com`. Three identifiers still read the older names because they
@@ -71,7 +71,8 @@ finish a piece of work — the next person (or agent) starts here.
   What the code can do about it is done: failures now raise to the user, are
   retried three times, and name the underlying errno rather than `fetch failed`
   (see [CHANGELOG](CHANGELOG.md), 2026-09-12). **`/admin/health` now answers
-  this without reading logs at all** — it calls Resend live and reports whether
+  this without reading logs at all** — and its Email test sends a real message
+  to your own address, which settles delivery end to end in one click — it calls Resend live and reports whether
   it is reachable, whether the key is good, and whether `wevotrip.com` is
   verified. Open that first. The errno it shows, or the next log line, says
   which of these it is:

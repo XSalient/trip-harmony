@@ -8,6 +8,61 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-13 — `/api/health` stops publishing the deployment, and the health page starts testing it
+
+### Security
+
+- **`/api/health` no longer hands its configuration summary to the public.**
+  It returned `describeConfig()` to anybody who asked, under a comment saying
+  it leaked nothing sensitive. What it actually published, unauthenticated,
+  was which variable supplied the database URL and the AI key, the model in
+  use, the connection cap, the log level, which scraper vendor sits in the
+  path, whether billing and OAuth are wired up, and the exact commit running.
+  No single field is a secret; together they are a map of what this deployment
+  is made of and where it is soft.
+
+  A liveness probe needs one bit — is the process up — so that is all an
+  anonymous caller gets: `{"status":"ok"}`. The detail now sits behind the same
+  session cookie and the same `role = "admin"` check as `system.diagnostics`.
+  Same URL and same 200, because uptime checks and the runbooks are already
+  pointed at it; the runbooks that read individual fields now say to sign in
+  first, or to use `/admin/health`.
+
+  Tested against a real socket rather than by reading the source: the suite
+  boots the app, calls the endpoint anonymously and as a non-admin, and asserts
+  every one of the thirteen previously disclosed keys is absent.
+
+### Added
+
+- **`/admin/health` can now exercise a service, not just interrogate it.** A
+  check asks a dependency whether it is there; a test makes it do its job.
+  Both are needed, because all the checks can pass while the thing still fails
+  — Resend reachable, key good, domain verified, and mail still not arriving
+  because the account is over its limit.
+
+  | Test     | What it actually does                                                                     |
+  | -------- | ----------------------------------------------------------------------------------------- |
+  | Database | Writes a row and reads it back inside a transaction, on a temp table that drops on commit |
+  | Email    | Sends a real email — to your own address, and to no other                                 |
+  | AI       | Makes one real model call and reports what came back                                      |
+  | Scraper  | Fetches one page through the configured vendor                                            |
+
+  The database test is a write on purpose: `select 1` is answered happily by a
+  read-only replica and a failed-over pooler, neither of which could take the
+  next insert.
+
+  Tests run only when pressed — never on page load, never on a poll — because
+  each one costs an email, a credit or a model call. A short per-service
+  cooldown stops the ordinary accident of a double click or a refresh loop.
+
+  **The email test takes no destination.** It sends to the signed-in admin's
+  own address and there is no input that could change that; the input schema is
+  `.strict()`, so a request carrying a recipient is refused rather than having
+  the key quietly dropped. An admin-only endpoint that emails an arbitrary
+  address is a relay with a login on it.
+
+---
+
 ## 2026-09-12 — A health page that asks, instead of assuming
 
 ### Added

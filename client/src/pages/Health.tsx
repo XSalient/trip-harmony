@@ -7,11 +7,18 @@
  * mail provider that could not be reached while a trip's invitations silently
  * went nowhere. Every row here comes from something the server asked.
  *
+ * Two levels of certainty, kept apart on purpose. A **check** asks a
+ * dependency whether it is there and whether its settings cohere; the page
+ * runs all of them on open. A **test** makes the dependency do its job — send
+ * the mail, write the row, call the model — and only ever runs when somebody
+ * presses the button next to it, because each one costs something real.
+ *
  * Admin-only, and that is enforced by `adminProcedure` on the server, not by
  * this page choosing what to draw. Two reasons, either sufficient: the report
- * is a map of which secrets exist and where they are weak, and running it
- * costs an outbound request per check.
+ * is a map of which secrets exist and where they are weak, and running any of
+ * it costs outbound requests somebody pays for.
  */
+import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import AppShell from "@/components/AppShell";
@@ -27,6 +34,7 @@ import {
   CheckCircle2,
   CircleSlash,
   HelpCircle,
+  Play,
   RefreshCw,
   XCircle,
 } from "lucide-react";
@@ -61,6 +69,78 @@ const RANK: Record<CheckStatus, number> = {
   off: 4,
 };
 
+/**
+ * The checks that have a real counterpart to run, and what pressing it will
+ * actually do. Said plainly on the button's own row: a control that spends
+ * money or puts mail in an inbox should say so before it is pressed, not after.
+ */
+const TESTABLE: Record<string, { service: Service; does: string }> = {
+  database: {
+    service: "database",
+    does: "Writes a row inside a transaction and reads it back. Touches no real table.",
+  },
+  email: {
+    service: "email",
+    does: "Sends a real email to your own address — and only ever to yours.",
+  },
+  ai: {
+    service: "ai",
+    does: "Makes one real model call. Costs a few tokens.",
+  },
+  scraper: {
+    service: "scraper",
+    does: "Fetches one page through the vendor. Costs a scraper credit.",
+  },
+};
+
+type Service = "database" | "email" | "ai" | "scraper";
+
+type TestResult = {
+  service: string;
+  passed: boolean;
+  inconclusive?: boolean;
+  summary: string;
+  detail?: string;
+  durationMs: number;
+  facts?: Record<string, string | number | null>;
+};
+
+/**
+ * A test's verdict, kept visually distinct from the check above it — they are
+ * different claims and reading one as the other is the mistake this whole page
+ * is built to prevent.
+ */
+function TestVerdict({ result }: { result: TestResult }) {
+  const p = result.inconclusive
+    ? PRESENTATION.unknown
+    : result.passed
+      ? PRESENTATION.ok
+      : PRESENTATION.fail;
+
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/40 p-3 space-y-1">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-medium">
+          {result.inconclusive
+            ? "Test inconclusive"
+            : result.passed
+              ? "Test passed"
+              : "Test failed"}
+        </p>
+        <StatusPill tone={p.tone} icon={p.icon}>
+          {result.durationMs}ms
+        </StatusPill>
+      </div>
+      <p className="text-xs text-foreground/90 break-words">{result.summary}</p>
+      {result.detail && (
+        <p className="text-[11px] text-muted-foreground break-words">
+          {result.detail}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function CheckRow({
   check,
 }: {
@@ -77,6 +157,20 @@ function CheckRow({
   const facts = Object.entries(check.facts ?? {}).filter(
     ([, v]) => v !== null && v !== ""
   );
+  const testable = TESTABLE[check.id];
+  const [result, setResult] = useState<TestResult | null>(null);
+
+  const runTest = trpc.system.testService.useMutation({
+    onSuccess: setResult,
+    onError: error =>
+      setResult({
+        service: check.id,
+        passed: false,
+        summary: "The test could not be run",
+        detail: error.message,
+        durationMs: 0,
+      }),
+  });
 
   return (
     <Card className="border-border/70">
@@ -109,6 +203,27 @@ function CheckRow({
               </div>
             ))}
           </dl>
+        )}
+
+        {testable && (
+          <div className="space-y-2 pt-1">
+            {result && <TestVerdict result={result} />}
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2"
+              disabled={runTest.isPending}
+              onClick={() => runTest.mutate({ service: testable.service })}
+            >
+              <Play className="h-3.5 w-3.5" />
+              {runTest.isPending
+                ? "Running…"
+                : result
+                  ? "Run it again"
+                  : "Test it for real"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">{testable.does}</p>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -175,9 +290,10 @@ export default function Health() {
     >
       <div className="px-4 py-4 space-y-4">
         <p className="text-xs text-muted-foreground">
-          Every row below was measured just now, by asking the dependency. This
-          is not the same as <code className="font-mono">/api/health</code>,
-          which only reports whether a variable is set.
+          Every row was measured just now by asking the dependency — not read
+          off an environment variable. Where a row can be <em>exercised</em>{" "}
+          rather than merely asked, it carries a test button: those do the real
+          work, cost something, and run only when pressed.
         </p>
 
         {error && (

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../routers/index.js";
 import type { TrpcContext } from "./context.js";
+import { resetHealthTestCooldowns } from "./healthTests.js";
 import { probeEmail } from "../utils/mailer.js";
 
 const MAIL_ENV = [
@@ -200,5 +201,87 @@ describe("diagnostics is admin-only", () => {
     await expect(caller.system.diagnostics()).rejects.toThrow();
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The test endpoint does real work, so the questions worth asking of it are
+ * about blast radius, not correctness of output.
+ */
+describe("service tests are admin-only and narrowly aimed", () => {
+  beforeEach(() => resetHealthTestCooldowns());
+
+  function contextFor(role: "user" | "admin" | null): TrpcContext {
+    const base = {
+      req: { protocol: "https", headers: {} } as TrpcContext["req"],
+      res: { clearCookie: () => {} } as TrpcContext["res"],
+    };
+    if (role === null) return { ...base, user: null };
+    return {
+      ...base,
+      user: {
+        id: 1,
+        openId: "test-user-1",
+        email: "admin@example.com",
+        name: "Test Admin",
+        loginMethod: "manus",
+        role,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignedIn: new Date(),
+      } as NonNullable<TrpcContext["user"]>,
+    };
+  }
+
+  it("refuses a non-admin before sending anything", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const caller = appRouter.createCaller(contextFor("user"));
+
+    await expect(
+      caller.system.testService({ service: "email" })
+    ).rejects.toThrow();
+
+    // The point is not the 403 — it is that no email left the building on the
+    // way to it.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses an anonymous caller", async () => {
+    const caller = appRouter.createCaller(contextFor(null));
+    await expect(
+      caller.system.testService({ service: "ai" })
+    ).rejects.toThrow();
+  });
+
+  it("sends the test email only to the caller's own address", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.MAIL_FROM = "WeVoTrip <hello@wevotrip.com>";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const caller = appRouter.createCaller(contextFor("admin"));
+    const result = await caller.system.testService({ service: "email" });
+
+    expect(result.passed).toBe(true);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    // There is no input that could have made this any other address; this
+    // asserts the wiring actually honours that.
+    expect(JSON.parse(init.body as string).to).toEqual(["admin@example.com"]);
+  });
+
+  it("refuses an input carrying a destination", () => {
+    // Zod strips unknown keys by default, so without `.strict()` this would
+    // have been accepted and silently ignored — safe today, and exactly the
+    // shape that stops being safe the moment somebody wires the input through.
+    // Refusing it outright is what keeps this from being a relay with a login.
+    const caller = appRouter.createCaller(contextFor("admin"));
+    return expect(
+      caller.system.testService({
+        service: "email",
+        to: "somebody-else@example.com",
+      } as never)
+    ).rejects.toThrow();
   });
 });

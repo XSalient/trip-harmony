@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { config } from "./env.js";
 import { runHealthChecks } from "./healthChecks.js";
+import { runServiceTest, SERVICES } from "./healthTests.js";
 import { notifyOwner } from "./notification.js";
 import { adminProcedure, publicProcedure, router } from "./trpc.js";
 
@@ -52,6 +53,33 @@ export const systemRouter = router({
    * question for uptime probes. This one is the honest, expensive answer.
    */
   diagnostics: adminProcedure.query(() => runHealthChecks()),
+
+  /**
+   * Actually exercise one service, rather than inspecting it.
+   *
+   * `diagnostics` asks each dependency whether it is there. This does the
+   * work: sends the mail, writes the row, calls the model, fetches the page.
+   * A separate procedure because the costs are different in kind — a check is
+   * a look, a test leaves something behind — and because nothing should run
+   * these except a person pressing a button.
+   *
+   * The test email goes to `ctx.user.email` and there is no parameter that
+   * could change that. An admin-only endpoint that emails an arbitrary address
+   * is a relay with a login on it.
+   */
+  testService: adminProcedure
+    // `.strict()` rather than the default, which drops unknown keys quietly.
+    // The key this endpoint must never grow is a destination address, and a
+    // schema that ignores one is a schema that would ignore it after a
+    // refactor moved the recipient into the input by mistake. Refuse loudly.
+    .input(z.object({ service: z.enum(SERVICES) }).strict())
+    .mutation(({ ctx, input }) =>
+      runServiceTest(input.service, {
+        id: ctx.user.id,
+        name: ctx.user.name || ctx.user.email || "an admin",
+        email: ctx.user.email,
+      })
+    ),
 
   notifyOwner: adminProcedure
     .input(

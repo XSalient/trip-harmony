@@ -54,8 +54,12 @@ log pipeline expects JSON, and the boot-time secret rules switched off.
 **Check it after any change to the project's environment variables:**
 
 ```bash
-curl -s https://www.wevotrip.com/api/health | jq .appEnv   # must be "production"
+# Signed in as an admin — anonymously this field is not returned at all.
+curl -s -b "$COOKIE" https://www.wevotrip.com/api/health | jq .appEnv  # must be "production"
 ```
+
+Or open `/admin/health`, whose Environment row says the same thing in words and
+flags the mismatch on sight.
 
 Two things that used to follow from this are now independent of it:
 `auth.requestMagicLink` returning the link in its response, and raw internal
@@ -102,11 +106,12 @@ Use `stg`.
 ## Checking which environment you're in
 
 ```bash
-curl -s <origin>/api/health
+curl -s -b "$COOKIE" <origin>/api/health   # admin session cookie
 ```
 
 Returns `appEnv`, `logLevel` and whether the database, AI, SMTP, OAuth and session
-secret are configured — never any values.
+secret are configured — never any values. Without an admin cookie it returns
+`{"status":"ok"}` only; `/admin/health` is the same information with a UI.
 
 ## Adding an environment variable
 
