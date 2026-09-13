@@ -34,7 +34,7 @@ not assumed.
 | 1   | **Invite links have no preview.** `client/index.html` carries no Open Graph or Twitter Card tags, and `vercel.json` rewrites every non-API path to the same `index.html`.           | `client/index.html`, `vercel.json`                                | A `/join/:code` link pasted into WhatsApp renders as a bare blue URL. Nobody taps it. **Every invite this app has ever sent has been marketed this way.**                                         |
 | 2   | **Nothing to see before signing up.** `trips.getByInviteCode` is public, but `JoinTrip.tsx` renders only the trip name and description, and `trips.join` is a `protectedProcedure`. | `server/routers/trips.ts:38,272`, `client/src/pages/JoinTrip.tsx` | The invitee is asked to create an account to find out whether the thing is worth an account.                                                                                                      |
 | 3   | **No one-tap sign-in.** The deployment offers password, magic link and passkeys.                                                                                                    | `server/routers/auth.ts:133`                                      | Magic link on a phone means leaving the browser for a mail app and coming back — the highest-drop step in any mobile funnel. Passkeys are excellent for _return_ visits, useless for a first one. |
-| 4   | **Nothing to install.** No web app manifest, no icons, no service worker.                                                                                                           | `client/`                                                         | The app can only ever be a browser tab. No home-screen icon, and no web push — so nothing ever pulls the group back out of the chat.                                                              |
+| 4   | **Half fixed (2026-09-13): a manifest and icons shipped, no service worker.** `client/index.html` and `client/public/`.                                                             | `client/`                                                         | Add to Home Screen now works and gives a real icon. Chrome's install prompt and web push still need a service worker, so nothing yet pulls the group back out of the chat.                        |
 | 5   | **2.2 MB in one chunk** (585 KB gzipped).                                                                                                                                           | Known gap #2 in `PROJECT_STATUS.md`                               | This is the first paint on mobile data, immediately after a tap in a chat. It is an onboarding problem, not just a performance one.                                                               |
 | 6   | **Votes are poll-on-focus, not realtime.**                                                                                                                                          | Known gap in `ROADMAP.md` → "Later"                               | Group decisions happen in bursts of a few minutes. The chat updates instantly; this doesn't.                                                                                                      |
 | 7   | **Notifications are in-app only.**                                                                                                                                                  | `server/routers/notifications.ts`                                 | The feed can only be seen by someone who already came back.                                                                                                                                       |
@@ -114,10 +114,13 @@ auth screen this is almost certainly a larger conversion win than anything else
 available, and it does not disturb the existing password/magic-link/passkey
 paths — `auth.capabilities` already exists to advertise what a deployment can do.
 
-**3.4 A manifest and icons.** Cheap. Turns the app into something installable,
-gives it a home-screen presence, and is the precondition for web push (supported
-on iOS only for installed PWAs). Push is what breaks the "the chat notifies me,
-the app doesn't" asymmetry in item 7 above.
+**3.4 A manifest and icons. — Done, 2026-09-13.** `manifest.webmanifest` and the
+icon set are in `client/public/`, wired up in `client/index.html`, and the same
+art generates the native icons from `resources/`. Add to Home Screen works and
+the tab has a face. What this item was really for is still outstanding: web push
+needs a **service worker**, and on iOS it only works for an installed PWA. That
+is the precondition for breaking the "the chat notifies me, the app doesn't"
+asymmetry in item 7 above, and it is now the whole of the remaining work here.
 
 **3.5 Route-level code splitting.** Already on the roadmap under **Performance**.
 Reclassify it as

@@ -150,12 +150,55 @@ function vitePluginManusDebugCollector(): Plugin {
   };
 }
 
+/**
+ * Picks which of the three icon sets `client/index.html` points at, by
+ * replacing `{{ICON_PREFIX}}` in it.
+ *
+ * The sets are identical art in three tints — production purple, a pale
+ * `dev-`, a magenta `staging-` — so a tab, a bookmark or an installed app from
+ * a non-production deployment is recognisable at 16px.
+ *
+ * The rule is deliberately blunt, because an icon is not worth a
+ * configuration surface: **a dev server is `dev-`, a Vercel preview build is
+ * `staging-`, and everything else is production.** Defaulting the other way
+ * would put the pale dev icon inside the native apps, which are built from a
+ * plain `pnpm build` on a developer's machine.
+ *
+ * It reads `VERCEL_ENV`, not `APP_ENV` — the opposite order to `resolveAppEnv`
+ * in `server/_core/env.ts`, and for the reason `ON_DEPLOYED_PLATFORM` exists
+ * there: `APP_ENV` is a string somebody sets on the Vercel project, and
+ * wevotrip.com has had it set to `development`
+ * (docs/runbooks/environments.md). Nothing here needs to be overridable.
+ *
+ * Runs on the dev server too — `server/_core/vite.ts` serves `index.html`
+ * through `vite.transformIndexHtml`, which is this hook.
+ */
+function iconEnvPlugin(): Plugin {
+  let prefix = "";
+
+  return {
+    name: "wevotrip-icon-env",
+    config(_config, { command }) {
+      prefix =
+        command === "serve"
+          ? "dev-"
+          : process.env.VERCEL_ENV === "preview"
+            ? "staging-"
+            : "";
+    },
+    transformIndexHtml(html) {
+      return html.replaceAll("{{ICON_PREFIX}}", prefix);
+    },
+  };
+}
+
 const plugins = [
   react(),
   tailwindcss(),
   jsxLocPlugin(),
   vitePluginManusRuntime(),
   vitePluginManusDebugCollector(),
+  iconEnvPlugin(),
 ];
 
 export default defineConfig({

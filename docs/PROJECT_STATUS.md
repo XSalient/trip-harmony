@@ -10,6 +10,19 @@ finish a piece of work — the next person (or agent) starts here.
   are registered outside this repo — `VITE_APP_ID` (`harmony`) at the OAuth
   portal, the Doppler project (`trip-harmony`), and nothing else. Rename them
   there before changing them here.
+- **The app has an icon** (2026-09-13). A favicon set, an apple-touch icon and a
+  web app manifest are in `client/public/`. The native icon sets are generated
+  from `resources/icon.png` by `pnpm icons:native`, committed under
+  `resources/generated/`, and copied into `ios/` and `android/` when those
+  exist — they are not in this repository, so the art and its output have to
+  outlive them. Running it needs neither Xcode nor the Android SDK, and
+  `pnpm test` fails if the committed icons stop matching the art. The
+  set exists in three tints — production purple, a pale `dev-`, a magenta
+  `staging-` — chosen by `iconEnvPlugin` in `vite.config.ts` from the Vite
+  command and `VERCEL_ENV`, deliberately not from `APP_ENV` (see the next
+  entry but one: `APP_ENV` on the live project says `development`). Still
+  missing before this is a real PWA: a service worker, which is what web push
+  needs.
 - **The native bundle id is `com.wevotrip.app`**, for both stores, chosen
   2026-08-30. It is the fallback in `capacitor.config.ts` and the value set in
   Doppler. Apple does not allow a bundle id to change after the first

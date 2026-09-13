@@ -25,7 +25,11 @@ export const FULL_SUITE_PATHS = [
   "vite.config.ts",
 ];
 
-export const FULL_SUITE_PREFIXES = ["scripts/", ".github/"];
+// `resources/` is the app icon art. No module imports it, but
+// `scripts/lib/nativeIcons.test.mjs` reads it off disk, so a re-export with
+// no code change is invisible to the graph and would skip the one test that
+// checks the generated icons still match it.
+export const FULL_SUITE_PREFIXES = ["scripts/", ".github/", "resources/"];
 
 export function forcesFullSuite(file) {
   return (

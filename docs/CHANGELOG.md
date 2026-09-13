@@ -8,6 +8,45 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-13 — The app gets a face
+
+### Added
+
+- **A favicon, an apple-touch icon and a web app manifest.** The tab, the
+  bookmark and the home-screen shortcut showed the browser's blank page glyph;
+  they now show the mark. Add to Home Screen produces a real icon with a real
+  name. This is the "nothing to install" row in
+  [docs/product/onboarding-and-import-strategy.md](product/onboarding-and-import-strategy.md)
+  half discharged — a service worker, and with it web push, is still missing.
+
+- **`pnpm icons:native` — the iOS and Android icon sets, generated here.**
+  `resources/icon.png` is the only art anybody edits; the 24 files the two
+  native projects need are derived from it, committed under
+  `resources/generated/`, and installed into `ios/` and `android/` when those
+  exist. The usual tool, `npx @capacitor/assets`, needs a native `sharp` binary
+  and so runs only on the release machine — which put the only check of the
+  icons at the most expensive moment to find a mistake, on a project with one
+  person on it. `scripts/lib/png.mjs` replaces it with about two hundred lines
+  of dependency-free PNG, so the icons are produced from a clean clone and
+  `pnpm test` checks the committed output still matches the art, the way a
+  migration has to match the schema.
+
+  It also gets two details right that a plain export gets wrong: the iOS icon
+  ships with **no alpha channel** and its corners filled with the mark's own
+  purple, so iOS rounds a complete square once rather than rounding an
+  already-rounded icon; and the Android adaptive foreground is inset to the
+  72dp safe zone, so a launcher's mask — circle, squircle, teardrop, the app
+  does not choose — cannot clip the mark.
+
+- **Non-production builds get a tinted icon** — pale for a dev server, magenta
+  for a Vercel preview — so a preview tab, a bookmark or an installed copy is
+  not mistaken for the live site. The tint is chosen from the Vite command and
+  `VERCEL_ENV`, never from `APP_ENV`: `APP_ENV` is set to `development` on the
+  live Vercel project, and reading it would have put the dev icon on
+  wevotrip.com.
+
+---
+
 ## 2026-09-13 — The health page stops contradicting its own evidence
 
 ### Fixed

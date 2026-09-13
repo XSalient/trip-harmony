@@ -10,6 +10,9 @@ build/
 # Generated files
 *.tsbuildinfo
 coverage/
+# Written byte-for-byte by `pnpm icons:native`, and compared byte-for-byte by
+# the test that keeps it honest. Reformatting it here would be drift.
+resources/generated/
 
 # Package files
 package-lock.json
