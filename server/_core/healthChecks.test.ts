@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { resetHealthTestCooldowns } from "./healthTests.js";
+import { headerSafeSecret } from "./env.js";
 import { probeEmail } from "../utils/mailer.js";
 
 const MAIL_ENV = [
@@ -350,5 +351,50 @@ describe("the health surface is for the system admin, not a trip admin", () => {
     const src = readFileSync(join(import.meta.dirname, "./trpc.ts"), "utf8");
     expect(src).toContain('ctx.user.role !== "admin"');
     expect(src).not.toContain("requireTripRole");
+  });
+});
+
+/**
+ * A repaired secret is still a damaged secret. The app strips what it must to
+ * keep mail working; the page has to say so, or the bad value sits in the
+ * secret manager until the next person copies it.
+ */
+describe("secret hygiene", () => {
+  const KEY = "RESEND_API_KEY";
+  let saved: string | undefined;
+
+  beforeEach(() => {
+    saved = process.env[KEY];
+  });
+  afterEach(() => {
+    if (saved === undefined) delete process.env[KEY];
+    else process.env[KEY] = saved;
+  });
+
+  it("recovers the key an operator meant to set", () => {
+    process.env[KEY] = "\x16re_abc123";
+    expect(headerSafeSecret(process.env[KEY]).value).toBe("re_abc123");
+    expect(headerSafeSecret(process.env[KEY]).stripped).toBe(1);
+  });
+
+  it("counts a clean key as undamaged", () => {
+    process.env[KEY] = "  re_abc123  ";
+    // Surrounding whitespace is not damage — trim handles it and nothing was
+    // lost from the secret itself.
+    expect(headerSafeSecret(process.env[KEY])).toEqual({
+      value: "re_abc123",
+      stripped: 0,
+    });
+  });
+
+  it("strips a newline from a wrapped paste", () => {
+    process.env[KEY] = "re_abc\n123";
+    expect(headerSafeSecret(process.env[KEY]).value).toBe("re_abc123");
+  });
+
+  it("leaves every surviving byte legal in an HTTP header", () => {
+    process.env[KEY] = "\x16re_a\u00a0b\u201cc\x7f";
+    const { value } = headerSafeSecret(process.env[KEY]);
+    expect(value).toMatch(/^[\x21-\x7e]+$/);
   });
 });

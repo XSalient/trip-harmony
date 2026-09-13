@@ -136,6 +136,32 @@ On Vercel, filter runtime logs for `mailer`. The failure line names what broke:
 `UND_ERR_CONNECT_TIMEOUT` is egress or the provider's edge; a certificate error
 is the runtime's trust store. None of these are fixed by changing a key.
 
+**`UND_ERR_INVALID_ARG` — "invalid Authorization header" — is none of those.**
+It means undici refused to _build_ the request: the API key contains a byte
+that cannot appear in an HTTP header, so nothing was ever sent. This is what
+broke invitations on wevotrip.com for three weeks. `RESEND_API_KEY` had a
+`0x16` at index 0 — ASCII SYN, which is what a literal Ctrl+V leaves behind
+when a field takes the keystroke instead of pasting — and `trim()` does not
+remove it, because SYN is a control character rather than whitespace.
+
+The app now strips anything outside printable ASCII from header-bound secrets
+(`headerSafeSecret` in `server/_core/env.ts`), so a key damaged this way still
+works, and the Secret hygiene row on `/admin/health` says it happened. **Fix
+the stored value anyway**: re-copy the key and paste it into Doppler, in the
+config that actually feeds the deployment. It is a warning and not a failure
+only because the repair is possible; the next provider to tighten its key
+format turns it back into an outage.
+
+To check a key's bytes without printing it:
+
+```bash
+doppler run --command 'node -e "
+const k=(process.env.RESEND_API_KEY||\"\").trim();
+const bad=[...k].filter(c=>c.charCodeAt(0)<0x21||c.charCodeAt(0)>0x7e);
+console.log({len:k.length,headerSafe:bad.length===0,codes:bad.map(c=>c.charCodeAt(0))});
+"'
+```
+
 The errno matters enough that the mailer walks `err.cause` to find it — Node's
 `fetch` reports every one of them as the same `"fetch failed"`, which is
 undiagnosable on its own.

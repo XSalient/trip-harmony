@@ -413,6 +413,37 @@ function isDisabled(raw: string | undefined): boolean {
 export const RESEND_SANDBOX_FROM = "onboarding@resend.dev";
 
 /**
+ * A secret that is going to be pasted into an HTTP header, with everything
+ * that cannot legally appear in one removed.
+ *
+ * `.trim()` is not enough, and the gap cost this project three weeks of
+ * undelivered invitations. `RESEND_API_KEY` arrived with a `0x16` byte at
+ * index 0 — ASCII SYN, which is what Ctrl+V produces when a field takes the
+ * keystroke literally instead of pasting. SYN is a control character, not
+ * whitespace, so `trim()` left it in place; undici then refused to build the
+ * request at all, throwing `UND_ERR_INVALID_ARG` before a packet was sent. The
+ * error surfaced as "fetch failed", which reads like a network problem and
+ * sent the investigation to DNS and egress for days.
+ *
+ * An API key is printable ASCII with no spaces in it — every provider's is —
+ * so anything outside that range is paste damage, and dropping it recovers the
+ * key the operator meant to set. Silently, though, is how a corrupted secret
+ * becomes permanent, so the count of what was removed is kept and the health
+ * page reports it: the deployment keeps working, and somebody still gets told
+ * to fix it at source.
+ */
+export function headerSafeSecret(raw: string | undefined): {
+  value: string;
+  stripped: number;
+} {
+  const trimmed = raw?.trim() ?? "";
+  // Printable ASCII, excluding space — the characters an HTTP field value may
+  // carry without quoting, which is every API key any of these vendors issues.
+  const value = trimmed.replace(/[^\x21-\x7e]/g, "");
+  return { value, stripped: trimmed.length - value.length };
+}
+
+/**
  * Validated configuration, grouped by concern.
  * Prefer this over `ENV` in new code.
  */
@@ -528,8 +559,22 @@ export const config = {
   ai: {
     apiUrl:
       parsed.BUILT_IN_FORGE_API_URL || parsed.AI_INTEGRATIONS_GEMINI_BASE_URL,
-    apiKey:
-      parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY,
+    /**
+     * Sanitised for the same reason the Resend key is: this one is sent as
+     * `x-goog-api-key`, so one pasted control character breaks every AI call
+     * with an error that names the transport rather than the secret.
+     */
+    get apiKey() {
+      return headerSafeSecret(
+        parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY
+      ).value;
+    },
+    /** Characters removed to make the key header-safe; non-zero means damaged. */
+    get apiKeyStripped() {
+      return headerSafeSecret(
+        parsed.BUILT_IN_FORGE_API_KEY || parsed.AI_INTEGRATIONS_GEMINI_API_KEY
+      ).stripped;
+    },
     /** Which variable supplied the key — a name, never the value. */
     get keySource() {
       if (parsed.BUILT_IN_FORGE_API_KEY) return "BUILT_IN_FORGE_API_KEY";
@@ -651,7 +696,15 @@ export const config = {
    */
   mail: {
     get resendApiKey() {
-      return process.env.RESEND_API_KEY?.trim() ?? "";
+      return headerSafeSecret(process.env.RESEND_API_KEY).value;
+    },
+    /**
+     * How many characters had to be removed from `RESEND_API_KEY` to make it
+     * usable as a header. Non-zero means the stored secret is damaged even
+     * though mail is working — see `headerSafeSecret`.
+     */
+    get resendApiKeyStripped() {
+      return headerSafeSecret(process.env.RESEND_API_KEY).stripped;
     },
     /** Pins a provider when both are configured; otherwise Resend then SMTP. */
     get preferredProvider() {

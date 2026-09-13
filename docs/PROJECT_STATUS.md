@@ -56,40 +56,53 @@ finish a piece of work — the next person (or agent) starts here.
   that schema throws at boot. See
   [runbooks/environments.md](runbooks/environments.md).
 
-- **⚠️ Invite emails are not reaching anyone in production, and the cause is
-  outside this repository** (2026-09-12). Two invites sent from
-  www.wevotrip.com logged
-  `trip invite failed to send {"provider":"resend","reason":"fetch failed"}`
-  and then `was not delivered by any provider`, 9 seconds apart, both from the
-  same deployment. `fetch failed` is a transport-level failure: the request to
-  `api.resend.com` never got a response, so this is neither a bad key (that is
-  a `401`) nor an unverified domain (a `403`). `/api/health` reports
-  `email: "configured"`, and the sender in the log is
-  `WeVoTrip <hello@wevotrip.com>`, so `RESEND_API_KEY` and `MAIL_FROM` are both
-  set on the Vercel project.
+- **✅ The invite-email outage was a control character in `RESEND_API_KEY`**
+  (2026-09-13). Three weeks of undelivered invitations, and every diagnosis
+  along the way was wrong until the error was unwrapped properly.
 
-  What the code can do about it is done: failures now raise to the user, are
-  retried three times, and name the underlying errno rather than `fetch failed`
-  (see [CHANGELOG](CHANGELOG.md), 2026-09-12). **`/admin/health` now answers
-  this without reading logs at all** — and its Email test sends a real message
-  to your own address, which settles delivery end to end in one click — it calls Resend live and reports whether
-  it is reachable, whether the key is good, and whether `wevotrip.com` is
-  verified. Open that first. The errno it shows, or the next log line, says
-  which of these it is:
-  - `ENOTFOUND` / `EAI_AGAIN` → DNS from the function. Nothing in the app.
-  - `ECONNREFUSED` / `ECONNRESET` / `UND_ERR_CONNECT_TIMEOUT` → egress to
-    Cloudflare-fronted `api.resend.com` from the Vercel runtime; check
-    [resend-status.com](https://resend-status.com) against the timestamp.
-  - A certificate error → the runtime's trust store.
+  The stored key began with byte `0x16` — ASCII SYN, which is what a literal
+  Ctrl+V produces when a field takes the keystroke instead of pasting. `trim()`
+  leaves it alone, because SYN is a control character and not whitespace.
+  Undici then refused to construct the `Authorization` header and threw
+  `UND_ERR_INVALID_ARG` **before opening a socket**. Node's `fetch` reports that
+  as `"fetch failed"`, which reads like a network fault and duly sent the
+  investigation to DNS, Cloudflare and Vercel egress for days. It was never a
+  network problem; the request never existed.
 
-  The other wall, if the transport problem clears on its own, is domain
-  verification: `canEmailAnyRecipient()` only checks that `MAIL_FROM` is not the
-  sandbox sender, so `email: "configured"` on `/api/health` is not evidence that
-  `wevotrip.com` is verified. `/admin/health` is the check that can tell the
-  difference.
+  What found it was the `err.cause` unwrapping added on 2026-09-12 for exactly
+  this reason, read off the health page's own email test:
+  `Resend was unreachable <- fetch failed <- invalid Authorization header
+(UND_ERR_INVALID_ARG)`.
 
-  Until it is delivering, the invite link on the members page still works when
-  shared by hand — the invite row and its token are written before the send.
+  **The fix is `headerSafeSecret()` in `_core/env.ts`**: every secret bound for
+  an HTTP header (`RESEND_API_KEY`, the AI key) has anything outside printable
+  ASCII removed at read time, so paste damage repairs itself, and the Secret
+  hygiene row on `/admin/health` reports that it happened rather than hiding
+  it. A damaged key that silently works is how the bad value survives to be
+  copied again.
+
+  **Verified directly in the `demo` config only** — the agent session's Doppler
+  token is scoped to `demo` and cannot read `dev`, `stg` or `prd`. Production
+  was diagnosed from its own runtime logs, which show the identical error, so
+  the same damage is in whatever config feeds it. Assume every config touched
+  by the same paste has it.
+
+- **⚠️ Which Doppler config actually feeds production is not settled, and it
+  matters right now** (2026-09-13). This file records the Doppler → Vercel sync
+  as sourced from **`dev`** and targeting **Production only**. `doppler.yaml`
+  and [runbooks/secrets.md](runbooks/secrets.md) map **`prd` → production**.
+  Those cannot both be the operating truth.
+
+  It stopped being academic on 2026-09-13: a new Resend key was put into
+  **`prd`**, and production carried on failing. If the sync really is sourced
+  from `dev`, a key written to `prd` reaches nothing. **Settle this by
+  inspection in the Doppler dashboard — open the sync and read which config it
+  is attached to — and correct whichever document is wrong.** An agent cannot:
+  creating or reading a sync needs a token scoped beyond one config, which is
+  the same wall recorded under the 2026-08-10 entry below.
+
+  Until it is settled, after changing a secret confirm it actually arrived:
+  redeploy, then open `/admin/health` and run the email test.
 
 - **A relative import without a `.js` extension takes the whole API down**
   (2026-09-11). Vercel does not bundle `api/server.ts`; it runs the import graph

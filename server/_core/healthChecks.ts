@@ -209,6 +209,45 @@ async function checkMigrations(): Promise<Check> {
   };
 }
 
+/**
+ * A secret that only works because the app repaired it.
+ *
+ * Its own row rather than a footnote on the service it belongs to: mail and AI
+ * will both report themselves healthy once the damaged characters are stripped,
+ * and that is exactly when this needs saying. The stored value is still wrong,
+ * the next person to copy it copies the damage, and a provider that tightens
+ * its key format later turns a working deployment into a broken one with no
+ * change on our side.
+ */
+function checkSecretHygiene(): Check {
+  const damaged: string[] = [];
+  if (config.mail.resendApiKeyStripped > 0)
+    damaged.push(`RESEND_API_KEY (${config.mail.resendApiKeyStripped})`);
+  if (config.ai.apiKeyStripped > 0)
+    damaged.push(
+      `${config.ai.keySource || "the AI key"} (${config.ai.apiKeyStripped})`
+    );
+
+  if (damaged.length === 0) {
+    return {
+      id: "secrets",
+      label: "Secret hygiene",
+      status: "ok",
+      summary: "Every header-bound key is clean as stored",
+    };
+  }
+
+  return {
+    id: "secrets",
+    label: "Secret hygiene",
+    status: "warn",
+    summary: `Characters had to be stripped to use: ${damaged.join(", ")}`,
+    detail:
+      "The stored value contains bytes that cannot go in an HTTP header — almost always a control character from a paste (a literal Ctrl+V arrives as 0x16, and trim() does not remove it). The app strips them so the service works, but fix the value at source: re-copy the key and paste it into Doppler, then let the sync carry it to the hosting project.",
+    facts: Object.fromEntries(damaged.map(d => [d.split(" ")[0], "damaged"])),
+  };
+}
+
 /** The check the invite outage needed and nobody had. */
 async function checkEmail(): Promise<Check> {
   const probe = await probeEmail();
@@ -485,6 +524,7 @@ export async function runHealthChecks(): Promise<HealthReport> {
     guard("environment", "Environment", async () => checkEnvironment()),
     guard("auth", "Sessions", async () => checkAuth()),
     guard("scraper", "Listing scraper", async () => checkScraper()),
+    guard("secrets", "Secret hygiene", async () => checkSecretHygiene()),
     guard("store", "Store readiness", async () => checkStoreReadiness()),
     guard("billing", "Billing", async () => checkBilling()),
   ]);

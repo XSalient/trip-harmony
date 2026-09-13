@@ -176,6 +176,40 @@ describe("mailer delivery reporting", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("sends with a key that arrived with paste damage", async () => {
+    // The exact production value: ASCII SYN (0x16) at index 0, which is what a
+    // literal Ctrl+V leaves behind. `trim()` does not remove it — SYN is a
+    // control character, not whitespace — so undici refused to build the
+    // request and threw UND_ERR_INVALID_ARG before a packet was sent. Three
+    // weeks of invitations died here, reported as "fetch failed".
+    process.env.RESEND_API_KEY = "\x16re_abc123abc123abc123abc123abc12";
+    process.env.MAIL_FROM = "WeVoTrip <hello@wevotrip.com>";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const result = await sendMagicLinkEmail(
+      "traveler@example.com",
+      "https://example.com/auth/magic/abc"
+    );
+
+    expect(result.delivered).toBe(true);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const auth = (init.headers as Record<string, string>).Authorization;
+    expect(auth).toBe("Bearer re_abc123abc123abc123abc123abc12");
+    // The property that actually matters: every byte is legal in a header.
+    expect(auth).toMatch(/^[\x20-\x7e]+$/);
+  });
+
+  it("does not count a control character as part of the key", () => {
+    process.env.RESEND_API_KEY = "\x16re_key";
+    expect(isEmailConfigured()).toBe(true);
+    // Damaged but present is still configured — the app repairs it rather than
+    // pretending mail was never set up, which would send the operator to add a
+    // key that is already there.
+  });
+
   it("does not count Resend's sandbox sender as able to reach any recipient", () => {
     process.env.RESEND_API_KEY = "re_test_key";
 

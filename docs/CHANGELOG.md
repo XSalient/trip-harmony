@@ -8,6 +8,40 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-13 — The invite outage was one invisible byte
+
+### Fixed
+
+- **A control character in `RESEND_API_KEY` stopped every email for three
+  weeks.** The stored key began with `0x16` — ASCII SYN, what a literal Ctrl+V
+  leaves behind when a field takes the keystroke instead of pasting. `trim()`
+  does not remove it, because SYN is a control character and not whitespace, so
+  undici refused to build the `Authorization` header and threw
+  `UND_ERR_INVALID_ARG` **before opening a socket**. Node's `fetch` reports that
+  as `"fetch failed"` — which reads like a network fault, and sent days of
+  investigation to DNS, Cloudflare and Vercel egress. The request never
+  existed.
+
+  `headerSafeSecret()` in `server/_core/env.ts` now strips anything outside
+  printable ASCII from every secret bound for an HTTP header — the Resend key
+  and the AI key, which travels as `x-goog-api-key` and had the same exposure.
+  An API key is printable ASCII with no spaces, so anything else is paste
+  damage, and removing it recovers the key the operator meant to set.
+
+  It repairs rather than rejects because rejecting would have kept mail broken
+  for a value that is _almost_ right. But a damaged secret that silently works
+  is how the bad value survives to be copied again, so `/admin/health` grew a
+  **Secret hygiene** row that warns when a key only works because it was
+  repaired, and says where to fix it.
+
+  What found it was the `err.cause` unwrapping added the day before for exactly
+  this class of problem, read straight off the health page's own email test:
+  `Resend was unreachable <- fetch failed <- invalid Authorization header
+(UND_ERR_INVALID_ARG)`. Two of this project's outages have now been a cheap
+  error message hiding an expensive one.
+
+---
+
 ## 2026-09-13 — `/api/health` stops publishing the deployment, and the health page starts testing it
 
 ### Security
