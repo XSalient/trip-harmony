@@ -123,6 +123,7 @@ describe("forcesFullSuite", () => {
     expect(forcesFullSuite("package.json")).toBe(true);
     expect(forcesFullSuite("scripts/lib/affected.mjs")).toBe(true);
     expect(forcesFullSuite(".github/workflows/ci.yml")).toBe(true);
+    expect(forcesFullSuite("resources/icon.png")).toBe(true);
   });
 
   it("leaves ordinary source alone", () => {

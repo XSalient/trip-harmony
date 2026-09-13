@@ -17,7 +17,7 @@ shared/            Types and constants used by both sides.
 drizzle/           Database schema.
 api/server.ts      Vercel serverless entrypoint.
 scripts/           Bootstrap, deploy-time migrations, test selection.
-resources/         1024px source icons for the iOS/Android builds. Not shipped.
+resources/         The app icon art, and the native icon sets generated from it.
 ```
 
 ## `scripts/` — build and deploy tooling
@@ -33,6 +33,9 @@ is compiled and with no tsx on the path.
 | `lib/migrations.mjs`      | Reads the journal, resolves the database URL, decides whether a deploy should migrate. |
 | `affected-tests.mjs`      | Runs only the tests the current change can reach.                                      |
 | `lib/affected.mjs`        | The import-graph walk and selection rules. Pure; unit-tested beside it.                |
+| `native-icons.mjs`        | `pnpm icons:native` — the iOS/Android icon sets, from `resources/icon.png`.            |
+| `lib/nativeIcons.mjs`     | Which icon files exist and what each is cut from. Pure; unit-tested beside it.         |
+| `lib/png.mjs`             | A dependency-free PNG reader/writer and the raster ops the icons need. Pure.           |
 | `diagnose-listing-url.ts` | `pnpm diagnose:url <link>` — why an import filled nothing. Dev only, so TypeScript.    |
 | `seed-demo.ts`            | `pnpm seed:demo` — fills a database with the marketing demo. Dev only, so TypeScript.  |
 | `demo/story.ts`           | The demo's content: three trips, eleven people, the argument. Pure data — edit freely. |

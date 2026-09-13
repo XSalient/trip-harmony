@@ -19,11 +19,24 @@ is built, run or deployed.
   [docs/product/onboarding-and-import-strategy.md](product/onboarding-and-import-strategy.md)
   half discharged — a service worker, and with it web push, is still missing.
 
-- **Source icons for the native builds**, in `resources/`, with the one command
-  that turns them into the iOS and Android icon sets written down in
-  [runbooks/launch.md](runbooks/launch.md). `ios/` and `android/` are generated
-  on a developer's machine and are not in this repository, so art that lived
-  only inside them would be lost the first time somebody regenerated them.
+- **`pnpm icons:native` — the iOS and Android icon sets, generated here.**
+  `resources/icon.png` is the only art anybody edits; the 24 files the two
+  native projects need are derived from it, committed under
+  `resources/generated/`, and installed into `ios/` and `android/` when those
+  exist. The usual tool, `npx @capacitor/assets`, needs a native `sharp` binary
+  and so runs only on the release machine — which put the only check of the
+  icons at the most expensive moment to find a mistake, on a project with one
+  person on it. `scripts/lib/png.mjs` replaces it with about two hundred lines
+  of dependency-free PNG, so the icons are produced from a clean clone and
+  `pnpm test` checks the committed output still matches the art, the way a
+  migration has to match the schema.
+
+  It also gets two details right that a plain export gets wrong: the iOS icon
+  ships with **no alpha channel** and its corners filled with the mark's own
+  purple, so iOS rounds a complete square once rather than rounding an
+  already-rounded icon; and the Android adaptive foreground is inset to the
+  72dp safe zone, so a launcher's mask — circle, squircle, teardrop, the app
+  does not choose — cannot clip the mark.
 
 - **Non-production builds get a tinted icon** — pale for a dev server, magenta
   for a Vercel preview — so a preview tab, a bookmark or an installed copy is

@@ -13,7 +13,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *
  * ```bash
  * pnpm build && npx cap add ios && npx cap add android
- * npx @capacitor/assets generate --assetPath resources   # icons, from resources/
+ * pnpm icons:native       # writes the icons in from resources/
  * npx cap sync            # after every pnpm build
  * npx cap open ios        # or: npx cap open android
  * ```
