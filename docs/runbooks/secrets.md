@@ -197,10 +197,12 @@ contract. Adding a variable means updating **both**, plus this table.
 | `SCRAPER_PROVIDER`, `SCRAPER_API_KEY`, `SCRAPER_*`                                   | The listing-import scraper fallback stays off. Imports from sites that refuse us degrade to URL hints, a Places lookup and the paste box — see below                                            |
 
 `GET /api/health` reports which of these are configured, without revealing
-values — **to an admin**. To anyone else it answers `{"status":"ok"}` and
-stops there, because the summary below is a map of how this deployment is put
-together. Sign in as an admin and curl it with the session cookie, or open
-`/admin/health`, which shows the same facts and tests the services besides.
+values — **to a system admin** (`users.role = 'admin'`, the person who operates
+this deployment; not the `admin` role a member holds on a trip). To anyone else
+it answers `{"status":"ok"}` and stops there, because the summary below is a
+map of how this deployment is put together. Sign in as one and curl it with the
+session cookie, or open `/admin/health`, which shows the same facts and tests
+the services besides.
 
 It names the variable each one came from rather than echoing anything:
 `aiKeySource` says which of the two AI keys won, `databaseSource` which

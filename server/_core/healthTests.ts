@@ -12,7 +12,9 @@
  * fetch the page — and report what came back. They are separate from the
  * checks, and separate from page load, because each one costs something real:
  * an email in somebody's inbox, a scraper credit, a model call. Nothing here
- * runs unless a person pressed a button.
+ * runs unless a person pressed a button, and that person is the **system**
+ * admin (`users.role`), not a trip admin (`trip_members.role`) — the spend is
+ * the deployment's, so the authority has to be the deployment's too.
  */
 import { sql } from "drizzle-orm";
 

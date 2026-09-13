@@ -55,6 +55,14 @@ is built, run or deployed.
   each one costs an email, a credit or a model call. A short per-service
   cooldown stops the ordinary accident of a double click or a refresh loop.
 
+  **System admin, not trip admin.** The gate is `users.role = 'admin'` — the
+  person who operates this deployment — and never `trip_members.role`, which
+  spells the same word for a customer organising a holiday. That was already
+  true; it is now pinned by tests that hand the endpoints a trip organiser and
+  expect a refusal, and by an assertion that the procedure builder consults
+  `users.role` rather than any membership. The screen is titled "System health"
+  for the same reason.
+
   **The email test takes no destination.** It sends to the signed-in admin's
   own address and there is no input that could change that; the input schema is
   `.strict()`, so a request carrying a recipient is refused rather than having

@@ -7,6 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appRouter } from "../routers/index.js";
 import type { TrpcContext } from "./context.js";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { resetHealthTestCooldowns } from "./healthTests.js";
 import { probeEmail } from "../utils/mailer.js";
 
@@ -283,5 +286,69 @@ describe("service tests are admin-only and narrowly aimed", () => {
         to: "somebody-else@example.com",
       } as never)
     ).rejects.toThrow();
+  });
+});
+
+/**
+ * "Admin" means two unrelated things in this codebase, and both enums spell it
+ * the same way:
+ *
+ *   users.role         → user_role   ["user", "admin"]        — the operator
+ *   trip_members.role  → member_role ["watcher", "tripmate", "admin"] — a trip
+ *
+ * The health surface is the operator's. A trip admin is an ordinary customer
+ * who organises a holiday: they must never see which secrets this deployment
+ * has, which model it calls, how weak its session secret is, or be able to
+ * spend its Resend and Google quota. `adminProcedure` reads `users.role` and is
+ * correct today — this pins it, because the mistake is a one-word edit away and
+ * nothing else in the suite would notice it.
+ */
+describe("the health surface is for the system admin, not a trip admin", () => {
+  beforeEach(() => resetHealthTestCooldowns());
+
+  /** Organises trips, admin on every one of them. Not an operator. */
+  function tripAdminContext(): TrpcContext {
+    return {
+      req: { protocol: "https", headers: {} } as TrpcContext["req"],
+      res: { clearCookie: () => {} } as TrpcContext["res"],
+      user: {
+        id: 7,
+        openId: "trip-admin-7",
+        email: "organiser@example.com",
+        name: "Trip Organiser",
+        loginMethod: "manus",
+        // `users.role`. Their `trip_members.role` is "admin" on their own
+        // trips, which is a different column and confers nothing here.
+        role: "user",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastSignedIn: new Date(),
+      } as NonNullable<TrpcContext["user"]>,
+    };
+  }
+
+  it("does not let a trip admin read the diagnostics", async () => {
+    const caller = appRouter.createCaller(tripAdminContext());
+    await expect(caller.system.diagnostics()).rejects.toThrow();
+  });
+
+  it("does not let a trip admin spend the deployment's quota", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const caller = appRouter.createCaller(tripAdminContext());
+
+    await expect(
+      caller.system.testService({ service: "email" })
+    ).rejects.toThrow();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("gates on users.role, not on any trip membership", () => {
+    // Pinning the shape as well as the behaviour: a future `adminProcedure`
+    // that consulted a membership would still pass the two tests above for a
+    // caller with no trips, and fail in production for one with a trip.
+    const src = readFileSync(join(import.meta.dirname, "./trpc.ts"), "utf8");
+    expect(src).toContain('ctx.user.role !== "admin"');
+    expect(src).not.toContain("requireTripRole");
   });
 });

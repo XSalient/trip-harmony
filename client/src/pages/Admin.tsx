@@ -209,7 +209,7 @@ function HealthCard() {
         <CardContent className="p-4 flex items-center gap-3">
           <Activity className="h-4 w-4 text-muted-foreground shrink-0" />
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold text-sm">Health</h3>
+            <h3 className="font-semibold text-sm">System health</h3>
             <p className="text-sm text-muted-foreground mt-1">
               Asks the database, the mail provider and the AI vendor whether
               they are actually working — not whether their variables are set.

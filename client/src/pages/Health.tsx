@@ -13,10 +13,16 @@
  * the mail, write the row, call the model — and only ever runs when somebody
  * presses the button next to it, because each one costs something real.
  *
- * Admin-only, and that is enforced by `adminProcedure` on the server, not by
- * this page choosing what to draw. Two reasons, either sufficient: the report
- * is a map of which secrets exist and where they are weak, and running any of
- * it costs outbound requests somebody pays for.
+ * For the **system** admin — `users.role === "admin"`, the person who operates
+ * this deployment. Not a trip admin: that is `trip_members.role`, a different
+ * column on a different table that happens to spell the word the same way, and
+ * it belongs to a customer organising a holiday. They have no business knowing
+ * which secrets this deployment holds or spending its quota.
+ *
+ * Enforced by `adminProcedure` on the server, not by this page choosing what to
+ * draw. Two reasons for the gate, either sufficient: the report is a map of
+ * which secrets exist and where they are weak, and running any of it costs
+ * outbound requests somebody pays for.
  */
 import { useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -251,7 +257,7 @@ export default function Health() {
 
   if (loading) {
     return (
-      <AppShell title="Health" showBack backHref="/admin">
+      <AppShell title="System health" showBack backHref="/admin">
         <div className="px-4 py-4 space-y-3">
           <Skeleton className="h-24 rounded-xl" />
           <Skeleton className="h-24 rounded-xl" />
@@ -260,6 +266,9 @@ export default function Health() {
     );
   }
 
+  // `user.role` is `users.role` — the operator. A trip admin's role lives on
+  // their membership row and never reaches this object.
+  //
   // Renders as though the route does not exist, rather than as a locked door.
   if (user?.role !== "admin") return <NotFound />;
 
@@ -271,7 +280,7 @@ export default function Health() {
 
   return (
     <AppShell
-      title="Health"
+      title="System health"
       showBack
       backHref="/admin"
       headerRight={

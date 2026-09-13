@@ -42,8 +42,9 @@ export const systemRouter = router({
   /**
    * The live state of every dependency, for the admin diagnostics screen.
    *
-   * `adminProcedure`, not `publicProcedure`, for two independent reasons and
-   * either would be enough. It reports which secrets are set, which model is
+   * `adminProcedure` — which reads `users.role`, the operator of this
+   * deployment, and has nothing to do with the `admin` role a member holds on
+   * a trip. Two independent reasons for the gate, either enough. It reports which secrets are set, which model is
    * in use, how far behind the migrations are and why mail is failing — a map
    * of where to push. And it makes an outbound request per check, so an
    * unauthenticated version would let anyone spend this deployment's Resend

@@ -8,10 +8,12 @@
  * unreachable and a trip's invitations went nowhere. A variable being present
  * is not evidence that the thing behind it answers.
  *
- * So these checks talk to the dependency. That is also why they are
- * admin-only and never run on a schedule: each one costs an outbound request,
- * and an unauthenticated endpoint that makes outbound requests is a way to
- * spend somebody else's rate limit.
+ * So these checks talk to the dependency. That is also why they are restricted
+ * to the **system** admin — `users.role === "admin"`, the operator, never
+ * `trip_members.role`, which is a customer running a holiday — and never run on
+ * a schedule: each one costs an outbound request, and an endpoint that makes
+ * outbound requests for anyone who asks is a way to spend somebody else's rate
+ * limit.
  *
  * Nothing here throws. A check that cannot run reports that it could not run —
  * a diagnostics screen that 500s tells you nothing about the thing you came to
