@@ -104,7 +104,11 @@ describe("email probe", () => {
     expect(probe.verdict).toBe("ok");
   });
 
-  it("reports a bad key as broken", async () => {
+  it("will not condemn a key from the domains endpoint alone", async () => {
+    // This test used to assert the opposite, and the assertion was the bug: a
+    // 401 here was reported as "Resend rejected the API key". It is a
+    // permission on one endpoint, and a domain-scoped key — the ordinary kind
+    // — is refused it while sending fine. Only the send test can condemn a key.
     process.env.RESEND_API_KEY = "re_wrong";
     process.env.MAIL_FROM = "hello@wevotrip.com";
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -113,8 +117,8 @@ describe("email probe", () => {
 
     const probe = await probeEmail();
 
-    expect(probe.verdict).toBe("broken");
-    expect(probe.summary).toContain("rejected the API key");
+    expect(probe.verdict).toBe("unknown");
+    expect(probe.summary).toMatch(/may not list domains/i);
   });
 
   it("does not condemn a send-only key it cannot check with", async () => {
@@ -130,6 +134,38 @@ describe("email probe", () => {
 
     expect(probe.verdict).toBe("unknown");
     expect(probe.detail).toContain("sending-only");
+  });
+
+  it("does not call a domain-scoped key rejected just because it cannot list domains", async () => {
+    process.env.RESEND_API_KEY = "re_domain_scoped_key";
+    process.env.MAIL_FROM = "WeVoTrip <hello@wevotrip.com>";
+    // Resend answers 401 on /domains for a key scoped to one domain — the
+    // normal thing to create — while sending with it works perfectly. Reading
+    // that as "the API key is rejected" put a red row next to an email test
+    // that had just delivered, which is the most misleading direction this
+    // check could be wrong in.
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 401 })
+    );
+
+    const probe = await probeEmail();
+
+    expect(probe.verdict).toBe("unknown");
+    expect(probe.summary).not.toMatch(/rejected/i);
+    expect(probe.detail).toMatch(/not evidence of a bad key/i);
+  });
+
+  it("treats every non-2xx from the domains endpoint as unverifiable, not broken", async () => {
+    process.env.RESEND_API_KEY = "re_key";
+    process.env.MAIL_FROM = "hello@wevotrip.com";
+    for (const status of [401, 403, 422, 429, 500]) {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response("", { status })
+      );
+      const probe = await probeEmail();
+      // /domains is not the sending endpoint. Only a send can condemn a key.
+      expect(probe.verdict).toBe("unknown");
+    }
   });
 
   it("reports no provider at all as broken", async () => {

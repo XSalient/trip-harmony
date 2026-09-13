@@ -361,39 +361,32 @@ async function probeResend(apiKey: string): Promise<EmailProbe> {
   }
   facts.latencyMs = Date.now() - startedAt;
 
-  if (res.status === 401) {
-    return {
-      provider: "resend",
-      verdict: "broken",
-      summary: "Resend rejected the API key",
-      detail:
-        "RESEND_API_KEY is wrong, revoked, or belongs to a different account. Every send will fail with 401.",
-      sender,
-      facts,
-    };
-  }
-
-  // A send-only key cannot list domains. That is a perfectly good key for
-  // sending, so it must not be reported as a broken one — but it does mean
-  // this check cannot see whether the sender domain is verified.
-  if (res.status === 403 || res.status === 422) {
+  // Any refusal here is a statement about *this endpoint*, never about
+  // sending.
+  //
+  // This read "Resend rejected the API key" on a 401 and it was wrong, in the
+  // most misleading direction available: a key scoped to one domain — the
+  // normal thing to create — cannot list domains and is answered 401, while
+  // sending with it works perfectly. The page therefore showed a red "rejected
+  // the API key" next to an email test that had just delivered.
+  //
+  // `/domains` is not the sending endpoint, and permission to read it is a
+  // different grant from permission to send. The only thing that can prove a
+  // key cannot send is a send, which is what the Test button does. So every
+  // non-2xx here is "could not verify", and the row says so.
+  if (!res.ok) {
+    const body = (await res.text().catch(() => "")).slice(0, 200);
+    const restricted =
+      res.status === 401 || res.status === 403 || res.status === 422;
     return {
       provider: "resend",
       verdict: "unknown",
-      summary: "Resend is reachable, but this key cannot list domains",
-      detail:
-        "A sending-only API key has no domains:read permission, so whether the sender domain is verified could not be checked here. Confirm it in the Resend dashboard, or use a full-access key.",
-      sender,
-      facts,
-    };
-  }
-
-  if (!res.ok) {
-    return {
-      provider: "resend",
-      verdict: "broken",
-      summary: `Resend responded ${res.status}`,
-      detail: (await res.text().catch(() => "")).slice(0, 300) || undefined,
+      summary: restricted
+        ? "Resend is reachable, but this key may not list domains"
+        : `Resend is reachable but answered ${res.status} when asked for domains`,
+      detail: restricted
+        ? `Responded ${res.status}. A key scoped to a single domain — or any sending-only key — has no domains:read permission, so whether the sender domain is verified cannot be checked from here. That is not evidence of a bad key: run the email test, which actually sends. If that fails too, then suspect the key.`
+        : `Responded ${res.status}${body ? `: ${body}` : ""}. Sending is unaffected by this endpoint; run the email test to settle it.`,
       sender,
       facts,
     };

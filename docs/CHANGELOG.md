@@ -8,6 +8,33 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-13 — The health page stops contradicting its own evidence
+
+### Fixed
+
+- **A passing test no longer leaves a failing row above it.** Pressing Test on
+  Email, watching it deliver, and seeing the row still read "Failing" was the
+  page disagreeing with the evidence printed underneath it. A check _infers_ —
+  the provider answered, the settings cohere. A test is the thing itself having
+  happened. The test now decides the row, the headline and the ordering, and
+  says so in one line; an inconclusive test decides nothing and leaves the
+  check standing. The global re-run clears the verdicts with it, because after
+  a fresh measurement an older reading presented as current is the same fault
+  again.
+
+- **A domain-scoped Resend key is no longer reported as rejected.** The email
+  check asked `/domains` and read a `401` as "Resend rejected the API key". But
+  a key scoped to one domain — the ordinary thing to create — is refused that
+  endpoint while sending with it works perfectly, so the page showed a red
+  "rejected the API key" next to an email test that had just delivered.
+  Permission to list domains is a different grant from permission to send, and
+  `/domains` is not the sending endpoint. Every non-2xx there now reports "could
+  not verify" and points at the send test, which is the only thing that can
+  condemn a key. The test that asserted the old behaviour was itself the bug,
+  and now asserts the new one.
+
+---
+
 ## 2026-09-13 — The invite outage was one invisible byte
 
 ### Fixed

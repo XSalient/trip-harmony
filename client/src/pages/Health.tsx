@@ -147,8 +147,32 @@ function TestVerdict({ result }: { result: TestResult }) {
   );
 }
 
+/**
+ * What a row should say, given both a check and a test.
+ *
+ * A test outranks a check, and it is not close. A check infers — "the provider
+ * answered, the settings cohere"; a test is the thing itself having happened.
+ * The first version of this page let them disagree in silence: pressing Test
+ * on Email, watching it deliver, and leaving the row above still reading
+ * "Failing" from the last inference. A diagnostics screen whose rows contradict
+ * the evidence underneath them is worse than no screen, because it teaches you
+ * to distrust the parts that are right.
+ *
+ * An inconclusive test decides nothing and leaves the check's verdict standing.
+ */
+function effectiveStatus(
+  check: { status: CheckStatus },
+  result: TestResult | null
+): { status: CheckStatus; fromTest: boolean } {
+  if (!result || result.inconclusive)
+    return { status: check.status, fromTest: false };
+  return { status: result.passed ? "ok" : "fail", fromTest: true };
+}
+
 function CheckRow({
   check,
+  result,
+  onResult,
 }: {
   check: {
     id: string;
@@ -158,18 +182,20 @@ function CheckRow({
     detail?: string;
     facts?: Record<string, string | number | null>;
   };
+  result: TestResult | null;
+  onResult: (id: string, result: TestResult) => void;
 }) {
-  const p = PRESENTATION[check.status] ?? PRESENTATION.unknown;
+  const { status, fromTest } = effectiveStatus(check, result);
+  const p = PRESENTATION[status] ?? PRESENTATION.unknown;
   const facts = Object.entries(check.facts ?? {}).filter(
     ([, v]) => v !== null && v !== ""
   );
   const testable = TESTABLE[check.id];
-  const [result, setResult] = useState<TestResult | null>(null);
 
   const runTest = trpc.system.testService.useMutation({
-    onSuccess: setResult,
+    onSuccess: r => onResult(check.id, r as TestResult),
     onError: error =>
-      setResult({
+      onResult(check.id, {
         service: check.id,
         passed: false,
         summary: "The test could not be run",
@@ -187,6 +213,14 @@ function CheckRow({
             {p.label}
           </StatusPill>
         </div>
+
+        {/* Where a test has spoken, say which claim the reader is looking at,
+            so an unchanged check line below cannot be mistaken for a denial. */}
+        {fromTest && (
+          <p className="text-[11px] text-muted-foreground">
+            From the test below — it outranks the check.
+          </p>
+        )}
 
         <p className="text-sm text-foreground/90 break-words">
           {check.summary}
@@ -239,6 +273,16 @@ function CheckRow({
 export default function Health() {
   const { user, loading } = useAuth({ redirectOnUnauthenticated: true });
 
+  /**
+   * Test verdicts, by check id. Held here rather than inside each row so the
+   * headline and the ordering can see them — and so a full re-run can clear
+   * them, because once the checks have been measured again a verdict from
+   * before that is just an older reading presented as a current one.
+   */
+  const [results, setResults] = useState<Record<string, TestResult>>({});
+  const recordResult = (id: string, result: TestResult) =>
+    setResults(prev => ({ ...prev, [id]: result }));
+
   const {
     data,
     isLoading,
@@ -272,10 +316,26 @@ export default function Health() {
   // Renders as though the route does not exist, rather than as a locked door.
   if (user?.role !== "admin") return <NotFound />;
 
+  const statusOf = (c: { id: string; status: CheckStatus }) =>
+    effectiveStatus(c, results[c.id] ?? null).status;
+
   const checks = [...(data?.checks ?? [])].sort(
-    (a, b) => RANK[a.status as CheckStatus] - RANK[b.status as CheckStatus]
+    (a, b) =>
+      RANK[statusOf(a as { id: string; status: CheckStatus })] -
+      RANK[statusOf(b as { id: string; status: CheckStatus })]
   );
-  const overall = (data?.overall ?? "unknown") as CheckStatus;
+
+  // Recomputed here rather than taken from `data.overall`: the server's figure
+  // cannot know about a test the reader has since run, and a green row set
+  // under a red headline is the same contradiction in a different place.
+  const overall = checks.length
+    ? checks
+        .map(c => statusOf(c as { id: string; status: CheckStatus }))
+        .reduce(
+          (worst, s) => (RANK[s] < RANK[worst] ? s : worst),
+          "off" as CheckStatus
+        )
+    : ((data?.overall ?? "unknown") as CheckStatus);
   const overallPresentation = PRESENTATION[overall] ?? PRESENTATION.unknown;
 
   return (
@@ -289,7 +349,10 @@ export default function Health() {
           size="icon"
           aria-label="Run the checks again"
           disabled={isFetching}
-          onClick={() => refetch()}
+          onClick={() => {
+            setResults({});
+            refetch();
+          }}
         >
           <RefreshCw
             className={isFetching ? "h-4 w-4 animate-spin" : "h-4 w-4"}
@@ -347,6 +410,8 @@ export default function Health() {
                   <CheckRow
                     key={check.id}
                     check={check as Parameters<typeof CheckRow>[0]["check"]}
+                    result={results[check.id] ?? null}
+                    onResult={recordResult}
                   />
                 ))}
               </div>
