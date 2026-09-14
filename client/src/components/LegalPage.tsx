@@ -18,7 +18,7 @@ import { ArrowLeft } from "lucide-react";
  * changed. It moves when somebody edits the wording, so it belongs beside the
  * wording rather than in configuration where it would drift.
  */
-export const LEGAL_UPDATED = "28 August 2026";
+export const LEGAL_UPDATED = "14 September 2026";
 
 /**
  * Who operates this deployment — served by `system.support` from `LEGAL_*`
@@ -114,6 +114,9 @@ export function LegalPage({
           </Link>
           <Link href="/terms" className="hover:text-foreground">
             Terms
+          </Link>
+          <Link href="/delete-account" className="hover:text-foreground">
+            Delete account
           </Link>
           <Link href="/" className="hover:text-foreground">
             Back to the app

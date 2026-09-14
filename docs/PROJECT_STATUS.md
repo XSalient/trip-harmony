@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-09-13
+- **Last updated:** 2026-09-14
 - **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
   that). The domain is `wevotrip.com`, with the marketing demo at
   `demo.wevotrip.com`. Three identifiers still read the older names because they
@@ -23,6 +23,21 @@ finish a piece of work — the next person (or agent) starts here.
   entry but one: `APP_ENV` on the live project says `development`). Still
   missing before this is a real PWA: a service worker, which is what web push
   needs.
+- **The store forms are answered** (2026-09-14). The Play Console account is
+  open — 2 of its 13 listing tasks are done (privacy policy, merchant account) —
+  and every remaining declaration on both stores is written out, from the code,
+  in [runbooks/store-submission.md](runbooks/store-submission.md): Data safety,
+  Apple's privacy labels, the IARC questionnaire, target audience, listing copy,
+  review notes. Four code gaps that page found are closed: a signed-out
+  `/delete-account` URL (Play's Data safety form requires one and Apple's in-app
+  route does not satisfy it), a way to report what the referee wrote (Play's
+  generative-AI policy), the subscription's renewal terms on the paywall itself
+  (Apple 3.1.2), and the two Play listing images, now generated from
+  `resources/icon.png`. **What blocks a submission is unchanged and is not
+  code**: no `ios/` or `android/` project (needs a Mac), `LEGAL_ADDRESS` still
+  empty, no Apple team id or Android certificate fingerprint, RevenueCat not
+  configured, and — if the Play account is an individual's — a 14-day closed
+  test with 12 testers before production access is even applied for.
 - **The native bundle id is `com.wevotrip.app`**, for both stores, chosen
   2026-08-30. It is the fallback in `capacitor.config.ts` and the value set in
   Doppler. Apple does not allow a bundle id to change after the first

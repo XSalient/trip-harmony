@@ -23,7 +23,9 @@ import {
   PartyPopper,
   FileText,
   AlertTriangle,
+  Flag,
 } from "lucide-react";
+import { ReportDialog, type ReportTarget } from "@/components/ReportDialog";
 import { Streamdown } from "streamdown";
 
 const typeIcons: Record<string, any> = {
@@ -52,6 +54,11 @@ export default function TripReferee() {
   // already hides the link; this page is reachable by typing the URL, and it
   // used to answer with a permanent skeleton and a console error.
   const { canAdminister: isAdmin, canContribute } = useTripRole(tripId);
+
+  // Reporting what the model wrote. Google Play's generative-AI policy requires
+  // a way to flag AI output from inside the app; this is it, and it files into
+  // the same admin queue as a reported comment.
+  const [reporting, setReporting] = useState<ReportTarget | null>(null);
 
   const { data: messages, isLoading } = trpc.referee.messages.useQuery(
     { tripId },
@@ -210,6 +217,25 @@ export default function TripReferee() {
                       <span className="text-[10px] text-muted-foreground ml-auto">
                         {new Date(msg.createdAt).toLocaleDateString()}
                       </span>
+                      <button
+                        type="button"
+                        aria-label="Report this message"
+                        title="Report this message"
+                        // Padded out and pulled back in: a 12px flag is a
+                        // 12px tap target otherwise, which on a phone means
+                        // the control exists without being usable.
+                        className="-m-2 p-2 text-muted-foreground hover:text-foreground shrink-0"
+                        onClick={() =>
+                          setReporting({
+                            contentType: "referee_message",
+                            contentId: msg.id,
+                            tripId,
+                            label: String(msg.content).slice(0, 80),
+                          })
+                        }
+                      >
+                        <Flag className="h-3 w-3" />
+                      </button>
                     </div>
                     <div className="text-sm leading-relaxed prose prose-sm max-w-none">
                       <Streamdown>{msg.content}</Streamdown>
@@ -232,6 +258,12 @@ export default function TripReferee() {
           />
         )}
       </div>
+
+      <ReportDialog
+        target={reporting}
+        open={reporting !== null}
+        onOpenChange={next => !next && setReporting(null)}
+      />
     </AppShell>
   );
 }

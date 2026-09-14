@@ -122,9 +122,11 @@ export default function Privacy() {
       <h2>Deleting your account</h2>
 
       <p>
-        Profile → <strong>Delete my account</strong>, from inside the app. It
-        cannot be undone. Here is exactly what happens, because "deleted" is
-        doing more work in most policies than it should:
+        Profile → <strong>Delete my account</strong>, from inside the app, or by
+        email if you can no longer sign in — both routes are on the{" "}
+        <a href="/delete-account">account deletion page</a>. It cannot be
+        undone. Here is exactly what happens, because "deleted" is doing more
+        work in most policies than it should:
       </p>
 
       <ul>

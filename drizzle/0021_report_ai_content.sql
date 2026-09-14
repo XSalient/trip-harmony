@@ -1,0 +1,20 @@
+-- Let somebody report what the AI Referee wrote.
+--
+-- Google Play's generative-AI policy requires an in-app way to flag offensive
+-- AI output, and Apple reads guideline 1.2's "report objectionable content" as
+-- covering text the app itself published. `content_reports` already carries
+-- everything a report needs; what it could not say is that the thing being
+-- reported was written by the model rather than by a member.
+--
+-- Adding a value to an enum is backward compatible in the direction that
+-- matters here (ADR-0023: one database, shared with `master`): `master`'s code
+-- never sends `referee_message`, and reading a row it does not know about is
+-- not a case it can reach, because only this branch can write one.
+--
+-- `ALTER TYPE … ADD VALUE` runs inside the migrator's transaction on
+-- PostgreSQL 12 and later. The restriction that remains is that the new value
+-- cannot be *used* in the same transaction — nothing here does.
+--
+-- Written by hand, like every migration since 0008: `drizzle/meta/` holds
+-- snapshots only up to 0007. See `docs/runbooks/database.md`.
+ALTER TYPE "reported_content" ADD VALUE IF NOT EXISTS 'referee_message';

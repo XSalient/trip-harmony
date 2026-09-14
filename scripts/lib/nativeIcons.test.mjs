@@ -176,6 +176,48 @@ describe("the Android adaptive layers", () => {
   });
 });
 
+describe("the store art", () => {
+  // Play's two hard requirements on a listing's images. Both are rejected at
+  // upload rather than at review, so they are worth asserting here: the
+  // feedback loop through the Console is minutes long and the fix is a code
+  // change.
+  const store = path => byPath.get(`resources/generated/store/${path}`);
+
+  it("is the exact sizes Play accepts", () => {
+    expect(store("play-icon-512.png")).toBeDefined();
+    const icon512 = decodePng(store("play-icon-512.png").contents);
+    expect([icon512.width, icon512.height]).toEqual([512, 512]);
+
+    const feature = decodePng(
+      store("play-feature-graphic-1024x500.png").contents
+    );
+    expect([feature.width, feature.height]).toEqual([1024, 500]);
+  });
+
+  it("carries no alpha channel", () => {
+    // Colour type 2 is 24-bit truecolour. Play refuses a feature graphic with
+    // an alpha channel, and composites a transparent icon onto white — which
+    // turns the mark's rounded corners into a pale fringe.
+    for (const name of [
+      "play-icon-512.png",
+      "play-feature-graphic-1024x500.png",
+    ]) {
+      const png = store(name).contents;
+      expect(png[25], `${name} should be colour type 2, no alpha`).toBe(2);
+    }
+  });
+
+  it("is opaque in the corners, where a listing shows it", () => {
+    const feature = decodePng(
+      store("play-feature-graphic-1024x500.png").contents
+    );
+    expect(pixel(feature, 0, 0)).toEqual([
+      ...parseHexColour(BRAND_COLOUR),
+      255,
+    ]);
+  });
+});
+
 describe("what is committed", () => {
   // `resources/generated/` is checked in so the icons can be reviewed without
   // running anything. That is only worth having if it cannot go stale, which

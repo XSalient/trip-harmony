@@ -36,7 +36,17 @@ export const moderationRouter = router({
   report: protectedProcedure
     .input(
       z.object({
-        contentType: z.enum(["comment", "proposal", "trip", "member"]),
+        contentType: z.enum([
+          "comment",
+          "proposal",
+          "trip",
+          "member",
+          // What the referee wrote. Google Play's generative-AI policy requires
+          // a way to flag AI output, and it lands in the same queue as
+          // everything else — an admin reading it is the point, whoever wrote
+          // it.
+          "referee_message",
+        ]),
         contentId: z.number(),
         tripId: z.number().optional(),
         reason: z.enum([

@@ -150,6 +150,73 @@ describe("moderation.report", () => {
     ).rejects.toThrow(/yourself/i);
   });
 
+  it("accepts a report about what the referee wrote", async () => {
+    // Play's generative-AI policy requires a way to flag AI output from inside
+    // the app. Reaching the membership check is the assertion: it means the
+    // input schema took `referee_message` rather than rejecting it, which is
+    // the failure this would otherwise ship with.
+    const caller = appRouter.createCaller(makeCtx());
+    await expect(
+      caller.moderation.report({
+        contentType: "referee_message",
+        contentId: 1,
+        tripId: 999,
+        reason: "other",
+      })
+    ).rejects.toThrow(/not a member/i);
+  });
+
+  it("agrees with the schema and the dialog about what can be reported", () => {
+    // Three places name the same list — the Postgres enum, this router's Zod
+    // input, and the dialog's `ReportTarget`. Two of the three agreeing is a
+    // runtime error for whoever taps Report, so they are compared here rather
+    // than trusted.
+    const between = (src: string, start: string, end: string) =>
+      src.slice(
+        src.indexOf(start) + start.length,
+        src.indexOf(end, src.indexOf(start))
+      );
+
+    const schema = between(
+      readFileSync(
+        join(import.meta.dirname, "../../drizzle/schema.ts"),
+        "utf8"
+      ),
+      'pgEnum("reported_content", [',
+      "]);"
+    );
+    const router = between(
+      readFileSync(join(import.meta.dirname, "moderation.ts"), "utf8"),
+      "contentType: z.enum([",
+      "]),"
+    );
+    const dialog = between(
+      readFileSync(
+        join(
+          import.meta.dirname,
+          "../../client/src/components/ReportDialog.tsx"
+        ),
+        "utf8"
+      ),
+      "contentType:",
+      ";"
+    );
+
+    for (const kind of [
+      "comment",
+      "proposal",
+      "trip",
+      "member",
+      "referee_message",
+    ]) {
+      expect(schema, `schema.ts is missing ${kind}`).toContain(`"${kind}"`);
+      expect(router, `moderation.ts is missing ${kind}`).toContain(`"${kind}"`);
+      expect(dialog, `ReportDialog.tsx is missing ${kind}`).toContain(
+        `"${kind}"`
+      );
+    }
+  });
+
   it("checks trip membership before accepting a trip-scoped report", async () => {
     const caller = appRouter.createCaller(makeCtx());
     await expect(
