@@ -57,6 +57,12 @@ export const trip = {
   currency: "GBP",
   totalBudget: "600.00",
   votingUnit: "member",
+  // The invite link as an admin would have set it up: on, with room for a few
+  // more people and no end date. Off is the default everywhere else, and a
+  // card that is always off shows none of its controls.
+  inviteLinkEnabled: true,
+  inviteUsesLeft: 3,
+  inviteLinkExpiresAt: null as string | null,
   hiddenSections: [] as string[],
   voterCount: 6,
   createdAt: iso("2026-02-11"),

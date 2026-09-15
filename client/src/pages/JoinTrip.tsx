@@ -8,8 +8,9 @@ import AppShell from "@/components/AppShell";
 import { AuthDialog } from "@/components/AuthDialog";
 import { useLocation, useParams, useSearch } from "wouter";
 import { toast } from "sonner";
-import { Users, MapPin, LogIn, Clock } from "lucide-react";
+import { Users, MapPin, LogIn, Clock, Lock } from "lucide-react";
 import { useState, useEffect } from "react";
+import { INVITE_LINK_CLOSED_MESSAGE } from "@shared/inviteLink";
 
 /** What the screen is showing once the join has been answered. */
 type Outcome =
@@ -121,6 +122,15 @@ export default function JoinTrip() {
   const waiting =
     outcome?.kind === "pending" || (!outcome && membership === "pending");
 
+  /**
+   * A link that is switched off, used up or past its date. The trip says so
+   * before the button rather than after it: offering a control that cannot
+   * work, and explaining afterwards, reads as a broken app rather than a
+   * closed link. An emailed invitation is a different door and is not affected
+   * by the trip's link settings, so it keeps its button.
+   */
+  const linkClosed = !trip.linkOpen && !inviteToken;
+
   return (
     <AppShell title="Join Trip" showBack backHref="/">
       <div className="px-4 py-6 space-y-6">
@@ -172,6 +182,18 @@ export default function JoinTrip() {
           >
             You're already on this trip — open it
           </Button>
+        ) : linkClosed ? (
+          <div className="space-y-3 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Lock className="h-5 w-5" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {INVITE_LINK_CLOSED_MESSAGE}
+            </p>
+            <Button variant="outline" onClick={() => navigate("/")}>
+              Go Home
+            </Button>
+          </div>
         ) : user ? (
           <div className="space-y-3">
             <Button

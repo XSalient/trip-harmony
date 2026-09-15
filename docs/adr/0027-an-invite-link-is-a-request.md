@@ -1,7 +1,16 @@
 # 0027. An invite link is a request, not an entry
 
-- Status: Accepted
+- Status: Accepted, amended by [ADR-0028](0028-the-shared-link-is-off-by-default.md)
 - Date: 2026-09-15
+
+> **Amended the same day by
+> [ADR-0028](0028-the-shared-link-is-off-by-default.md).** The shared link is no
+> longer a request queue: it is off by default and, when an admin turns it on,
+> admits a stated number of people until a stated date. Everything below about
+> **emailed** invitations — bound to their address, spent when answered — still
+> holds, as does the reasoning about why possession of a URL must not be
+> membership. Read this one for the problem; read 0028 for what the link does
+> now.
 
 ## Context
 

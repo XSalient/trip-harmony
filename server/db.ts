@@ -832,6 +832,62 @@ export async function getTripByInviteCode(code: string) {
   return result[0] || null;
 }
 
+/**
+ * Takes one use off the trip's invite link, and says whether it got one.
+ *
+ * **This is the gate, not a check.** Reading the row, deciding, and then
+ * writing would let two people tapping the link at the same moment both take
+ * the last use — and the whole point of the number is that it cannot be
+ * exceeded. Every condition is in the `WHERE`, so Postgres decides, once, per
+ * row: enabled, not expired, and something left to spend. No row updated means
+ * no use was available, whatever the reason.
+ *
+ * Returns what is left afterwards, or null when nothing was spent.
+ */
+export async function spendInviteLinkUse(
+  tripId: number
+): Promise<number | null> {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .update(trips)
+    .set({ inviteUsesLeft: sql`${trips.inviteUsesLeft} - 1` })
+    .where(
+      and(
+        eq(trips.id, tripId),
+        eq(trips.inviteLinkEnabled, true),
+        sql`${trips.inviteUsesLeft} > 0`,
+        or(
+          sql`${trips.inviteLinkExpiresAt} IS NULL`,
+          sql`${trips.inviteLinkExpiresAt} > now()`
+        )
+      )
+    )
+    .returning({ left: trips.inviteUsesLeft });
+  return row ? row.left : null;
+}
+
+/** The admin's three settings for the shared link, written together. */
+export async function setInviteLink(
+  tripId: number,
+  link: {
+    enabled: boolean;
+    usesLeft: number | null;
+    expiresAt: Date | null;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(trips)
+    .set({
+      inviteLinkEnabled: link.enabled,
+      inviteUsesLeft: link.usesLeft,
+      inviteLinkExpiresAt: link.expiresAt,
+    })
+    .where(eq(trips.id, tripId));
+}
+
 export async function updateTrip(id: number, data: Partial<InsertTrip>) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
@@ -2025,6 +2081,8 @@ export const ACTIVITY_ACTIONS = [
   /** Followed the shared link and is waiting for an admin — see `trips.join`. */
   "member.requested",
   "member.joined",
+  /** They took themselves off the trip. Distinct from `member.removed`. */
+  "member.left",
   "member.declined",
   /** An admin turned a request down. Distinct from the invitee declining. */
   "member.rejected",

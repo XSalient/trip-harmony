@@ -3,18 +3,20 @@
  *
  * Both halves used to be "anybody holding a URL". The shared link made a
  * voting tripmate on sight, so a link forwarded into a group chat — or left in
- * a browser on a shared laptop — was a seat at the trip. And an emailed invite
- * was never bound to the person it was sent to, nor spent when it was used, so
- * one invitation let in as many people as it was forwarded to, for as long as
- * the trip existed.
+ * a browser on a shared laptop — was a seat at the trip, for ever. And an
+ * emailed invite was never bound to the person it was sent to, nor spent when
+ * it was used, so one invitation let in as many people as it was forwarded to.
  *
  * The rules now:
  *
- *   shared link        → a **request**. An admin answers it.
+ *   shared link        → off until an admin turns it on for a stated number of
+ *                        people, optionally until a date. Each join spends one.
  *   emailed invite     → joins outright, but only for the address it was sent
  *                        to, and only once.
- *   demo trips         → exempt from both, because a sales tour has nobody on
- *                        the other side to approve anybody (`isDemoTrip`).
+ *   a forwarded invite → not honoured, spends none of the link's uses, and
+ *                        becomes a request an admin answers.
+ *   demo trips         → exempt from all of it, because a sales tour has nobody
+ *                        on the other side to approve anybody (`isDemoTrip`).
  *
  * Run against a stubbed database, like `productMeasurement.test.ts`: the rules
  * are decisions the procedure makes, and every one of them is observable in
@@ -33,6 +35,11 @@ const h = vi.hoisted(() => ({
     setInviteStatus: vi.fn(),
     addTripMember: vi.fn(),
     setMemberStatus: vi.fn(),
+    removeTripMember: vi.fn(),
+    deleteMemberAttendee: vi.fn(),
+    countTripAdmins: vi.fn(),
+    spendInviteLinkUse: vi.fn(),
+    setInviteLink: vi.fn(),
     upsertMemberAttendee: vi.fn(),
     createNotification: vi.fn(),
     recordActivity: vi.fn(),
@@ -108,25 +115,56 @@ beforeEach(() => {
   h.db.getTripMember.mockResolvedValue(undefined);
   h.db.getTripMembers.mockResolvedValue([]);
   h.db.getUserById.mockResolvedValue({ id: 7, name: "Nina Okafor" });
+  // An open link with room. `spendInviteLinkUse` answers with what is left, or
+  // null when there was nothing to take — it is the gate, not a lookup.
+  h.db.spendInviteLinkUse.mockResolvedValue(4);
+  h.db.countTripAdmins.mockResolvedValue(2);
 });
 
 describe("the shared link", () => {
-  it("asks rather than joins", async () => {
+  it("admits somebody while the admin's allowance lasts", async () => {
     const result = await caller().trips.join({ inviteCode: "aBcDeFgHiJkL" });
-    expect(result).toMatchObject({ tripId: 1, status: "pending" });
+    expect(result).toMatchObject({ tripId: 1, status: "accepted" });
     expect(memberWritten()).toMatchObject({
-      status: "pending",
+      status: "accepted",
+      role: "tripmate",
       joinedVia: "link",
-      respondedAt: null,
     });
   });
 
-  it("puts nobody in the headcount while they are waiting", async () => {
-    // The figure every per-person cost divides by. A request that counted
-    // would change what the trip thinks it is spending, before anybody agreed
-    // the requester is coming.
+  it("spends one of the trip's uses to do it", async () => {
     await caller().trips.join({ inviteCode: "aBcDeFgHiJkL" });
+    expect(h.db.spendInviteLinkUse).toHaveBeenCalledWith(1);
+  });
+
+  /**
+   * The gate is the conditional UPDATE, not a read followed by a decision:
+   * two people tapping at the same moment must not both take the last use. A
+   * null answer is "there was nothing to take", whichever of off, used up and
+   * expired it was.
+   */
+  it("refuses when the link has nothing left to give", async () => {
+    h.db.spendInviteLinkUse.mockResolvedValue(null);
+    await expect(
+      caller().trips.join({ inviteCode: "aBcDeFgHiJkL" })
+    ).rejects.toThrow(/isn't accepting anyone/i);
+    expect(h.db.addTripMember).not.toHaveBeenCalled();
     expect(h.db.upsertMemberAttendee).not.toHaveBeenCalled();
+  });
+
+  it("does not say which of off, used up or expired it was", async () => {
+    // A stranger holding a link learns nothing about the trip from being
+    // turned away — including how popular it is or when to try again.
+    h.db.spendInviteLinkUse.mockResolvedValue(null);
+    const error = await caller()
+      .trips.join({ inviteCode: "aBcDeFgHiJkL" })
+      .catch((e: Error) => e);
+    expect(String(error)).not.toMatch(/expired|used up|disabled|off\b/i);
+  });
+
+  it("counts the person straight into the headcount, because they are in", async () => {
+    await caller().trips.join({ inviteCode: "aBcDeFgHiJkL" });
+    expect(h.db.upsertMemberAttendee).toHaveBeenCalled();
   });
 
   it("tells the trip's admins, and nobody else", async () => {
@@ -140,7 +178,7 @@ describe("the shared link", () => {
     expect(told).toEqual([3]);
   });
 
-  it("re-opens a request that was turned down before", async () => {
+  it("re-opens a membership that was turned down before", async () => {
     h.db.getTripMember.mockResolvedValue({
       tripId: 1,
       userId: 7,
@@ -151,7 +189,7 @@ describe("the shared link", () => {
     expect(h.db.setMemberStatus).toHaveBeenCalledWith(
       1,
       7,
-      "pending",
+      "accepted",
       expect.objectContaining({ joinedVia: "link" })
     );
     expect(h.db.addTripMember).not.toHaveBeenCalled();
@@ -168,6 +206,138 @@ describe("the shared link", () => {
     expect(result).toMatchObject({ status: "accepted" });
     expect(h.db.addTripMember).not.toHaveBeenCalled();
     expect(h.db.setMemberStatus).not.toHaveBeenCalled();
+    // And it does not quietly cost the trip a use to tell them so.
+    expect(h.db.spendInviteLinkUse).not.toHaveBeenCalled();
+  });
+});
+
+describe("the admin's settings for the link", () => {
+  const admin = () => {
+    h.db.getTripMember.mockResolvedValue({
+      tripId: 1,
+      userId: 7,
+      role: "admin",
+      status: "accepted",
+    });
+  };
+
+  it("cannot be switched on without saying how many people", async () => {
+    // The whole point: a switch with no number is the open door this replaced.
+    admin();
+    await expect(
+      caller().trips.setInviteLink({ tripId: 1, enabled: true })
+    ).rejects.toThrow(/how many/i);
+    expect(h.db.setInviteLink).not.toHaveBeenCalled();
+  });
+
+  it("stores the switch, the count and the date together", async () => {
+    admin();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 3600_000);
+    await caller().trips.setInviteLink({
+      tripId: 1,
+      enabled: true,
+      usesLeft: 5,
+      expiresAt,
+    });
+    expect(h.db.setInviteLink).toHaveBeenCalledWith(1, {
+      enabled: true,
+      usesLeft: 5,
+      expiresAt,
+    });
+  });
+
+  it("refuses a date that has already gone", async () => {
+    admin();
+    await expect(
+      caller().trips.setInviteLink({
+        tripId: 1,
+        enabled: true,
+        usesLeft: 5,
+        expiresAt: new Date(Date.now() - 1000),
+      })
+    ).rejects.toThrow(/already passed/i);
+  });
+
+  it("is refused to a tripmate, like the link card itself", async () => {
+    h.db.getTripMember.mockResolvedValue({
+      tripId: 1,
+      userId: 7,
+      role: "tripmate",
+      status: "accepted",
+    });
+    await expect(
+      caller().trips.setInviteLink({ tripId: 1, enabled: false })
+    ).rejects.toThrow(/admins/i);
+  });
+
+  it("never writes the invite code into the activity trail", async () => {
+    admin();
+    await caller().trips.setInviteLink({
+      tripId: 1,
+      enabled: true,
+      usesLeft: 2,
+    });
+    expect(JSON.stringify(h.db.recordActivity.mock.calls)).not.toContain(
+      "aBcDeFgHiJkL"
+    );
+  });
+});
+
+describe("leaving a trip", () => {
+  const memberIs = (role: "watcher" | "tripmate" | "admin") => {
+    h.db.getTripMember.mockResolvedValue({
+      tripId: 1,
+      userId: 7,
+      role,
+      status: "accepted",
+    });
+  };
+
+  it("takes the member row and the attendee row with it", async () => {
+    memberIs("tripmate");
+    await caller().trips.leave({ tripId: 1 });
+    expect(h.db.removeTripMember).toHaveBeenCalledWith(1, 7);
+    // Or they stay in the headcount every per-person figure divides by.
+    expect(h.db.deleteMemberAttendee).toHaveBeenCalledWith(1, 7);
+  });
+
+  it("is open to a watcher too", async () => {
+    memberIs("watcher");
+    await expect(caller().trips.leave({ tripId: 1 })).resolves.toMatchObject({
+      success: true,
+    });
+  });
+
+  it("refuses the last admin, who would leave a trip nobody can run", async () => {
+    memberIs("admin");
+    h.db.countTripAdmins.mockResolvedValue(1);
+    await expect(caller().trips.leave({ tripId: 1 })).rejects.toThrow(
+      /only admin/i
+    );
+    expect(h.db.removeTripMember).not.toHaveBeenCalled();
+  });
+
+  it("lets an admin go when there is another one", async () => {
+    memberIs("admin");
+    h.db.countTripAdmins.mockResolvedValue(2);
+    await caller().trips.leave({ tripId: 1 });
+    expect(h.db.removeTripMember).toHaveBeenCalled();
+  });
+
+  it("is refused to somebody who is not on the trip", async () => {
+    h.db.getTripMember.mockResolvedValue(undefined);
+    await expect(caller().trips.leave({ tripId: 1 })).rejects.toThrow(
+      /not a member/i
+    );
+  });
+
+  it("does not hand the link its use back", async () => {
+    // The number is uses of the link, not seats at the table: somebody who
+    // joins and leaves has used it.
+    memberIs("tripmate");
+    await caller().trips.leave({ tripId: 1 });
+    expect(h.db.setInviteLink).not.toHaveBeenCalled();
+    expect(h.db.spendInviteLinkUse).not.toHaveBeenCalled();
   });
 });
 
@@ -236,6 +406,8 @@ describe("an emailed invitation", () => {
       role: "tripmate",
     });
     expect(h.db.setInviteStatus).not.toHaveBeenCalled();
+    // And it costs the trip nothing: they did not use the link.
+    expect(h.db.spendInviteLinkUse).not.toHaveBeenCalled();
   });
 
   it("matches the address case-insensitively, and ignores stray spaces", async () => {

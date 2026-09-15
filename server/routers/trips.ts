@@ -22,6 +22,10 @@ import {
 } from "../../shared/sections.js";
 
 import { isDemoTrip } from "../../shared/demo.js";
+import {
+  INVITE_LINK_CLOSED_MESSAGE,
+  inviteLinkIsOpen,
+} from "../../shared/inviteLink.js";
 
 const roleInput = z.enum(TRIP_ROLES);
 
@@ -127,13 +131,18 @@ export const tripsRouter = router({
     .query(async ({ input }) => {
       const trip = await db.getTripByInviteCode(input.code);
       if (!trip) return null;
+      const openToAnyone = isDemoTrip(trip.inviteCode);
       return {
         id: trip.id,
         name: trip.name,
         description: trip.description,
-        // Whether following the link joins outright or asks to — so the button
-        // says which one it is. True only for the seeded demo (`isDemoTrip`).
-        openToAnyone: isDemoTrip(trip.inviteCode),
+        // Whether this link is admitting anybody, so the screen can say so
+        // before somebody taps a button that cannot work. Not *why*: which of
+        // off, used up and expired it is, is the trip's business.
+        linkOpen: openToAnyone || inviteLinkIsOpen(trip),
+        // The seeded demo is exempt from the switch, the count and the expiry
+        // alike — a sales tour has nobody to approve a prospect (`isDemoTrip`).
+        openToAnyone,
       };
     }),
   sendInviteEmail: protectedProcedure
@@ -455,21 +464,26 @@ export const tripsRouter = router({
   /**
    * Joining a trip from an invite link.
    *
-   * **A link is a request, not an entry.** Anybody holding the shared link used
-   * to become a voting tripmate the moment they tapped it: forwarded in a group
-   * chat, pasted into a message thread, left in a browser history on a shared
-   * laptop — the trip had no say. Now a link join lands as `pending` and an
-   * admin approves it on the members screen. Nothing is shown to them, nothing
-   * is counted for them, and `requireTripRole` refuses every trip procedure
-   * until that happens.
+   * **The shared link admits people, but only as many as an admin said, and
+   * only while they said.** It used to admit anybody who held it, for ever:
+   * forwarded in a group chat, pasted into a message thread, left in a browser
+   * history on a shared laptop — the trip had no say, and the URL was the
+   * membership. It is now off until an admin turns it on with a number beside
+   * it, each join spends one of those, and an expiry date stops it regardless.
+   * `spendInviteLinkUse` is the gate; `shared/inviteLink.ts` is what everybody
+   * is told. [ADR-0028](../../docs/adr/0028-the-shared-link-is-off-by-default.md).
    *
-   * An **emailed** invite is different, and still joins outright: the trip
-   * addressed a specific person and named the role they get. That only holds
-   * while the invite is still what it was, so two things are checked here and
-   * were not before — the invite must still be open (see `declineInvite` for
-   * the other half), and the account accepting it must be the address it was
-   * sent to. A forwarded invitation is somebody else's post; it gets the same
-   * treatment as a link, which is the queue.
+   * An **emailed** invite is a different door and is not affected by that
+   * switch: the trip addressed a specific person and named the role they get.
+   * That only holds while the invite is still what it was, so two things are
+   * checked here — the invite must still be open (see `declineInvite` for the
+   * other half), and the account accepting it must be the address it was sent
+   * to. A forwarded invitation is somebody else's post: it is not honoured,
+   * it does not spend one of the link's uses, and that person becomes a
+   * `pending` request an admin answers on the members screen. Pending is the
+   * one state where somebody is on a trip's books and has nothing: nothing is
+   * shown to them, nothing is counted for them, and `requireTripRole` refuses
+   * every trip procedure.
    *
    * Demo trips are exempt from all of it — see `isDemoTrip`.
    */
@@ -539,6 +553,27 @@ export const tripsRouter = router({
           // join so the screen can explain why it did not just work.
           reason = "wrong-address";
         }
+      }
+
+      // The link itself decides, and it decides by being spent: a conditional
+      // UPDATE that checks the switch, the expiry and the count in one place,
+      // so two people tapping at the same moment cannot both take the last
+      // use. A refusal here is the link being closed, not this person being
+      // unwelcome, which is why the message says to ask an admin.
+      //
+      // Not spent for a forwarded invitation (`wrong-address`): that person
+      // waits for an admin instead, and burning one of the trip's link uses on
+      // somebody who is not using the link would be wrong twice over.
+      if (reason === "link" && !openToAnyone) {
+        const left = await db.spendInviteLinkUse(trip.id);
+        // `null` is "no row updated" — no use was available, whichever of the
+        // three conditions failed. A number is what is left after this join.
+        if (typeof left !== "number")
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: INVITE_LINK_CLOSED_MESSAGE,
+          });
+        reason = null;
       }
 
       const accepted = reason === null || openToAnyone;
@@ -622,6 +657,123 @@ export const tripsRouter = router({
         `${ctx.user.name || "Someone"} joined your trip "${trip.name}"`
       );
       return { tripId: trip.id, status: "accepted" as const, reason: null };
+    }),
+  /**
+   * The shared link's three settings, written together.
+   *
+   * Together because they are one decision — "yes, up to five people, until
+   * Friday" — and because a switch that could be turned on without a number
+   * would be the open door this replaced. Enabling therefore *requires* a
+   * count; there is no unlimited.
+   *
+   * The count is what is **left**, not a total: an admin who wants three more
+   * people types three, whatever the link has already admitted. That also
+   * makes reopening a used-up link the same action as setting it up, rather
+   * than arithmetic against a number nobody remembers.
+   */
+  setInviteLink: protectedProcedure
+    .input(
+      z
+        .object({
+          tripId: z.number(),
+          enabled: z.boolean(),
+          /** How many more people may join. Required while `enabled`. */
+          usesLeft: z.number().int().min(1).max(100).nullable().optional(),
+          /** When it stops regardless. Null means no expiry. */
+          expiresAt: z.date().nullable().optional(),
+        })
+        .refine(v => !v.enabled || typeof v.usesLeft === "number", {
+          message: "Say how many people the link may admit.",
+          path: ["usesLeft"],
+        })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      const expiresAt = input.expiresAt ?? null;
+      if (input.enabled && expiresAt && expiresAt.getTime() <= Date.now())
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "That date has already passed.",
+        });
+
+      await db.setInviteLink(input.tripId, {
+        enabled: input.enabled,
+        // Turning the link off keeps the number, so switching it back on does
+        // not silently hand out a fresh allowance nobody asked for.
+        usesLeft: input.usesLeft ?? null,
+        expiresAt,
+      });
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "trip.edited",
+        entityType: "trip",
+        entityId: input.tripId,
+        // The settings, never the code itself: the activity trail is shown to
+        // the trip, and the link is the one thing on this screen that is a
+        // credential.
+        metadata: {
+          fields: ["inviteLink"],
+          enabled: input.enabled,
+          usesLeft: input.usesLeft ?? null,
+          expires: Boolean(expiresAt),
+        },
+      });
+      return { success: true };
+    }),
+  /**
+   * Leaving a trip you are on.
+   *
+   * The same removal an admin can perform, asked for by the person themselves
+   * — so it takes their member row and their attendee row, and leaves their
+   * proposals, votes and comments where they are. The group decided things
+   * with those in the room; deleting them would silently re-open settled
+   * questions, and `removeMember` has always worked this way.
+   *
+   * The last admin cannot leave, for the same reason they cannot be removed: a
+   * trip nobody can administer cannot invite, finalise or even be deleted.
+   *
+   * It does **not** give a link use back. The number is uses of the link, not
+   * seats at the table — somebody who joins and leaves has used the link, and
+   * an admin who wants to replace them says so.
+   */
+  leave: protectedProcedure
+    .input(z.object({ tripId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const member = await requireTripRole(
+        input.tripId,
+        ctx.user.id,
+        "watcher"
+      );
+      if (member.role === "admin") {
+        const admins = await db.countTripAdmins(input.tripId);
+        if (admins <= 1)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "You are this trip's only admin. Make someone else an admin first.",
+          });
+      }
+      const trip = await db.getTrip(input.tripId);
+      await db.removeTripMember(input.tripId, ctx.user.id);
+      await db.deleteMemberAttendee(input.tripId, ctx.user.id);
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: ctx.user.id,
+        action: "member.left",
+        entityType: "member",
+        entityId: ctx.user.id,
+      });
+      // Told to the admins, who are the ones who have to decide whether to
+      // replace them — and who would otherwise find out from a headcount that
+      // changed on its own.
+      await notifyAdmins(
+        input.tripId,
+        ctx.user.id,
+        "Someone left the trip",
+        `${ctx.user.name || "Someone"} left "${trip?.name ?? "your trip"}".`
+      );
+      return { success: true };
     }),
   /**
    * An admin's answer to a request to join.

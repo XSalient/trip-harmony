@@ -8,6 +8,41 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-15 — The invite link becomes something an admin issues
+
+### Added
+
+- **An invite link an admin turns on, for a stated number of people, until a
+  stated date.** Following the link joins the trip outright again — no queue —
+  but only within those bounds: each join spends one of the allowance, and at
+  zero, or past the date, the link stops until an admin sets a new number. The
+  controls are on the members screen: a switch, a count, an optional date, and
+  a line saying what the link is currently doing.
+  [ADR-0028](adr/0028-the-shared-link-is-off-by-default.md) — it amends
+  yesterday's approval queue, which taxed an admin for every arrival including
+  the ones they had just invited.
+
+  **Migration 0022 switches the link off on every existing trip.** The column
+  cannot default to the behaviour it was added to end. Admins who were using a
+  link will find it off, with a two-field form to reopen it. Emailed
+  invitations are untouched — they are a different door, and the switch does
+  not reach them.
+
+- **Leaving a trip.** At the bottom of the members screen, open to anybody on
+  the trip including watchers. You come off the members list and out of the
+  headcount; what you proposed, voted and wrote stays with the trip, because
+  the group decided things with it in the room. The last admin cannot leave
+  until somebody else is one. Leaving does not give the invite link its use
+  back — a use is an act, and it happened.
+
+### Changed
+
+- **A forwarded email invitation is the only thing that now reaches the
+  approval queue.** It names somebody else, so it is not honoured, and it does
+  not spend one of the link's uses — the person waits for an admin instead.
+
+---
+
 ## 2026-09-15 — Who gets in, and where the trip actually stands
 
 ### Changed

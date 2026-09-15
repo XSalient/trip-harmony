@@ -34,6 +34,7 @@ const h = vi.hoisted(() => ({
     getTripInviteByToken: vi.fn(),
     setInviteStatus: vi.fn(),
     setMemberStatus: vi.fn(),
+    spendInviteLinkUse: vi.fn(),
     getUserById: vi.fn(),
     upsertTripInvite: vi.fn(),
     createNotification: vi.fn(),
@@ -141,6 +142,9 @@ beforeEach(() => {
   });
   h.sendTripInviteEmail.mockResolvedValue({ delivered: true });
   h.db.getUserById.mockResolvedValue({ id: 8, name: "Nina Okafor" });
+  // An invite link with room left. It is the gate on the link path, so with no
+  // answer here nobody joins that way at all.
+  h.db.spendInviteLinkUse.mockResolvedValue(4);
 });
 
 /** The signed-in caller as a stranger to trip 1, which is what joining means. */
@@ -190,16 +194,27 @@ describe("events are recorded where the action happens", () => {
     );
   });
 
-  /**
-   * The link path stopped being an acceptance when it stopped being a join:
-   * following the shared link asks, and an admin answers. Counting the ask
-   * would put everybody who ever opened a forwarded link into the acceptance
-   * rate — including the ones nobody let in.
-   */
-  it("records nothing when somebody merely asks to join by link", async () => {
+  it("records the link's own arrivals as acceptances too", async () => {
     notAMember();
     const result = await caller().trips.join({ inviteCode: "code" });
-    expect(result.status).toBe("pending");
+    expect(result.status).toBe("accepted");
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({
+        event: "invite.accepted",
+        metadata: { role: "tripmate", via: "link" },
+      })
+    );
+  });
+
+  /**
+   * A refusal is not a join. If the event were recorded before the link was
+   * spent, every "acceptance" figure would include people the trip turned
+   * away — which is the failure this file exists to catch.
+   */
+  it("records nothing when the link turns somebody away", async () => {
+    notAMember();
+    h.db.spendInviteLinkUse.mockResolvedValue(null);
+    await expect(caller().trips.join({ inviteCode: "code" })).rejects.toThrow();
     expect(eventsRecorded()).not.toContain("invite.accepted");
   });
 

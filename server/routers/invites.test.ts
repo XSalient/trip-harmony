@@ -127,8 +127,16 @@ describe("the shared invite link stays admin-only", () => {
       join(routerDir, "..", "..", "client", "src", "pages", "TripMembers.tsx"),
       "utf8"
     );
-    // The invite form opened up to tripmates; the link card did not.
-    expect(members).toMatch(/\{isAdmin && \([\s\S]{0,800}inviteUrl/);
+    // The invite form opened up to tripmates; the link card did not — and the
+    // card is a control panel now (a switch, a count and a date), so the rule
+    // is asserted as "the guard immediately around the URL is the admin one"
+    // rather than by how many characters sit between them.
+    const url = members.indexOf("{inviteUrl}");
+    expect(url).toBeGreaterThan(-1);
+    expect(
+      members.lastIndexOf("{isAdmin && (", url),
+      "the invite URL must sit inside the isAdmin guard, not merely after it"
+    ).toBeGreaterThan(members.lastIndexOf("{canContribute && (", url));
   });
 
   it("the client cannot post a role a tripmate is not allowed", () => {
