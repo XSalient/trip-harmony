@@ -33,6 +33,17 @@ export function useTripRole(tripId: number) {
 
   return {
     role,
+    /**
+     * The standing of the membership itself: `pending` for somebody who
+     * followed the shared link and is waiting on an admin, `declined` for a
+     * request that was turned down, null for a stranger. Distinct from `role`,
+     * which only exists once they are actually on the trip.
+     */
+    status: (data?.status ?? null) as
+      | "pending"
+      | "accepted"
+      | "declined"
+      | null,
     isLoading,
     isWatcher: role === "watcher",
     /** Vote, propose, comment, edit and delete. */

@@ -2,7 +2,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { canGoBack } from "@/lib/navigationDepth";
+import { canGoBack, isBehind } from "@/lib/navigationDepth";
 import { cn } from "@/lib/utils";
 import MobileNav from "./MobileNav";
 
@@ -47,24 +47,36 @@ export default function AppShell({
   }, [largeTitle]);
 
   /**
-   * Unwind history where there is history to unwind; fall back to `backHref`
-   * where there is not.
+   * Go **up** — to the screen `backHref` names, which is this one's parent in
+   * the app rather than whatever the browser happens to have behind it.
    *
-   * This used to be `navigate(backHref)` unconditionally, which pushes — so
-   * backing out of a screen left the screen you backed out of sitting in front
-   * of you in the history stack, and the browser's back button walked into it.
-   * `backHref` is passed on every screen, so the fallback was unreachable and
-   * the stack only ever grew.
+   * This used to be `history.back()` whenever there was anything to go back
+   * to, which is a different question. Open a trip's accommodations from a
+   * notification and the entry behind you is the notifications list, so the
+   * arrow beside the word "Accommodations" took you sideways; walk in and out
+   * of two sections and it retraced the walk instead of climbing out of it.
    *
-   * The fallback replaces rather than pushes for the same reason: arriving by
-   * deep link and pressing back should not leave the trip page behind you.
+   * Popping is still what happens in the ordinary case, because it is how the
+   * stack stays honest: when the entry behind us *is* the parent — the usual
+   * trip page → section → back — `history.back()` unwinds rather than growing
+   * the stack, and scroll restoration gets its entry back.
+   *
+   * Otherwise the parent replaces the current entry rather than being pushed
+   * on top of it. A back arrow that pushes is how this went wrong the first
+   * time: the screen you just left sits in front of you and the browser's own
+   * back button walks straight into it.
    */
   const goBack = () => {
-    if (canGoBack()) {
+    if (isBehind(backHref)) {
       window.history.back();
       return;
     }
-    if (backHref) navigate(backHref, { replace: true });
+    if (backHref) {
+      navigate(backHref, { replace: true });
+      return;
+    }
+    // No parent named — nothing to climb to, so unwind if we can.
+    if (canGoBack()) window.history.back();
   };
 
   return (

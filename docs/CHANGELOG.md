@@ -8,6 +8,92 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-15 — The invite link becomes something an admin issues
+
+### Added
+
+- **An invite link an admin turns on, for a stated number of people, until a
+  stated date.** Following the link joins the trip outright again — no queue —
+  but only within those bounds: each join spends one of the allowance, and at
+  zero, or past the date, the link stops until an admin sets a new number. The
+  controls are on the members screen: a switch, a count, an optional date, and
+  a line saying what the link is currently doing.
+  [ADR-0028](adr/0028-the-shared-link-is-off-by-default.md) — it amends
+  yesterday's approval queue, which taxed an admin for every arrival including
+  the ones they had just invited.
+
+  **Migration 0022 switches the link off on every existing trip.** The column
+  cannot default to the behaviour it was added to end. Admins who were using a
+  link will find it off, with a two-field form to reopen it. Emailed
+  invitations are untouched — they are a different door, and the switch does
+  not reach them.
+
+- **Leaving a trip.** At the bottom of the members screen, open to anybody on
+  the trip including watchers. You come off the members list and out of the
+  headcount; what you proposed, voted and wrote stays with the trip, because
+  the group decided things with it in the room. The last admin cannot leave
+  until somebody else is one. Leaving does not give the invite link its use
+  back — a use is an act, and it happened.
+
+### Changed
+
+- **A forwarded email invitation is the only thing that now reaches the
+  approval queue.** It names somebody else, so it is not honoured, and it does
+  not spend one of the link's uses — the person waits for an admin instead.
+
+---
+
+## 2026-09-15 — Who gets in, and where the trip actually stands
+
+### Changed
+
+- **An invite link asks to join; it no longer joins.** Anybody holding a trip's
+  shared link became a voting tripmate on sight — forwarded in a group chat,
+  left in a browser on a shared laptop, it made no difference. Following the
+  link now creates a request: the trip's admins are notified, answer it on the
+  members screen, and pick the seat while they do. Until then the person counts
+  nowhere — no vote, no headcount, no access to a single trip screen.
+  [ADR-0027](adr/0027-an-invite-link-is-a-request.md).
+
+- **An emailed invitation is spent when it is answered, and only works for the
+  address it was sent to.** It was neither before: forwarding the mail handed
+  the seat — including an admin seat — to whoever opened it, and the same link
+  kept working after it had been accepted or declined. Accepting or declining
+  now requires the invited address and a still-open invitation; anyone else
+  following it lands in the ordinary request queue, and the invitation stays
+  open for the person it was for. This is what the back button exposed: accept
+  an invite, go back, and the invite was still there to accept again.
+
+- **The trip's progress on the list is the same figure as on the trip page.**
+  The card read `phase` — a label an admin sets by hand in the edit dialog,
+  which nothing else advances — while the trip page counted the decisions the
+  group had finalised. One trip, two numbers, and the card was the wrong one.
+  Both now come from `tripProgress` in `shared/progress.ts`, which counts only
+  the sections the trip is actually using.
+
+- **The back arrow goes up, not back.** It called `history.back()` whenever
+  there was anything behind it, which is a different question: reached from a
+  notification, the arrow beside "Accommodations" took you to the notifications
+  list rather than to the trip. It now goes to the screen above this one, and
+  pops only when that screen is genuinely the one behind — so the ordinary
+  walk in and out of a section still unwinds the stack rather than growing it.
+
+- **The invite screen shows the trip's name and description, and not its row.**
+  `trips.getByInviteCode` is public, and it was handing anybody holding a link
+  the trip's budget, phase, organiser and settings.
+
+### Fixed
+
+- **The privacy and terms links on the landing page are tappable.** They were
+  rendering underneath the floating "Start a trip" bar, which took every tap
+  aimed at them — on the one screen a signed-out visitor, or a store reviewer,
+  can reach them from. The footer asked for `pb-28` while `safe-area-bottom`
+  sets the same property, so one silently won and the links came to rest 8px
+  above the bottom of the page. The clearance is a margin now, and
+  `legal.test.ts` keeps it one.
+
+---
+
 ## 2026-09-14 — What the stores ask for
 
 ### Added

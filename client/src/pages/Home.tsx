@@ -19,6 +19,7 @@ import {
   TONES,
 } from "@/components/harmony";
 import type { Tone } from "@/lib/taxonomy";
+import { tripProgress } from "@shared/progress";
 import Landing from "./Landing";
 import { PaywallDialog } from "@/components/PaywallDialog";
 import { AuthDialog } from "@/components/AuthDialog";
@@ -47,16 +48,6 @@ import {
 } from "@/components/ui/dialog";
 import { DEMO_PERSONAS, DEMO_TOUR_INVITE_CODE } from "@shared/demo";
 
-/** Phase order, so a trip's progress can be shown as a proportion. */
-const PHASE_ORDER = [
-  "setup",
-  "dates",
-  "destination",
-  "accommodation",
-  "activities",
-  "finalized",
-];
-
 function TripCard({ trip }: { trip: any }) {
   const phaseLabels: Record<string, string> = {
     setup: "Getting Started",
@@ -76,8 +67,10 @@ function TripCard({ trip }: { trip: any }) {
   };
 
   const tone: Tone = phaseTone[trip.phase] ?? "neutral";
-  const step = Math.max(0, PHASE_ORDER.indexOf(trip.phase));
-  const progress = ((step + 1) / PHASE_ORDER.length) * 100;
+  // The same figure the trip page's summary shows, from the same function.
+  // This card used to derive one from `phase` — a label an admin sets by hand
+  // — so a trip read one number here and a different one when you opened it.
+  const progress = tripProgress(trip.decisions, trip.hiddenSections ?? []);
 
   return (
     <Link href={`/trips/${trip.id}`} className="block">
@@ -111,7 +104,10 @@ function TripCard({ trip }: { trip: any }) {
             </div>
           </div>
 
-          <ProgressRing value={progress} label={`${trip.name} progress`} />
+          <ProgressRing
+            value={progress.percent}
+            label={`${trip.name} progress — ${progress.done} of ${progress.total} decisions settled`}
+          />
           <ChevronRight
             className="size-4 shrink-0 text-muted-foreground"
             aria-hidden

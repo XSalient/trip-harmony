@@ -119,3 +119,34 @@ describe("the operator's details", () => {
     expect(env).toContain("legal: config.legal.isComplete");
   });
 });
+
+/**
+ * Reachable is not the same as tappable.
+ *
+ * Both links did render, at the bottom of the only screen a signed-out visitor
+ * sees — underneath the floating "Start a trip" bar, which took every tap
+ * aimed at them. The cause was two utilities setting one property: the footer
+ * asked for `pb-28`, `safe-area-bottom` is also a `padding-bottom` rule, and
+ * whichever the stylesheet emitted last won. It resolved to 8px.
+ *
+ * So the clearance is a margin now, and this is the assertion that keeps it
+ * one: a padding utility on that element is in a fight it can silently lose.
+ */
+describe("the policy links on the landing page", () => {
+  const landing = read("Landing.tsx");
+  const footer =
+    landing.slice(landing.indexOf("<footer"), landing.indexOf("</footer>")) ||
+    "";
+
+  it("exist, because this is the only screen a signed-out visitor sees", () => {
+    expect(footer).toContain('href="/privacy"');
+    expect(footer).toContain('href="/terms"');
+  });
+
+  it("clear the floating call to action with a margin, not padding", () => {
+    const [classes = ""] = footer.match(/className="[^"]*"/) ?? [];
+    expect(classes).toMatch(/\bmb-\d/);
+    // The one that lost to `safe-area-bottom`, which is itself padding-bottom.
+    expect(classes).not.toMatch(/\bpb-\d/);
+  });
+});

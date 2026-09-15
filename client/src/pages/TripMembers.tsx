@@ -6,7 +6,7 @@
  * send a link but could not tell you whether anyone had accepted it.
  */
 import React, { useMemo, useRef, useState } from "react";
-import { useParams } from "wouter";
+import { useLocation, useParams } from "wouter";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTripRole } from "@/_core/hooks/useTripRole";
@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { inviteLinkIsOpen, inviteLinkStatusLabel } from "@shared/inviteLink";
 import { CheckField } from "@/components/harmony/Check";
 import { SectionHead } from "@/components/harmony";
 import { Notice } from "@/components/harmony/Notice";
@@ -53,6 +55,7 @@ import { format } from "date-fns";
 import {
   Copy,
   Send,
+  LogOut,
   MoreVertical,
   UserPlus,
   BookUser,
@@ -146,6 +149,7 @@ export default function TripMembers() {
     { enabled: tripId > 0 }
   );
   const {
+    role,
     canAdminister: isAdmin,
     canContribute,
     canSeeMemberDetails: canSeeDetails,
@@ -331,6 +335,9 @@ export default function TripMembers() {
 
   const sendInvite = trpc.trips.sendInviteEmail.useMutation();
   const revokeInvite = trpc.trips.revokeInvite.useMutation();
+  const respondToRequest = trpc.trips.respondToJoinRequest.useMutation();
+  const setInviteLink = trpc.trips.setInviteLink.useMutation();
+  const leaveTrip = trpc.trips.leave.useMutation();
   const updateRole = trpc.trips.updateMemberRole.useMutation();
   const removeMember = trpc.trips.removeMember.useMutation();
   const { data: contactGroups } = trpc.contacts.groups.useQuery(undefined, {
@@ -369,6 +376,58 @@ export default function TripMembers() {
         : "",
     [trip?.inviteCode]
   );
+
+  /**
+   * The invite link's three settings, as a form.
+   *
+   * Seeded from the trip and then left alone: re-seeding on every render would
+   * fight the admin's typing, and the card is only ever open while somebody is
+   * editing it. `trip` arrives after the first render, hence the effect.
+   */
+  const [linkOn, setLinkOn] = useState(false);
+  const [linkUses, setLinkUses] = useState("5");
+  const [linkExpiry, setLinkExpiry] = useState("");
+  const seeded = useRef(false);
+  React.useEffect(() => {
+    if (!trip || seeded.current) return;
+    seeded.current = true;
+    setLinkOn(Boolean(trip.inviteLinkEnabled));
+    setLinkUses(
+      typeof trip.inviteUsesLeft === "number" && trip.inviteUsesLeft > 0
+        ? String(trip.inviteUsesLeft)
+        : "5"
+    );
+    setLinkExpiry(
+      trip.inviteLinkExpiresAt
+        ? format(new Date(trip.inviteLinkExpiresAt), "yyyy-MM-dd")
+        : ""
+    );
+  }, [trip]);
+
+  const linkIsOpen = inviteLinkIsOpen(trip);
+
+  const saveInviteLink = async (enabled: boolean) => {
+    try {
+      await setInviteLink.mutateAsync({
+        tripId,
+        enabled,
+        usesLeft: enabled ? Math.max(1, parseInt(linkUses) || 0) : null,
+        // The end of the chosen day, not its midnight: "stops working after
+        // the 20th" must include the 20th.
+        expiresAt:
+          enabled && linkExpiry ? new Date(`${linkExpiry}T23:59:59`) : null,
+      });
+      utils.trips.get.invalidate({ id: tripId });
+      toast.success(
+        enabled ? "Invite link updated" : "Invite link switched off"
+      );
+    } catch (e: any) {
+      // The switch is optimistic about nothing: put it back where the trip has
+      // it if the save did not land.
+      setLinkOn(Boolean(trip?.inviteLinkEnabled));
+      toast.error(e?.message || "Couldn't save that");
+    }
+  };
 
   const accepted = useMemo(
     () => members?.filter((m: any) => m.status === "accepted") ?? [],
@@ -474,6 +533,18 @@ export default function TripMembers() {
     labels.set("none", headcountLabel(headcount, null));
     return labels;
   }, [headcount, groups]);
+
+  /**
+   * People who followed the shared link and are waiting on an admin.
+   *
+   * They are member rows already — `pending` ones — which is why they are
+   * filtered out of `accepted` above and counted nowhere: no vote, no
+   * headcount, and every trip procedure refuses them until this is answered.
+   */
+  const joinRequests = useMemo(
+    () => members?.filter((m: any) => m.status === "pending") ?? [],
+    [members]
+  );
 
   const pendingInvites = useMemo(
     () => invites?.filter((i: any) => i.status === "pending") ?? [],
@@ -826,6 +897,39 @@ export default function TripMembers() {
       utils.trips.members.invalidate({ tripId });
     } catch (e: any) {
       toast.error(e?.message || "Couldn't change that role");
+    }
+  };
+
+  const [, navigate] = useLocation();
+  const [leaveOpen, setLeaveOpen] = useState(false);
+
+  const handleLeave = async () => {
+    try {
+      await leaveTrip.mutateAsync({ tripId });
+      setLeaveOpen(false);
+      // Home, not back: every trip screen behind this one now answers
+      // "you are not a member of this trip".
+      toast.success("You've left the trip");
+      navigate("/", { replace: true });
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't leave the trip");
+    }
+  };
+
+  const handleRequest = async (
+    userId: number,
+    decision: "approve" | "decline",
+    role?: TripRole
+  ) => {
+    try {
+      await respondToRequest.mutateAsync({ tripId, userId, decision, role });
+      toast.success(decision === "approve" ? "Added to the trip" : "Declined");
+      // Both lists move: the person leaves the queue and, when approved, joins
+      // the members above it — and the headcount they now count towards.
+      utils.trips.members.invalidate({ tripId });
+      utils.groups.headcount.invalidate({ tripId });
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't answer that request");
     }
   };
 
@@ -1303,6 +1407,75 @@ export default function TripMembers() {
           })}
         </div>
 
+        {/* ── Asked to join ── */}
+        {isAdmin && joinRequests.length > 0 && (
+          <div className="space-y-2">
+            <SectionHead title="Asked to join · waiting on you" />
+            {joinRequests.map((m: any) => (
+              <Card
+                key={m.userId}
+                className="rounded-2xl border-dashed border-border/60"
+              >
+                <CardContent className="p-3 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <UserPlus className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {m.user?.name || "Someone"}
+                      </p>
+                      <p className="truncate text-[12px] text-muted-foreground">
+                        {[
+                          m.user?.email,
+                          joinedVia(m.joinedVia, m.invitedByName),
+                          m.joinedAt
+                            ? format(new Date(m.joinedAt), "d MMM yyyy")
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {/* The role is chosen here rather than afterwards: it is
+                        the one moment somebody is looking at who this is. */}
+                    <Button
+                      size="sm"
+                      className="flex-1 rounded-full text-xs"
+                      disabled={respondToRequest.isPending}
+                      onClick={() => handleRequest(m.userId, "approve")}
+                    >
+                      Add as tripmate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-full text-xs"
+                      disabled={respondToRequest.isPending}
+                      onClick={() =>
+                        handleRequest(m.userId, "approve", "watcher")
+                      }
+                    >
+                      Add as watcher
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full text-xs text-destructive"
+                      disabled={respondToRequest.isPending}
+                      onClick={() => handleRequest(m.userId, "decline")}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         {/* ── Pending invites ── */}
         {canSeeDetails && pendingInvites.length > 0 && (
           <div className="space-y-2">
@@ -1454,32 +1627,159 @@ export default function TripMembers() {
                 votes — the one thing the loosened invite rule protects. */}
             {isAdmin && (
               <Card className="rounded-2xl border-border/70 shadow-e1">
-                <CardContent className="p-3 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Or share this link. Anyone who follows it joins as a
-                    Tripmate.
-                  </p>
-                  <div className="flex gap-2">
-                    <code className="flex-1 text-[12px] bg-muted p-2.5 rounded-lg break-all">
-                      {inviteUrl}
-                    </code>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        navigator.clipboard.writeText(inviteUrl);
-                        toast.success("Invite link copied!");
+                <CardContent className="space-y-3 p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Invite link</p>
+                      <p className="text-[12px] text-muted-foreground">
+                        {inviteLinkStatusLabel(trip)}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={linkOn}
+                      aria-label="Invite link"
+                      onCheckedChange={next => {
+                        setLinkOn(next);
+                        // Switching off takes effect on the spot — it is the
+                        // control somebody reaches for when a link has got
+                        // out, and making them press Save as well is a second
+                        // chance to leave it open.
+                        if (!next) saveInviteLink(false);
                       }}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                    />
                   </div>
+
+                  {linkOn ? (
+                    <>
+                      <div className="flex gap-2">
+                        <div className="min-w-0 flex-1">
+                          <Label className="text-xs" htmlFor="link-uses">
+                            People who may still join
+                          </Label>
+                          <Input
+                            id="link-uses"
+                            type="number"
+                            min={1}
+                            max={100}
+                            inputMode="numeric"
+                            className="mt-1"
+                            value={linkUses}
+                            onChange={e => setLinkUses(e.target.value)}
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Label className="text-xs" htmlFor="link-expiry">
+                            Stops working after
+                          </Label>
+                          <Input
+                            id="link-expiry"
+                            type="date"
+                            className="mt-1"
+                            value={linkExpiry}
+                            onChange={e => setLinkExpiry(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      {/* The count is what is *left*, not a total: an admin
+                          reopening a used-up link types how many more people
+                          may come, rather than working out a sum against a
+                          number nobody remembers. */}
+                      <p className="text-[12px] text-muted-foreground">
+                        Each person who joins with the link uses one. Somebody
+                        who leaves does not give it back. Leave the date empty
+                        for no time limit.
+                      </p>
+                      <Button
+                        size="sm"
+                        className="w-full rounded-full"
+                        disabled={setInviteLink.isPending || !linkUses}
+                        onClick={() => saveInviteLink(true)}
+                      >
+                        {setInviteLink.isPending ? "Saving…" : "Save link"}
+                      </Button>
+
+                      {linkIsOpen && (
+                        <div className="flex gap-2">
+                          <code className="flex-1 break-all rounded-lg bg-muted p-2.5 text-[12px]">
+                            {inviteUrl}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            aria-label="Copy the invite link"
+                            onClick={() => {
+                              navigator.clipboard.writeText(inviteUrl);
+                              toast.success("Invite link copied!");
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-muted-foreground">
+                      With this off, the link admits nobody — invitations by
+                      email still work. Turn it on and say how many people may
+                      use it.
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
         )}
+
+        {/* ── Leaving ──
+            Open to anybody on the trip, watchers included: the one thing every
+            member should be able to do about their own membership is end it.
+            Below everything else, because it is not what the screen is for. */}
+        {role !== null && (
+          <div className="pt-2">
+            <Button
+              variant="ghost"
+              className="w-full gap-2 rounded-xl text-destructive hover:text-destructive"
+              onClick={() => setLeaveOpen(true)}
+            >
+              <LogOut className="size-4" /> Leave this trip
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* The confirmation says what survives, because that is the part people
+          get wrong: leaving takes you off the trip, not your votes out of the
+          decisions the group made with you in the room. */}
+      <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Leave this trip?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            You'll come off the members list and out of the headcount. What you
+            proposed, voted and wrote stays with the trip. You'll need a new
+            invite to come back — and if you arrived by link, leaving does not
+            give that link its use back.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setLeaveOpen(false)}
+            >
+              Stay
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={leaveTrip.isPending}
+              onClick={handleLeave}
+            >
+              {leaveTrip.isPending ? "Leaving…" : "Leave trip"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Contact picker ── */}
       <Dialog open={contactPickerOpen} onOpenChange={setContactPickerOpen}>

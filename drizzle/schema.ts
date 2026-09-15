@@ -184,6 +184,30 @@ export const trips = pgTable("trips", {
   coverImage: text("coverImage"),
   organizerId: integer("organizerId").notNull(),
   inviteCode: varchar("inviteCode", { length: 32 }).notNull().unique(),
+  /**
+   * Whether the shared invite link admits anybody at all.
+   *
+   * **Off by default, including for every trip that existed before this
+   * column.** The link used to be an open door: possession of the URL was
+   * membership, and a URL travels — forwarded, pasted into a group chat, left
+   * in a browser on a shared laptop. An admin turns it on deliberately, for a
+   * stated number of people, and can turn it off again.
+   * See [ADR-0028](../docs/adr/0028-the-shared-link-is-off-by-default.md).
+   */
+  inviteLinkEnabled: boolean("inviteLinkEnabled").default(false).notNull(),
+  /**
+   * How many more people the link may admit. Counts **down** — each join
+   * spends one — and the link stops working at zero until an admin sets a new
+   * number. Null means it has never been set, which is as closed as zero.
+   *
+   * Somebody who joins and then leaves does not give their use back: the
+   * number is uses of the link, not seats at the table. Spent atomically in
+   * `spendInviteLinkUse`, because two people tapping at once must not both
+   * take the last one.
+   */
+  inviteUsesLeft: integer("inviteUsesLeft"),
+  /** When the link stops working regardless of uses left. Null means no expiry. */
+  inviteLinkExpiresAt: timestamp("inviteLinkExpiresAt"),
   phase: tripPhaseEnum("phase").default("setup").notNull(),
   status: tripStatusEnum("status").default("planning").notNull(),
   startDate: timestamp("startDate"),

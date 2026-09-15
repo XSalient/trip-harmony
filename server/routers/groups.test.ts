@@ -122,8 +122,9 @@ describe("a member's own attendee row", () => {
   it("is written when they accept, so headcount is one number", () => {
     const trips = source("trips.ts");
     expect(trips).toContain("upsertMemberAttendee");
-    // create, clone and join.
-    expect(trips.split("upsertMemberAttendee").length - 1).toBe(3);
+    // create, clone, join — and approving a request to join, which is the
+    // moment a link joiner becomes a member and therefore somebody coming.
+    expect(trips.split("upsertMemberAttendee").length - 1).toBe(4);
   });
 
   it("goes when they are removed, or they stay in every per-person figure", () => {

@@ -77,6 +77,18 @@ Three things make this an estimate, all of them one-directional:
 - **`via` matters.** Only the `email` half has a matching `invite.sent`.
   Somebody who followed a shared link was never invited by address, so counting
   them in the numerator would produce rates above 100%.
+- **`via: link` counts arrivals through a link an admin deliberately opened.**
+  The link is off until an admin turns it on for a stated number of people
+  ([ADR-0028](../adr/0028-the-shared-link-is-off-by-default.md)), so
+  `joined_by_link` is bounded by what the trips allowed rather than by how far
+  their links travelled — and a fall in it may mean fewer links opened rather
+  than less interest. A join refused because the link was off, used up or
+  expired records nothing at all.
+- **`via: link` also covers the one case an admin approves**: a forwarded
+  emailed invitation, which is not honoured and becomes a request
+  ([ADR-0027](../adr/0027-an-invite-link-is-a-request.md)). The event fires on
+  approval. Requests nobody answered have no event — `trip_members` with
+  `status = 'pending'` is where those are.
 - **Re-sending an invite records a second `invite.sent`.** The app updates the
   existing invite row rather than adding one, but the event fires per attempt
   and the address is deliberately not stored, so re-sends cannot be collapsed.

@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Disclosure } from "@/components/harmony/Disclosure";
 import { ProgressRing } from "@/components/harmony/ProgressRing";
 import type { SectionKey } from "@shared/sections";
+import { progressHeadline, tripProgress } from "@shared/progress";
 
 /**
  * One figure, linking to the section it summarises — the summary is a place to
@@ -112,28 +113,19 @@ export default function TripSummary({
 
   const shows = (section: SectionKey) => !hiddenSections.includes(section);
 
-  // How much of the trip is decided. Only the sections this trip actually uses
-  // count — a trip with the budget switched off is not permanently stuck at
-  // three quarters.
-  const decisions: Array<[SectionKey, boolean]> = [
-    ["dates", Boolean(lockedDate)],
-    ["accommodations", lockedAccommodations > 0],
-    ["suggestions", lockedSuggestions > 0],
-    ["budget", Boolean(budget)],
-  ];
-  const live = decisions.filter(([key]) => shows(key));
-  const settled = {
-    done: live.filter(([, ok]) => ok).length,
-    total: live.length,
-  };
-  const headline =
-    settled.total === 0
-      ? "Nothing to settle"
-      : settled.done === settled.total
-        ? "All settled"
-        : settled.done === 0
-          ? "Just getting started"
-          : "Coming together";
+  // How much of the trip is decided. Counted in `shared/progress.ts`, which is
+  // also what the trips list draws its ring from — the two screens showed
+  // different numbers for one trip while each worked it out for itself.
+  const settled = tripProgress(
+    {
+      dates: Boolean(lockedDate),
+      accommodations: lockedAccommodations > 0,
+      suggestions: lockedSuggestions > 0,
+      budget: Boolean(budget),
+    },
+    hiddenSections
+  );
+  const headline = progressHeadline(settled);
 
   return (
     <Card className="border-border/70 py-0">
@@ -147,7 +139,7 @@ export default function TripSummary({
           className="pressable-lg flex w-full items-center gap-3 p-3 text-left"
         >
           <ProgressRing
-            value={settled.total ? (settled.done / settled.total) * 100 : 0}
+            value={settled.percent}
             size={44}
             stroke={4}
             label="Trip progress"

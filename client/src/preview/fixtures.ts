@@ -57,6 +57,12 @@ export const trip = {
   currency: "GBP",
   totalBudget: "600.00",
   votingUnit: "member",
+  // The invite link as an admin would have set it up: on, with room for a few
+  // more people and no end date. Off is the default everywhere else, and a
+  // card that is always off shows none of its controls.
+  inviteLinkEnabled: true,
+  inviteUsesLeft: 3,
+  inviteLinkExpiresAt: null as string | null,
   hiddenSections: [] as string[],
   voterCount: 6,
   createdAt: iso("2026-02-11"),
@@ -327,6 +333,38 @@ export const members = users.map((u, i) => ({
   user: u,
 }));
 
+/**
+ * Somebody who followed the shared link and is waiting on an admin — the
+ * queue `trips.respondToJoinRequest` answers.
+ *
+ * Appended rather than folded into `members` above so the accepted list keeps
+ * its shape: a pending row is a member row, and every screen that counts
+ * people filters it out ([ADR-0027](../../../docs/adr/0027-an-invite-link-is-a-request.md)).
+ */
+export const membersWithRequest = [
+  ...members,
+  {
+    id: 299,
+    tripId: TRIP_ID,
+    userId: 99,
+    role: "tripmate",
+    status: "pending",
+    groupId: null,
+    budgetMax: null,
+    invitedBy: null,
+    joinedVia: "link",
+    invitedByName: null,
+    respondedAt: null,
+    joinedAt: iso("2026-08-20"),
+    user: {
+      id: 99,
+      name: "Tomas Ferreira",
+      email: "tomas@example.com",
+      avatarUrl: null,
+    },
+  },
+];
+
 export const groups = [
   {
     id: 101,
@@ -470,7 +508,22 @@ export const notifications = [
 ];
 
 export const tripsList = [
-  { ...trip, memberCount: 6, role: "admin" },
+  // `decisions` is what the card's progress ring reads — the same four flags
+  // the trip page counts (`shared/progress.ts`). Without them every card in the
+  // gallery would draw an empty ring, which is not what the screen looks like.
+  {
+    ...trip,
+    memberCount: 6,
+    role: "admin",
+    // The same four the trip page counts, and the same answers this file gives
+    // it: dates, one suggestion and one stay finalised, the budget still open.
+    decisions: {
+      dates: true,
+      accommodations: true,
+      suggestions: true,
+      budget: false,
+    },
+  },
   {
     ...trip,
     id: 9002,
@@ -481,6 +534,12 @@ export const tripsList = [
     phase: "dates",
     memberCount: 5,
     role: "tripmate",
+    decisions: {
+      dates: false,
+      accommodations: false,
+      suggestions: false,
+      budget: false,
+    },
   },
 ];
 

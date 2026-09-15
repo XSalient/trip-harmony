@@ -10,6 +10,35 @@ finish a piece of work — the next person (or agent) starts here.
   are registered outside this repo — `VITE_APP_ID` (`harmony`) at the OAuth
   portal, the Doppler project (`trip-harmony`), and nothing else. Rename them
   there before changing them here.
+- **⚠️ Migration 0022 is committed and not yet applied** (2026-09-15). It adds
+  `inviteLinkEnabled`, `inviteUsesLeft` and `inviteLinkExpiresAt` to `trips`,
+  and the first of those defaults to false — so **merging this to `master`
+  switches every existing trip's shared invite link off**. That is the change
+  rather than a side effect ([ADR-0028](adr/0028-the-shared-link-is-off-by-default.md)),
+  but it is the kind of thing to know before the deploy rather than after: an
+  admin mid-invite finds the link dead and a two-field form where it was.
+  Emailed invitations are unaffected. The production deploy applies it
+  (`scripts/db-migrate.mjs --deploy`); there is no manual step.
+
+- **✅ An invite link is something an admin issues, not an open door**
+  (2026-09-15). The shared link used to make a voting tripmate out of anybody
+  who followed it, and an emailed invitation was bound to nobody and spent by
+  nothing — forwardable, and reusable forever. The link is now off until an
+  admin turns it on for a stated number of people, optionally until a date, and
+  each join spends one of that allowance; an invitation works once, for the
+  address it was sent to; and a forwarded invitation becomes a request an admin
+  answers on the members screen. Anybody on a trip can also leave it now, which
+  is the other half of a membership you can take yourself.
+  [ADR-0027](adr/0027-an-invite-link-is-a-request.md) has the reasoning and
+  [ADR-0028](adr/0028-the-shared-link-is-off-by-default.md) the shape the link
+  settled into, along with the one exemption: the seeded demo trips, because a
+  sales tour has nobody on the other side to open a link or approve a prospect.
+  Two smaller fixes shipped alongside: the trips list drew its progress ring
+  from `phase` (a label an admin picks) rather than from the decisions the
+  group had settled, so a trip read differently on the list and on its own page
+  — both now call `tripProgress` in `shared/progress.ts`; and the header's back
+  arrow walked browser history instead of climbing the app's own hierarchy.
+
 - **The app has an icon** (2026-09-13). A favicon set, an apple-touch icon and a
   web app manifest are in `client/public/`. The native icon sets are generated
   from `resources/icon.png` by `pnpm icons:native`, committed under

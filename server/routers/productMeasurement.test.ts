@@ -33,6 +33,9 @@ const h = vi.hoisted(() => ({
     getTripByInviteCode: vi.fn(),
     getTripInviteByToken: vi.fn(),
     setInviteStatus: vi.fn(),
+    setMemberStatus: vi.fn(),
+    spendInviteLinkUse: vi.fn(),
+    getUserById: vi.fn(),
     upsertTripInvite: vi.fn(),
     createNotification: vi.fn(),
     createBudgetProposal: vi.fn(),
@@ -138,7 +141,16 @@ beforeEach(() => {
     name: "Casa Blanca",
   });
   h.sendTripInviteEmail.mockResolvedValue({ delivered: true });
+  h.db.getUserById.mockResolvedValue({ id: 8, name: "Nina Okafor" });
+  // An invite link with room left. It is the gate on the link path, so with no
+  // answer here nobody joins that way at all.
+  h.db.spendInviteLinkUse.mockResolvedValue(4);
 });
+
+/** The signed-in caller as a stranger to trip 1, which is what joining means. */
+function notAMember() {
+  h.db.getTripMember.mockResolvedValue(undefined);
+}
 
 describe("events are recorded where the action happens", () => {
   it("records a trip created, and tells a clone apart from a fresh one", async () => {
@@ -164,7 +176,78 @@ describe("events are recorded where the action happens", () => {
   });
 
   it("records an invite accepted, with how they arrived", async () => {
-    await caller().trips.join({ inviteCode: "code" });
+    notAMember();
+    h.db.getTripInviteByToken.mockResolvedValue({
+      id: 5,
+      tripId: 1,
+      email: "test7@example.com",
+      role: "tripmate",
+      status: "pending",
+      invitedBy: 3,
+    });
+    await caller().trips.join({ inviteCode: "code", inviteToken: "tok" });
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({
+        event: "invite.accepted",
+        metadata: { role: "tripmate", via: "email" },
+      })
+    );
+  });
+
+  it("records the link's own arrivals as acceptances too", async () => {
+    notAMember();
+    const result = await caller().trips.join({ inviteCode: "code" });
+    expect(result.status).toBe("accepted");
+    expect(recorded()).toContainEqual(
+      expect.objectContaining({
+        event: "invite.accepted",
+        metadata: { role: "tripmate", via: "link" },
+      })
+    );
+  });
+
+  /**
+   * A refusal is not a join. If the event were recorded before the link was
+   * spent, every "acceptance" figure would include people the trip turned
+   * away — which is the failure this file exists to catch.
+   */
+  it("records nothing when the link turns somebody away", async () => {
+    notAMember();
+    h.db.spendInviteLinkUse.mockResolvedValue(null);
+    await expect(caller().trips.join({ inviteCode: "code" })).rejects.toThrow();
+    expect(eventsRecorded()).not.toContain("invite.accepted");
+  });
+
+  it("records the acceptance when an admin approves the request", async () => {
+    h.db.getTripMember.mockResolvedValue({
+      tripId: 1,
+      userId: 8,
+      role: "tripmate",
+      status: "pending",
+      joinedVia: "link",
+    });
+    // `requireTripRole` reads the same mock, so the caller is an admin only
+    // because the first lookup answers for them — the procedure is asserted
+    // for its role elsewhere (`roleCoverage.test.ts`).
+    h.db.getTripMember
+      .mockResolvedValueOnce({
+        tripId: 1,
+        userId: 7,
+        role: "admin",
+        status: "accepted",
+      })
+      .mockResolvedValueOnce({
+        tripId: 1,
+        userId: 8,
+        role: "tripmate",
+        status: "pending",
+        joinedVia: "link",
+      });
+    await caller().trips.respondToJoinRequest({
+      tripId: 1,
+      userId: 8,
+      decision: "approve",
+    });
     expect(recorded()).toContainEqual(
       expect.objectContaining({
         event: "invite.accepted",
@@ -326,7 +409,6 @@ describe("every call site agrees with the contract", () => {
    */
   it("names a known event and passes metadata that survives sanitising", async () => {
     await caller().trips.create({ name: "Girona" });
-    await caller().trips.join({ inviteCode: "code" });
     await caller().dates.vote({ proposalId: 2, vote: "available" });
     await caller().budget.create({ ...aBudget, scope: "trip_total" });
     await caller().preferences.save({
@@ -338,6 +420,17 @@ describe("every call site agrees with the contract", () => {
     });
     await caller().accommodations.setLock({ accommodationId: 4, locked: true });
     await caller().trips.update({ id: 1, status: "completed" });
+    // Last, because joining wants a caller who is not already a member.
+    notAMember();
+    h.db.getTripInviteByToken.mockResolvedValue({
+      id: 5,
+      tripId: 1,
+      email: "test7@example.com",
+      role: "tripmate",
+      status: "pending",
+      invitedBy: 3,
+    });
+    await caller().trips.join({ inviteCode: "code", inviteToken: "tok" });
 
     const calls = recorded();
     expect(calls.length).toBeGreaterThanOrEqual(7);

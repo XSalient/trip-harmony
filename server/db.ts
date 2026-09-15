@@ -61,6 +61,7 @@ import {
 } from "../drizzle/schema.js";
 import { TRIP_ROLE_RANK, type TripRole } from "../shared/roles.js";
 import type { SectionKey } from "../shared/sections.js";
+import type { DecisionSection, TripDecisions } from "../shared/progress.js";
 import { ACTIVE_TRIP_STATUSES } from "../shared/billing.js";
 import {
   sanitiseProductEventMetadata,
@@ -831,6 +832,62 @@ export async function getTripByInviteCode(code: string) {
   return result[0] || null;
 }
 
+/**
+ * Takes one use off the trip's invite link, and says whether it got one.
+ *
+ * **This is the gate, not a check.** Reading the row, deciding, and then
+ * writing would let two people tapping the link at the same moment both take
+ * the last use — and the whole point of the number is that it cannot be
+ * exceeded. Every condition is in the `WHERE`, so Postgres decides, once, per
+ * row: enabled, not expired, and something left to spend. No row updated means
+ * no use was available, whatever the reason.
+ *
+ * Returns what is left afterwards, or null when nothing was spent.
+ */
+export async function spendInviteLinkUse(
+  tripId: number
+): Promise<number | null> {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [row] = await db
+    .update(trips)
+    .set({ inviteUsesLeft: sql`${trips.inviteUsesLeft} - 1` })
+    .where(
+      and(
+        eq(trips.id, tripId),
+        eq(trips.inviteLinkEnabled, true),
+        sql`${trips.inviteUsesLeft} > 0`,
+        or(
+          sql`${trips.inviteLinkExpiresAt} IS NULL`,
+          sql`${trips.inviteLinkExpiresAt} > now()`
+        )
+      )
+    )
+    .returning({ left: trips.inviteUsesLeft });
+  return row ? row.left : null;
+}
+
+/** The admin's three settings for the shared link, written together. */
+export async function setInviteLink(
+  tripId: number,
+  link: {
+    enabled: boolean;
+    usesLeft: number | null;
+    expiresAt: Date | null;
+  }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(trips)
+    .set({
+      inviteLinkEnabled: link.enabled,
+      inviteUsesLeft: link.usesLeft,
+      inviteLinkExpiresAt: link.expiresAt,
+    })
+    .where(eq(trips.id, tripId));
+}
+
 export async function updateTrip(id: number, data: Partial<InsertTrip>) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
@@ -1075,6 +1132,85 @@ export async function cloneTripContents(
   });
 }
 
+/**
+ * Which of the four decisions each of these trips has finalised.
+ *
+ * Four queries for the whole list, not four per trip: this feeds the first
+ * screen anybody sees after signing in, and `getUserTrips` is explicitly kept
+ * free of per-row round trips (see `db.queryCount.test.ts`).
+ *
+ * Only whether *something* is finalised in each section is read — the trips
+ * list shows a proportion, not a count — so each query selects one column and
+ * relies on the section's own `selected` flag rather than reading proposals.
+ */
+async function getSettledDecisions(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  tripIds: number[]
+): Promise<Map<number, TripDecisions>> {
+  const [dates, accs, dests, budgets] = await Promise.all([
+    db
+      .select({ tripId: dateProposals.tripId })
+      .from(dateProposals)
+      .where(
+        and(
+          inArray(dateProposals.tripId, tripIds),
+          eq(dateProposals.selected, true)
+        )
+      ),
+    db
+      .select({ tripId: accommodations.tripId })
+      .from(accommodations)
+      .where(
+        and(
+          inArray(accommodations.tripId, tripIds),
+          eq(accommodations.selected, true)
+        )
+      ),
+    db
+      .select({ tripId: destinations.tripId })
+      .from(destinations)
+      .where(
+        and(
+          inArray(destinations.tripId, tripIds),
+          eq(destinations.selected, true)
+        )
+      ),
+    db
+      .select({ tripId: budgetProposals.tripId })
+      .from(budgetProposals)
+      .where(
+        and(
+          inArray(budgetProposals.tripId, tripIds),
+          eq(budgetProposals.selected, true)
+        )
+      ),
+  ]);
+
+  const settled = new Map<number, TripDecisions>(
+    tripIds.map(id => [
+      id,
+      {
+        dates: false,
+        accommodations: false,
+        suggestions: false,
+        budget: false,
+      },
+    ])
+  );
+  const mark = (rows: Array<{ tripId: number }>, key: DecisionSection) => {
+    for (const row of rows) {
+      const entry = settled.get(row.tripId);
+      if (entry) entry[key] = true;
+    }
+  };
+  mark(dates, "dates");
+  mark(accs, "accommodations");
+  // "Suggestions" is what the UI calls the destinations section.
+  mark(dests, "suggestions");
+  mark(budgets, "budget");
+  return settled;
+}
+
 export async function getUserTrips(userId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -1091,13 +1227,20 @@ export async function getUserTrips(userId: number) {
   if (tripIds.length === 0) return [];
   // One query rather than one per trip. This is the first screen anybody sees
   // after signing in, so it was also the first thing that felt slow.
-  const rows = await db.select().from(trips).where(inArray(trips.id, tripIds));
+  const [rows, settled] = await Promise.all([
+    db.select().from(trips).where(inArray(trips.id, tripIds)),
+    // `decisions` travels with the row because the card draws the same
+    // progress ring as the trip page, from the same figures. It used to draw
+    // one from `phase`, which is a label an admin picks and not a measurement.
+    getSettledDecisions(db, tripIds),
+  ]);
   const membershipOf = new Map(memberships.map(m => [m.tripId, m]));
   return rows
     .map(t => ({
       ...t,
       memberRole: membershipOf.get(t.id)?.role,
       memberStatus: membershipOf.get(t.id)?.status,
+      decisions: settled.get(t.id) ?? {},
     }))
     .sort(
       (a, b) =>
@@ -1128,16 +1271,31 @@ export async function addTripMember(data: InsertTripMember) {
   return { id: result.id, ...data };
 }
 
-export async function updateMemberStatus(
+/**
+ * Answers a membership: accepted, declined, or back to pending.
+ *
+ * `respondedAt` is set here rather than by the caller, because it is the same
+ * fact as the status — a row that says `accepted` with no timestamp is a row
+ * somebody forgot. `role` is optional and only moves when an admin says so
+ * while approving a request.
+ */
+export async function setMemberStatus(
   tripId: number,
   userId: number,
-  status: "pending" | "accepted" | "declined"
+  status: "pending" | "accepted" | "declined",
+  extra: { role?: TripRole; joinedVia?: "creator" | "link" | "email" } = {}
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   await db
     .update(tripMembers)
-    .set({ status })
+    .set({
+      status,
+      ...(extra.role ? { role: extra.role } : {}),
+      ...(extra.joinedVia ? { joinedVia: extra.joinedVia } : {}),
+      // A request that has gone back to pending has not been answered.
+      respondedAt: status === "pending" ? null : new Date(),
+    })
     .where(and(eq(tripMembers.tripId, tripId), eq(tripMembers.userId, userId)));
   forgetMemberships();
 }
@@ -1920,8 +2078,14 @@ export const ACTIVITY_ACTIONS = [
   "comment.added",
   "comment.deleted",
   "member.invited",
+  /** Followed the shared link and is waiting for an admin — see `trips.join`. */
+  "member.requested",
   "member.joined",
+  /** They took themselves off the trip. Distinct from `member.removed`. */
+  "member.left",
   "member.declined",
+  /** An admin turned a request down. Distinct from the invitee declining. */
+  "member.rejected",
   "member.removed",
   "member.role_changed",
   "group.created",
