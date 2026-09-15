@@ -331,6 +331,7 @@ export default function TripMembers() {
 
   const sendInvite = trpc.trips.sendInviteEmail.useMutation();
   const revokeInvite = trpc.trips.revokeInvite.useMutation();
+  const respondToRequest = trpc.trips.respondToJoinRequest.useMutation();
   const updateRole = trpc.trips.updateMemberRole.useMutation();
   const removeMember = trpc.trips.removeMember.useMutation();
   const { data: contactGroups } = trpc.contacts.groups.useQuery(undefined, {
@@ -474,6 +475,18 @@ export default function TripMembers() {
     labels.set("none", headcountLabel(headcount, null));
     return labels;
   }, [headcount, groups]);
+
+  /**
+   * People who followed the shared link and are waiting on an admin.
+   *
+   * They are member rows already — `pending` ones — which is why they are
+   * filtered out of `accepted` above and counted nowhere: no vote, no
+   * headcount, and every trip procedure refuses them until this is answered.
+   */
+  const joinRequests = useMemo(
+    () => members?.filter((m: any) => m.status === "pending") ?? [],
+    [members]
+  );
 
   const pendingInvites = useMemo(
     () => invites?.filter((i: any) => i.status === "pending") ?? [],
@@ -826,6 +839,23 @@ export default function TripMembers() {
       utils.trips.members.invalidate({ tripId });
     } catch (e: any) {
       toast.error(e?.message || "Couldn't change that role");
+    }
+  };
+
+  const handleRequest = async (
+    userId: number,
+    decision: "approve" | "decline",
+    role?: TripRole
+  ) => {
+    try {
+      await respondToRequest.mutateAsync({ tripId, userId, decision, role });
+      toast.success(decision === "approve" ? "Added to the trip" : "Declined");
+      // Both lists move: the person leaves the queue and, when approved, joins
+      // the members above it — and the headcount they now count towards.
+      utils.trips.members.invalidate({ tripId });
+      utils.groups.headcount.invalidate({ tripId });
+    } catch (e: any) {
+      toast.error(e?.message || "Couldn't answer that request");
     }
   };
 
@@ -1303,6 +1333,75 @@ export default function TripMembers() {
           })}
         </div>
 
+        {/* ── Asked to join ── */}
+        {isAdmin && joinRequests.length > 0 && (
+          <div className="space-y-2">
+            <SectionHead title="Asked to join · waiting on you" />
+            {joinRequests.map((m: any) => (
+              <Card
+                key={m.userId}
+                className="rounded-2xl border-dashed border-border/60"
+              >
+                <CardContent className="p-3 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <UserPlus className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {m.user?.name || "Someone"}
+                      </p>
+                      <p className="truncate text-[12px] text-muted-foreground">
+                        {[
+                          m.user?.email,
+                          joinedVia(m.joinedVia, m.invitedByName),
+                          m.joinedAt
+                            ? format(new Date(m.joinedAt), "d MMM yyyy")
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {/* The role is chosen here rather than afterwards: it is
+                        the one moment somebody is looking at who this is. */}
+                    <Button
+                      size="sm"
+                      className="flex-1 rounded-full text-xs"
+                      disabled={respondToRequest.isPending}
+                      onClick={() => handleRequest(m.userId, "approve")}
+                    >
+                      Add as tripmate
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 rounded-full text-xs"
+                      disabled={respondToRequest.isPending}
+                      onClick={() =>
+                        handleRequest(m.userId, "approve", "watcher")
+                      }
+                    >
+                      Add as watcher
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="rounded-full text-xs text-destructive"
+                      disabled={respondToRequest.isPending}
+                      onClick={() => handleRequest(m.userId, "decline")}
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         {/* ── Pending invites ── */}
         {canSeeDetails && pendingInvites.length > 0 && (
           <div className="space-y-2">
@@ -1456,8 +1555,9 @@ export default function TripMembers() {
               <Card className="rounded-2xl border-border/70 shadow-e1">
                 <CardContent className="p-3 space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Or share this link. Anyone who follows it joins as a
-                    Tripmate.
+                    Or share this link. Anyone who follows it asks to join, and
+                    an admin adds them — the link on its own puts nobody on the
+                    trip.
                   </p>
                   <div className="flex gap-2">
                     <code className="flex-1 text-[12px] bg-muted p-2.5 rounded-lg break-all">

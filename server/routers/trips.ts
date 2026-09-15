@@ -21,11 +21,59 @@ import {
   parseHiddenSections,
 } from "../../shared/sections.js";
 
+import { isDemoTrip } from "../../shared/demo.js";
+
 const roleInput = z.enum(TRIP_ROLES);
+
+/**
+ * Whether two addresses are the same person, for the purpose of answering an
+ * invitation.
+ *
+ * Case and surrounding space only. No plus-address folding and no dots-in-gmail
+ * cleverness: this decides whether somebody may take a seat on a trip, and a
+ * normalisation rule that is right for one provider and wrong for the next
+ * would hand out seats on the strength of a guess.
+ */
+function sameEmail(a: string | null | undefined, b: string | null | undefined) {
+  if (!a || !b) return false;
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Tells a trip's admins something, skipping the person who caused it.
+ *
+ * Admins only: joining is not news the whole trip needs, and a watcher is on
+ * the trip to follow the plan rather than to police its membership.
+ */
+async function notifyAdmins(
+  tripId: number,
+  exceptUserId: number,
+  title: string,
+  message: string
+) {
+  const members = await db.getTripMembers(tripId);
+  for (const m of members) {
+    if (m.userId === exceptUserId || m.role !== "admin") continue;
+    await db.createNotification({
+      userId: m.userId,
+      tripId,
+      type: "general",
+      title,
+      message,
+    });
+  }
+}
 
 export const tripsRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
-    return db.getUserTrips(ctx.user.id);
+    const trips = await db.getUserTrips(ctx.user.id);
+    // `hiddenSections` is parsed here for the same reason `get` parses it: the
+    // stored blob is read in one place. The card needs it because its progress
+    // ring counts only the decisions this trip is actually making.
+    return trips.map(trip => ({
+      ...trip,
+      hiddenSections: parseHiddenSections(trip.hiddenSections),
+    }));
   }),
   get: protectedProcedure
     .input(z.object({ id: z.number() }))
@@ -47,18 +95,46 @@ export const tripsRouter = router({
         hiddenSections: parseHiddenSections(trip.hiddenSections),
       };
     }),
-  /** The caller's own role, so the UI knows which controls to render. */
+  /**
+   * The caller's own role, so the UI knows which controls to render — and the
+   * standing of their membership, so the join screen can tell somebody waiting
+   * on an admin from somebody who has never asked.
+   *
+   * `role` is still null for anything but an accepted membership: a pending
+   * request carries a role it does not have yet.
+   */
   myRole: protectedProcedure
     .input(z.object({ tripId: z.number() }))
     .query(async ({ ctx, input }) => {
       const member = await db.getTripMember(input.tripId, ctx.user.id);
-      if (!member || member.status !== "accepted") return { role: null };
-      return { role: member.role };
+      const status = member?.status ?? null;
+      if (!member || member.status !== "accepted")
+        return { role: null, status };
+      return { role: member.role, status };
     }),
+  /**
+   * The trip behind an invite link, for the screen that asks whether you want
+   * to join it. Public, because that screen answers before you sign in.
+   *
+   * Three fields, not the row. Anybody holding a link — forwarded, guessed,
+   * pasted into a group chat — used to get the whole trip back: its budget,
+   * its phase, its organiser's id, which sections it had switched off. What
+   * somebody needs in order to decide whether to accept is the name and the
+   * description.
+   */
   getByInviteCode: publicProcedure
     .input(z.object({ code: z.string() }))
     .query(async ({ input }) => {
-      return db.getTripByInviteCode(input.code);
+      const trip = await db.getTripByInviteCode(input.code);
+      if (!trip) return null;
+      return {
+        id: trip.id,
+        name: trip.name,
+        description: trip.description,
+        // Whether following the link joins outright or asks to — so the button
+        // says which one it is. True only for the seeded demo (`isDemoTrip`).
+        openToAnyone: isDemoTrip(trip.inviteCode),
+      };
     }),
   sendInviteEmail: protectedProcedure
     .input(
@@ -376,6 +452,27 @@ export const tripsRouter = router({
       });
       return { id: tripId };
     }),
+  /**
+   * Joining a trip from an invite link.
+   *
+   * **A link is a request, not an entry.** Anybody holding the shared link used
+   * to become a voting tripmate the moment they tapped it: forwarded in a group
+   * chat, pasted into a message thread, left in a browser history on a shared
+   * laptop — the trip had no say. Now a link join lands as `pending` and an
+   * admin approves it on the members screen. Nothing is shown to them, nothing
+   * is counted for them, and `requireTripRole` refuses every trip procedure
+   * until that happens.
+   *
+   * An **emailed** invite is different, and still joins outright: the trip
+   * addressed a specific person and named the role they get. That only holds
+   * while the invite is still what it was, so two things are checked here and
+   * were not before — the invite must still be open (see `declineInvite` for
+   * the other half), and the account accepting it must be the address it was
+   * sent to. A forwarded invitation is somebody else's post; it gets the same
+   * treatment as a link, which is the queue.
+   *
+   * Demo trips are exempt from all of it — see `isDemoTrip`.
+   */
   join: protectedProcedure
     .input(
       z.object({
@@ -389,40 +486,108 @@ export const tripsRouter = router({
       if (!trip)
         throw new TRPCError({ code: "NOT_FOUND", message: "Trip not found." });
 
+      // The marketing tour: a prospect follows a link and is in the trip, with
+      // nobody on the other side to approve them.
+      const openToAnyone = isDemoTrip(trip.inviteCode);
+
+      const existing = await db.getTripMember(trip.id, ctx.user.id);
+      // Already in. Answering "you are in" rather than throwing keeps the join
+      // screen idempotent — a link opened twice, or a stale tab.
+      if (existing?.status === "accepted")
+        return { tripId: trip.id, status: "accepted" as const, reason: null };
+
       // An emailed invite decides the role and records how they arrived; a bare
-      // link makes them a tripmate.
+      // link makes a request for a tripmate seat that somebody has to grant.
       let role: "watcher" | "tripmate" | "admin" = "tripmate";
       let joinedVia: "link" | "email" = "link";
       let invitedBy: number | null = null;
       // Set when the invite came from importing a family, so somebody added as
       // one of the Patels arrives as one rather than ungrouped.
       let groupId: number | null = null;
+      /** Why they are in the queue rather than in the trip, when they are. */
+      let reason: "link" | "wrong-address" | null = "link";
 
       if (input.inviteToken) {
         const invite = await db.getTripInviteByToken(input.inviteToken);
-        if (
-          invite &&
-          invite.tripId === trip.id &&
-          invite.status !== "revoked"
-        ) {
+        if (!invite || invite.tripId !== trip.id)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "That invitation isn't valid for this trip.",
+          });
+        // Spent or withdrawn. Refused outright rather than quietly downgraded
+        // to a request: the person holding it thinks they have an invitation,
+        // and the honest answer is that they no longer do.
+        if (invite.status !== "pending" && !openToAnyone)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              invite.status === "revoked"
+                ? "That invitation was withdrawn. Ask an admin for a new one."
+                : "That invitation has already been used.",
+          });
+
+        if (openToAnyone || sameEmail(invite.email, ctx.user.email)) {
           role = invite.role;
           joinedVia = "email";
           invitedBy = invite.invitedBy;
           groupId = invite.groupId ?? null;
+          reason = null;
           await db.setInviteStatus(invite.id, "accepted");
+        } else {
+          // Not the addressee. The invite stays open for whoever it was sent
+          // to, and this becomes an ordinary request — told apart from a link
+          // join so the screen can explain why it did not just work.
+          reason = "wrong-address";
         }
       }
 
-      await db.addTripMember({
-        tripId: trip.id,
-        userId: ctx.user.id,
-        role,
-        status: "accepted",
-        joinedVia,
-        invitedBy,
-        groupId,
-        respondedAt: new Date(),
-      });
+      const accepted = reason === null || openToAnyone;
+      const status = accepted ? "accepted" : "pending";
+
+      if (existing) {
+        // A row already here means they asked before, or answered before.
+        // Re-open it rather than leaving somebody stuck behind an old answer.
+        await db.setMemberStatus(trip.id, ctx.user.id, status, {
+          ...(accepted ? { role } : {}),
+          joinedVia,
+        });
+      } else {
+        await db.addTripMember({
+          tripId: trip.id,
+          userId: ctx.user.id,
+          role,
+          status,
+          joinedVia,
+          invitedBy,
+          groupId,
+          respondedAt: accepted ? new Date() : null,
+        });
+      }
+
+      if (!accepted) {
+        await db.recordActivity({
+          tripId: trip.id,
+          actorUserId: ctx.user.id,
+          action: "member.requested",
+          entityType: "member",
+          entityId: ctx.user.id,
+        });
+        await notifyAdmins(
+          trip.id,
+          ctx.user.id,
+          "Someone asked to join",
+          `${ctx.user.name || "Someone"} asked to join "${trip.name}". Approve or decline them on the members screen.`
+        );
+        // Deliberately no `invite.accepted` event: nobody has accepted
+        // anything yet. `respondToJoinRequest` records it if an admin agrees,
+        // which is what keeps the acceptance rate a measure of people who
+        // actually got in.
+        return { tripId: trip.id, status: "pending" as const, reason };
+      }
+
+      // A member is an attendee too, and only once they are really a member: a
+      // pending request must not appear in the headcount the budget divides by.
+      //
       // Idempotent: a re-accepted invite must not count somebody twice, which
       // a partial unique index on (tripId, memberUserId) also enforces.
       await db.upsertMemberAttendee(
@@ -450,21 +615,112 @@ export const tripsRouter = router({
       });
 
       // Tell the admins, not the whole trip — and never a watcher.
-      const members = await db.getTripMembers(trip.id);
-      for (const m of members) {
-        if (m.userId !== ctx.user.id && m.role === "admin") {
-          await db.createNotification({
-            userId: m.userId,
-            tripId: trip.id,
-            type: "general",
-            title: "New member joined!",
-            message: `${ctx.user.name || "Someone"} joined your trip "${trip.name}"`,
-          });
-        }
-      }
-      return { tripId: trip.id };
+      await notifyAdmins(
+        trip.id,
+        ctx.user.id,
+        "New member joined!",
+        `${ctx.user.name || "Someone"} joined your trip "${trip.name}"`
+      );
+      return { tripId: trip.id, status: "accepted" as const, reason: null };
     }),
-  /** Turning down an emailed invite, without joining. */
+  /**
+   * An admin's answer to a request to join.
+   *
+   * The other end of the link rule above: until this runs, somebody who
+   * followed the shared link is a row and nothing more. Approving is what
+   * makes them a member, puts them in the headcount, and — because this is the
+   * moment somebody actually got in — records the acceptance.
+   */
+  respondToJoinRequest: protectedProcedure
+    .input(
+      z.object({
+        tripId: z.number(),
+        userId: z.number(),
+        decision: z.enum(["approve", "decline"]),
+        /** The seat they get. Defaults to the one they asked for. */
+        role: roleInput.optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireTripRole(input.tripId, ctx.user.id, "admin");
+      const trip = await db.getTrip(input.tripId);
+      const member = await db.getTripMember(input.tripId, input.userId);
+      if (!trip || !member)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Nobody by that name has asked to join.",
+        });
+      // Two admins with the screen open must not both answer, and an answer
+      // must not be reversible through this door — removing a member is
+      // `removeMember`, which says so to everybody.
+      if (member.status !== "pending")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "That request has already been answered.",
+        });
+
+      if (input.decision === "decline") {
+        await db.setMemberStatus(input.tripId, input.userId, "declined");
+        await db.recordActivity({
+          tripId: input.tripId,
+          actorUserId: ctx.user.id,
+          action: "member.rejected",
+          entityType: "member",
+          entityId: input.userId,
+        });
+        await db.createNotification({
+          userId: input.userId,
+          type: "general",
+          title: "Your request wasn't accepted",
+          message: `You weren't added to "${trip.name}".`,
+        });
+        return { success: true, status: "declined" as const };
+      }
+
+      const role = input.role ?? member.role;
+      const joiner = await db.getUserById(input.userId);
+      await db.setMemberStatus(input.tripId, input.userId, "accepted", {
+        role,
+      });
+      await db.upsertMemberAttendee(
+        input.tripId,
+        input.userId,
+        joiner?.name || "Member",
+        member.groupId ?? null
+      );
+      await db.recordActivity({
+        tripId: input.tripId,
+        actorUserId: input.userId,
+        action: "member.joined",
+        entityType: "member",
+        entityId: input.userId,
+        metadata: { role, joinedVia: member.joinedVia ?? "link" },
+      });
+      await db.recordProductEvent({
+        event: "invite.accepted",
+        tripId: input.tripId,
+        // The person who joined, not the admin who let them: the event is
+        // about the invitation being taken up.
+        actorUserId: input.userId,
+        metadata: { role, via: "link" },
+      });
+      await db.createNotification({
+        userId: input.userId,
+        tripId: input.tripId,
+        type: "general",
+        title: "You're in",
+        message: `${ctx.user.name || "An admin"} added you to "${trip.name}".`,
+      });
+      return { success: true, status: "accepted" as const };
+    }),
+  /**
+   * Turning down an emailed invite, without joining.
+   *
+   * Bound to the address it was sent to, like accepting one: a forwarded link
+   * must not let a stranger answer on the invitee's behalf — that is a way to
+   * quietly keep somebody off a trip. Pending only, so an answer already given
+   * cannot be overwritten by an old link.
+   */
   declineInvite: protectedProcedure
     .input(z.object({ inviteToken: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -473,6 +729,16 @@ export const tripsRouter = router({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Invite not found.",
+        });
+      if (invite.status !== "pending")
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "That invitation has already been answered.",
+        });
+      if (!sameEmail(invite.email, ctx.user.email))
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "That invitation was sent to a different email address.",
         });
       await db.setInviteStatus(invite.id, "declined");
       await db.recordActivity({

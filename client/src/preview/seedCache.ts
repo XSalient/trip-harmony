@@ -90,8 +90,16 @@ export function seedFixtures(qc: QueryClient): void {
   put(getQueryKey(trpc.auth.me, undefined, "query"), fx.me);
   put(getQueryKey(trpc.trips.list, undefined, "query"), fx.tripsList);
   put(getQueryKey(trpc.trips.get, { id: fx.TRIP_ID }, "query"), fx.trip);
-  put(getQueryKey(trpc.trips.myRole, TRIP, "query"), { role: previewRole() });
-  put(getQueryKey(trpc.trips.members, TRIP, "query"), fx.members);
+  put(getQueryKey(trpc.trips.myRole, TRIP, "query"), {
+    role: previewRole(),
+    status: "accepted",
+  });
+  // The list an admin sees, request queue included — that section only exists
+  // when somebody is in it, and it is the newest thing on the screen.
+  put(
+    getQueryKey(trpc.trips.members, TRIP, "query"),
+    previewRole() === "admin" ? fx.membersWithRequest : fx.members
+  );
   put(getQueryKey(trpc.trips.invites, TRIP, "query"), fx.invites);
   put(getQueryKey(trpc.groups.list, TRIP, "query"), fx.groups);
   put(getQueryKey(trpc.groups.attendees, TRIP, "query"), fx.attendees);

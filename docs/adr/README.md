@@ -37,6 +37,7 @@ or operated. Skip it for routine feature work.
 | [0024](0024-first-party-product-measurement.md)                  | First-party product measurement, in its own table              | Accepted |
 | [0025](0025-a-hidden-section-is-a-display-preference.md)         | A hidden section is a display preference, not a permission     | Accepted |
 | [0026](0026-the-serverless-function-is-not-bundled.md)           | The serverless function is not bundled, so imports carry `.js` | Accepted |
+| [0027](0027-an-invite-link-is-a-request.md)                      | An invite link is a request, not an entry                      | Accepted |
 
 ## Template
 

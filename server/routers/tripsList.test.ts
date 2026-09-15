@@ -44,3 +44,55 @@ describe("requireTripRole", () => {
     expect(fn).toContain('member.status !== "accepted"');
   });
 });
+
+/**
+ * The card and the trip page must agree about how far along a trip is.
+ *
+ * They did not: the card read `trips.phase` — a label an admin sets by hand in
+ * the edit dialog, which nothing else advances — and the trip page counted the
+ * decisions the group had finalised. A trip with its dates locked and nothing
+ * else showed one number on the list and another when you opened it, and the
+ * list was the wrong one.
+ */
+describe("the progress a trip card shows", () => {
+  it("travels with the row, from the sections' own finalised flags", () => {
+    const db = readSource("../db.ts");
+    const fn = db.slice(
+      db.indexOf("async function getSettledDecisions"),
+      db.indexOf("\nexport ", db.indexOf("export async function getUserTrips"))
+    );
+    for (const table of [
+      "dateProposals",
+      "accommodations",
+      "destinations",
+      "budgetProposals",
+    ]) {
+      expect(fn).toContain(table + ".selected, true");
+    }
+    expect(fn).toContain("decisions: settled.get(t.id)");
+  });
+
+  it("is four queries for the whole list, not four per trip", () => {
+    // `db.queryCount.test.ts` guards the shape in general; this is the one
+    // path where a per-row fan-out would be four times as expensive, on the
+    // first screen after signing in.
+    const db = readSource("../db.ts");
+    const fn = db.slice(
+      db.indexOf("async function getSettledDecisions"),
+      db.indexOf("export async function getUserTrips")
+    );
+    expect(fn).toContain("Promise.all");
+    expect(fn).toContain("inArray(");
+  });
+
+  it("is worked out in one place, which both screens call", () => {
+    const home = readSource("../../client/src/pages/Home.tsx");
+    const summary = readSource(
+      "../../client/src/components/trip/TripSummary.tsx"
+    );
+    expect(home).toContain("tripProgress(trip.decisions");
+    expect(summary).toContain("tripProgress(");
+    // The phase-derived figure the card used to draw.
+    expect(home).not.toContain("PHASE_ORDER");
+  });
+});

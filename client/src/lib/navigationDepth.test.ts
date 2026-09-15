@@ -9,7 +9,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { canGoBack, depthOf, trackNavigationDepth } from "./navigationDepth";
+import {
+  canGoBack,
+  depthOf,
+  fromOf,
+  isBehind,
+  trackNavigationDepth,
+} from "./navigationDepth";
 
 /**
  * A history stack that behaves like the browser's: pushing truncates anything
@@ -21,6 +27,8 @@ import { canGoBack, depthOf, trackNavigationDepth } from "./navigationDepth";
  */
 class FakeHistory {
   entries: unknown[] = [null];
+  /** What each entry is showing, so the tracker can read a path off it. */
+  paths: string[] = ["/"];
   index = 0;
   readonly target = new EventTarget();
 
@@ -28,20 +36,38 @@ class FakeHistory {
     return this.entries[this.index];
   }
 
-  pushState(state: unknown) {
+  /** Enough of `window.location` for the tracker. */
+  readonly location = {
+    pathname: "/",
+  };
+
+  private show() {
+    this.location.pathname = this.paths[this.index];
+  }
+
+  pushState(state: unknown, path = "/") {
     this.entries = this.entries.slice(0, this.index + 1);
+    this.paths = this.paths.slice(0, this.index + 1);
     this.entries.push(state);
+    this.paths.push(path);
     this.index += 1;
+    this.show();
     this.target.dispatchEvent(new Event("pushState"));
   }
 
-  replaceState(state: unknown) {
+  replaceState(state: unknown, path?: string) {
     this.entries[this.index] = state;
+    if (path !== undefined) {
+      this.paths[this.index] = path;
+      this.show();
+    }
+    this.target.dispatchEvent(new Event("replaceState"));
   }
 
   back() {
     if (this.index === 0) return false;
     this.index -= 1;
+    this.show();
     this.target.dispatchEvent(new Event("popstate"));
     return true;
   }
@@ -51,7 +77,7 @@ let history: FakeHistory;
 let stop: () => void;
 
 const start = () => {
-  stop = trackNavigationDepth(history.target, history);
+  stop = trackNavigationDepth(history.target, history, history.location);
 };
 
 beforeEach(() => {
@@ -124,6 +150,83 @@ describe("canGoBack", () => {
   });
 });
 
+describe("fromOf", () => {
+  it("reads nothing out of an entry the app never stamped", () => {
+    expect(fromOf(null)).toBe(null);
+    expect(fromOf({ unrelated: "wouter puts null here" })).toBe(null);
+  });
+
+  it("ignores a value that is not a path", () => {
+    expect(fromOf({ __btNavFrom: 3 })).toBe(null);
+    expect(fromOf({ __btNavFrom: "" })).toBe(null);
+  });
+});
+
+/**
+ * The rule the *up* arrow depends on: is the screen behind this one the very
+ * screen the arrow was going to anyway?
+ *
+ * The bug: the arrow called `history.back()` whenever there was anything
+ * behind, which answers a different question. Reached from a notification, the
+ * entry behind a trip's section screen is the notifications list — so the
+ * arrow beside "Accommodations" went sideways instead of up to the trip.
+ */
+describe("isBehind", () => {
+  it("is false on the screen the document loaded on", () => {
+    expect(isBehind("/")).toBe(false);
+  });
+
+  it("is true when the parent is the entry we came from", () => {
+    history.pushState(null, "/trips/5");
+    history.pushState(null, "/trips/5/accommodations");
+    expect(isBehind("/trips/5")).toBe(true);
+  });
+
+  it("is false when we arrived from somewhere else entirely", () => {
+    history.pushState(null, "/notifications");
+    history.pushState(null, "/trips/5/accommodations");
+    expect(isBehind("/trips/5")).toBe(false);
+  });
+
+  it("ignores a trailing slash, a query and a hash", () => {
+    history.pushState(null, "/trips/5?from=email");
+    history.pushState(null, "/trips/5/dates");
+    expect(isBehind("/trips/5/")).toBe(true);
+  });
+
+  it("answers for the entry in front once we walk back up", () => {
+    history.pushState(null, "/trips/5");
+    history.pushState(null, "/trips/5/dates");
+    history.back();
+    // Back on the trip page, whose parent is the list of trips.
+    expect(isBehind("/trips/5")).toBe(false);
+    expect(isBehind("/")).toBe(true);
+  });
+
+  it("survives a reload, because the path lives on the history entry", () => {
+    history.pushState(null, "/trips/5");
+    history.pushState(null, "/trips/5/dates");
+    stop();
+    start();
+    expect(isBehind("/trips/5")).toBe(true);
+  });
+
+  it("keeps its stamp when wouter replaces the entry under it", () => {
+    history.pushState(null, "/trips/5");
+    history.pushState(null, "/trips/5/dates");
+    // What `navigate(to, { replace: true })` does: wouter writes its own state
+    // through the same call, which would otherwise wipe both facts.
+    history.replaceState(null, "/trips/5/budget");
+    expect(canGoBack()).toBe(true);
+    expect(isBehind("/trips/5")).toBe(true);
+  });
+
+  it("is false with nothing named to go up to", () => {
+    history.pushState(null, "/trips/5");
+    expect(isBehind(undefined)).toBe(false);
+  });
+});
+
 /**
  * The three call sites this rule exists for.
  *
@@ -162,9 +265,10 @@ describe("navigation that must not stack history entries", () => {
     expect(src).not.toContain('includes("auth.me")');
   });
 
-  it("pops for the back arrow rather than pushing the fallback", () => {
+  it("climbs to the parent for the back arrow, and never pushes it", () => {
     const src = read("../components/AppShell.tsx");
-    expect(src).toContain("canGoBack()");
+    // Up, not back: the pop is conditional on the parent being what is behind.
+    expect(src).toContain("isBehind(backHref)");
     expect(src).toContain("window.history.back()");
     expect(src).toContain("navigate(backHref, { replace: true })");
     // The original: a push dressed as a back button.

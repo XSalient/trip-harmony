@@ -8,6 +8,47 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-15 — Who gets in, and where the trip actually stands
+
+### Changed
+
+- **An invite link asks to join; it no longer joins.** Anybody holding a trip's
+  shared link became a voting tripmate on sight — forwarded in a group chat,
+  left in a browser on a shared laptop, it made no difference. Following the
+  link now creates a request: the trip's admins are notified, answer it on the
+  members screen, and pick the seat while they do. Until then the person counts
+  nowhere — no vote, no headcount, no access to a single trip screen.
+  [ADR-0027](adr/0027-an-invite-link-is-a-request.md).
+
+- **An emailed invitation is spent when it is answered, and only works for the
+  address it was sent to.** It was neither before: forwarding the mail handed
+  the seat — including an admin seat — to whoever opened it, and the same link
+  kept working after it had been accepted or declined. Accepting or declining
+  now requires the invited address and a still-open invitation; anyone else
+  following it lands in the ordinary request queue, and the invitation stays
+  open for the person it was for. This is what the back button exposed: accept
+  an invite, go back, and the invite was still there to accept again.
+
+- **The trip's progress on the list is the same figure as on the trip page.**
+  The card read `phase` — a label an admin sets by hand in the edit dialog,
+  which nothing else advances — while the trip page counted the decisions the
+  group had finalised. One trip, two numbers, and the card was the wrong one.
+  Both now come from `tripProgress` in `shared/progress.ts`, which counts only
+  the sections the trip is actually using.
+
+- **The back arrow goes up, not back.** It called `history.back()` whenever
+  there was anything behind it, which is a different question: reached from a
+  notification, the arrow beside "Accommodations" took you to the notifications
+  list rather than to the trip. It now goes to the screen above this one, and
+  pops only when that screen is genuinely the one behind — so the ordinary
+  walk in and out of a section still unwinds the stack rather than growing it.
+
+- **The invite screen shows the trip's name and description, and not its row.**
+  `trips.getByInviteCode` is public, and it was handing anybody holding a link
+  the trip's budget, phase, organiser and settings.
+
+---
+
 ## 2026-09-14 — What the stores ask for
 
 ### Added

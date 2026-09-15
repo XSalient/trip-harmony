@@ -10,6 +10,21 @@ finish a piece of work — the next person (or agent) starts here.
   are registered outside this repo — `VITE_APP_ID` (`harmony`) at the OAuth
   portal, the Doppler project (`trip-harmony`), and nothing else. Rename them
   there before changing them here.
+- **✅ Joining a trip needs a person's say-so** (2026-09-15). The shared invite
+  link used to make a voting tripmate out of anybody who followed it, and an
+  emailed invitation was bound to nobody and spent by nothing — forwardable,
+  and reusable forever. A link is now a request an admin approves on the
+  members screen; an invitation works once, for the address it was sent to.
+  [ADR-0027](adr/0027-an-invite-link-is-a-request.md) has the reasoning and the
+  one exemption: the seeded demo trips, because a sales tour has nobody on the
+  other side to approve a prospect. No migration — `member_status.pending` and
+  the four `invite_status` values already existed; nothing was reading them.
+  Two smaller fixes shipped with it: the trips list drew its progress ring from
+  `phase` (a label an admin picks) rather than from the decisions the group had
+  settled, so a trip read differently on the list and on its own page — both
+  now call `tripProgress` in `shared/progress.ts`; and the header's back arrow
+  walked browser history instead of climbing the app's own hierarchy.
+
 - **The app has an icon** (2026-09-13). A favicon set, an apple-touch icon and a
   web app manifest are in `client/public/`. The native icon sets are generated
   from `resources/icon.png` by `pnpm icons:native`, committed under

@@ -65,6 +65,23 @@ export function isDemoTourHost(host: string | undefined): boolean {
 }
 
 /**
+ * Whether a trip is one of the seeded demo trips.
+ *
+ * The invite code is the identity: the seeder already deletes by this prefix
+ * and nothing else writes one — a real trip's code is `nanoid(12)`.
+ *
+ * It buys the demo an exemption from the join rules (see `trips.join`): the
+ * sales tour is a link a prospect follows to land *inside* a trip, and there is
+ * nobody on the other side to approve them. Demo trips hold no real data and
+ * `pnpm seed:demo` rebuilds them, which is what makes that acceptable — and
+ * why the exemption is written here, once, rather than as a flag somebody could
+ * set on a real trip.
+ */
+export function isDemoTrip(inviteCode: string | null | undefined): boolean {
+  return Boolean(inviteCode?.startsWith(DEMO_INVITE_CODE_PREFIX));
+}
+
+/**
  * The three seats a visitor can take in the demo, without typing anything.
  *
  * A demo that opens with a login form is a demo most people close. These are

@@ -74,6 +74,18 @@ captures their address:
 Visitors who signed up through a join link keep their own accounts, and just
 follow the link again after a reset.
 
+**These links still let somebody straight in, and real trips' links no longer
+do.** A shared invite link is a _request_ everywhere else in the app — an admin
+approves it on the members screen — and an emailed invitation is spent when it
+is answered and only works for the address it was sent to
+([ADR-0027](../adr/0027-an-invite-link-is-a-request.md)). A sales tour has
+nobody on the other side to approve a prospect, so trips whose invite code
+starts `DEMO-` are exempt from all of it: `isDemoTrip` in `shared/demo.ts`, one
+check, read by `trips.join`. It is safe precisely because demo trips hold no
+real data and this runbook's reset rebuilds them — which is also why the
+exemption is written against the seeded prefix rather than as a flag anybody
+could set on a real trip.
+
 ### Resetting it after it has been clicked about
 
 Sign in as an app admin, go to **Profile → Admin → Reset demo data**, confirm.
@@ -261,7 +273,8 @@ exactly as an unseeded deployment would.
 
 Join links are deliberately **not** gated. A prospect who was sent
 `/join/DEMO-LISBON` should land in the trip whichever host they open, and they
-join as themselves rather than as a persona.
+join as themselves rather than as a persona — and, uniquely to the demo, without
+waiting for an admin (see the note above).
 
 **Previews need `DEMO_TOUR_ENABLED=true`.** A preview URL is generated per build,
 so no hostname rule can recognise one. Set it on _All Pre-Production

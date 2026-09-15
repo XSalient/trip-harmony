@@ -77,6 +77,12 @@ Three things make this an estimate, all of them one-directional:
 - **`via` matters.** Only the `email` half has a matching `invite.sent`.
   Somebody who followed a shared link was never invited by address, so counting
   them in the numerator would produce rates above 100%.
+- **`via: link` is now an admin's approval, not a click.** Following a shared
+  link creates a request and records nothing; the event fires when an admin
+  approves it ([ADR-0027](../adr/0027-an-invite-link-is-a-request.md)). So
+  `joined_by_link` counts people who actually got onto a trip, and there is no
+  event at all for requests nobody answered — `trip_members` with
+  `status = 'pending'` is where those are.
 - **Re-sending an invite records a second `invite.sent`.** The app updates the
   existing invite row rather than adding one, but the event fires per attempt
   and the address is deliberately not stored, so re-sends cannot be collapsed.
