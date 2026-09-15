@@ -311,8 +311,16 @@ export default function Landing() {
 
       {/* The landing page is the only screen a signed-out visitor sees, so it
           is where the policy links have to be: a store reviewer opening the app
-          without an account still has to be able to reach them. */}
-      <footer className="safe-area-bottom mx-auto flex max-w-lg justify-center gap-4 px-5 pb-28 text-xs text-muted-foreground">
+          without an account still has to be able to reach them.
+
+          The clearance below the bar is a **margin**, and that is the whole
+          fix: it was `pb-28`, and `safe-area-bottom` is also a padding-bottom
+          utility. One silently won — the footer resolved to 8px of padding,
+          the links came to rest under the floating "Start a trip" bar, and
+          tapping either of them hit the bar instead. Two utilities setting one
+          property is a fight decided by stylesheet order; a margin is not in
+          that fight. */}
+      <footer className="safe-area-bottom mx-auto mb-28 flex max-w-lg justify-center gap-4 px-5 text-xs text-muted-foreground">
         <Link href="/privacy" className="hover:text-foreground">
           Privacy
         </Link>

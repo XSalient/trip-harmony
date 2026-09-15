@@ -47,6 +47,16 @@ is built, run or deployed.
   `trips.getByInviteCode` is public, and it was handing anybody holding a link
   the trip's budget, phase, organiser and settings.
 
+### Fixed
+
+- **The privacy and terms links on the landing page are tappable.** They were
+  rendering underneath the floating "Start a trip" bar, which took every tap
+  aimed at them — on the one screen a signed-out visitor, or a store reviewer,
+  can reach them from. The footer asked for `pb-28` while `safe-area-bottom`
+  sets the same property, so one silently won and the links came to rest 8px
+  above the bottom of the page. The clearance is a margin now, and
+  `legal.test.ts` keeps it one.
+
 ---
 
 ## 2026-09-14 — What the stores ask for
