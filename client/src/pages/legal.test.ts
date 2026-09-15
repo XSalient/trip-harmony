@@ -22,6 +22,10 @@ const read = (relative: string) =>
 const PUBLIC_PAGES = {
   "Privacy.tsx": read("Privacy.tsx"),
   "Terms.tsx": read("Terms.tsx"),
+  // Google Play's Data safety form takes a deletion URL, and the person it
+  // exists for has uninstalled the app — so this one is even less able to
+  // survive a session check than the other two.
+  "DeleteAccount.tsx": read("DeleteAccount.tsx"),
   "../components/LegalPage.tsx": read("../components/LegalPage.tsx"),
 };
 
@@ -53,6 +57,17 @@ describe("the legal pages are reachable signed out", () => {
     const app = read("../App.tsx");
     expect(app).toContain('path="/privacy"');
     expect(app).toContain('path="/terms"');
+    expect(app).toContain('path="/delete-account"');
+  });
+
+  it("offers deletion without an account, not only inside the app", () => {
+    // Play's requirement, and the half Apple's does not cover: somebody who
+    // uninstalled the app, or lost their password, still has to be able to ask.
+    // The email route is what makes that true, so it is the part worth
+    // asserting.
+    const page = PUBLIC_PAGES["DeleteAccount.tsx"];
+    expect(page).toContain("legal.email");
+    expect(page).toContain("mailto:");
   });
 
   it("is linked from the only screen a signed-out visitor sees", () => {
@@ -87,8 +102,8 @@ describe("the operator's details", () => {
     }
   });
 
-  it("reach both pages through the hook", () => {
-    for (const page of ["Privacy.tsx", "Terms.tsx"]) {
+  it("reach every public page through the hook", () => {
+    for (const page of ["Privacy.tsx", "Terms.tsx", "DeleteAccount.tsx"]) {
       const src = PUBLIC_PAGES[page as keyof typeof PUBLIC_PAGES];
       expect(src, `${page} should call useLegal()`).toContain("useLegal()");
     }

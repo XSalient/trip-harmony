@@ -24,6 +24,7 @@
  */
 
 import {
+  blank,
   centre,
   circleMask,
   encodePng,
@@ -203,6 +204,55 @@ export function planAssetSources(icon) {
   ].map(file => ({ ...file, contents: encodePng(file.image) }));
 }
 
+/**
+ * The two images the store listings ask for that are not app icons.
+ *
+ * Google Play will not let a listing be submitted without a 512px icon and a
+ * 1024×500 feature graphic, and neither has an in-app equivalent to fall back
+ * on — so without them the last of the thirteen listing tasks cannot be
+ * completed, whatever the app does. Both are cut from the same source art,
+ * for the same reason everything else here is: a hand-exported pair drifts
+ * from the icon the app actually ships.
+ *
+ * Neither has an alpha channel. Play rejects a feature graphic with one
+ * outright, and composites a transparent listing icon onto white, which turns
+ * the mark's rounded corners into a pale fringe.
+ *
+ * The feature graphic is the mark on its field and nothing else. That is
+ * deliberately plain: it is a real graphic rather than a placeholder that
+ * blocks submission, and lettering set by a designer should replace it when
+ * there is one. Nothing in the app depends on it.
+ */
+export function planStoreArt(icon) {
+  const layers = buildLayers(icon);
+  const colour = parseHexColour(BRAND_COLOUR);
+
+  const FEATURE = { width: 1024, height: 500 };
+  // The layer, not the mark: `foreground` already carries the adaptive icon's
+  // safe-zone padding, so 0.9 of the height here draws a mark about 60% of it.
+  const mark = Math.round(FEATURE.height * 0.9);
+  const field = fillTransparent(blank(FEATURE.width, FEATURE.height), colour);
+  const feature = over(
+    field,
+    resize(layers.foreground, mark, mark),
+    Math.round((FEATURE.width - mark) / 2),
+    Math.round((FEATURE.height - mark) / 2)
+  );
+
+  return [
+    {
+      path: "play-icon-512.png",
+      contents: encodePng(resize(layers.square, 512, 512), { alpha: false }),
+      note: "512px Play listing icon, no alpha channel",
+    },
+    {
+      path: "play-feature-graphic-1024x500.png",
+      contents: encodePng(feature, { alpha: false }),
+      note: "1024×500 Play feature graphic, no alpha channel",
+    },
+  ];
+}
+
 /** Where the generated tree lives, relative to the repository root. */
 export const GENERATED_ROOT = "resources/generated";
 
@@ -229,6 +279,14 @@ export function planGenerated(icon) {
       path: `${GENERATED_ROOT}/capacitor-assets/${file.path}`,
       nativePath: null,
       note: `${file.note} — for \`npx @capacitor/assets\`, the fallback path`,
+    })),
+    // Uploaded to the Play Console by hand, so they belong to no native
+    // project — but they are store blockers, and generating them here means
+    // they are checked by the same drift test as the icons.
+    ...planStoreArt(icon).map(file => ({
+      ...file,
+      path: `${GENERATED_ROOT}/store/${file.path}`,
+      nativePath: null,
     })),
   ];
 }

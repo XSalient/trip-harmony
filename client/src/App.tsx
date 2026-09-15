@@ -44,6 +44,10 @@ const Profile = lazy(() => import("./pages/Profile"));
 // opens the privacy URL signed out. See `components/LegalPage.tsx`.
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
+// Google Play's Data safety form wants a deletion URL that works for somebody
+// who has uninstalled the app, which is the one case in-app deletion cannot
+// serve.
+const DeleteAccount = lazy(() => import("./pages/DeleteAccount"));
 
 /** Shown while a page's chunk is on its way. */
 function PageLoading() {
@@ -78,6 +82,7 @@ function Router() {
       <Route path="/admin/health" component={Health} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
+      <Route path="/delete-account" component={DeleteAccount} />
       {/* Design-system gallery: every other screen is auth-gated, so this is
           how the system is reviewed in both themes at any viewport.
 

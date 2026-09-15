@@ -1,9 +1,13 @@
 /**
- * Reporting a comment, a proposal, a trip or a person.
+ * Reporting a comment, a proposal, a trip, a person, or what the referee wrote.
  *
  * Apple's guideline 1.2 wants a report mechanism, and the mechanism only works
  * if filing is cheap: a reason, an optional sentence, done. Anything longer and
  * the person who needed it closes the dialog instead.
+ *
+ * The referee is in that list because Google Play's generative-AI policy asks
+ * for a way to flag AI output, and because a group reading something the model
+ * said about one of them needs somewhere to take it that is not the group.
  *
  * The server answers the same way whether this created a report or hit the
  * uniqueness index, so this always says thank you — telling somebody their
@@ -25,7 +29,7 @@ import {
 } from "@/components/ui/dialog";
 
 export type ReportTarget = {
-  contentType: "comment" | "proposal" | "trip" | "member";
+  contentType: "comment" | "proposal" | "trip" | "member" | "referee_message";
   contentId: number;
   tripId?: number;
   /** Shown in the dialog so it is obvious what is being reported. */

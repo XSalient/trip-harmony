@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { isNative } from "@/lib/session";
+import { periodWording } from "@/lib/subscriptionTerms";
 import {
   configurePurchases,
   currentOffering,
@@ -125,7 +126,14 @@ export function PaywallDialog({
     await settle("Restored.");
   }
 
-  const price = offering?.availablePackages[0]?.product.priceString;
+  const product = offering?.availablePackages[0]?.product;
+  const price = product?.priceString;
+  // "a month" → "every month", and null when the store did not say — the
+  // disclosure then reads "each period" rather than naming a length it does
+  // not know.
+  const period = periodWording(product?.subscriptionPeriod);
+  const every = period ? `every ${period.replace(/^a /, "")}` : null;
+  const store = platformName() === "ios" ? "the App Store" : "Google Play";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -174,6 +182,21 @@ export function PaywallDialog({
                       : "Subscribe"
                     : "Nothing to buy just now"}
               </Button>
+              {/* The renewal terms, in the place the stores require them: on
+                  the screen that sells the thing, not behind the Terms link.
+                  Apple 3.1.2 asks for length, price and renewal; Play asks for
+                  the same and for where to cancel. */}
+              {offering && (
+                <p className="text-xs text-muted-foreground">
+                  {price ? `${price} ${every ?? "per period"}.` : ""} Payment is
+                  charged to your {store} account at confirmation, and the
+                  subscription renews automatically {every ?? "each period"}{" "}
+                  unless you turn renewal off at least 24 hours before the
+                  current period ends. Manage or cancel it in your {store}{" "}
+                  account settings.
+                </p>
+              )}
+
               {/* Apple requires a restore control and rejects for its absence.
                   It is also the fix for the commonest support mail an app like
                   this gets: "I paid and it says I haven't." */}
@@ -203,8 +226,13 @@ export function PaywallDialog({
             >
               Not now
             </Button>
+            {/* Both links, because the stores require both to be reachable
+                from the purchase screen itself. */}
             <Button variant="ghost" className="flex-1" asChild>
               <Link href="/terms">Terms</Link>
+            </Button>
+            <Button variant="ghost" className="flex-1" asChild>
+              <Link href="/privacy">Privacy</Link>
             </Button>
           </div>
         </div>

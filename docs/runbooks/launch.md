@@ -6,6 +6,12 @@ Google Play, in the order that unblocks the most, and who can do each part.
 **The code is done.** What is left is accounts, settings, a lawyer, a Mac and a
 phone — none of which anyone can do without your credentials.
 
+**The forms have their own file.** Every declaration the two consoles ask for —
+Data safety, content rating, target audience, the store listing, Apple's privacy
+labels and review notes — is answered from the code in
+[store-submission.md](store-submission.md). This file is the order to do things
+in; that one is what to type.
+
 ---
 
 # The checklist
@@ -15,6 +21,13 @@ phone — none of which anyone can do without your credentials.
 - **Apple Developer Program** — $99/year, at developer.apple.com. Approval takes
   a day or two.
 - **Google Play Console** — $25, once, at play.google.com/console.
+  **Open, as of the Console dashboard on 2026-09-14**: the privacy policy is set
+  and the merchant account exists, 2 of the 13 listing tasks. The other eleven
+  are answered in [store-submission.md §2](store-submission.md).
+  If this account is registered to an individual rather than an organisation, a
+  **closed test with 12 testers for 14 continuous days** gates production access
+  and nothing in the thirteen tasks mentions it — start it the day the first
+  build uploads.
 - In App Store Connect, sign the **Paid Applications Agreement** and fill in
   banking and tax details. This blocks any paid release and can take days.
 - **Enrol in the Small Business Program while you are there.** It halves Apple's
@@ -237,6 +250,19 @@ attract) — are both already handled.
 - **The native shell**: Capacitor config, the session as a bearer token, the
   association files, deep links, the Android back button, safe-area insets,
   status bar, keyboard and splash screen.
+- **A deletion URL that works signed out** — `/delete-account`. Apple's
+  requirement is in-app deletion, which already existed; Google Play's Data
+  safety form asks for a web URL, for the person who has uninstalled the app and
+  therefore cannot use the in-app route.
+- **Reporting what the AI wrote.** Play's generative-AI policy requires a way to
+  flag AI output from inside the app; the flag on each referee message files
+  into the same admin queue as a reported comment.
+- **The subscription disclosure the stores require on a paywall** — price,
+  period, that it renews, where to cancel, and links to both legal pages, on the
+  purchase screen itself rather than behind them.
+- **The two Play listing images** — the 512px icon and the 1024×500 feature
+  graphic, generated from `resources/icon.png` and committed under
+  `resources/generated/store/`.
 
 # Still to do on the code side
 

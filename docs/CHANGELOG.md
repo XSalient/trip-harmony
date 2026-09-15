@@ -8,6 +8,51 @@ is built, run or deployed.
 
 ---
 
+## 2026-09-14 — What the stores ask for
+
+### Added
+
+- **`/delete-account`, reachable without an account.** Apple's requirement has
+  always been in-app deletion and that already existed; Google Play's Data
+  safety form asks for a **web URL** where somebody can request deletion, and
+  the person it exists for has uninstalled the app — the one case in-app
+  deletion cannot serve. The page says both routes, what is erased, and what
+  survives and why. Linked from `/privacy` and from the footer of every legal
+  page, and `legal.test.ts` now guards it the way it guards the other two: no
+  `useAuth`, no `AppShell`, or a signed-out reviewer gets redirected.
+
+- **Reporting what the AI Referee wrote.** Play's generative-AI policy requires
+  a way to flag AI output from inside the app, and Apple reads guideline 1.2 as
+  covering text the app itself published. Each referee message now carries a
+  flag that files into the same admin queue as a reported comment
+  (`reported_content` gains `referee_message`, migration `0021`). The queue did
+  not change: what changed is that a report can say the author was the model.
+
+- **The two Play listing images, generated from the app's own icon.** Play will
+  not publish a listing without a 512px icon and a 1024×500 feature graphic, and
+  neither had anywhere to come from. `pnpm icons:native` now writes both into
+  `resources/generated/store/`, alpha-free as both stores require, checked by
+  the same drift test as the icons.
+
+### Changed
+
+- **The paywall states the subscription's terms.** Price, period, that it
+  renews, and where to cancel — on the purchase screen, which is where Apple's
+  3.1.2 and Play's subscription policy require them, and a documented rejection
+  when they are missing. The period is derived from the product rather than
+  written down, so a yearly product cannot be described as monthly. Privacy now
+  sits beside Terms there; both stores want both reachable from the sheet.
+
+- **`docs/runbooks/store-submission.md` — the answer sheet.** Every declaration
+  the two consoles ask for, answered from the code: Data safety and Apple's
+  privacy labels line by line, the IARC questionnaire, target audience, the
+  listing copy, Apple's review notes, and the six things actually blocking a
+  submission today. Where an answer is a judgement rather than a fact — whether
+  Gemini counts as "shared", what storing a child's age means for the Families
+  policy — it is marked as one and argued.
+
+---
+
 ## 2026-09-13 — The app gets a face
 
 ### Added

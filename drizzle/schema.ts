@@ -918,12 +918,20 @@ export type InsertProposalComment = typeof proposalComments.$inferInsert;
  * What a piece of reported content is. Kept as an enum rather than a table
  * name, because `member` is not one: reporting a person is reporting the
  * account, not a row in any one trip's tables.
+ *
+ * `referee_message` is the only one nobody wrote. Google Play's generative-AI
+ * policy requires an in-app way to flag AI output as offensive, and Apple's
+ * 1.2 reads the referee's text as content the app published; a queue that can
+ * only receive complaints about people would answer neither. It is the same
+ * report row and the same admin queue — the difference is that the thing to
+ * fix is a prompt.
  */
 export const reportedContentEnum = pgEnum("reported_content", [
   "comment",
   "proposal",
   "trip",
   "member",
+  "referee_message",
 ]);
 
 /**

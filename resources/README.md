@@ -12,15 +12,23 @@ pnpm icons:native --check  # fail if what is committed no longer matches icon.pn
 inside the native projects, so installing them is a copy and reviewing them does
 not need Xcode:
 
-| Generated                                | Goes to                  | What it is                                                        |
-| ---------------------------------------- | ------------------------ | ----------------------------------------------------------------- |
-| `ios/…/AppIcon.appiconset/`              | the iOS asset catalogue  | One 1024px icon with **no alpha channel**, plus `Contents.json`   |
-| `android/…/mipmap-*/ic_launcher.png`     | Android 7 and older      | The mark as drawn, 48–192px                                       |
-| `android/…/mipmap-*/ic_launcher_round.*` | round launchers          | The mark on a circle of the field colour                          |
-| `android/…/ic_launcher_foreground.png`   | Android 8+ adaptive icon | The mark inside the 72dp safe zone, 108–432px                     |
-| `android/…/ic_launcher_background.png`   | Android 8+ adaptive icon | A flat field of the brand colour                                  |
-| `android/…/mipmap-anydpi-v26/*.xml`      | Android 8+ adaptive icon | The two-layer declaration                                         |
-| `capacitor-assets/`                      | `npx @capacitor/assets`  | The same layers in that tool's layout, if you would rather use it |
+| Generated                                | Goes to                  | What it is                                                           |
+| ---------------------------------------- | ------------------------ | -------------------------------------------------------------------- |
+| `ios/…/AppIcon.appiconset/`              | the iOS asset catalogue  | One 1024px icon with **no alpha channel**, plus `Contents.json`      |
+| `android/…/mipmap-*/ic_launcher.png`     | Android 7 and older      | The mark as drawn, 48–192px                                          |
+| `android/…/mipmap-*/ic_launcher_round.*` | round launchers          | The mark on a circle of the field colour                             |
+| `android/…/ic_launcher_foreground.png`   | Android 8+ adaptive icon | The mark inside the 72dp safe zone, 108–432px                        |
+| `android/…/ic_launcher_background.png`   | Android 8+ adaptive icon | A flat field of the brand colour                                     |
+| `android/…/mipmap-anydpi-v26/*.xml`      | Android 8+ adaptive icon | The two-layer declaration                                            |
+| `capacitor-assets/`                      | `npx @capacitor/assets`  | The same layers in that tool's layout, if you would rather use it    |
+| `store/play-icon-512.png`                | the Play listing         | 512px listing icon, 24-bit, **no alpha**                             |
+| `store/play-feature-graphic-*.png`       | the Play listing         | The 1024×500 feature graphic Play will not publish a listing without |
+
+`store/` is uploaded by hand in the Play Console — it belongs to no native
+project. The feature graphic is the mark on its field and nothing else: a real
+graphic rather than a placeholder, there so the listing can be submitted, and
+the obvious thing to replace once a designer has drawn one. The App Store's
+1024px marketing icon is the iOS app icon above, which is already alpha-free.
 
 ## Why it is generated here rather than by the usual tool
 
