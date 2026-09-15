@@ -3,7 +3,7 @@
 **Single source of truth for where this project stands.** Update it when you
 finish a piece of work — the next person (or agent) starts here.
 
-- **Last updated:** 2026-09-14
+- **Last updated:** 2026-09-15
 - **Name:** WeVoTrip (2026-08-30; was Back To Travelling, and Harmony before
   that). The domain is `wevotrip.com`, with the marketing demo at
   `demo.wevotrip.com`. Three identifiers still read the older names because they
@@ -166,6 +166,26 @@ verify` was green the whole time. Imports under `api/`, `server/`, `shared/`
   Shipped alongside it: the section header's Add button moved to the left of the
   collapse chevron, so expanding a section no longer moves the control that
   opened it.
+- **A pre-submission audit ran on 2026-09-15** and the app is **not ready to
+  submit**. See
+  [reviews/2026-09-15-play-store-release-audit.md](reviews/2026-09-15-play-store-release-audit.md)
+  for the reproductions. Three blockers as taken, now two: the
+  **account-deletion web URL** it named was already built on
+  `claude/app-store-launch-checklist-cij6lr` and closed when both merged;
+  `vite-plugin-manus-runtime` is in the **unconditional** plugin array in
+  `vite.config.ts`, so 369 KB of third-party dev tooling is inlined into the
+  shipped `index.html`; and `LEGAL_ADDRESS` is still empty. Five high-severity
+  findings behind them: the "x/y voted" numerator counts watcher rows the
+  denominator excludes (demote a voter who has voted and the UI reads "5/3
+  voted", with a phantom voter named "Member"); one zero-width or homoglyph
+  character defeats `shared/moderation.ts` entirely; `trips.members` hands every
+  tripmate every other member's `budgetMax`, which the Preferences screen
+  promises is private; there is no rate limiting on `auth.login` or
+  `auth.requestMagicLink` (60 password guesses in 3s, and unbounded mail to any
+  third-party address); and `ErrorBoundary.tsx` renders `error.stack` to the
+  user with no environment gate. What passed is recorded there too — cross-trip
+  authorisation held against every probe, watcher redaction is correct, and
+  Capacitor 8's default `targetSdk 36` meets the 31 August 2026 deadline.
 - **Stage:** feature-complete MVP, deployed to production on Vercel.
   The trip experience overhaul is **complete** — all eight epics, covering the
   sixteen requested changes. The **groups and budget** programme (E9–E12) is
